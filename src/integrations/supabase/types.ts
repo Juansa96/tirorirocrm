@@ -14,7 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_log: {
+        Row: {
+          campo: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          tabla: string
+          usuario: string | null
+          valor_anterior: string | null
+          valor_nuevo: string | null
+        }
+        Insert: {
+          campo: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          tabla: string
+          usuario?: string | null
+          valor_anterior?: string | null
+          valor_nuevo?: string | null
+        }
+        Update: {
+          campo?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          tabla?: string
+          usuario?: string | null
+          valor_anterior?: string | null
+          valor_nuevo?: string | null
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          ciudad: string | null
+          created_at: string
+          email: string | null
+          etapa: string
+          fecha_creacion: string
+          id: string
+          nombre: string
+          producto: string | null
+          telefono: string | null
+          updated_at: string
+          valor: number
+          vendedor: string
+        }
+        Insert: {
+          ciudad?: string | null
+          created_at?: string
+          email?: string | null
+          etapa?: string
+          fecha_creacion?: string
+          id?: string
+          nombre: string
+          producto?: string | null
+          telefono?: string | null
+          updated_at?: string
+          valor?: number
+          vendedor: string
+        }
+        Update: {
+          ciudad?: string | null
+          created_at?: string
+          email?: string | null
+          etapa?: string
+          fecha_creacion?: string
+          id?: string
+          nombre?: string
+          producto?: string | null
+          telefono?: string | null
+          updated_at?: string
+          valor?: number
+          vendedor?: string
+        }
+        Relationships: []
+      }
+      tareas: {
+        Row: {
+          completada: boolean
+          created_at: string
+          descripcion: string
+          fecha: string
+          id: string
+          lead_id: string
+          vendedor: string
+        }
+        Insert: {
+          completada?: boolean
+          created_at?: string
+          descripcion: string
+          fecha: string
+          id?: string
+          lead_id: string
+          vendedor: string
+        }
+        Update: {
+          completada?: boolean
+          created_at?: string
+          descripcion?: string
+          fecha?: string
+          id?: string
+          lead_id?: string
+          vendedor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tareas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
