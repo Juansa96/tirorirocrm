@@ -25,26 +25,42 @@ export function vendorName(v: string): string {
 
 export type Etapa =
   | "Discovery"
-  | "Llamada"
-  | "Proposal"
+  | "Primer Contacto"
+  | "Negotiation"
+  | "On Hold"
   | "Closed Won"
   | "Closed Lost";
 
 export const ETAPAS: Etapa[] = [
   "Discovery",
-  "Llamada",
-  "Proposal",
+  "Primer Contacto",
+  "Negotiation",
+  "On Hold",
   "Closed Won",
   "Closed Lost",
 ];
 
 export const ETAPA_COLORS: Record<Etapa, string> = {
   Discovery: "#38bdf8",
-  Llamada: "#f59e0b",
-  Proposal: "#8b5cf6",
+  "Primer Contacto": "#f59e0b",
+  Negotiation: "#8b5cf6",
+  "On Hold": "#94a3b8",
   "Closed Won": "#10b981",
   "Closed Lost": "#ef4444",
 };
+
+export const ORIGENES = [
+  "Formulario web",
+  "Instagram",
+  "TikTok",
+  "WhatsApp",
+  "Llamada",
+  "Correo",
+  "Boca a boca",
+  "Referido",
+] as const;
+
+export type Origen = (typeof ORIGENES)[number] | string;
 
 export interface Lead {
   id: string;
@@ -56,6 +72,9 @@ export interface Lead {
   vendedor: string;
   etapa: Etapa;
   valor: number;
+  origen: string;
+  redSocial: string;
+  fechaHold: string;
   fechaCreacion: string;
 }
 

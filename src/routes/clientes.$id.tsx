@@ -2,10 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Package, Plus, History, Trash2,
-  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, ExternalLink,
+  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName, type Etapa, type Producto, type Tarea } from "@/lib/types";
+import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, vendorName, type Etapa, type Producto, type Tarea } from "@/lib/types";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -297,6 +297,34 @@ function ClienteDetalle() {
             <InfoRow icon={MapPin} label="Ciudad">
               {editing ? <input value={lead.ciudad} onChange={(e) => actions.updateLead(lead.id, { ciudad: e.target.value })} className={inp} /> : (lead.ciudad || <span className="text-slate-400">—</span>)}
             </InfoRow>
+            <InfoRow icon={Radio} label="Red social">
+              {editing ? <input value={lead.redSocial} onChange={(e) => actions.updateLead(lead.id, { redSocial: e.target.value })} className={inp} placeholder="@usuario..." /> : (lead.redSocial || <span className="text-slate-400">—</span>)}
+            </InfoRow>
+            {lead.origen && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500">Origen:</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{lead.origen}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Clock className="h-3.5 w-3.5" />
+              <span>Creado: <strong className="text-slate-600">{lead.fechaCreacion ? formatDateTime(lead.fechaCreacion) : "—"}</strong></span>
+            </div>
+            {lead.etapa === "On Hold" && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-red-600">Fecha On Hold</label>
+                <input type="date" value={lead.fechaHold} onChange={e => actions.updateLead(lead.id, { fechaHold: e.target.value })} className={`${inp} border-red-200`} />
+              </div>
+            )}
+            {editing && (
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">Origen</label>
+                <select value={lead.origen} onChange={e => actions.updateLead(lead.id, { origen: e.target.value })} className={inp}>
+                  <option value="">Sin especificar</option>
+                  {ORIGENES.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            )}
             {editing && (
               <div>
                 <label className="mb-1 block text-xs text-slate-500">Vendedor</label>

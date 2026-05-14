@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto } from "./types";
 
+
 interface State {
   leads: Lead[];
   tareas: Tarea[];
@@ -29,7 +30,10 @@ function mapLead(r: any): Lead {
     vendedor: r.vendedor,
     etapa: r.etapa as Etapa,
     valor: Number(r.valor) || 0,
-    fechaCreacion: r.fecha_creacion,
+    origen: r.origen ?? "",
+    redSocial: r.red_social ?? "",
+    fechaHold: r.fecha_hold ?? "",
+    fechaCreacion: r.created_at ?? "",
   };
 }
 
@@ -179,6 +183,9 @@ export const actions = {
         vendedor: input.vendedor,
         etapa: input.etapa,
         valor: input.valor,
+        origen: input.origen ?? "",
+        red_social: input.redSocial ?? "",
+        fecha_hold: input.fechaHold || null,
       })
       .select()
       .single();
@@ -209,6 +216,9 @@ export const actions = {
     if (patch.vendedor !== undefined) dbPatch.vendedor = patch.vendedor;
     if (patch.etapa !== undefined) dbPatch.etapa = patch.etapa;
     if (patch.valor !== undefined) dbPatch.valor = patch.valor;
+    if (patch.origen !== undefined) dbPatch.origen = patch.origen;
+    if (patch.redSocial !== undefined) dbPatch.red_social = patch.redSocial;
+    if (patch.fechaHold !== undefined) dbPatch.fecha_hold = patch.fechaHold || null;
     state = { ...state, leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
     emit();
     await supabase.from("leads").update(dbPatch as never).eq("id", id);
