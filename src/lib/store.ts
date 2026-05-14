@@ -1,15 +1,17 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto } from "./types";
 
 interface State {
   leads: Lead[];
   tareas: Tarea[];
   audit: AuditEntry[];
+  notas: Nota[];
+  productos: Producto[];
   loaded: boolean;
 }
 
-let state: State = { leads: [], tareas: [], audit: [], loaded: false };
+let state: State = { leads: [], tareas: [], audit: [], notas: [], productos: [], loaded: false };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -37,6 +39,7 @@ function mapTarea(r: any): Tarea {
     leadId: r.lead_id,
     descripcion: r.descripcion,
     fecha: r.fecha,
+    hora: r.hora ?? "",
     vendedor: r.vendedor,
     completada: !!r.completada,
   };
@@ -52,6 +55,35 @@ function mapAudit(r: any): AuditEntry {
     valorNuevo: r.valor_nuevo,
     usuario: r.usuario,
     createdAt: r.created_at,
+  };
+}
+
+function mapNota(r: any): Nota {
+  return {
+    id: r.id,
+    leadId: r.lead_id,
+    contenido: r.contenido,
+    usuario: r.usuario ?? "",
+    createdAt: r.created_at,
+  };
+}
+
+function mapProducto(r: any): Producto {
+  return {
+    id: r.id,
+    leadId: r.lead_id,
+    modelo: r.modelo ?? "",
+    ancho: r.ancho != null ? Number(r.ancho) : null,
+    alto: r.alto != null ? Number(r.alto) : null,
+    tela: r.tela ?? "",
+    color: r.color ?? "",
+    relleno: r.relleno ?? "",
+    patas: r.patas ?? "",
+    cantidad: Number(r.cantidad) || 1,
+    precioUnitario: Number(r.precio_unitario) || 0,
+    notasProducto: r.notas_producto ?? "",
+    createdAt: r.created_at,
+    createdBy: r.created_by ?? "",
   };
 }
 
@@ -76,18 +108,13 @@ async function init() {
     await bootstrap();
   }
   await refetchAll();
-  // realtime
   supabase
     .channel("tirocrm-realtime")
-    .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () =>
-      refetchLeads(),
-    )
-    .on("postgres_changes", { event: "*", schema: "public", table: "tareas" }, () =>
-      refetchTareas(),
-    )
-    .on("postgres_changes", { event: "*", schema: "public", table: "audit_log" }, () =>
-      refetchAudit(),
-    )
+    .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => refetchLeads())
+    .on("postgres_changes", { event: "*", schema: "public", table: "tareas" }, () => refetchTareas())
+    .on("postgres_changes", { event: "*", schema: "public", table: "audit_log" }, () => refetchAudit())
+    .on("postgres_changes", { event: "*", schema: "public", table: "notas" }, () => refetchNotas())
+    .on("postgres_changes", { event: "*", schema: "public", table: "productos_lead" }, () => refetchProductos())
     .subscribe();
 }
 
@@ -106,8 +133,18 @@ async function refetchAudit() {
   state = { ...state, audit: (data ?? []).map(mapAudit) };
   emit();
 }
+async function refetchNotas() {
+  const { data } = await supabase.from("notas").select("*").order("created_at", { ascending: false });
+  state = { ...state, notas: (data ?? []).map(mapNota) };
+  emit();
+}
+async function refetchProductos() {
+  const { data } = await supabase.from("productos_lead").select("*").order("created_at", { ascending: true });
+  state = { ...state, productos: (data ?? []).map(mapProducto) };
+  emit();
+}
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos()]);
   state = { ...state, loaded: true };
   emit();
 }
@@ -115,18 +152,12 @@ async function refetchAll() {
 function subscribe(cb: () => void) {
   listeners.add(cb);
   if (typeof window !== "undefined") void init();
-  return () => {
-    listeners.delete(cb);
-  };
+  return () => { listeners.delete(cb); };
 }
 
-const SERVER: State = { leads: [], tareas: [], audit: [], loaded: false };
-function getSnapshot(): State {
-  return state;
-}
-function getServerSnapshot(): State {
-  return SERVER;
-}
+const SERVER: State = { leads: [], tareas: [], audit: [], notas: [], productos: [], loaded: false };
+function getSnapshot(): State { return state; }
+function getServerSnapshot(): State { return SERVER; }
 
 export function useStore(): State {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -135,7 +166,7 @@ export function useStore(): State {
 export const actions = {
   async addLead(
     input: Omit<Lead, "id" | "fechaCreacion">,
-    firstTask?: { descripcion: string; fecha: string },
+    firstTask?: { descripcion: string; fecha: string; hora?: string },
   ): Promise<Lead | null> {
     const { data, error } = await supabase
       .from("leads")
@@ -158,6 +189,7 @@ export const actions = {
         lead_id: lead.id,
         descripcion: firstTask.descripcion,
         fecha: firstTask.fecha,
+        hora: firstTask.hora ?? "",
         vendedor: lead.vendedor,
         completada: false,
       });
@@ -165,6 +197,7 @@ export const actions = {
     await refetchAll();
     return lead;
   },
+
   async updateLead(id: string, patch: Partial<Lead>) {
     const prevLead = state.leads.find((l) => l.id === id);
     const dbPatch: Record<string, unknown> = {};
@@ -176,62 +209,136 @@ export const actions = {
     if (patch.vendedor !== undefined) dbPatch.vendedor = patch.vendedor;
     if (patch.etapa !== undefined) dbPatch.etapa = patch.etapa;
     if (patch.valor !== undefined) dbPatch.valor = patch.valor;
-    // Optimistic local update
-    state = {
-      ...state,
-      leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)),
-    };
+    state = { ...state, leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
     emit();
     await supabase.from("leads").update(dbPatch as never).eq("id", id);
-    // Audit log
     if (prevLead && currentUser) {
       const entries: Record<string, unknown>[] = [];
       for (const [key, newVal] of Object.entries(patch)) {
         const oldVal = prevLead[key as keyof Lead];
         if (String(oldVal) !== String(newVal)) {
           entries.push({
-            tabla: "leads",
-            lead_id: id,
-            campo: key,
+            tabla: "leads", lead_id: id, campo: key,
             valor_anterior: String(oldVal ?? ""),
             valor_nuevo: String(newVal ?? ""),
             usuario: currentUser,
           });
         }
       }
-      if (entries.length > 0) {
-        await supabase.from("audit_log").insert(entries);
-      }
+      if (entries.length > 0) await supabase.from("audit_log").insert(entries);
     }
   },
+
   async setLeadEtapa(id: string, etapa: Etapa) {
     await actions.updateLead(id, { etapa });
   },
+
   async deleteLead(id: string) {
     state = { ...state, leads: state.leads.filter((l) => l.id !== id) };
     emit();
     await supabase.from("leads").delete().eq("id", id);
   },
+
   async addTarea(input: Omit<Tarea, "id" | "completada">) {
     await supabase.from("tareas").insert({
       lead_id: input.leadId,
       descripcion: input.descripcion,
       fecha: input.fecha,
+      hora: input.hora ?? "",
       vendedor: input.vendedor,
       completada: false,
     });
     await refetchTareas();
   },
+
+  async updateTarea(id: string, patch: Partial<Pick<Tarea, "descripcion" | "fecha" | "hora" | "completada">>) {
+    state = { ...state, tareas: state.tareas.map((t) => (t.id === id ? { ...t, ...patch } : t)) };
+    emit();
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.descripcion !== undefined) dbPatch.descripcion = patch.descripcion;
+    if (patch.fecha !== undefined) dbPatch.fecha = patch.fecha;
+    if (patch.hora !== undefined) dbPatch.hora = patch.hora;
+    if (patch.completada !== undefined) dbPatch.completada = patch.completada;
+    await supabase.from("tareas").update(dbPatch).eq("id", id);
+  },
+
   async toggleTarea(id: string) {
     const t = state.tareas.find((x) => x.id === id);
     if (!t) return;
-    const next = !t.completada;
-    state = {
-      ...state,
-      tareas: state.tareas.map((x) => (x.id === id ? { ...x, completada: next } : x)),
-    };
+    await actions.updateTarea(id, { completada: !t.completada });
+  },
+
+  async deleteTarea(id: string) {
+    state = { ...state, tareas: state.tareas.filter((t) => t.id !== id) };
     emit();
-    await supabase.from("tareas").update({ completada: next }).eq("id", id);
+    await supabase.from("tareas").delete().eq("id", id);
+  },
+
+  async addNota(leadId: string, contenido: string) {
+    await supabase.from("notas").insert({
+      lead_id: leadId,
+      contenido,
+      usuario: currentUser ?? "",
+    });
+    await refetchNotas();
+  },
+
+  async updateNota(id: string, contenido: string) {
+    state = { ...state, notas: state.notas.map((n) => (n.id === id ? { ...n, contenido } : n)) };
+    emit();
+    await supabase.from("notas").update({ contenido }).eq("id", id);
+  },
+
+  async deleteNota(id: string) {
+    state = { ...state, notas: state.notas.filter((n) => n.id !== id) };
+    emit();
+    await supabase.from("notas").delete().eq("id", id);
+  },
+
+  async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
+    await supabase.from("productos_lead").insert({
+      lead_id: leadId,
+      modelo: input.modelo,
+      ancho: input.ancho,
+      alto: input.alto,
+      tela: input.tela,
+      color: input.color,
+      relleno: input.relleno,
+      patas: input.patas,
+      cantidad: input.cantidad,
+      precio_unitario: input.precioUnitario,
+      notas_producto: input.notasProducto,
+      created_by: currentUser ?? "",
+    });
+    await refetchProductos();
+  },
+
+  async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
+    await supabase.from("productos_lead").update({
+      modelo: input.modelo,
+      ancho: input.ancho,
+      alto: input.alto,
+      tela: input.tela,
+      color: input.color,
+      relleno: input.relleno,
+      patas: input.patas,
+      cantidad: input.cantidad,
+      precio_unitario: input.precioUnitario,
+      notas_producto: input.notasProducto,
+    }).eq("id", id);
+    await refetchProductos();
+  },
+
+  async deleteProducto(id: string) {
+    state = { ...state, productos: state.productos.filter((p) => p.id !== id) };
+    emit();
+    await supabase.from("productos_lead").delete().eq("id", id);
+  },
+
+  async deleteAuditEntry(id: string) {
+    state = { ...state, audit: state.audit.filter((a) => a.id !== id) };
+    emit();
+    await supabase.from("audit_log").delete().eq("id", id);
   },
 };
 

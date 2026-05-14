@@ -64,8 +64,34 @@ export interface Tarea {
   leadId: string;
   descripcion: string;
   fecha: string;
+  hora: string;
   vendedor: string;
   completada: boolean;
+}
+
+export interface Nota {
+  id: string;
+  leadId: string;
+  contenido: string;
+  usuario: string;
+  createdAt: string;
+}
+
+export interface Producto {
+  id: string;
+  leadId: string;
+  modelo: string;
+  ancho: number | null;
+  alto: number | null;
+  tela: string;
+  color: string;
+  relleno: string;
+  patas: string;
+  cantidad: number;
+  precioUnitario: number;
+  notasProducto: string;
+  createdAt: string;
+  createdBy: string;
 }
 
 export interface AuditEntry {
