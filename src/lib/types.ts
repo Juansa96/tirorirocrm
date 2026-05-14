@@ -12,6 +12,11 @@ const NAMES: Record<string, string> = {
   "rocionavarreteurdiales98@gmail.com": "Rocío",
   "sangradortorresjuan@gmail.com": "Juan",
   "bea.gyerro@gmail.com": "Bea",
+  // Compatibilidad con datos antiguos en Supabase
+  "inaki@tiroriro.com": "Iñaki",
+  "rocio@tiroriro.com": "Rocío",
+  "juan@tiroriro.com": "Juan",
+  "bea@tiroriro.com": "Bea",
 };
 
 export function vendorName(v: string): string {

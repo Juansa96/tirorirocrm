@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { vendorName } from "./types";
+import { setCurrentUser } from "./store";
 
 interface AuthCtx {
   session: Session | null;
@@ -21,9 +22,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
+      setCurrentUser(s?.user.email ?? null);
     });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      setCurrentUser(data.session?.user.email ?? null);
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();

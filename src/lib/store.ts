@@ -55,6 +55,11 @@ function mapAudit(r: any): AuditEntry {
   };
 }
 
+let currentUser: string | null = null;
+export function setCurrentUser(email: string | null) {
+  currentUser = email;
+}
+
 let bootstrapped = false;
 async function bootstrap() {
   try {
@@ -161,6 +166,7 @@ export const actions = {
     return lead;
   },
   async updateLead(id: string, patch: Partial<Lead>) {
+    const prevLead = state.leads.find((l) => l.id === id);
     const dbPatch: Record<string, unknown> = {};
     if (patch.nombre !== undefined) dbPatch.nombre = patch.nombre;
     if (patch.email !== undefined) dbPatch.email = patch.email;
@@ -177,6 +183,26 @@ export const actions = {
     };
     emit();
     await supabase.from("leads").update(dbPatch as never).eq("id", id);
+    // Audit log
+    if (prevLead && currentUser) {
+      const entries: Record<string, unknown>[] = [];
+      for (const [key, newVal] of Object.entries(patch)) {
+        const oldVal = prevLead[key as keyof Lead];
+        if (String(oldVal) !== String(newVal)) {
+          entries.push({
+            tabla: "leads",
+            lead_id: id,
+            campo: key,
+            valor_anterior: String(oldVal ?? ""),
+            valor_nuevo: String(newVal ?? ""),
+            usuario: currentUser,
+          });
+        }
+      }
+      if (entries.length > 0) {
+        await supabase.from("audit_log").insert(entries);
+      }
+    }
   },
   async setLeadEtapa(id: string, etapa: Etapa) {
     await actions.updateLead(id, { etapa });
