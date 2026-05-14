@@ -33,6 +33,8 @@ function mapLead(r: any): Lead {
     origen: r.origen ?? "",
     redSocial: r.red_social ?? "",
     fechaHold: r.fecha_hold ?? "",
+    valorProducto: Number(r.valor_producto) || 0,
+    valorEnvio: Number(r.valor_envio) || 0,
     fechaCreacion: r.created_at ?? "",
   };
 }
@@ -186,6 +188,8 @@ export const actions = {
         origen: input.origen ?? "",
         red_social: input.redSocial ?? "",
         fecha_hold: input.fechaHold || null,
+        valor_producto: input.valorProducto ?? 0,
+        valor_envio: input.valorEnvio ?? 0,
       })
       .select()
       .single();
@@ -219,6 +223,8 @@ export const actions = {
     if (patch.origen !== undefined) dbPatch.origen = patch.origen;
     if (patch.redSocial !== undefined) dbPatch.red_social = patch.redSocial;
     if (patch.fechaHold !== undefined) dbPatch.fecha_hold = patch.fechaHold || null;
+    if (patch.valorProducto !== undefined) dbPatch.valor_producto = patch.valorProducto;
+    if (patch.valorEnvio !== undefined) dbPatch.valor_envio = patch.valorEnvio;
     state = { ...state, leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
     emit();
     await supabase.from("leads").update(dbPatch as never).eq("id", id);

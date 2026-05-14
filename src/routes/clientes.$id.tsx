@@ -213,7 +213,8 @@ function ClienteDetalle() {
   const lead = leads.find((l) => l.id === id);
 
   const [editing, setEditing] = useState(false);
-  const [valorEdit, setValorEdit] = useState(false);
+  const [valorProductoEdit, setValorProductoEdit] = useState(false);
+  const [valorEnvioEdit, setValorEnvioEdit] = useState(false);
   const [nuevaTarea, setNuevaTarea] = useState({ descripcion: "", fecha: todayISO(), hora: "" });
   const [nuevaNota, setNuevaNota] = useState("");
   const [editingNota, setEditingNota] = useState<string | null>(null);
@@ -336,17 +337,38 @@ function ClienteDetalle() {
           </div>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Valor estimado total</div>
-          {valorEdit ? (
-            <input type="number" value={lead.valor} autoFocus
-              onChange={(e) => actions.updateLead(lead.id, { valor: parseFloat(e.target.value) || 0 })}
-              onBlur={() => setValorEdit(false)} className="w-full rounded border border-slate-300 px-2 py-1 text-2xl font-bold" />
-          ) : (
-            <button onClick={() => setValorEdit(true)} className="text-3xl font-bold text-slate-900 hover:text-slate-600">
-              {formatCurrency(lead.valor)}
-            </button>
-          )}
-          <div className="mt-1 text-xs text-slate-400">Toca para editar</div>
+          <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Valor estimado</div>
+          <div className="space-y-3">
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Producto</div>
+              {valorProductoEdit ? (
+                <input type="number" value={lead.valorProducto} autoFocus
+                  onChange={(e) => actions.updateLead(lead.id, { valorProducto: parseFloat(e.target.value) || 0 })}
+                  onBlur={() => setValorProductoEdit(false)} className="w-full rounded border border-slate-300 px-2 py-1 text-xl font-bold" />
+              ) : (
+                <button onClick={() => setValorProductoEdit(true)} className="text-xl font-bold text-slate-900 hover:text-slate-600">
+                  {formatCurrency(lead.valorProducto)}
+                </button>
+              )}
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Envío</div>
+              {valorEnvioEdit ? (
+                <input type="number" value={lead.valorEnvio} autoFocus
+                  onChange={(e) => actions.updateLead(lead.id, { valorEnvio: parseFloat(e.target.value) || 0 })}
+                  onBlur={() => setValorEnvioEdit(false)} className="w-full rounded border border-slate-300 px-2 py-1 text-xl font-bold" />
+              ) : (
+                <button onClick={() => setValorEnvioEdit(true)} className="text-xl font-bold text-slate-900 hover:text-slate-600">
+                  {formatCurrency(lead.valorEnvio)}
+                </button>
+              )}
+            </div>
+            <div className="border-t border-slate-100 pt-2">
+              <div className="text-xs text-slate-500 mb-1">Total</div>
+              <div className="text-2xl font-bold text-slate-900">{formatCurrency(lead.valorProducto + lead.valorEnvio)}</div>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-slate-400">Toca para editar</div>
         </div>
       </div>
 

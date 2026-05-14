@@ -75,6 +75,8 @@ export interface Lead {
   origen: string;
   redSocial: string;
   fechaHold: string;
+  valorProducto: number;
+  valorEnvio: number;
   fechaCreacion: string;
 }
 

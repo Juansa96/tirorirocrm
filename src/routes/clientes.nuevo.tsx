@@ -21,6 +21,8 @@ function NuevoLead() {
     vendedor: "rocionavarreteurdiales98@gmail.com" as string,
     etapa: "Discovery" as Etapa,
     valor: 0,
+    valorProducto: 0,
+    valorEnvio: 0,
     origen: "" as string,
     redSocial: "",
     fechaHold: "",
@@ -36,7 +38,10 @@ function NuevoLead() {
       return;
     }
     setSubmitting(true);
-    const lead = await actions.addLead(form, tarea.descripcion.trim() ? tarea : undefined);
+    const lead = await actions.addLead(
+      { ...form, valor: form.valorProducto + form.valorEnvio },
+      tarea.descripcion.trim() ? tarea : undefined,
+    );
     setSubmitting(false);
     if (lead) navigate({ to: "/clientes/$id", params: { id: lead.id } });
   }
@@ -132,9 +137,13 @@ function NuevoLead() {
                 <input type="date" required value={form.fechaHold} onChange={e => setForm({...form, fechaHold: e.target.value})} className={`${cls} border-red-200 focus:border-red-400`} />
               </div>
             )}
-            <div className={form.etapa === "On Hold" ? "" : "md:col-span-2"}>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Valor estimado (€)</label>
-              <input type="number" min={0} value={form.valor} onChange={e => setForm({...form, valor: parseFloat(e.target.value) || 0})} className={cls} />
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Valor producto (€)</label>
+              <input type="number" min={0} value={form.valorProducto} onChange={e => setForm({...form, valorProducto: parseFloat(e.target.value) || 0})} className={cls} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Valor envío (€)</label>
+              <input type="number" min={0} value={form.valorEnvio} onChange={e => setForm({...form, valorEnvio: parseFloat(e.target.value) || 0})} className={cls} />
             </div>
           </div>
         </div>
