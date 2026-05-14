@@ -2,24 +2,24 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const USERS = [
-  { email: "inaki@tiroriro.com", password: "Tiroriro2026", name: "Iñaki" },
-  { email: "rocio@tiroriro.com", password: "Tiroriro2026", name: "Rocío" },
-  { email: "juan@tiroriro.com", password: "Tiroriro2026", name: "Juan" },
-  { email: "bea@tiroriro.com", password: "Tiroriro2026", name: "Bea" },
+  { email: "isangradortorres@gmail.com", password: "Tiroriro2026", name: "Iñaki" },
+  { email: "rocionavarreteurdiales98@gmail.com", password: "Tiroriro2026", name: "Rocío" },
+  { email: "sangradortorresjuan@gmail.com", password: "Tiroriro2026", name: "Juan" },
+  { email: "bea.gyerro@gmail.com", password: "Tiroriro2026", name: "Bea" },
 ];
 
 const LEADS = [
-  { nombre: "Teresa Guardone", email: "", ciudad: "Lisboa", producto: "Cabecero", vendedor: "rocio@tiroriro.com", etapa: "Discovery", valor: 0 },
-  { nombre: "Lucía García", email: "lucia.garciamata@gmail.com", ciudad: "Madrid", producto: "Cabecero", vendedor: "rocio@tiroriro.com", etapa: "Llamada", valor: 0 },
-  { nombre: "Antonio Herrera", email: "toninohm10@hotmail.com", ciudad: "Madrid", producto: "Cabecero", vendedor: "inaki@tiroriro.com", etapa: "Llamada", valor: 345 },
-  { nombre: "Alicia Mascort", email: "aliciamascort@gmail.com", ciudad: "Valencia", producto: "Cabecero", vendedor: "rocio@tiroriro.com", etapa: "Proposal", valor: 520 },
-  { nombre: "Almu Alonso", email: "almualonso@gmail.com", ciudad: "Madrid", producto: "Cabecero", vendedor: "rocio@tiroriro.com", etapa: "Closed Won", valor: 250 },
+  { nombre: "Teresa Guardone", email: "", ciudad: "Lisboa", producto: "Cabecero", vendedor: "rocionavarreteurdiales98@gmail.com", etapa: "Discovery", valor: 0 },
+  { nombre: "Lucía García", email: "lucia.garciamata@gmail.com", ciudad: "Madrid", producto: "Cabecero", vendedor: "rocionavarreteurdiales98@gmail.com", etapa: "Llamada", valor: 0 },
+  { nombre: "Antonio Herrera", email: "toninohm10@hotmail.com", ciudad: "Madrid", producto: "Cabecero", vendedor: "isangradortorres@gmail.com", etapa: "Llamada", valor: 345 },
+  { nombre: "Alicia Mascort", email: "aliciamascort@gmail.com", ciudad: "Valencia", producto: "Cabecero", vendedor: "rocionavarreteurdiales98@gmail.com", etapa: "Proposal", valor: 520 },
+  { nombre: "Almu Alonso", email: "almualonso@gmail.com", ciudad: "Madrid", producto: "Cabecero", vendedor: "rocionavarreteurdiales98@gmail.com", etapa: "Closed Won", valor: 250 },
 ];
 
 const TAREAS = [
-  { lead: "Teresa Guardone", descripcion: "Follow Up Teresa Portugal", vendedor: "rocio@tiroriro.com" },
-  { lead: "Antonio Herrera", descripcion: "Recibir telas e ir a su casa a que decida", vendedor: "inaki@tiroriro.com" },
-  { lead: "Alicia Mascort", descripcion: "Mandar muestras a Valencia", vendedor: "rocio@tiroriro.com" },
+  { lead: "Teresa Guardone", descripcion: "Follow Up Teresa Portugal", vendedor: "rocionavarreteurdiales98@gmail.com" },
+  { lead: "Antonio Herrera", descripcion: "Recibir telas e ir a su casa a que decida", vendedor: "isangradortorres@gmail.com" },
+  { lead: "Alicia Mascort", descripcion: "Mandar muestras a Valencia", vendedor: "rocionavarreteurdiales98@gmail.com" },
 ];
 
 async function run() {

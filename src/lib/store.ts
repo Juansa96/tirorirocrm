@@ -217,7 +217,7 @@ export function nextPendingTaskFor(leadId: string, tareas: Tarea[]): Tarea | und
 
 export function vendedorTotals(leads: Lead[]) {
   const map = new Map<string, { leads: number; valor: number }>();
-  ["inaki@tiroriro.com", "rocio@tiroriro.com", "juan@tiroriro.com", "bea@tiroriro.com"].forEach((v) =>
+  ["isangradortorres@gmail.com", "rocionavarreteurdiales98@gmail.com", "sangradortorresjuan@gmail.com", "bea.gyerro@gmail.com"].forEach((v) =>
     map.set(v, { leads: 0, valor: 0 }),
   );
   leads.forEach((l) => {

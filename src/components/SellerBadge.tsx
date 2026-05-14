@@ -1,10 +1,10 @@
 import { vendorName } from "@/lib/types";
 
 const STYLES: Record<string, { badge: string; dot: string }> = {
-  "inaki@tiroriro.com": { badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
-  "rocio@tiroriro.com": { badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
-  "juan@tiroriro.com": { badge: "bg-violet-100 text-violet-700", dot: "bg-violet-500" },
-  "bea@tiroriro.com": { badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
+  "isangradortorres@gmail.com": { badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
+  "rocionavarreteurdiales98@gmail.com": { badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
+  "sangradortorresjuan@gmail.com": { badge: "bg-violet-100 text-violet-700", dot: "bg-violet-500" },
+  "bea.gyerro@gmail.com": { badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
 };
 
 export function sellerStyle(v: string) {

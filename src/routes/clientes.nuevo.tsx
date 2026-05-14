@@ -18,7 +18,7 @@ function NuevoLead() {
     telefono: "",
     ciudad: "",
     producto: "Cabecero",
-    vendedor: "rocio@tiroriro.com" as string,
+    vendedor: "rocionavarreteurdiales98@gmail.com" as string,
     etapa: "Discovery" as Etapa,
     valor: 0,
   });

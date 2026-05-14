@@ -1,17 +1,17 @@
 export const VENDEDORES = [
-  "inaki@tiroriro.com",
-  "rocio@tiroriro.com",
-  "juan@tiroriro.com",
-  "bea@tiroriro.com",
+  "isangradortorres@gmail.com",
+  "rocionavarreteurdiales98@gmail.com",
+  "sangradortorresjuan@gmail.com",
+  "bea.gyerro@gmail.com",
 ] as const;
 
 export type Vendedor = (typeof VENDEDORES)[number] | string;
 
 const NAMES: Record<string, string> = {
-  "inaki@tiroriro.com": "Iñaki",
-  "rocio@tiroriro.com": "Rocío",
-  "juan@tiroriro.com": "Juan",
-  "bea@tiroriro.com": "Bea",
+  "isangradortorres@gmail.com": "Iñaki",
+  "rocionavarreteurdiales98@gmail.com": "Rocío",
+  "sangradortorresjuan@gmail.com": "Juan",
+  "bea.gyerro@gmail.com": "Bea",
 };
 
 export function vendorName(v: string): string {
