@@ -176,7 +176,7 @@ export const actions = {
       leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)),
     };
     emit();
-    await supabase.from("leads").update(dbPatch).eq("id", id);
+    await supabase.from("leads").update(dbPatch as never).eq("id", id);
   },
   async setLeadEtapa(id: string, etapa: Etapa) {
     await actions.updateLead(id, { etapa });
