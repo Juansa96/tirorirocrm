@@ -1,17 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useStore, actions } from "@/lib/store";
-import { VENDEDORES } from "@/lib/types";
+import { VENDEDORES, vendorName } from "@/lib/types";
 import { dateStatus } from "@/lib/format";
 import { TaskItem } from "@/components/TaskItem";
 
 export const Route = createFileRoute("/tareas")({
-  head: () => ({
-    meta: [
-      { title: "Tareas — TiroCRM" },
-      { name: "description", content: "Tareas pendientes y vencidas" },
-    ],
-  }),
+  head: () => ({ meta: [{ title: "Tareas — TiroCRM" }] }),
   component: TareasPage,
 });
 
@@ -46,23 +41,11 @@ function TareasPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
-        <select
-          value={vendedor}
-          onChange={(e) => setVendedor(e.target.value)}
-          className={inputCls}
-        >
+        <select value={vendedor} onChange={(e) => setVendedor(e.target.value)} className={inputCls}>
           <option value="">Todos los vendedores</option>
-          {VENDEDORES.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
+          {VENDEDORES.map((v) => (<option key={v} value={v}>{vendorName(v)}</option>))}
         </select>
-        <select
-          value={estado}
-          onChange={(e) => setEstado(e.target.value as typeof estado)}
-          className={inputCls}
-        >
+        <select value={estado} onChange={(e) => setEstado(e.target.value as typeof estado)} className={inputCls}>
           <option value="pendiente">Pendientes</option>
           <option value="completada">Completadas</option>
           <option value="todas">Todas</option>
@@ -71,20 +54,12 @@ function TareasPage() {
 
       <div className="space-y-2">
         {sorted.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
-            Sin tareas
-          </div>
+          <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">Sin tareas</div>
         )}
         {sorted.map((t) => {
           const lead = leads.find((l) => l.id === t.leadId);
           return (
-            <TaskItem
-              key={t.id}
-              tarea={t}
-              clienteNombre={lead?.nombre ?? "—"}
-              showCheckbox
-              onToggle={() => actions.toggleTarea(t.id)}
-            />
+            <TaskItem key={t.id} tarea={t} clienteNombre={lead?.nombre ?? "—"} showCheckbox onToggle={() => actions.toggleTarea(t.id)} />
           );
         })}
       </div>
