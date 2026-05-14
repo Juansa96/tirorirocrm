@@ -1,184 +1,211 @@
 import { useSyncExternalStore } from "react";
-import type { Lead, Tarea, Etapa, Vendedor } from "./types";
-
-const LS_KEY = "tirocrm:v1";
+import { supabase } from "@/integrations/supabase/client";
+import type { Lead, Tarea, Etapa, AuditEntry } from "./types";
 
 interface State {
   leads: Lead[];
   tareas: Tarea[];
+  audit: AuditEntry[];
+  loaded: boolean;
 }
 
-const SEED: State = {
-  leads: [
-    {
-      id: "l1",
-      nombre: "Teresa Guardone",
-      email: "",
-      telefono: "",
-      ciudad: "Lisboa",
-      producto: "Cabecero",
-      vendedor: "Rocío",
-      etapa: "Discovery",
-      valor: 0,
-      fechaCreacion: "2026-05-01",
-    },
-    {
-      id: "l2",
-      nombre: "Lucía García",
-      email: "lucia.garciamata@gmail.com",
-      telefono: "",
-      ciudad: "Madrid",
-      producto: "Cabecero",
-      vendedor: "Rocío",
-      etapa: "Llamada",
-      valor: 0,
-      fechaCreacion: "2026-05-03",
-    },
-    {
-      id: "l3",
-      nombre: "Antonio Herrera",
-      email: "toninohm10@hotmail.com",
-      telefono: "",
-      ciudad: "Madrid",
-      producto: "Cabecero",
-      vendedor: "Iñaki",
-      etapa: "Llamada",
-      valor: 345,
-      fechaCreacion: "2026-05-05",
-    },
-    {
-      id: "l4",
-      nombre: "Alicia Mascort",
-      email: "aliciamascort@gmail.com",
-      telefono: "",
-      ciudad: "Valencia",
-      producto: "Cabecero",
-      vendedor: "Rocío",
-      etapa: "Proposal",
-      valor: 520,
-      fechaCreacion: "2026-05-07",
-    },
-    {
-      id: "l5",
-      nombre: "Almu Alonso",
-      email: "almualonso@gmail.com",
-      telefono: "",
-      ciudad: "Madrid",
-      producto: "Cabecero",
-      vendedor: "Rocío",
-      etapa: "Closed Won",
-      valor: 250,
-      fechaCreacion: "2026-04-28",
-    },
-  ],
-  tareas: [
-    { id: "t1", leadId: "l1", descripcion: "Follow Up Teresa Portugal", fecha: "2026-05-14", vendedor: "Rocío", completada: false },
-    { id: "t2", leadId: "l3", descripcion: "Recibir telas e ir a su casa a que decida", fecha: "2026-05-14", vendedor: "Iñaki", completada: false },
-    { id: "t3", leadId: "l4", descripcion: "Mandar muestras a Valencia", fecha: "2026-05-14", vendedor: "Rocío", completada: false },
-  ],
-};
-
-let state: State = SEED;
+let state: State = { leads: [], tareas: [], audit: [], loaded: false };
 const listeners = new Set<() => void>();
 
-function load() {
-  if (typeof window === "undefined") return;
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) state = JSON.parse(raw);
-    else save();
-  } catch {
-    /* noop */
-  }
-}
-
-function save() {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(LS_KEY, JSON.stringify(state));
-}
-
-let loaded = false;
-function ensureLoaded() {
-  if (!loaded && typeof window !== "undefined") {
-    load();
-    loaded = true;
-  }
-}
-
 function emit() {
-  save();
   listeners.forEach((l) => l());
 }
 
-function subscribe(cb: () => void) {
-  ensureLoaded();
-  listeners.add(cb);
-  return () => listeners.delete(cb);
+function mapLead(r: any): Lead {
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    email: r.email ?? "",
+    telefono: r.telefono ?? "",
+    ciudad: r.ciudad ?? "",
+    producto: r.producto ?? "",
+    vendedor: r.vendedor,
+    etapa: r.etapa as Etapa,
+    valor: Number(r.valor) || 0,
+    fechaCreacion: r.fecha_creacion,
+  };
 }
 
+function mapTarea(r: any): Tarea {
+  return {
+    id: r.id,
+    leadId: r.lead_id,
+    descripcion: r.descripcion,
+    fecha: r.fecha,
+    vendedor: r.vendedor,
+    completada: !!r.completada,
+  };
+}
+
+function mapAudit(r: any): AuditEntry {
+  return {
+    id: r.id,
+    tabla: r.tabla,
+    leadId: r.lead_id,
+    campo: r.campo,
+    valorAnterior: r.valor_anterior,
+    valorNuevo: r.valor_nuevo,
+    usuario: r.usuario,
+    createdAt: r.created_at,
+  };
+}
+
+let bootstrapped = false;
+async function bootstrap() {
+  try {
+    await fetch("/api/public/bootstrap").catch(() => {});
+  } catch {}
+}
+
+let initStarted = false;
+async function init() {
+  if (initStarted) return;
+  initStarted = true;
+  if (!bootstrapped) {
+    bootstrapped = true;
+    await bootstrap();
+  }
+  await refetchAll();
+  // realtime
+  supabase
+    .channel("tirocrm-realtime")
+    .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () =>
+      refetchLeads(),
+    )
+    .on("postgres_changes", { event: "*", schema: "public", table: "tareas" }, () =>
+      refetchTareas(),
+    )
+    .on("postgres_changes", { event: "*", schema: "public", table: "audit_log" }, () =>
+      refetchAudit(),
+    )
+    .subscribe();
+}
+
+async function refetchLeads() {
+  const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+  state = { ...state, leads: (data ?? []).map(mapLead) };
+  emit();
+}
+async function refetchTareas() {
+  const { data } = await supabase.from("tareas").select("*").order("fecha", { ascending: true });
+  state = { ...state, tareas: (data ?? []).map(mapTarea) };
+  emit();
+}
+async function refetchAudit() {
+  const { data } = await supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(500);
+  state = { ...state, audit: (data ?? []).map(mapAudit) };
+  emit();
+}
+async function refetchAll() {
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit()]);
+  state = { ...state, loaded: true };
+  emit();
+}
+
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  if (typeof window !== "undefined") void init();
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+const SERVER: State = { leads: [], tareas: [], audit: [], loaded: false };
 function getSnapshot(): State {
-  ensureLoaded();
   return state;
 }
-
-const SERVER_SNAPSHOT: State = SEED;
 function getServerSnapshot(): State {
-  return SERVER_SNAPSHOT;
+  return SERVER;
 }
 
 export function useStore(): State {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
 export const actions = {
-  addLead(input: Omit<Lead, "id" | "fechaCreacion">, firstTask?: { descripcion: string; fecha: string }) {
-    const lead: Lead = {
-      ...input,
-      id: uid(),
-      fechaCreacion: new Date().toISOString().slice(0, 10),
-    };
-    state = { ...state, leads: [...state.leads, lead] };
-    if (firstTask && firstTask.descripcion.trim()) {
-      const tarea: Tarea = {
-        id: uid(),
-        leadId: lead.id,
+  async addLead(
+    input: Omit<Lead, "id" | "fechaCreacion">,
+    firstTask?: { descripcion: string; fecha: string },
+  ): Promise<Lead | null> {
+    const { data, error } = await supabase
+      .from("leads")
+      .insert({
+        nombre: input.nombre,
+        email: input.email,
+        telefono: input.telefono,
+        ciudad: input.ciudad,
+        producto: input.producto,
+        vendedor: input.vendedor,
+        etapa: input.etapa,
+        valor: input.valor,
+      })
+      .select()
+      .single();
+    if (error || !data) return null;
+    const lead = mapLead(data);
+    if (firstTask?.descripcion.trim()) {
+      await supabase.from("tareas").insert({
+        lead_id: lead.id,
         descripcion: firstTask.descripcion,
         fecha: firstTask.fecha,
         vendedor: lead.vendedor,
         completada: false,
-      };
-      state = { ...state, tareas: [...state.tareas, tarea] };
+      });
     }
-    emit();
+    await refetchAll();
     return lead;
   },
-  updateLead(id: string, patch: Partial<Lead>) {
+  async updateLead(id: string, patch: Partial<Lead>) {
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.nombre !== undefined) dbPatch.nombre = patch.nombre;
+    if (patch.email !== undefined) dbPatch.email = patch.email;
+    if (patch.telefono !== undefined) dbPatch.telefono = patch.telefono;
+    if (patch.ciudad !== undefined) dbPatch.ciudad = patch.ciudad;
+    if (patch.producto !== undefined) dbPatch.producto = patch.producto;
+    if (patch.vendedor !== undefined) dbPatch.vendedor = patch.vendedor;
+    if (patch.etapa !== undefined) dbPatch.etapa = patch.etapa;
+    if (patch.valor !== undefined) dbPatch.valor = patch.valor;
+    // Optimistic local update
     state = {
       ...state,
       leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)),
     };
     emit();
+    await supabase.from("leads").update(dbPatch as never).eq("id", id);
   },
-  setLeadEtapa(id: string, etapa: Etapa) {
-    actions.updateLead(id, { etapa });
+  async setLeadEtapa(id: string, etapa: Etapa) {
+    await actions.updateLead(id, { etapa });
   },
-  addTarea(input: Omit<Tarea, "id" | "completada">) {
-    const t: Tarea = { ...input, id: uid(), completada: false };
-    state = { ...state, tareas: [...state.tareas, t] };
+  async deleteLead(id: string) {
+    state = { ...state, leads: state.leads.filter((l) => l.id !== id) };
     emit();
+    await supabase.from("leads").delete().eq("id", id);
   },
-  toggleTarea(id: string) {
+  async addTarea(input: Omit<Tarea, "id" | "completada">) {
+    await supabase.from("tareas").insert({
+      lead_id: input.leadId,
+      descripcion: input.descripcion,
+      fecha: input.fecha,
+      vendedor: input.vendedor,
+      completada: false,
+    });
+    await refetchTareas();
+  },
+  async toggleTarea(id: string) {
+    const t = state.tareas.find((x) => x.id === id);
+    if (!t) return;
+    const next = !t.completada;
     state = {
       ...state,
-      tareas: state.tareas.map((t) =>
-        t.id === id ? { ...t, completada: !t.completada } : t,
-      ),
+      tareas: state.tareas.map((x) => (x.id === id ? { ...x, completada: next } : x)),
     };
     emit();
+    await supabase.from("tareas").update({ completada: next }).eq("id", id);
   },
 };
 
@@ -189,8 +216,8 @@ export function nextPendingTaskFor(leadId: string, tareas: Tarea[]): Tarea | und
 }
 
 export function vendedorTotals(leads: Lead[]) {
-  const map = new Map<Vendedor, { leads: number; valor: number }>();
-  (["Iñaki", "Rocío", "Juan", "Bea"] as Vendedor[]).forEach((v) =>
+  const map = new Map<string, { leads: number; valor: number }>();
+  ["inaki@tiroriro.com", "rocio@tiroriro.com", "juan@tiroriro.com", "bea@tiroriro.com"].forEach((v) =>
     map.set(v, { leads: 0, valor: 0 }),
   );
   leads.forEach((l) => {

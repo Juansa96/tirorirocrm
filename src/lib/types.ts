@@ -1,5 +1,22 @@
-export type Vendedor = "Iñaki" | "Rocío" | "Juan" | "Bea";
-export const VENDEDORES: Vendedor[] = ["Iñaki", "Rocío", "Juan", "Bea"];
+export const VENDEDORES = [
+  "inaki@tiroriro.com",
+  "rocio@tiroriro.com",
+  "juan@tiroriro.com",
+  "bea@tiroriro.com",
+] as const;
+
+export type Vendedor = (typeof VENDEDORES)[number] | string;
+
+const NAMES: Record<string, string> = {
+  "inaki@tiroriro.com": "Iñaki",
+  "rocio@tiroriro.com": "Rocío",
+  "juan@tiroriro.com": "Juan",
+  "bea@tiroriro.com": "Bea",
+};
+
+export function vendorName(v: string): string {
+  return NAMES[v] ?? v;
+}
 
 export type Etapa =
   | "Discovery"
@@ -7,6 +24,7 @@ export type Etapa =
   | "Proposal"
   | "Closed Won"
   | "Closed Lost";
+
 export const ETAPAS: Etapa[] = [
   "Discovery",
   "Llamada",
@@ -30,7 +48,7 @@ export interface Lead {
   telefono: string;
   ciudad: string;
   producto: string;
-  vendedor: Vendedor;
+  vendedor: string;
   etapa: Etapa;
   valor: number;
   fechaCreacion: string;
@@ -43,4 +61,15 @@ export interface Tarea {
   fecha: string;
   vendedor: string;
   completada: boolean;
+}
+
+export interface AuditEntry {
+  id: string;
+  tabla: string;
+  leadId: string | null;
+  campo: string;
+  valorAnterior: string | null;
+  valorNuevo: string | null;
+  usuario: string | null;
+  createdAt: string;
 }
