@@ -4,8 +4,10 @@ import {
   Columns3,
   List,
   CalendarClock,
+  LogOut,
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { useAuth } from "@/lib/auth";
 
 interface NavItem {
   to: string;
@@ -40,19 +42,26 @@ function isActive(path: string, item: NavItem) {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const { displayName, signOut } = useAuth();
+  const initials = (displayName || "?").slice(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Mobile header */}
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
         <Logo />
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700">
-          TR
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-slate-700">{displayName}</span>
+          <button
+            onClick={() => void signOut()}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </header>
 
       <div className="flex">
-        {/* Sidebar (tablet collapsed / desktop expanded) */}
         <aside className="sticky top-0 hidden h-screen shrink-0 flex-col bg-[#1a1f36] md:flex md:w-[60px] lg:w-[240px]">
           <div className="flex h-16 items-center justify-center px-4 lg:justify-start">
             <div className="hidden lg:block">
@@ -83,8 +92,29 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
-          <div className="hidden border-t border-white/10 px-4 py-3 text-[11px] text-white/40 lg:block">
-            © 2026 Tiroriro Home
+          <div className="border-t border-white/10 p-3">
+            <div className="hidden items-center gap-2 lg:flex">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-[#1a1f36]">
+                {initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-white">{displayName}</div>
+              </div>
+              <button
+                onClick={() => void signOut()}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white"
+                aria-label="Cerrar sesión"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+            <button
+              onClick={() => void signOut()}
+              className="flex h-9 w-full items-center justify-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white lg:hidden"
+              aria-label="Cerrar sesión"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </aside>
 
@@ -95,7 +125,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Bottom nav (mobile) */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white md:hidden">
         {NAV.map((item) => {
           const active = isActive(path, item);

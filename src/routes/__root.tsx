@@ -4,12 +4,15 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { AppLayout } from "@/components/AppLayout";
+import { AuthProvider, useAuth } from "@/lib/auth";
 
 function NotFoundComponent() {
   return (
@@ -62,14 +65,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "TiroCRM — Tiroriro Home" },
       { name: "description", content: "CRM de ventas para Tiroriro Home" },
-      { property: "og:title", content: "TiroCRM — Tiroriro Home" },
-      { name: "twitter:title", content: "TiroCRM — Tiroriro Home" },
-      { property: "og:description", content: "CRM de ventas para Tiroriro Home" },
-      { name: "twitter:description", content: "CRM de ventas para Tiroriro Home" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5e3aaa19-6634-4aa9-8ffc-f55eb630cc79/id-preview-77e03089--4c2a37af-cc6b-4584-a4f2-764e4ed2fdc3.lovable.app-1778781775709.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5e3aaa19-6634-4aa9-8ffc-f55eb630cc79/id-preview-77e03089--4c2a37af-cc6b-4584-a4f2-764e4ed2fdc3.lovable.app-1778781775709.png" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:type", content: "website" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
@@ -93,13 +88,40 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { session, loading } = useAuth();
+  const router = useRouter();
+  const path = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    if (loading) return;
+    if (!session && path !== "/login") {
+      router.navigate({ to: "/login" });
+    }
+  }, [session, loading, path, router]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">
+        Cargando…
+      </div>
+    );
+  }
+
+  if (path === "/login") return <>{children}</>;
+  if (!session) return null;
+  return <AppLayout>{children}</AppLayout>;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <AppLayout>
-        <Outlet />
-      </AppLayout>
+      <AuthProvider>
+        <AuthGate>
+          <Outlet />
+        </AuthGate>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
