@@ -46,7 +46,7 @@ function Pipeline() {
           <span className="text-slate-500">Filtrando por etapa:</span>
           <span
             className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white"
-            style={{ backgroundColor: ETAPA_COLORS[filterEtapa] }}
+            style={{ backgroundColor: ETAPA_COLORS[filterEtapa as Etapa] }}
           >
             {filterEtapa}
           </span>
