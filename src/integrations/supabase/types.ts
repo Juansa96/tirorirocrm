@@ -54,12 +54,17 @@ export type Database = {
           email: string | null
           etapa: string
           fecha_creacion: string
+          fecha_hold: string | null
           id: string
           nombre: string
+          origen: string | null
           producto: string | null
+          red_social: string | null
           telefono: string | null
           updated_at: string
           valor: number
+          valor_envio: number
+          valor_producto: number
           vendedor: string
         }
         Insert: {
@@ -68,12 +73,17 @@ export type Database = {
           email?: string | null
           etapa?: string
           fecha_creacion?: string
+          fecha_hold?: string | null
           id?: string
           nombre: string
+          origen?: string | null
           producto?: string | null
+          red_social?: string | null
           telefono?: string | null
           updated_at?: string
           valor?: number
+          valor_envio?: number
+          valor_producto?: number
           vendedor: string
         }
         Update: {
@@ -82,15 +92,120 @@ export type Database = {
           email?: string | null
           etapa?: string
           fecha_creacion?: string
+          fecha_hold?: string | null
           id?: string
           nombre?: string
+          origen?: string | null
           producto?: string | null
+          red_social?: string | null
           telefono?: string | null
           updated_at?: string
           valor?: number
+          valor_envio?: number
+          valor_producto?: number
           vendedor?: string
         }
         Relationships: []
+      }
+      notas: {
+        Row: {
+          contenido: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          usuario: string | null
+        }
+        Insert: {
+          contenido: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          usuario?: string | null
+        }
+        Update: {
+          contenido?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          usuario?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      productos_lead: {
+        Row: {
+          acabado: string | null
+          alto: number | null
+          ancho: number | null
+          cantidad: number
+          coleccion_tela: string | null
+          color: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          lead_id: string | null
+          modelo: string | null
+          notas_producto: string | null
+          patas: string | null
+          precio_unitario: number
+          relleno: string | null
+          tela: string | null
+          tipo: string | null
+        }
+        Insert: {
+          acabado?: string | null
+          alto?: number | null
+          ancho?: number | null
+          cantidad?: number
+          coleccion_tela?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          modelo?: string | null
+          notas_producto?: string | null
+          patas?: string | null
+          precio_unitario?: number
+          relleno?: string | null
+          tela?: string | null
+          tipo?: string | null
+        }
+        Update: {
+          acabado?: string | null
+          alto?: number | null
+          ancho?: number | null
+          cantidad?: number
+          coleccion_tela?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          modelo?: string | null
+          notas_producto?: string | null
+          patas?: string | null
+          precio_unitario?: number
+          relleno?: string | null
+          tela?: string | null
+          tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productos_lead_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tareas: {
         Row: {
@@ -98,6 +213,7 @@ export type Database = {
           created_at: string
           descripcion: string
           fecha: string
+          hora: string | null
           id: string
           lead_id: string
           vendedor: string
@@ -107,6 +223,7 @@ export type Database = {
           created_at?: string
           descripcion: string
           fecha: string
+          hora?: string | null
           id?: string
           lead_id: string
           vendedor: string
@@ -116,6 +233,7 @@ export type Database = {
           created_at?: string
           descripcion?: string
           fecha?: string
+          hora?: string | null
           id?: string
           lead_id?: string
           vendedor?: string

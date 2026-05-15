@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { Clock, AlertTriangle, Calendar } from "lucide-react";
 import { dateLabel, dateStatus } from "@/lib/format";
 import { SellerBadge } from "./SellerBadge";
@@ -29,6 +29,7 @@ function googleCalUrl(t: Tarea, nombre: string): string {
 }
 
 export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props) {
+  const navigate = useNavigate();
   const status = dateStatus(tarea.fecha);
   const fechaColor =
     status === "vencida" ? "text-red-600"
@@ -85,8 +86,14 @@ export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props
 
   if (showCheckbox) return content;
   return (
-    <Link to="/clientes/$id" params={{ id: tarea.leadId }} className="block">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate({ to: "/clientes/$id", params: { id: tarea.leadId } })}
+      onKeyDown={(e) => { if (e.key === "Enter") navigate({ to: "/clientes/$id", params: { id: tarea.leadId } }); }}
+      className="block cursor-pointer"
+    >
       {content}
-    </Link>
+    </div>
   );
 }

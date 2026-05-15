@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
+import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
 
 const TareasRoute = TareasRouteImport.update({
@@ -53,6 +54,11 @@ const ClientesIdRoute = ClientesIdRouteImport.update({
   path: '/clientes/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicLeadFormRoute = ApiPublicLeadFormRouteImport.update({
+  id: '/api/public/lead-form',
+  path: '/api/public/lead-form',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   id: '/api/public/bootstrap',
   path: '/api/public/bootstrap',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/clientes/': typeof ClientesIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
+  '/api/public/lead-form': typeof ApiPublicLeadFormRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/clientes': typeof ClientesIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
+  '/api/public/lead-form': typeof ApiPublicLeadFormRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/clientes/': typeof ClientesIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
+  '/api/public/lead-form': typeof ApiPublicLeadFormRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/clientes/nuevo'
     | '/clientes/'
     | '/api/public/bootstrap'
+    | '/api/public/lead-form'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/clientes/nuevo'
     | '/clientes'
     | '/api/public/bootstrap'
+    | '/api/public/lead-form'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/clientes/nuevo'
     | '/clientes/'
     | '/api/public/bootstrap'
+    | '/api/public/lead-form'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   ClientesNuevoRoute: typeof ClientesNuevoRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
+  ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -185,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/lead-form': {
+      id: '/api/public/lead-form'
+      path: '/api/public/lead-form'
+      fullPath: '/api/public/lead-form'
+      preLoaderRoute: typeof ApiPublicLeadFormRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/bootstrap': {
       id: '/api/public/bootstrap'
       path: '/api/public/bootstrap'
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientesNuevoRoute: ClientesNuevoRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
+  ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

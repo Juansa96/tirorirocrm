@@ -245,7 +245,7 @@ export const actions = {
           });
         }
       }
-      if (entries.length > 0) await supabase.from("audit_log").insert(entries);
+      if (entries.length > 0) await supabase.from("audit_log").insert(entries as never);
     }
   },
 
@@ -279,7 +279,7 @@ export const actions = {
     if (patch.fecha !== undefined) dbPatch.fecha = patch.fecha;
     if (patch.hora !== undefined) dbPatch.hora = patch.hora;
     if (patch.completada !== undefined) dbPatch.completada = patch.completada;
-    await supabase.from("tareas").update(dbPatch).eq("id", id);
+    await supabase.from("tareas").update(dbPatch as never).eq("id", id);
   },
 
   async toggleTarea(id: string) {
