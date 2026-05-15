@@ -1,6 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+const VENDEDORES = [
+  "isangradortorres@gmail.com",
+  "rocionavarreteurdiales98@gmail.com",
+  "sangradortorresjuan@gmail.com",
+  "bea.gyerro@gmail.com",
+] as const;
+
+function randomVendedor(): string {
+  return VENDEDORES[Math.floor(Math.random() * VENDEDORES.length)];
+}
+
 // Endpoint público para recibir leads desde el formulario de tirorirohome.com
 // POST /api/public/lead-form
 // Body JSON: { nombre, email, telefono, ciudad, mensaje, origen? }
@@ -24,6 +35,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
             return new Response(JSON.stringify({ error: "nombre y email son requeridos" }), { status: 400, headers: cors });
           }
 
+          const vendedor = randomVendedor();
           const { data: lead, error: leadErr } = await supabaseAdmin
             .from("leads")
             .insert({
@@ -32,7 +44,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
               telefono: String(telefono ?? "").trim(),
               ciudad: String(ciudad ?? "").trim(),
               producto: "Cabecero",
-              vendedor: "rocionavarreteurdiales98@gmail.com",
+              vendedor,
               etapa: "Discovery",
               valor: 0,
               origen: origen ?? "Formulario web",
@@ -62,7 +74,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
             descripcion: `Primer contacto con ${nombre} (formulario web)`,
             fecha: today,
             hora: "",
-            vendedor: "rocionavarreteurdiales98@gmail.com",
+            vendedor,
             completada: false,
           });
 

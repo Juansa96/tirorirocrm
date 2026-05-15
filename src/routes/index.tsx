@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Users, TrendingUp, Trophy, Percent, Plus } from "lucide-react";
+import { Users, TrendingUp, Trophy, Percent, Plus, ChevronDown } from "lucide-react";
+import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
@@ -35,25 +36,36 @@ function KpiCard({ icon: Icon, label, value, badgeBg, iconColor, empty }: {
 function Dashboard() {
   const { leads, tareas } = useStore();
   const navigate = useNavigate();
+  const [filterVendedor, setFilterVendedor] = useState("");
 
-  const totalLeads = leads.length;
-  const valorPipeline = leads.filter((l) => l.etapa !== "Closed Won" && l.etapa !== "Closed Lost").reduce((s, l) => s + l.valor, 0);
-  const cerradoGanado = leads.filter((l) => l.etapa === "Closed Won").reduce((s, l) => s + l.valor, 0);
-  const wonCount = leads.filter((l) => l.etapa === "Closed Won").length;
+  const filteredLeads = filterVendedor ? leads.filter((l) => l.vendedor === filterVendedor) : leads;
+
+  const totalLeads = filteredLeads.length;
+  const valorPipeline = filteredLeads
+    .filter((l) => l.etapa !== "Closed Won" && l.etapa !== "Closed Lost")
+    .reduce((s, l) => s + l.valor, 0);
+  const cerradoGanado = filteredLeads.filter((l) => l.etapa === "Closed Won").reduce((s, l) => s + l.valor, 0);
+  const wonCount = filteredLeads.filter((l) => l.etapa === "Closed Won").length;
   const tasaConv = totalLeads > 0 && wonCount > 0 ? (wonCount / totalLeads) * 100 : null;
 
   const chartData = ETAPAS.map((etapa) => {
-    const leadsEtapa = leads.filter((l) => l.etapa === etapa);
+    const leadsEtapa = filteredLeads.filter((l) => l.etapa === etapa);
     const valor = leadsEtapa.reduce((s, l) => s + l.valor, 0);
     return { etapa, valor, displayValor: valor === 0 ? 0.0001 : valor, count: leadsEtapa.length, color: ETAPA_COLORS[etapa] };
   });
 
-  const tareasPendientes = tareas.filter((t) => !t.completada).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const tareasPendientes = tareas
+    .filter((t) => !t.completada && (!filterVendedor || t.vendedor === filterVendedor))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+
   const vendTotals = vendedorTotals(leads);
   const maxVendValor = Math.max(1, ...VENDEDORES.map((v) => vendTotals.get(v)!.valor));
 
   function goEtapa(etapa: Etapa) {
-    navigate({ to: "/pipeline", search: { etapa } as never });
+    navigate({
+      to: "/pipeline",
+      search: { etapa, ...(filterVendedor ? { vendedor: filterVendedor } : {}) } as never,
+    });
   }
 
   return (
@@ -63,9 +75,24 @@ function Dashboard() {
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-sm text-slate-500">Resumen del pipeline de ventas</p>
         </div>
-        <Link to="/clientes/nuevo" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-[#2a2f46]">
-          <Plus className="h-4 w-4" /> Nuevo Lead
-        </Link>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <select
+              value={filterVendedor}
+              onChange={(e) => setFilterVendedor(e.target.value)}
+              className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
+            >
+              <option value="">Todos los vendedores</option>
+              {VENDEDORES.map((v) => (
+                <option key={v} value={v}>{vendorName(v)}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          </div>
+          <Link to="/clientes/nuevo" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-[#2a2f46]">
+            <Plus className="h-4 w-4" /> Nuevo Lead
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -76,13 +103,15 @@ function Dashboard() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-        <h2 className="mb-4 text-base font-semibold text-slate-900">Valor por Etapa</h2>
-        <p className="mb-2 text-xs text-slate-400">Haz click en una barra para filtrar el pipeline</p>
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-slate-900">Valor por Etapa</h2>
+          <span className="text-xs text-slate-400">Clic en barra → filtrar pipeline</span>
+        </div>
         <div className="h-[220px] w-full md:h-[280px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-              <XAxis dataKey="etapa" tick={{ fontSize: 11, fill: "#64748b" }} interval={0} />
+              <XAxis dataKey="etapa" tick={{ fontSize: 10, fill: "#64748b" }} interval={0} />
               <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={formatAxisCurrency} />
               <Tooltip
                 cursor={{ fill: "rgba(0,0,0,0.04)" }}
@@ -98,13 +127,7 @@ function Dashboard() {
                   );
                 }}
               />
-              <Bar
-                dataKey="displayValor"
-                radius={[4, 4, 0, 0]}
-                minPointSize={2}
-                cursor="pointer"
-                onClick={(d: { etapa: Etapa }) => goEtapa(d.etapa)}
-              >
+              <Bar dataKey="displayValor" radius={[4, 4, 0, 0]} minPointSize={2} cursor="pointer" onClick={(d: { etapa: Etapa }) => goEtapa(d.etapa)}>
                 {chartData.map((d, i) => (
                   <Cell key={i} fill={d.valor === 0 ? "#e2e8f0" : d.color} />
                 ))}
@@ -141,9 +164,16 @@ function Dashboard() {
           {VENDEDORES.map((v) => {
             const data = vendTotals.get(v)!;
             const style = sellerStyle(v);
-            const pct = (data.valor / maxVendValor) * 100;
+            const pct = maxVendValor > 0 ? (data.valor / maxVendValor) * 100 : 0;
+            const isSelected = filterVendedor === v;
             return (
-              <div key={v} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <button
+                key={v}
+                onClick={() => setFilterVendedor(isSelected ? "" : v)}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  isSelected ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                }`}
+              >
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${style.dot}`} />
                   <span className="text-sm font-medium text-slate-700">{vendorName(v)}</span>
@@ -153,9 +183,9 @@ function Dashboard() {
                   {formatCurrency(data.valor)}
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
-                  <div className={`h-full ${style.dot} transition-all duration-300`} style={{ width: `${pct}%` }} />
+                  <div className={`h-full rounded-full ${style.dot} transition-all duration-300`} style={{ width: `${pct}%` }} />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

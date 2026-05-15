@@ -125,29 +125,24 @@ async function init() {
 }
 
 async function refetchLeads() {
-  const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
-  state = { ...state, leads: (data ?? []).map(mapLead) };
-  emit();
+  const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+  if (!error && data) { state = { ...state, leads: data.map(mapLead) }; emit(); }
 }
 async function refetchTareas() {
-  const { data } = await supabase.from("tareas").select("*").order("fecha", { ascending: true });
-  state = { ...state, tareas: (data ?? []).map(mapTarea) };
-  emit();
+  const { data, error } = await supabase.from("tareas").select("*").order("fecha", { ascending: true });
+  if (!error && data) { state = { ...state, tareas: data.map(mapTarea) }; emit(); }
 }
 async function refetchAudit() {
-  const { data } = await supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(500);
-  state = { ...state, audit: (data ?? []).map(mapAudit) };
-  emit();
+  const { data, error } = await supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(500);
+  if (!error && data) { state = { ...state, audit: data.map(mapAudit) }; emit(); }
 }
 async function refetchNotas() {
-  const { data } = await supabase.from("notas").select("*").order("created_at", { ascending: false });
-  state = { ...state, notas: (data ?? []).map(mapNota) };
-  emit();
+  const { data, error } = await supabase.from("notas").select("*").order("created_at", { ascending: false });
+  if (!error && data) { state = { ...state, notas: data.map(mapNota) }; emit(); }
 }
 async function refetchProductos() {
-  const { data } = await supabase.from("productos_lead").select("*").order("created_at", { ascending: true });
-  state = { ...state, productos: (data ?? []).map(mapProducto) };
-  emit();
+  const { data, error } = await supabase.from("productos_lead").select("*").order("created_at", { ascending: true });
+  if (!error && data) { state = { ...state, productos: data.map(mapProducto) }; emit(); }
 }
 async function refetchAll() {
   await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos()]);
@@ -225,6 +220,12 @@ export const actions = {
     if (patch.fechaHold !== undefined) dbPatch.fecha_hold = patch.fechaHold || null;
     if (patch.valorProducto !== undefined) dbPatch.valor_producto = patch.valorProducto;
     if (patch.valorEnvio !== undefined) dbPatch.valor_envio = patch.valorEnvio;
+    if ((patch.valorProducto !== undefined || patch.valorEnvio !== undefined) && prevLead) {
+      const prod = patch.valorProducto ?? prevLead.valorProducto;
+      const envio = patch.valorEnvio ?? prevLead.valorEnvio;
+      dbPatch.valor = prod + envio;
+      patch = { ...patch, valor: prod + envio };
+    }
     state = { ...state, leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
     emit();
     await supabase.from("leads").update(dbPatch as never).eq("id", id);
@@ -290,13 +291,20 @@ export const actions = {
     await supabase.from("tareas").delete().eq("id", id);
   },
 
-  async addNota(leadId: string, contenido: string) {
-    await supabase.from("notas").insert({
-      lead_id: leadId,
-      contenido,
-      usuario: currentUser ?? "",
-    });
+  async addNota(leadId: string, contenido: string): Promise<boolean> {
+    const tempId = `opt-${Date.now()}`;
+    const optimistic: Nota = { id: tempId, leadId, contenido, usuario: currentUser ?? "", createdAt: new Date().toISOString() };
+    state = { ...state, notas: [optimistic, ...state.notas] };
+    emit();
+    const { error } = await supabase.from("notas").insert({ lead_id: leadId, contenido, usuario: currentUser ?? "" });
+    if (error) {
+      state = { ...state, notas: state.notas.filter((n) => n.id !== tempId) };
+      emit();
+      console.error("addNota error:", error.message);
+      return false;
+    }
     await refetchNotas();
+    return true;
   },
 
   async updateNota(id: string, contenido: string) {
