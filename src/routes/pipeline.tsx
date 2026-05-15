@@ -36,7 +36,7 @@ function Pipeline() {
   const hasFilter = !!(filterEtapa || filterVendedor);
 
   function setVendedor(v: string) {
-    navigate({ to: "/pipeline", search: (prev) => ({ ...prev, vendedor: v || undefined }) });
+    navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, vendedor: v || undefined }) });
   }
   function clearFilters() {
     navigate({ to: "/pipeline", search: {} });
