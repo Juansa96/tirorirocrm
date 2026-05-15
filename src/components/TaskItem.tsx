@@ -85,7 +85,6 @@ export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props
   );
 
   if (showCheckbox) return content;
-  const navigate = useNavigate();
   return (
     <div
       role="link"
