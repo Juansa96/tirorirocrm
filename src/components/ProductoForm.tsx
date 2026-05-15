@@ -280,6 +280,7 @@ export function ProductoForm({
             <div className="flex flex-wrap gap-2">
               {CABECERO_ANCHOS.map(a => <button key={a} type="button" onClick={() => s({ anchoCama: a })} className={btn(f.anchoCama === a)}>{a} cm</button>)}
               <button type="button" onClick={() => s({ anchoCama: "custom" })} className={btn(f.anchoCama === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ anchoCama: "tbd" })} className={btn(f.anchoCama === "tbd")}>Por decidir</button>
             </div>
             {f.anchoCama === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.anchoCamaCustom} onChange={e => s({ anchoCamaCustom: e.target.value })} placeholder="cm" min={60} max={300} />}
           </div>
