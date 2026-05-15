@@ -54,12 +54,17 @@ export type Database = {
           email: string | null
           etapa: string
           fecha_creacion: string
+          fecha_hold: string | null
           id: string
           nombre: string
+          origen: string | null
           producto: string | null
+          red_social: string | null
           telefono: string | null
           updated_at: string
           valor: number
+          valor_envio: number
+          valor_producto: number
           vendedor: string
         }
         Insert: {
@@ -68,12 +73,17 @@ export type Database = {
           email?: string | null
           etapa?: string
           fecha_creacion?: string
+          fecha_hold?: string | null
           id?: string
           nombre: string
+          origen?: string | null
           producto?: string | null
+          red_social?: string | null
           telefono?: string | null
           updated_at?: string
           valor?: number
+          valor_envio?: number
+          valor_producto?: number
           vendedor: string
         }
         Update: {
@@ -82,12 +92,17 @@ export type Database = {
           email?: string | null
           etapa?: string
           fecha_creacion?: string
+          fecha_hold?: string | null
           id?: string
           nombre?: string
+          origen?: string | null
           producto?: string | null
+          red_social?: string | null
           telefono?: string | null
           updated_at?: string
           valor?: number
+          valor_envio?: number
+          valor_producto?: number
           vendedor?: string
         }
         Relationships: []
@@ -198,6 +213,7 @@ export type Database = {
           created_at: string
           descripcion: string
           fecha: string
+          hora: string | null
           id: string
           lead_id: string
           vendedor: string
@@ -207,6 +223,7 @@ export type Database = {
           created_at?: string
           descripcion: string
           fecha: string
+          hora?: string | null
           id?: string
           lead_id: string
           vendedor: string
@@ -216,6 +233,7 @@ export type Database = {
           created_at?: string
           descripcion?: string
           fecha?: string
+          hora?: string | null
           id?: string
           lead_id?: string
           vendedor?: string
