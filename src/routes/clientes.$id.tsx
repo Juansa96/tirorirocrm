@@ -257,24 +257,26 @@ function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "crea
 
 const TELA_INP = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
 
+const TELA_BTN = (active: boolean) =>
+  `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
+
 function TelaSelect({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const isOtro = value !== "" && !TELAS_SUGERIDAS.includes(value);
-  const [otroMode, setOtroMode] = useState(isOtro);
+  const [modo, setModo] = useState<"web" | "otro">(() =>
+    value !== "" && !TELAS_SUGERIDAS.includes(value) ? "otro" : "web"
+  );
   return (
     <div className="space-y-2">
-      <select
-        className={TELA_INP}
-        value={otroMode ? "__otro__" : value}
-        onChange={e => {
-          if (e.target.value === "__otro__") { setOtroMode(true); onChange(""); }
-          else { setOtroMode(false); onChange(e.target.value); }
-        }}
-      >
-        <option value="">— Selecciona tela —</option>
-        {TELAS_SUGERIDAS.map(t => <option key={t} value={t}>{t}</option>)}
-        <option value="__otro__">Otra tela (escribir manualmente)</option>
-      </select>
-      {otroMode && (
+      <div className="flex gap-2">
+        <button type="button" className={TELA_BTN(modo === "web")} onClick={() => { setModo("web"); onChange(""); }}>Tela de la web</button>
+        <button type="button" className={TELA_BTN(modo === "otro")} onClick={() => { setModo("otro"); onChange(""); }}>Otra tela</button>
+      </div>
+      {modo === "web" && (
+        <select className={TELA_INP} value={value} onChange={e => onChange(e.target.value)}>
+          <option value="">— Selecciona tela —</option>
+          {TELAS_SUGERIDAS.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      )}
+      {modo === "otro" && (
         <input type="text" className={TELA_INP} value={value} onChange={e => onChange(e.target.value)}
           placeholder={placeholder ?? "Escribe el nombre de la tela…"} autoFocus />
       )}
