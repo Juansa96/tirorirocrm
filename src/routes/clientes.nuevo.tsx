@@ -4,7 +4,7 @@ import { ArrowLeft, Plus } from "lucide-react";
 import { actions } from "@/lib/store";
 import { VENDEDORES, ETAPAS, ORIGENES, vendorName, type Etapa } from "@/lib/types";
 import { todayISO } from "@/lib/format";
-import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto } from "@/components/ProductoForm";
+import { ProductoForm, EMPTY_PROD_STATE } from "@/components/ProductoForm";
 import type { Producto } from "@/lib/types";
 
 export const Route = createFileRoute("/clientes/nuevo")({

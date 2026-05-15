@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
-  ArrowLeft, Mail, Phone, MapPin, Package, Plus, History, Trash2,
+  ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
   Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
@@ -10,8 +10,8 @@ import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
 import {
-  ProductoForm, EMPTY_PROD_STATE, productoToState, prodStateToProducto,
-  TIPOS_PRODUCTO, type ProdTipo,
+  ProductoForm, EMPTY_PROD_STATE, productoToState,
+  TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
 
 export const Route = createFileRoute("/clientes/$id")({
