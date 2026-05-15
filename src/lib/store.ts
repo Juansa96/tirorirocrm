@@ -233,8 +233,10 @@ export const actions = {
     emit();
     await supabase.from("leads").update(dbPatch as never).eq("id", id);
     if (prevLead && currentUser) {
+      const isValorDerived = patch.valorProducto !== undefined || patch.valorEnvio !== undefined;
       const entries: Record<string, unknown>[] = [];
       for (const [key, newVal] of Object.entries(patch)) {
+        if (key === "valor" && isValorDerived) continue;
         const oldVal = prevLead[key as keyof Lead];
         if (String(oldVal) !== String(newVal)) {
           entries.push({

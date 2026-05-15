@@ -140,6 +140,7 @@ interface ProdState {
   tela: string;
   coleccionTela: string;
   acabado: string;
+  telaVivo: string;
   tapetes: boolean;
   cantidad: number;
   precioUnitario: number;
@@ -152,7 +153,7 @@ const EMPTY_PROD_STATE: ProdState = {
   tamanoPuf: "40", tamanoPufCustom: "", cantidadPuf: "1",
   presetMesa: "120×45×60 cm", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   formaPantalla: "cilindro", tamanoPantalla: "Ø40×40 cm",
-  tela: "", coleccionTela: "Básicas", acabado: "vivo-simple",
+  tela: "", coleccionTela: "Básicas", acabado: "vivo-simple", telaVivo: "",
   tapetes: false,
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
@@ -168,11 +169,13 @@ function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "cr
     ancho = f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
     alto  = f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
     color = f.telaLateral;
+    relleno = f.telaVivo;
     patas = extras([f.colgador && "Con colgador (+5€)", f.tapetes && "Tapetes protectores (+5€)"]);
   } else if (f.tipo === "puf") {
     modelo = "Patos";
     ancho  = f.tamanoPuf === "custom" ? (Number(f.tamanoPufCustom) || null) : (Number(f.tamanoPuf) || null);
     color  = f.telaLateral;
+    relleno = f.telaVivo;
     patas  = extras([f.tapetes && "Tapetes protectores (+5€)"]);
   } else if (f.tipo === "mesa") {
     if (f.presetMesa === "custom") {
@@ -227,6 +230,7 @@ function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "crea
     s.altoCabecero = CABECERO_ALTOS.includes(h) ? h : (h ? "custom" : "100");
     s.altoCabeceroCustom = CABECERO_ALTOS.includes(h) ? "" : h;
     s.telaLateral = p.color;
+    s.telaVivo = p.relleno ?? "";
     s.colgador = p.patas?.includes("Con colgador") ?? false;
     s.cantidad = p.cantidad;
   } else if (p.tipo === "puf") {
@@ -235,6 +239,7 @@ function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "crea
     s.tamanoPufCustom = ["40","50"].includes(a) ? "" : a;
     s.cantidadPuf = String(p.cantidad);
     s.telaLateral = p.color;
+    s.telaVivo = p.relleno ?? "";
   } else if (p.tipo === "mesa") {
     s.presetMesa = MESA_PRESETS.includes(p.modelo) ? p.modelo : "custom";
     s.mesaLargo = p.ancho ? String(p.ancho) : "";
@@ -268,8 +273,9 @@ function ProductoForm({
       <div className="space-y-3">
         <div>
           <div className={section}>Tela principal</div>
-          <input list="telas-sugeridas" className={inp} value={f.tela} onChange={e => s({ tela: e.target.value })} placeholder="Ej. Arequipa Beige, Baqueira…" />
+          <input list="telas-sugeridas" className={inp} value={f.tela} onChange={e => s({ tela: e.target.value })} placeholder="Ej. Arequipa Beige, Romántica Gris…" />
           <datalist id="telas-sugeridas">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+          <p className="mt-1 text-xs text-slate-400">Puedes escribir cualquier tela aunque no aparezca en la lista</p>
         </div>
         <div>
           <div className={section}>Colección</div>
@@ -310,7 +316,7 @@ function ProductoForm({
             </div>
           </div>
           <div>
-            <div className={section}>Ancho de cama</div>
+            <div className={section}>Ancho de cabecero</div>
             <div className="flex flex-wrap gap-2">
               {CABECERO_ANCHOS.map(a => <button key={a} type="button" onClick={() => s({ anchoCama: a })} className={btn(f.anchoCama === a)}>{a} cm</button>)}
               <button type="button" onClick={() => s({ anchoCama: "custom" })} className={btn(f.anchoCama === "custom")}>Otra medida</button>
@@ -333,6 +339,14 @@ function ProductoForm({
               {FINISHES_CABECERO.map(x => <button key={x.id} type="button" onClick={() => s({ acabado: x.id })} className={btn(f.acabado === x.id)}>{x.name}</button>)}
             </div>
           </div>
+          {(f.acabado === "vivo-simple" || f.acabado === "vivo-doble") && (
+            <div>
+              <div className={section}>Tela del vivo <span className="normal-case font-normal text-slate-400">(opcional — vacío = igual que la principal)</span></div>
+              <input list="telas-vivo-cabecero" className={inp} value={f.telaVivo} onChange={e => s({ telaVivo: e.target.value })} placeholder="Tela para el ribete…" />
+              <datalist id="telas-vivo-cabecero">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+              <p className="mt-1 text-xs text-slate-400">Puedes escribir cualquier tela aunque no aparezca en la lista</p>
+            </div>
+          )}
           <div>
             <div className={section}>Extras</div>
             <div className="flex flex-wrap gap-4">
@@ -369,6 +383,14 @@ function ProductoForm({
               {FINISHES_PUF.map(x => <button key={x.id} type="button" onClick={() => s({ acabado: x.id })} className={btn(f.acabado === x.id)}>{x.name}</button>)}
             </div>
           </div>
+          {(f.acabado === "vivo-simple" || f.acabado === "vivo-doble") && (
+            <div>
+              <div className={section}>Tela del vivo <span className="normal-case font-normal text-slate-400">(opcional — vacío = igual que la principal)</span></div>
+              <input list="telas-vivo-puf" className={inp} value={f.telaVivo} onChange={e => s({ telaVivo: e.target.value })} placeholder="Tela para el ribete…" />
+              <datalist id="telas-vivo-puf">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+              <p className="mt-1 text-xs text-slate-400">Puedes escribir cualquier tela aunque no aparezca en la lista</p>
+            </div>
+          )}
           <div>
             <div className={section}>Extras</div>
             <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
@@ -546,6 +568,8 @@ function ClienteDetalle() {
   const [editing, setEditing] = useState(false);
   const [valorProductoEdit, setValorProductoEdit] = useState(false);
   const [valorEnvioEdit, setValorEnvioEdit] = useState(false);
+  const [localValorProducto, setLocalValorProducto] = useState<number | null>(null);
+  const [localValorEnvio, setLocalValorEnvio] = useState<number | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState({ descripcion: "", fecha: todayISO(), hora: "" });
   const [nuevaNota, setNuevaNota] = useState("");
   const [editingNota, setEditingNota] = useState<string | null>(null);
@@ -673,11 +697,15 @@ function ClienteDetalle() {
             <div>
               <div className="text-xs text-slate-500 mb-1">Producto</div>
               {valorProductoEdit ? (
-                <input type="number" value={lead.valorProducto} autoFocus
-                  onChange={(e) => actions.updateLead(lead.id, { valorProducto: parseFloat(e.target.value) || 0 })}
-                  onBlur={() => setValorProductoEdit(false)} className="w-full rounded border border-slate-300 px-2 py-1 text-xl font-bold" />
+                <input type="number" value={localValorProducto ?? lead.valorProducto} autoFocus
+                  onChange={(e) => setLocalValorProducto(parseFloat(e.target.value) || 0)}
+                  onBlur={() => {
+                    if (localValorProducto !== null) actions.updateLead(lead.id, { valorProducto: localValorProducto });
+                    setLocalValorProducto(null);
+                    setValorProductoEdit(false);
+                  }} className="w-full rounded border border-slate-300 px-2 py-1 text-xl font-bold" />
               ) : (
-                <button onClick={() => setValorProductoEdit(true)} className="text-xl font-bold text-slate-900 hover:text-slate-600">
+                <button onClick={() => { setLocalValorProducto(lead.valorProducto); setValorProductoEdit(true); }} className="text-xl font-bold text-slate-900 hover:text-slate-600">
                   {formatCurrency(lead.valorProducto)}
                 </button>
               )}
@@ -685,11 +713,15 @@ function ClienteDetalle() {
             <div>
               <div className="text-xs text-slate-500 mb-1">Envío</div>
               {valorEnvioEdit ? (
-                <input type="number" value={lead.valorEnvio} autoFocus
-                  onChange={(e) => actions.updateLead(lead.id, { valorEnvio: parseFloat(e.target.value) || 0 })}
-                  onBlur={() => setValorEnvioEdit(false)} className="w-full rounded border border-slate-300 px-2 py-1 text-xl font-bold" />
+                <input type="number" value={localValorEnvio ?? lead.valorEnvio} autoFocus
+                  onChange={(e) => setLocalValorEnvio(parseFloat(e.target.value) || 0)}
+                  onBlur={() => {
+                    if (localValorEnvio !== null) actions.updateLead(lead.id, { valorEnvio: localValorEnvio });
+                    setLocalValorEnvio(null);
+                    setValorEnvioEdit(false);
+                  }} className="w-full rounded border border-slate-300 px-2 py-1 text-xl font-bold" />
               ) : (
-                <button onClick={() => setValorEnvioEdit(true)} className="text-xl font-bold text-slate-900 hover:text-slate-600">
+                <button onClick={() => { setLocalValorEnvio(lead.valorEnvio); setValorEnvioEdit(true); }} className="text-xl font-bold text-slate-900 hover:text-slate-600">
                   {formatCurrency(lead.valorEnvio)}
                 </button>
               )}
@@ -756,6 +788,7 @@ function ClienteDetalle() {
                         {p.coleccionTela && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px]">{p.coleccionTela}</span>}
                         {p.color && <span>Lateral: <strong>{p.color}</strong></span>}
                         {p.acabado && p.acabado !== "liso" && <span>Acabado: <strong>{p.acabado === "vivo-simple" ? "Vivo simple" : "Vivo doble"}</strong></span>}
+                        {p.relleno && (p.tipo === "cabecero" || p.tipo === "puf") && <span>Tela vivo: <strong>{p.relleno}</strong></span>}
                         {p.patas && <span><strong>{p.patas}</strong></span>}
                         <span>Cant: <strong>{p.cantidad}</strong></span>
                         {p.precioUnitario > 0 && <span>Precio: <strong>{formatCurrency(p.precioUnitario)}</strong></span>}
