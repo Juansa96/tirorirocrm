@@ -92,6 +92,106 @@ export type Database = {
         }
         Relationships: []
       }
+      notas: {
+        Row: {
+          contenido: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          usuario: string | null
+        }
+        Insert: {
+          contenido: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          usuario?: string | null
+        }
+        Update: {
+          contenido?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          usuario?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      productos_lead: {
+        Row: {
+          acabado: string | null
+          alto: number | null
+          ancho: number | null
+          cantidad: number
+          coleccion_tela: string | null
+          color: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          lead_id: string | null
+          modelo: string | null
+          notas_producto: string | null
+          patas: string | null
+          precio_unitario: number
+          relleno: string | null
+          tela: string | null
+          tipo: string | null
+        }
+        Insert: {
+          acabado?: string | null
+          alto?: number | null
+          ancho?: number | null
+          cantidad?: number
+          coleccion_tela?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          modelo?: string | null
+          notas_producto?: string | null
+          patas?: string | null
+          precio_unitario?: number
+          relleno?: string | null
+          tela?: string | null
+          tipo?: string | null
+        }
+        Update: {
+          acabado?: string | null
+          alto?: number | null
+          ancho?: number | null
+          cantidad?: number
+          coleccion_tela?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string | null
+          modelo?: string | null
+          notas_producto?: string | null
+          patas?: string | null
+          precio_unitario?: number
+          relleno?: string | null
+          tela?: string | null
+          tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productos_lead_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tareas: {
         Row: {
           completada: boolean
