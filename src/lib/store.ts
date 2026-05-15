@@ -245,7 +245,7 @@ export const actions = {
           });
         }
       }
-      if (entries.length > 0) await supabase.from("audit_log").insert(entries);
+      if (entries.length > 0) await supabase.from("audit_log").insert(entries as never);
     }
   },
 
