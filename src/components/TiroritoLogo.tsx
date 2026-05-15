@@ -1,7 +1,8 @@
+import type { CSSProperties } from "react";
+
 interface TiroritoLogoProps {
   className?: string;
-  style?: React.CSSProperties;
-  /** "full" = text + illustration, "icon" = illustration only */
+  style?: CSSProperties;
   variant?: "full" | "icon";
 }
 
