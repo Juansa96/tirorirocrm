@@ -365,6 +365,7 @@ export function ProductoForm({
             <div className="flex flex-wrap gap-2">
               {MESA_PRESETS.map(p => <button key={p} type="button" onClick={() => s({ presetMesa: p })} className={btn(f.presetMesa === p)}>{p}</button>)}
               <button type="button" onClick={() => s({ presetMesa: "custom" })} className={btn(f.presetMesa === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ presetMesa: "tbd" })} className={btn(f.presetMesa === "tbd")}>Por decidir</button>
             </div>
             {f.presetMesa === "custom" && (
               <div className="mt-2 grid grid-cols-3 gap-2">
