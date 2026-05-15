@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useAuth } from "@/lib/auth";
+import { useStore } from "@/lib/store";
 import { TiroritoLogo } from "./TiroritoLogo";
 
 interface NavItem {
@@ -28,6 +29,18 @@ const NAV: NavItem[] = [
 function isActive(path: string, item: NavItem) {
   if (item.exact) return path === item.to;
   return path === item.to || path.startsWith(item.to + "/");
+}
+
+function RealtimeDot() {
+  const { realtimeStatus } = useStore();
+  const label = realtimeStatus === "connected" ? "Sincronizado" : realtimeStatus === "connecting" ? "Conectando…" : "Sin conexión";
+  const color = realtimeStatus === "connected" ? "bg-emerald-400" : realtimeStatus === "connecting" ? "bg-amber-400 animate-pulse" : "bg-red-500";
+  return (
+    <div className="flex items-center gap-1.5" title={label}>
+      <span className={`h-2 w-2 rounded-full ${color}`} />
+      <span className="hidden text-xs text-white/40 lg:inline">{label}</span>
+    </div>
+  );
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -77,7 +90,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
-          <div className="border-t border-white/10 p-3">
+          <div className="border-t border-white/10 p-3 space-y-2">
+            <div className="px-1">
+              <RealtimeDot />
+            </div>
             <div className="hidden items-center gap-2 lg:flex">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-[#1a1f36]">
                 {initials}

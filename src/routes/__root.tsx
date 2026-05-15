@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -121,6 +122,7 @@ function RootComponent() {
         <AuthGate>
           <Outlet />
         </AuthGate>
+        <Toaster position="bottom-right" richColors closeButton />
       </AuthProvider>
     </QueryClientProvider>
   );

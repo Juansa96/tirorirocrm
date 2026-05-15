@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto } from "./types";
 
@@ -10,9 +11,10 @@ interface State {
   notas: Nota[];
   productos: Producto[];
   loaded: boolean;
+  realtimeStatus: "connected" | "connecting" | "disconnected";
 }
 
-let state: State = { leads: [], tareas: [], audit: [], notas: [], productos: [], loaded: false };
+let state: State = { leads: [], tareas: [], audit: [], notas: [], productos: [], loaded: false, realtimeStatus: "connecting" };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -124,7 +126,14 @@ async function init() {
     .on("postgres_changes", { event: "*", schema: "public", table: "audit_log" }, () => refetchAudit())
     .on("postgres_changes", { event: "*", schema: "public", table: "notas" }, () => refetchNotas())
     .on("postgres_changes", { event: "*", schema: "public", table: "productos_lead" }, () => refetchProductos())
-    .subscribe();
+    .subscribe((status) => {
+      const next: State["realtimeStatus"] =
+        status === "SUBSCRIBED" ? "connected" :
+        status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED" ? "disconnected" :
+        "connecting";
+      state = { ...state, realtimeStatus: next };
+      emit();
+    });
 }
 
 async function refetchLeads() {
@@ -159,7 +168,7 @@ function subscribe(cb: () => void) {
   return () => { listeners.delete(cb); };
 }
 
-const SERVER: State = { leads: [], tareas: [], audit: [], notas: [], productos: [], loaded: false };
+const SERVER: State = { leads: [], tareas: [], audit: [], notas: [], productos: [], loaded: false, realtimeStatus: "connecting" };
 function getSnapshot(): State { return state; }
 function getServerSnapshot(): State { return SERVER; }
 
@@ -209,6 +218,7 @@ export const actions = {
 
   async updateLead(id: string, patch: Partial<Lead>) {
     const prevLead = state.leads.find((l) => l.id === id);
+    const prevState = state;
     const dbPatch: Record<string, unknown> = {};
     if (patch.nombre !== undefined) dbPatch.nombre = patch.nombre;
     if (patch.email !== undefined) dbPatch.email = patch.email;
@@ -231,7 +241,13 @@ export const actions = {
     }
     state = { ...state, leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
     emit();
-    await supabase.from("leads").update(dbPatch as never).eq("id", id);
+    const { error } = await supabase.from("leads").update(dbPatch as never).eq("id", id);
+    if (error) {
+      state = prevState;
+      emit();
+      toast.error("Error al guardar el cliente. Los cambios no se han guardado.");
+      return;
+    }
     if (prevLead && currentUser) {
       const isValorDerived = patch.valorProducto !== undefined || patch.valorEnvio !== undefined;
       const entries: Record<string, unknown>[] = [];
@@ -256,13 +272,19 @@ export const actions = {
   },
 
   async deleteLead(id: string) {
+    const prevState = state;
     state = { ...state, leads: state.leads.filter((l) => l.id !== id) };
     emit();
-    await supabase.from("leads").delete().eq("id", id);
+    const { error } = await supabase.from("leads").delete().eq("id", id);
+    if (error) {
+      state = prevState;
+      emit();
+      toast.error("Error al eliminar el cliente.");
+    }
   },
 
   async addTarea(input: Omit<Tarea, "id" | "completada">) {
-    await supabase.from("tareas").insert({
+    const { error } = await supabase.from("tareas").insert({
       lead_id: input.leadId,
       descripcion: input.descripcion,
       fecha: input.fecha,
@@ -270,10 +292,12 @@ export const actions = {
       vendedor: input.vendedor,
       completada: false,
     });
+    if (error) { toast.error("Error al crear la tarea."); return; }
     await refetchTareas();
   },
 
   async updateTarea(id: string, patch: Partial<Pick<Tarea, "descripcion" | "fecha" | "hora" | "completada">>) {
+    const prevState = state;
     state = { ...state, tareas: state.tareas.map((t) => (t.id === id ? { ...t, ...patch } : t)) };
     emit();
     const dbPatch: Record<string, unknown> = {};
@@ -281,7 +305,12 @@ export const actions = {
     if (patch.fecha !== undefined) dbPatch.fecha = patch.fecha;
     if (patch.hora !== undefined) dbPatch.hora = patch.hora;
     if (patch.completada !== undefined) dbPatch.completada = patch.completada;
-    await supabase.from("tareas").update(dbPatch as never).eq("id", id);
+    const { error } = await supabase.from("tareas").update(dbPatch as never).eq("id", id);
+    if (error) {
+      state = prevState;
+      emit();
+      toast.error("Error al actualizar la tarea.");
+    }
   },
 
   async toggleTarea(id: string) {
@@ -291,9 +320,15 @@ export const actions = {
   },
 
   async deleteTarea(id: string) {
+    const prevState = state;
     state = { ...state, tareas: state.tareas.filter((t) => t.id !== id) };
     emit();
-    await supabase.from("tareas").delete().eq("id", id);
+    const { error } = await supabase.from("tareas").delete().eq("id", id);
+    if (error) {
+      state = prevState;
+      emit();
+      toast.error("Error al eliminar la tarea.");
+    }
   },
 
   async addNota(leadId: string, contenido: string): Promise<boolean> {
@@ -313,19 +348,31 @@ export const actions = {
   },
 
   async updateNota(id: string, contenido: string) {
+    const prevState = state;
     state = { ...state, notas: state.notas.map((n) => (n.id === id ? { ...n, contenido } : n)) };
     emit();
-    await supabase.from("notas").update({ contenido }).eq("id", id);
+    const { error } = await supabase.from("notas").update({ contenido }).eq("id", id);
+    if (error) {
+      state = prevState;
+      emit();
+      toast.error("Error al guardar la nota.");
+    }
   },
 
   async deleteNota(id: string) {
+    const prevState = state;
     state = { ...state, notas: state.notas.filter((n) => n.id !== id) };
     emit();
-    await supabase.from("notas").delete().eq("id", id);
+    const { error } = await supabase.from("notas").delete().eq("id", id);
+    if (error) {
+      state = prevState;
+      emit();
+      toast.error("Error al eliminar la nota.");
+    }
   },
 
   async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
-    await supabase.from("productos_lead").insert({
+    const { error } = await supabase.from("productos_lead").insert({
       lead_id: leadId,
       tipo: input.tipo,
       modelo: input.modelo,
@@ -342,11 +389,12 @@ export const actions = {
       notas_producto: input.notasProducto,
       created_by: currentUser ?? "",
     });
+    if (error) { toast.error("Error al guardar el producto."); return; }
     await refetchProductos();
   },
 
   async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
-    await supabase.from("productos_lead").update({
+    const { error } = await supabase.from("productos_lead").update({
       tipo: input.tipo,
       modelo: input.modelo,
       ancho: input.ancho,
@@ -361,19 +409,32 @@ export const actions = {
       precio_unitario: input.precioUnitario,
       notas_producto: input.notasProducto,
     }).eq("id", id);
+    if (error) { toast.error("Error al actualizar el producto."); return; }
     await refetchProductos();
   },
 
   async deleteProducto(id: string) {
+    const prevState = state;
     state = { ...state, productos: state.productos.filter((p) => p.id !== id) };
     emit();
-    await supabase.from("productos_lead").delete().eq("id", id);
+    const { error } = await supabase.from("productos_lead").delete().eq("id", id);
+    if (error) {
+      state = prevState;
+      emit();
+      toast.error("Error al eliminar el producto.");
+    }
   },
 
   async deleteAuditEntry(id: string) {
+    const prevState = state;
     state = { ...state, audit: state.audit.filter((a) => a.id !== id) };
     emit();
-    await supabase.from("audit_log").delete().eq("id", id);
+    const { error } = await supabase.from("audit_log").delete().eq("id", id);
+    if (error) {
+      state = prevState;
+      emit();
+      toast.error("Error al eliminar la entrada del historial.");
+    }
   },
 };
 
