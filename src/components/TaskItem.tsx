@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { Clock, AlertTriangle, Calendar } from "lucide-react";
 import { dateLabel, dateStatus } from "@/lib/format";
 import { SellerBadge } from "./SellerBadge";
