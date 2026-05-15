@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabase } from "@/integrations/supabase/client";
 
 const VENDEDORES = [
   "isangradortorres@gmail.com",
@@ -108,7 +108,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
             ? ({ cabecero: "Cabecero", banco: "Banco", cojin: "Almohadón", puf: "Puf", mesa: "Mesa de centro", pantalla: "Pantalla de lámpara" }[configurador.tipo as string] ?? "Cabecero")
             : "Cabecero";
 
-          const { data: lead, error: leadErr } = await supabaseAdmin
+          const { data: lead, error: leadErr } = await supabase
             .from("leads")
             .insert({
               nombre: String(nombre).trim(),
@@ -132,7 +132,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
 
           // Nota con los detalles del formulario
           if (mensaje) {
-            await supabaseAdmin.from("notas").insert({
+            await supabase.from("notas").insert({
               lead_id: lead.id,
               contenido: String(mensaje).trim(),
               usuario: "formulario-web",
@@ -143,13 +143,13 @@ export const Route = createFileRoute("/api/public/lead-form")({
           if (configurador && typeof configurador === "object") {
             const producto = buildProducto(configurador as Record<string, string>);
             if (producto) {
-              await supabaseAdmin.from("productos_lead").insert({ lead_id: lead.id, ...producto });
+              await supabase.from("productos_lead").insert({ lead_id: lead.id, ...producto });
             }
           }
 
           // Tarea automática de primer contacto para hoy
           const today = new Date().toISOString().slice(0, 10);
-          await supabaseAdmin.from("tareas").insert({
+          await supabase.from("tareas").insert({
             lead_id: lead.id,
             descripcion: `Primer contacto con ${nombre} (formulario web)`,
             fecha: today,
