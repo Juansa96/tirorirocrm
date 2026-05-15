@@ -40,7 +40,7 @@ function LoginPage() {
         className="w-full max-w-sm space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         <div className="flex flex-col items-center gap-2">
-          <TiroritoLogo className="h-14 w-auto text-[#1a4b5b]" />
+          <TiroritoLogo className="h-10 w-auto text-[#1a4b5b]" />
           <div className="text-xs uppercase tracking-wider text-slate-400">Sales CRM</div>
         </div>
 
