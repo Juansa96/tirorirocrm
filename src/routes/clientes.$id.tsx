@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Package, Plus, History, Trash2,
   Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock,
@@ -255,6 +255,33 @@ function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "crea
   return s;
 }
 
+const TELA_INP = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
+
+function TelaSelect({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const isOtro = value !== "" && !TELAS_SUGERIDAS.includes(value);
+  const [otroMode, setOtroMode] = useState(isOtro);
+  return (
+    <div className="space-y-2">
+      <select
+        className={TELA_INP}
+        value={otroMode ? "__otro__" : value}
+        onChange={e => {
+          if (e.target.value === "__otro__") { setOtroMode(true); onChange(""); }
+          else { setOtroMode(false); onChange(e.target.value); }
+        }}
+      >
+        <option value="">— Selecciona tela —</option>
+        {TELAS_SUGERIDAS.map(t => <option key={t} value={t}>{t}</option>)}
+        <option value="__otro__">Otra tela (escribir manualmente)</option>
+      </select>
+      {otroMode && (
+        <input type="text" className={TELA_INP} value={value} onChange={e => onChange(e.target.value)}
+          placeholder={placeholder ?? "Escribe el nombre de la tela…"} autoFocus />
+      )}
+    </div>
+  );
+}
+
 function ProductoForm({
   initial, onSave, onCancel,
 }: {
@@ -267,30 +294,6 @@ function ProductoForm({
   const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
   const btn = (active: boolean) => `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
   const section = "text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2";
-
-  function TelaSelect({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-    const [otroMode, setOtroMode] = useState(() => value !== "" && !TELAS_SUGERIDAS.includes(value));
-    return (
-      <div className="space-y-2">
-        <select
-          className={inp}
-          value={otroMode ? "__otro__" : value}
-          onChange={e => {
-            if (e.target.value === "__otro__") { setOtroMode(true); onChange(""); }
-            else { setOtroMode(false); onChange(e.target.value); }
-          }}
-        >
-          <option value="">— Selecciona tela —</option>
-          {TELAS_SUGERIDAS.map(t => <option key={t} value={t}>{t}</option>)}
-          <option value="__otro__">Otra tela (escribir manualmente)</option>
-        </select>
-        {otroMode && (
-          <input type="text" className={inp} value={value} onChange={e => onChange(e.target.value)}
-            placeholder={placeholder ?? "Escribe el nombre de la tela…"} autoFocus />
-        )}
-      </div>
-    );
-  }
 
   function TelaSection({ showLateral }: { showLateral: boolean }) {
     return (
@@ -594,6 +597,22 @@ function ClienteDetalle() {
   const [showProdForm, setShowProdForm] = useState(false);
   const [editingProd, setEditingProd] = useState<string | null>(null);
 
+  const hasUnsaved = showProdForm || editingProd !== null;
+
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsaved]);
+
+  function goBack() {
+    if (hasUnsaved) {
+      if (!window.confirm("Tienes un producto sin guardar. ¿Salir sin guardar?")) return;
+    }
+    navigate({ to: "/clientes" });
+  }
+
   if (!lead) {
     return (
       <div className="py-12 text-center">
@@ -615,9 +634,10 @@ function ClienteDetalle() {
 
   return (
     <div className="space-y-4">
-      <Link to="/clientes" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+      <button onClick={goBack} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
         <ArrowLeft className="h-4 w-4" /> Volver
-      </Link>
+        {hasUnsaved && <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Sin guardar</span>}
+      </button>
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
