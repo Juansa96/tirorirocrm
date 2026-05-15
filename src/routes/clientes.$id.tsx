@@ -277,7 +277,28 @@ function ClienteDetalle() {
           <div className="space-y-3">
             <div>
               <div className="text-xs text-slate-500 mb-1">Producto</div>
-              {valorProductoEdit ? (
+              {leadProductos.length > 0 ? (
+                <div className="space-y-1">
+                  {leadProductos.map((p) => {
+                    const subtotal = (p.precioUnitario || 0) * (p.cantidad || 1);
+                    return (
+                      <div key={p.id} className="flex items-baseline justify-between gap-2 text-sm">
+                        <span className="min-w-0 flex-1 truncate text-slate-600">
+                          {p.modelo || "Producto"}
+                          {p.cantidad > 1 && <span className="text-slate-400"> ×{p.cantidad}</span>}
+                        </span>
+                        <span className="font-semibold text-slate-900">{formatCurrency(subtotal)}</span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-baseline justify-between gap-2 border-t border-slate-100 pt-1 text-sm">
+                    <span className="text-xs text-slate-500">Subtotal productos</span>
+                    <span className="font-bold text-slate-900">
+                      {formatCurrency(leadProductos.reduce((acc, p) => acc + (p.precioUnitario || 0) * (p.cantidad || 1), 0))}
+                    </span>
+                  </div>
+                </div>
+              ) : valorProductoEdit ? (
                 <input type="number" value={localValorProducto ?? lead.valorProducto} autoFocus
                   onChange={(e) => setLocalValorProducto(parseFloat(e.target.value) || 0)}
                   onBlur={() => {
@@ -309,10 +330,19 @@ function ClienteDetalle() {
             </div>
             <div className="border-t border-slate-100 pt-2">
               <div className="text-xs text-slate-500 mb-1">Total</div>
-              <div className="text-2xl font-bold text-slate-900">{formatCurrency(lead.valorProducto + lead.valorEnvio)}</div>
+              <div className="text-2xl font-bold text-slate-900">
+                {formatCurrency(
+                  (leadProductos.length > 0
+                    ? leadProductos.reduce((acc, p) => acc + (p.precioUnitario || 0) * (p.cantidad || 1), 0)
+                    : lead.valorProducto)
+                  + lead.valorEnvio
+                )}
+              </div>
             </div>
           </div>
-          <div className="mt-2 text-xs text-slate-400">Toca para editar</div>
+          <div className="mt-2 text-xs text-slate-400">
+            {leadProductos.length > 0 ? "Edita el precio en cada producto" : "Toca para editar"}
+          </div>
         </div>
       </div>
 
