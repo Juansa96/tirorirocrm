@@ -268,14 +268,36 @@ function ProductoForm({
   const btn = (active: boolean) => `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
   const section = "text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2";
 
+  function TelaSelect({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+    const [otroMode, setOtroMode] = useState(() => value !== "" && !TELAS_SUGERIDAS.includes(value));
+    return (
+      <div className="space-y-2">
+        <select
+          className={inp}
+          value={otroMode ? "__otro__" : value}
+          onChange={e => {
+            if (e.target.value === "__otro__") { setOtroMode(true); onChange(""); }
+            else { setOtroMode(false); onChange(e.target.value); }
+          }}
+        >
+          <option value="">— Selecciona tela —</option>
+          {TELAS_SUGERIDAS.map(t => <option key={t} value={t}>{t}</option>)}
+          <option value="__otro__">Otra tela (escribir manualmente)</option>
+        </select>
+        {otroMode && (
+          <input type="text" className={inp} value={value} onChange={e => onChange(e.target.value)}
+            placeholder={placeholder ?? "Escribe el nombre de la tela…"} autoFocus />
+        )}
+      </div>
+    );
+  }
+
   function TelaSection({ showLateral }: { showLateral: boolean }) {
     return (
       <div className="space-y-3">
         <div>
           <div className={section}>Tela principal</div>
-          <input list="telas-sugeridas" className={inp} value={f.tela} onChange={e => s({ tela: e.target.value })} placeholder="Ej. Arequipa Beige, Romántica Gris…" />
-          <datalist id="telas-sugeridas">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
-          <p className="mt-1 text-xs text-slate-400">Puedes escribir cualquier tela aunque no aparezca en la lista</p>
+          <TelaSelect value={f.tela} onChange={v => s({ tela: v })} />
         </div>
         <div>
           <div className={section}>Colección</div>
@@ -286,8 +308,7 @@ function ProductoForm({
         {showLateral && (
           <div>
             <div className={section}>Tela lateral <span className="normal-case font-normal text-slate-400">(opcional, +15€ — vacío = igual que la principal)</span></div>
-            <input list="telas-lateral" className={inp} value={f.telaLateral} onChange={e => s({ telaLateral: e.target.value })} placeholder="Dejar vacío si es la misma tela" />
-            <datalist id="telas-lateral">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+            <TelaSelect value={f.telaLateral} onChange={v => s({ telaLateral: v })} placeholder="Dejar vacío si es la misma tela" />
           </div>
         )}
       </div>
@@ -342,9 +363,7 @@ function ProductoForm({
           {(f.acabado === "vivo-simple" || f.acabado === "vivo-doble") && (
             <div>
               <div className={section}>Tela del vivo <span className="normal-case font-normal text-slate-400">(opcional — vacío = igual que la principal)</span></div>
-              <input list="telas-vivo-cabecero" className={inp} value={f.telaVivo} onChange={e => s({ telaVivo: e.target.value })} placeholder="Tela para el ribete…" />
-              <datalist id="telas-vivo-cabecero">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
-              <p className="mt-1 text-xs text-slate-400">Puedes escribir cualquier tela aunque no aparezca en la lista</p>
+              <TelaSelect value={f.telaVivo} onChange={v => s({ telaVivo: v })} placeholder="Tela para el ribete…" />
             </div>
           )}
           <div>
@@ -386,9 +405,7 @@ function ProductoForm({
           {(f.acabado === "vivo-simple" || f.acabado === "vivo-doble") && (
             <div>
               <div className={section}>Tela del vivo <span className="normal-case font-normal text-slate-400">(opcional — vacío = igual que la principal)</span></div>
-              <input list="telas-vivo-puf" className={inp} value={f.telaVivo} onChange={e => s({ telaVivo: e.target.value })} placeholder="Tela para el ribete…" />
-              <datalist id="telas-vivo-puf">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
-              <p className="mt-1 text-xs text-slate-400">Puedes escribir cualquier tela aunque no aparezca en la lista</p>
+              <TelaSelect value={f.telaVivo} onChange={v => s({ telaVivo: v })} placeholder="Tela para el ribete…" />
             </div>
           )}
           <div>
