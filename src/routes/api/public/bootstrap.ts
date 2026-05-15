@@ -71,6 +71,12 @@ export const Route = createFileRoute("/api/public/bootstrap")({
     handlers: {
       GET: async () => {
         try {
+          if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            return new Response(JSON.stringify({ skipped: true, reason: "Admin backend unavailable in this runtime" }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
           const result = await run();
           return new Response(JSON.stringify(result), {
             status: 200,
