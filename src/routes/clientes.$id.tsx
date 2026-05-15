@@ -51,11 +51,11 @@ function googleCalendarUrl(t: Tarea, clienteNombre: string): string {
   return `${base}&text=${title}&dates=${dates}&details=${encodeURIComponent("Lead: " + clienteNombre)}`;
 }
 
-// ── Configurador data (mirrors tirorirohome.com web configurator) ─────────────
+// ── Configurador (espejo exacto de tirorirohome.com — solo productos visibles) ──
+// Banco y Almohadón: "Próximamente" en la web → no se muestran aquí todavía.
+// Si se activan en la web, añadir sus ids a TIPOS_PRODUCTO y sus secciones al form.
 const TIPOS_PRODUCTO = [
   { id: "cabecero", label: "Cabecero" },
-  { id: "banco",    label: "Banco" },
-  { id: "cojin",    label: "Almohadón" },
   { id: "puf",      label: "Puf" },
   { id: "mesa",     label: "Mesa de centro" },
   { id: "pantalla", label: "Pantalla de lámpara" },
@@ -69,24 +69,10 @@ const CABECERO_FORMAS = [
   { id: "ondas",         name: "Barbaria" },
 ];
 const CABECERO_ANCHOS = ["90", "105", "135", "150", "160", "180", "200"];
+const CABECERO_ALTOS  = ["100", "120"];
 
-const BANCO_VARIANTES = [
-  { id: "madera",    name: "Patas de madera" },
-  { id: "enteladas", name: "Patas enteladas" },
-  { id: "baul",      name: "Estilo baúl" },
-];
-
-const ALMOHADON_OPCIONES = [
-  { id: "rodiles-40×40 cm",   label: "Rodiles — 40×40 cm" },
-  { id: "rodiles-45×45 cm",   label: "Rodiles — 45×45 cm" },
-  { id: "rodiles-50×50 cm",   label: "Rodiles — 50×50 cm" },
-  { id: "covadonga-50×30 cm", label: "Covadonga — 50×30 cm" },
-  { id: "covadonga-60×40 cm", label: "Covadonga — 60×40 cm" },
-  { id: "gulpiyuri-13×90 cm", label: "Gulpiyuri (rulo) — 13×90 cm" },
-];
-
-const PUF_TAMAÑOS = ["40", "50"];
-
+// Puf: solo forma "Patos" (cuadrado) visible — Monteferro próximamente
+// Mesa: solo "Cabo de Palos" visible — Calblanque próximamente
 const MESA_PRESETS = ["120×45×60 cm", "80×45×80 cm"];
 const MESA_SUPERFICIES = [
   { id: "nada",        name: "Sin superficie" },
@@ -94,24 +80,28 @@ const MESA_SUPERFICIES = [
   { id: "cristal",     name: "Cristal 6 mm (+100€)" },
 ];
 
-const PANTALLA_OPCIONES: Record<string, string[]> = {
-  cilindro:   ["Ø15×20 cm", "Ø25×25 cm", "Ø40×40 cm"],
-  cuadrado:   ["20×20 cm"],
-  rectangulo: ["20×40 cm"],
-};
+// Pantalla: 3 formas visibles — Gredos, La Galana, La Paramera próximamente
 const PANTALLA_FORMAS = [
   { id: "cilindro",   name: "Almanzor — Cilíndrico" },
   { id: "cuadrado",   name: "Tormes — Cuadrado" },
   { id: "rectangulo", name: "La Serrota — Rectangular" },
 ];
+const PANTALLA_OPCIONES: Record<string, string[]> = {
+  cilindro:   ["Ø15×20 cm", "Ø25×25 cm", "Ø40×40 cm"],
+  cuadrado:   ["20×20 cm"],
+  rectangulo: ["20×40 cm"],
+};
 
-const FINISHES = [
-  { id: "liso",        name: "Sin acabado" },
+// Acabados por tipo (igual que en la web)
+const FINISHES_CABECERO = [
   { id: "vivo-simple", name: "Vivo simple (incluido)" },
   { id: "vivo-doble",  name: "Vivo doble (+10€)" },
 ];
+const FINISHES_PUF = [
+  { id: "liso",        name: "Sin acabado" },
+  { id: "vivo-simple", name: "Vivo simple" },
+];
 
-// Key telas from the web (free text, datalist for suggestions)
 const TELAS_SUGERIDAS = [
   "Arequipa Beige","Ikat Natural","Ikat Verde Agua","Ikat Arena","Ikat Bali Azul",
   "Mil Rayas Gris","Rayas Arena","Mil Rayas Azul Marino","Flor Azul Protea","Floralia Vintage",
@@ -123,35 +113,47 @@ const TELAS_SUGERIDAS = [
   "Raya Monina","Rayas Jules Verde","Lino Azul Provenzal","Lino Flores Normandía","Lino Flores Senda",
 ];
 
-type ProdTipo = "cabecero" | "banco" | "cojin" | "puf" | "mesa" | "pantalla" | "";
+type ProdTipo = "cabecero" | "puf" | "mesa" | "pantalla" | "";
 
 interface ProdState {
   tipo: ProdTipo;
   // cabecero
-  forma: string; anchoCama: string; altoCm: string; telaLateral: string; colgador: boolean;
-  // banco
-  varianteBanco: string; largoBanco: string; altoBanco: string;
-  // cojin
-  opcionAlmohadon: string;
+  forma: string;
+  anchoCama: string;       // preset o "custom"
+  anchoCamaCustom: string;
+  altoCabecero: string;    // "100" | "120" | "custom"
+  altoCabeceroCustom: string;
+  telaLateral: string;
+  colgador: boolean;
   // puf
-  tamanoPuf: string; cantidadPuf: string;
+  tamanoPuf: string;       // "40" | "50" | "custom"
+  tamanoPufCustom: string;
+  cantidadPuf: string;
   // mesa
-  presetMesa: string; superficieMesa: string;
+  presetMesa: string;      // preset o "custom"
+  mesaLargo: string; mesaAlto: string; mesaFondo: string;
+  superficieMesa: string;
   // pantalla
-  formaPantalla: string; tamanoPantalla: string;
-  // common
-  tela: string; coleccionTela: string; acabado: string;
-  cantidad: number; precioUnitario: number; notasProducto: string;
+  formaPantalla: string;
+  tamanoPantalla: string;
+  // común
+  tela: string;
+  coleccionTela: string;
+  acabado: string;
+  tapetes: boolean;
+  cantidad: number;
+  precioUnitario: number;
+  notasProducto: string;
 }
 
 const EMPTY_PROD_STATE: ProdState = {
-  tipo: "", forma: "recto", anchoCama: "", altoCm: "", telaLateral: "", colgador: false,
-  varianteBanco: "madera", largoBanco: "", altoBanco: "",
-  opcionAlmohadon: "rodiles-45×45 cm",
-  tamanoPuf: "40", cantidadPuf: "1",
-  presetMesa: "120×45×60 cm", superficieMesa: "nada",
+  tipo: "",
+  forma: "recto", anchoCama: "150", anchoCamaCustom: "", altoCabecero: "100", altoCabeceroCustom: "", telaLateral: "", colgador: false,
+  tamanoPuf: "40", tamanoPufCustom: "", cantidadPuf: "1",
+  presetMesa: "120×45×60 cm", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   formaPantalla: "cilindro", tamanoPantalla: "Ø40×40 cm",
   tela: "", coleccionTela: "Básicas", acabado: "vivo-simple",
+  tapetes: false,
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
 
@@ -159,47 +161,45 @@ function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "cr
   let modelo = "", ancho: number | null = null, alto: number | null = null;
   let color = "", relleno = "", patas = "";
 
+  const extras = (items: (string | false)[]) => items.filter(Boolean).join(" · ");
+
   if (f.tipo === "cabecero") {
     modelo = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma;
-    ancho = f.anchoCama ? Number(f.anchoCama) : null;
-    alto = f.altoCm ? Number(f.altoCm) : null;
+    ancho = f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
+    alto  = f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
     color = f.telaLateral;
-    patas = f.colgador ? "Con colgador" : "";
-  } else if (f.tipo === "banco") {
-    modelo = BANCO_VARIANTES.find(x => x.id === f.varianteBanco)?.name ?? f.varianteBanco;
-    ancho = f.largoBanco ? Number(f.largoBanco) : null;
-    alto = f.altoBanco ? Number(f.altoBanco) : null;
-  } else if (f.tipo === "cojin") {
-    const opt = ALMOHADON_OPCIONES.find(x => x.id === f.opcionAlmohadon);
-    modelo = opt?.label ?? f.opcionAlmohadon;
-    const dims = f.opcionAlmohadon.split("-")[1]?.replace(" cm", "").split("×");
-    ancho = dims ? Number(dims[0]) : null;
-    alto = dims ? Number(dims[1]) : null;
+    patas = extras([f.colgador && "Con colgador (+5€)", f.tapetes && "Tapetes protectores (+5€)"]);
   } else if (f.tipo === "puf") {
-    modelo = `${f.tamanoPuf} cm`;
-    ancho = Number(f.tamanoPuf);
+    modelo = "Patos";
+    ancho  = f.tamanoPuf === "custom" ? (Number(f.tamanoPufCustom) || null) : (Number(f.tamanoPuf) || null);
+    color  = f.telaLateral;
+    patas  = extras([f.tapetes && "Tapetes protectores (+5€)"]);
   } else if (f.tipo === "mesa") {
-    modelo = f.presetMesa;
-    const dims = f.presetMesa.replace(" cm", "").split("×");
-    ancho = dims[0] ? Number(dims[0]) : null;
-    alto = dims[1] ? Number(dims[1]) : null;
+    if (f.presetMesa === "custom") {
+      modelo = "Medida personalizada";
+      ancho  = Number(f.mesaLargo) || null;
+      alto   = Number(f.mesaAlto) || null;
+      relleno = f.mesaFondo;
+    } else {
+      modelo = f.presetMesa;
+      const dims = f.presetMesa.replace(" cm", "").split("×");
+      ancho  = dims[0] ? Number(dims[0]) : null;
+      alto   = dims[1] ? Number(dims[1]) : null;
+      relleno = dims[2] ?? "";
+    }
     color = MESA_SUPERFICIES.find(x => x.id === f.superficieMesa)?.name ?? "";
+    patas = extras([f.tapetes && "Tapetes protectores (+5€)"]);
   } else if (f.tipo === "pantalla") {
     const fn = PANTALLA_FORMAS.find(x => x.id === f.formaPantalla)?.name.split("—")[0].trim() ?? "";
-    modelo = `${fn} ${f.tamanoPantalla}`.trim();
+    modelo  = `${fn} ${f.tamanoPantalla}`.trim();
     relleno = f.formaPantalla;
-    patas = f.tamanoPantalla;
+    patas   = extras([f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)"]);
   }
 
   return {
     tipo: f.tipo,
-    modelo,
-    ancho,
-    alto,
-    tela: f.tela,
-    color,
-    relleno,
-    patas,
+    modelo, ancho, alto,
+    tela: f.tela, color, relleno, patas,
     acabado: f.acabado,
     coleccionTela: f.coleccionTela,
     cantidad: f.tipo === "puf" ? Number(f.cantidadPuf) : f.cantidad,
@@ -214,30 +214,38 @@ function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "crea
   s.tela = p.tela;
   s.coleccionTela = p.coleccionTela || "Básicas";
   s.acabado = p.acabado || "vivo-simple";
-  s.cantidad = p.cantidad;
   s.precioUnitario = p.precioUnitario;
   s.notasProducto = p.notasProducto;
+  s.tapetes = p.patas?.includes("Tapetes") ?? false;
+
   if (p.tipo === "cabecero") {
     s.forma = CABECERO_FORMAS.find(x => x.name === p.modelo)?.id ?? "recto";
-    s.anchoCama = p.ancho ? String(p.ancho) : "";
-    s.altoCm = p.alto ? String(p.alto) : "";
+    const a = p.ancho ? String(p.ancho) : "";
+    s.anchoCama = CABECERO_ANCHOS.includes(a) ? a : (a ? "custom" : "150");
+    s.anchoCamaCustom = CABECERO_ANCHOS.includes(a) ? "" : a;
+    const h = p.alto ? String(p.alto) : "";
+    s.altoCabecero = CABECERO_ALTOS.includes(h) ? h : (h ? "custom" : "100");
+    s.altoCabeceroCustom = CABECERO_ALTOS.includes(h) ? "" : h;
     s.telaLateral = p.color;
-    s.colgador = p.patas === "Con colgador";
-  } else if (p.tipo === "banco") {
-    s.varianteBanco = BANCO_VARIANTES.find(x => x.name === p.modelo)?.id ?? "madera";
-    s.largoBanco = p.ancho ? String(p.ancho) : "";
-    s.altoBanco = p.alto ? String(p.alto) : "";
-  } else if (p.tipo === "cojin") {
-    s.opcionAlmohadon = ALMOHADON_OPCIONES.find(x => x.label === p.modelo)?.id ?? "rodiles-45×45 cm";
+    s.colgador = p.patas?.includes("Con colgador") ?? false;
+    s.cantidad = p.cantidad;
   } else if (p.tipo === "puf") {
-    s.tamanoPuf = p.ancho ? String(p.ancho) : "40";
+    const a = p.ancho ? String(p.ancho) : "";
+    s.tamanoPuf = ["40","50"].includes(a) ? a : (a ? "custom" : "40");
+    s.tamanoPufCustom = ["40","50"].includes(a) ? "" : a;
     s.cantidadPuf = String(p.cantidad);
+    s.telaLateral = p.color;
   } else if (p.tipo === "mesa") {
-    s.presetMesa = p.modelo || "120×45×60 cm";
+    s.presetMesa = MESA_PRESETS.includes(p.modelo) ? p.modelo : "custom";
+    s.mesaLargo = p.ancho ? String(p.ancho) : "";
+    s.mesaAlto  = p.alto  ? String(p.alto)  : "";
+    s.mesaFondo = p.relleno ?? "";
     s.superficieMesa = MESA_SUPERFICIES.find(x => x.name === p.color)?.id ?? "nada";
+    s.cantidad = p.cantidad;
   } else if (p.tipo === "pantalla") {
     s.formaPantalla = p.relleno || "cilindro";
-    s.tamanoPantalla = p.patas || "";
+    s.tamanoPantalla = (p.patas ?? "").split(" · ")[0] || "";
+    s.cantidad = p.cantidad;
   }
   return s;
 }
@@ -252,208 +260,185 @@ function ProductoForm({
   const [f, setF] = useState<ProdState>(initial);
   const s = (patch: Partial<ProdState>) => setF(prev => ({ ...prev, ...patch }));
   const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
-  const btnTipo = (id: string) => `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${f.tipo === id ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
+  const btn = (active: boolean) => `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
+  const section = "text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2";
+
+  function TelaSection({ showLateral }: { showLateral: boolean }) {
+    return (
+      <div className="space-y-3">
+        <div>
+          <div className={section}>Tela principal</div>
+          <input list="telas-sugeridas" className={inp} value={f.tela} onChange={e => s({ tela: e.target.value })} placeholder="Ej. Arequipa Beige, Baqueira…" />
+          <datalist id="telas-sugeridas">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+        </div>
+        <div>
+          <div className={section}>Colección</div>
+          <div className="flex gap-2">
+            {["Básicas","Premium"].map(c => <button key={c} type="button" onClick={() => s({ coleccionTela: c })} className={btn(f.coleccionTela === c)}>{c}</button>)}
+          </div>
+        </div>
+        {showLateral && (
+          <div>
+            <div className={section}>Tela lateral <span className="normal-case font-normal text-slate-400">(opcional, +15€ — vacío = igual que la principal)</span></div>
+            <input list="telas-lateral" className={inp} value={f.telaLateral} onChange={e => s({ telaLateral: e.target.value })} placeholder="Dejar vacío si es la misma tela" />
+            <datalist id="telas-lateral">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-      {/* Tipo de producto */}
+    <div className="space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      {/* 1. Tipo */}
       <div>
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo de producto</div>
+        <div className={section}>Tipo de producto</div>
         <div className="flex flex-wrap gap-2">
           {TIPOS_PRODUCTO.map(t => (
-            <button key={t.id} type="button" onClick={() => s({ tipo: t.id as ProdTipo })} className={btnTipo(t.id)}>{t.label}</button>
+            <button key={t.id} type="button" onClick={() => s({ tipo: t.id as ProdTipo })} className={btn(f.tipo === t.id)}>{t.label}</button>
           ))}
         </div>
       </div>
 
-      {/* Cabecero */}
+      {/* ── CABECERO ────────────────────────────────────────────── */}
       {f.tipo === "cabecero" && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Forma</label>
-              <select className={inp} value={f.forma} onChange={e => s({ forma: e.target.value })}>
-                {CABECERO_FORMAS.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Ancho de cama (cm)</label>
-              <select className={inp} value={f.anchoCama} onChange={e => s({ anchoCama: e.target.value })}>
-                <option value="">Seleccionar…</option>
-                {CABECERO_ANCHOS.map(a => <option key={a} value={a}>{a} cm</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Alto (cm)</label>
-              <input type="number" className={inp} value={f.altoCm} onChange={e => s({ altoCm: e.target.value })} placeholder="ej. 100" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Acabado</label>
-              <select className={inp} value={f.acabado} onChange={e => s({ acabado: e.target.value })}>
-                {FINISHES.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
-              </select>
-            </div>
-            <div className="flex items-end pb-1.5">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" checked={f.colgador} onChange={e => s({ colgador: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" />
-                Con colgador (+5€)
-              </label>
+        <>
+          <div>
+            <div className={section}>Forma</div>
+            <div className="flex flex-wrap gap-2">
+              {CABECERO_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ forma: x.id })} className={btn(f.forma === x.id)}>{x.name}</button>)}
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Tela laterales (opcional — si es diferente)</label>
-            <input list="telas-lateral-list" className={inp} value={f.telaLateral} onChange={e => s({ telaLateral: e.target.value })} placeholder="Dejar vacío si es la misma tela" />
-            <datalist id="telas-lateral-list">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+            <div className={section}>Ancho de cama</div>
+            <div className="flex flex-wrap gap-2">
+              {CABECERO_ANCHOS.map(a => <button key={a} type="button" onClick={() => s({ anchoCama: a })} className={btn(f.anchoCama === a)}>{a} cm</button>)}
+              <button type="button" onClick={() => s({ anchoCama: "custom" })} className={btn(f.anchoCama === "custom")}>Otra medida</button>
+            </div>
+            {f.anchoCama === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.anchoCamaCustom} onChange={e => s({ anchoCamaCustom: e.target.value })} placeholder="cm" min={60} max={300} />}
           </div>
-        </div>
-      )}
-
-      {/* Banco */}
-      {f.tipo === "banco" && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <div className="md:col-span-3">
-            <label className="mb-1 block text-xs font-medium text-slate-600">Variante</label>
-            <div className="flex gap-2">
-              {BANCO_VARIANTES.map(v => (
-                <button key={v.id} type="button" onClick={() => s({ varianteBanco: v.id })}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.varianteBanco === v.id ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                  {v.name}
-                </button>
-              ))}
+          <div>
+            <div className={section}>Alto del cabecero</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => s({ altoCabecero: "100" })} className={btn(f.altoCabecero === "100")}>100 cm (estándar)</button>
+              <button type="button" onClick={() => s({ altoCabecero: "120" })} className={btn(f.altoCabecero === "120")}>120 cm</button>
+              <button type="button" onClick={() => s({ altoCabecero: "custom" })} className={btn(f.altoCabecero === "custom")}>Otra medida</button>
+            </div>
+            {f.altoCabecero === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.altoCabeceroCustom} onChange={e => s({ altoCabeceroCustom: e.target.value })} placeholder="cm" min={40} max={200} />}
+          </div>
+          <TelaSection showLateral />
+          <div>
+            <div className={section}>Acabado</div>
+            <div className="flex flex-wrap gap-2">
+              {FINISHES_CABECERO.map(x => <button key={x.id} type="button" onClick={() => s({ acabado: x.id })} className={btn(f.acabado === x.id)}>{x.name}</button>)}
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Largo (cm)</label>
-            <input type="number" className={inp} value={f.largoBanco} onChange={e => s({ largoBanco: e.target.value })} placeholder="ej. 120" />
+            <div className={section}>Extras</div>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.colgador} onChange={e => s({ colgador: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Colgador (+5€)</label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Alto (cm)</label>
-            <input type="number" className={inp} value={f.altoBanco} onChange={e => s({ altoBanco: e.target.value })} placeholder="ej. 45" />
-          </div>
-        </div>
+        </>
       )}
 
-      {/* Almohadón */}
-      {f.tipo === "cojin" && (
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Forma y tamaño</label>
-          <div className="flex flex-wrap gap-2">
-            {ALMOHADON_OPCIONES.map(o => (
-              <button key={o.id} type="button" onClick={() => s({ opcionAlmohadon: o.id })}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.opcionAlmohadon === o.id ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Puf */}
+      {/* ── PUF ─────────────────────────────────────────────────── */}
       {f.tipo === "puf" && (
-        <div className="grid grid-cols-2 gap-3">
+        <>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Tamaño (diámetro)</label>
+            <div className={section}>Tamaño (diámetro)</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => s({ tamanoPuf: "40" })} className={btn(f.tamanoPuf === "40")}>40 cm</button>
+              <button type="button" onClick={() => s({ tamanoPuf: "50" })} className={btn(f.tamanoPuf === "50")}>50 cm</button>
+              <button type="button" onClick={() => s({ tamanoPuf: "custom" })} className={btn(f.tamanoPuf === "custom")}>Otra medida</button>
+            </div>
+            {f.tamanoPuf === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.tamanoPufCustom} onChange={e => s({ tamanoPufCustom: e.target.value })} placeholder="cm" min={30} max={120} />}
+          </div>
+          <div>
+            <div className={section}>Cantidad</div>
             <div className="flex gap-2">
-              {PUF_TAMAÑOS.map(t => (
-                <button key={t} type="button" onClick={() => s({ tamanoPuf: t })}
-                  className={`rounded-lg border px-4 py-2 text-xs font-medium transition-colors ${f.tamanoPuf === t ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                  {t} cm
-                </button>
-              ))}
+              <button type="button" onClick={() => s({ cantidadPuf: "1" })} className={btn(f.cantidadPuf === "1")}>1 puf</button>
+              <button type="button" onClick={() => s({ cantidadPuf: "2" })} className={btn(f.cantidadPuf === "2")}>2 pufs (pareja)</button>
+            </div>
+          </div>
+          <TelaSection showLateral />
+          <div>
+            <div className={section}>Acabado</div>
+            <div className="flex flex-wrap gap-2">
+              {FINISHES_PUF.map(x => <button key={x.id} type="button" onClick={() => s({ acabado: x.id })} className={btn(f.acabado === x.id)}>{x.name}</button>)}
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Cantidad</label>
-            <div className="flex gap-2">
-              {[["1","Individual"],["2","Pareja (×2)"]].map(([v,l]) => (
-                <button key={v} type="button" onClick={() => s({ cantidadPuf: v })}
-                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${f.cantidadPuf === v ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                  {l}
-                </button>
-              ))}
-            </div>
+            <div className={section}>Extras</div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Mesa */}
+      {/* ── MESA ─────────────────────────────────────────────────── */}
       {f.tipo === "mesa" && (
-        <div className="grid grid-cols-2 gap-3">
+        <>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Medidas (largo×alto×fondo)</label>
-            <div className="flex gap-2">
-              {MESA_PRESETS.map(p => (
-                <button key={p} type="button" onClick={() => s({ presetMesa: p })}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.presetMesa === p ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                  {p}
-                </button>
-              ))}
+            <div className={section}>Medidas (largo × alto × fondo)</div>
+            <div className="flex flex-wrap gap-2">
+              {MESA_PRESETS.map(p => <button key={p} type="button" onClick={() => s({ presetMesa: p })} className={btn(f.presetMesa === p)}>{p}</button>)}
+              <button type="button" onClick={() => s({ presetMesa: "custom" })} className={btn(f.presetMesa === "custom")}>Otra medida</button>
+            </div>
+            {f.presetMesa === "custom" && (
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <div><label className="mb-1 block text-xs text-slate-500">Largo (cm)</label><input type="number" className={inp} value={f.mesaLargo} onChange={e => s({ mesaLargo: e.target.value })} min={40} max={300} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" className={inp} value={f.mesaAlto} onChange={e => s({ mesaAlto: e.target.value })} min={20} max={100} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label><input type="number" className={inp} value={f.mesaFondo} onChange={e => s({ mesaFondo: e.target.value })} min={20} max={150} /></div>
+              </div>
+            )}
+          </div>
+          <TelaSection showLateral={false} />
+          <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+            Acabado: <strong>Vivo simple</strong> — incluido en el precio
+          </div>
+          <div>
+            <div className={section}>Superficie encima de la mesa</div>
+            <div className="flex flex-wrap gap-2">
+              {MESA_SUPERFICIES.map(x => <button key={x.id} type="button" onClick={() => s({ superficieMesa: x.id })} className={btn(f.superficieMesa === x.id)}>{x.name}</button>)}
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Superficie superior</label>
-            <select className={inp} value={f.superficieMesa} onChange={e => s({ superficieMesa: e.target.value })}>
-              {MESA_SUPERFICIES.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
-            </select>
+            <div className={section}>Extras</div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Pantalla de lámpara */}
+      {/* ── PANTALLA ─────────────────────────────────────────────── */}
       {f.tipo === "pantalla" && (
-        <div className="grid grid-cols-2 gap-3">
+        <>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Forma</label>
-            <select className={inp} value={f.formaPantalla} onChange={e => s({ formaPantalla: e.target.value, tamanoPantalla: PANTALLA_OPCIONES[e.target.value]?.[0] ?? "" })}>
-              {PANTALLA_FORMAS.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
-            </select>
+            <div className={section}>Forma</div>
+            <div className="flex flex-wrap gap-2">
+              {PANTALLA_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ formaPantalla: x.id, tamanoPantalla: PANTALLA_OPCIONES[x.id]?.[0] ?? "" })} className={btn(f.formaPantalla === x.id)}>{x.name}</button>)}
+            </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Tamaño</label>
-            <select className={inp} value={f.tamanoPantalla} onChange={e => s({ tamanoPantalla: e.target.value })}>
-              {(PANTALLA_OPCIONES[f.formaPantalla] ?? []).map(sz => <option key={sz} value={sz}>{sz}</option>)}
-            </select>
+            <div className={section}>Medida</div>
+            <div className="flex flex-wrap gap-2">
+              {(PANTALLA_OPCIONES[f.formaPantalla] ?? []).map(sz => <button key={sz} type="button" onClick={() => s({ tamanoPantalla: sz })} className={btn(f.tamanoPantalla === sz)}>{sz}</button>)}
+            </div>
           </div>
-        </div>
+          <TelaSection showLateral={false} />
+          <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+            Acabado: <strong>Ribete incluido</strong> — vivo en borde superior e inferior sin coste adicional
+          </div>
+          <div>
+            <div className={section}>Extras</div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
+          </div>
+        </>
       )}
 
-      {/* Tela — always visible once tipo is selected */}
+      {/* ── Precio / cantidad / notas (siempre, si hay tipo) ──── */}
       {f.tipo && (
-        <div className="space-y-3 border-t border-slate-200 pt-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Tela principal</label>
-              <input list="telas-sugeridas" className={inp} value={f.tela} onChange={e => s({ tela: e.target.value })} placeholder="Ej. Arequipa Beige, Baqueira..." />
-              <datalist id="telas-sugeridas">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Colección</label>
-              <div className="flex gap-2 pt-1">
-                {["Básicas","Premium"].map(c => (
-                  <button key={c} type="button" onClick={() => s({ coleccionTela: c })}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.coleccionTela === c ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          {/* Acabado — not shown for pantalla (ribete incluido always) or puf */}
-          {f.tipo !== "pantalla" && f.tipo !== "puf" && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Acabado</label>
-              <div className="flex flex-wrap gap-2">
-                {FINISHES.map(x => (
-                  <button key={x.id} type="button" onClick={() => s({ acabado: x.id })}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.acabado === x.id ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                    {x.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="space-y-3 border-t border-slate-200 pt-4">
           <div className="grid grid-cols-2 gap-3">
             {f.tipo !== "puf" && (
               <div>

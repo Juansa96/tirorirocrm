@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
+import { TiroritoLogo } from "@/components/TiroritoLogo";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Iniciar sesión — TiroCRM" }] }),
@@ -38,12 +39,9 @@ function LoginPage() {
         onSubmit={submit}
         className="w-full max-w-sm space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
-        <div className="text-center">
-          <div className="text-2xl font-bold leading-tight">
-            <span className="text-slate-900">Tiroriro</span>
-            <span className="text-amber-500">Home</span>
-          </div>
-          <div className="mt-1 text-xs uppercase tracking-wider text-slate-400">Sales CRM</div>
+        <div className="flex flex-col items-center gap-2">
+          <TiroritoLogo className="h-14 w-auto text-[#1a4b5b]" />
+          <div className="text-xs uppercase tracking-wider text-slate-400">Sales CRM</div>
         </div>
 
         <div>

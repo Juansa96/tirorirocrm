@@ -38,7 +38,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
-        <TiroritoLogo className="h-9 w-auto text-[#1a4b5b]" />
+        <TiroritoLogo className="h-7 w-auto text-[#1a4b5b]" />
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-slate-700">{displayName}</span>
           <button
@@ -54,8 +54,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex">
         <aside className="sticky top-0 hidden h-screen shrink-0 flex-col bg-[#1a1f36] md:flex md:w-[60px] lg:w-[240px]">
           <div className="flex h-16 items-center justify-center px-2 lg:justify-start lg:px-4">
-            <TiroritoLogo className="hidden h-10 w-auto text-white lg:block" />
-            <TiroritoLogo variant="icon" className="h-10 w-auto text-white lg:hidden" />
+            <TiroritoLogo className="hidden h-8 w-auto text-white lg:block" />
+            <TiroritoLogo variant="icon" className="h-8 w-auto text-white lg:hidden" />
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
             {NAV.map((item) => {
