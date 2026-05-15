@@ -29,6 +29,7 @@ function googleCalUrl(t: Tarea, nombre: string): string {
 }
 
 export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props) {
+  const navigate = useNavigate();
   const status = dateStatus(tarea.fecha);
   const fechaColor =
     status === "vencida" ? "text-red-600"
