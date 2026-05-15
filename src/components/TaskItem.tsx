@@ -84,9 +84,16 @@ export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props
   );
 
   if (showCheckbox) return content;
+  const navigate = useNavigate();
   return (
-    <Link to="/clientes/$id" params={{ id: tarea.leadId }} className="block">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate({ to: "/clientes/$id", params: { id: tarea.leadId } })}
+      onKeyDown={(e) => { if (e.key === "Enter") navigate({ to: "/clientes/$id", params: { id: tarea.leadId } }); }}
+      className="block cursor-pointer"
+    >
       {content}
-    </Link>
+    </div>
   );
 }
