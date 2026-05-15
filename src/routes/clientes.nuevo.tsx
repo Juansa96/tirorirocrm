@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { actions } from "@/lib/store";
 import { VENDEDORES, ETAPAS, ORIGENES, vendorName, type Etapa } from "@/lib/types";
 import { todayISO } from "@/lib/format";
+import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto } from "@/components/ProductoForm";
+import type { Producto } from "@/lib/types";
 
 export const Route = createFileRoute("/clientes/nuevo")({
   head: () => ({ meta: [{ title: "Nuevo Lead — TiroCRM" }] }),
@@ -17,10 +19,8 @@ function NuevoLead() {
     email: "",
     telefono: "",
     ciudad: "",
-    producto: "Cabecero",
     vendedor: "rocionavarreteurdiales98@gmail.com" as string,
     etapa: "Discovery" as Etapa,
-    valor: 0,
     valorProducto: 0,
     valorEnvio: 0,
     origen: "" as string,
@@ -28,6 +28,8 @@ function NuevoLead() {
     fechaHold: "",
   });
   const [tarea, setTarea] = useState({ descripcion: "", fecha: todayISO(), hora: "" });
+  const [prodState, setProdState] = useState<Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy"> | null>(null);
+  const [showProdForm, setShowProdForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -38,10 +40,16 @@ function NuevoLead() {
       return;
     }
     setSubmitting(true);
+    const tipoLabel = prodState
+      ? ({ cabecero: "Cabecero", puf: "Puf", mesa: "Mesa de centro", pantalla: "Pantalla de lámpara" }[prodState.tipo] ?? "Cabecero")
+      : "Cabecero";
     const lead = await actions.addLead(
-      { ...form, valor: form.valorProducto + form.valorEnvio },
+      { ...form, producto: tipoLabel, valor: form.valorProducto + form.valorEnvio },
       tarea.descripcion.trim() ? tarea : undefined,
     );
+    if (lead && prodState) {
+      await actions.addProducto(lead.id, prodState);
+    }
     setSubmitting(false);
     if (lead) navigate({ to: "/clientes/$id", params: { id: lead.id } });
   }
@@ -92,33 +100,18 @@ function NuevoLead() {
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Origen del lead</div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {ORIGENES.map(o => (
-              <button
-                key={o}
-                type="button"
-                onClick={() => setForm({...form, origen: o})}
-                className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                  form.origen === o
-                    ? "border-[#1a1f36] bg-[#1a1f36] text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
-                }`}
-              >
+              <button key={o} type="button" onClick={() => setForm({...form, origen: o})}
+                className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${form.origen === o ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}>
                 {o}
               </button>
             ))}
           </div>
         </div>
 
-        {/* CRM */}
+        {/* Pipeline */}
         <div>
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Pipeline</div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Producto / Interés</label>
-              <input list="productos-list" value={form.producto} onChange={e => setForm({...form, producto: e.target.value})} className={cls} />
-              <datalist id="productos-list">
-                <option value="Cabecero" /><option value="Tela" /><option value="Manta" /><option value="Otro" />
-              </datalist>
-            </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Vendedor asignado</label>
               <select value={form.vendedor} onChange={e => setForm({...form, vendedor: e.target.value})} className={cls}>
@@ -148,6 +141,34 @@ function NuevoLead() {
           </div>
         </div>
 
+        {/* Producto */}
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Producto (opcional)</div>
+            {!showProdForm && !prodState && (
+              <button type="button" onClick={() => setShowProdForm(true)}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400">
+                <Plus className="h-3.5 w-3.5" /> Añadir producto
+              </button>
+            )}
+          </div>
+          {showProdForm && (
+            <ProductoForm
+              initial={EMPTY_PROD_STATE}
+              onSave={p => { setProdState(p); setShowProdForm(false); }}
+              onCancel={() => setShowProdForm(false)}
+            />
+          )}
+          {prodState && !showProdForm && (
+            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+              <span className="font-medium text-emerald-800">
+                {prodState.tipo} {prodState.modelo ? `— ${prodState.modelo}` : ""}{prodState.tela ? ` · ${prodState.tela}` : ""}
+              </span>
+              <button type="button" onClick={() => setProdState(null)} className="text-xs text-slate-500 hover:text-red-600">Quitar</button>
+            </div>
+          )}
+        </div>
+
         {/* Primera tarea */}
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Primera tarea (opcional)</div>
@@ -160,7 +181,7 @@ function NuevoLead() {
 
         <div className="flex justify-end gap-2 pt-2">
           <Link to="/clientes" className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancelar</Link>
-          <button type="submit" disabled={submitting} className="rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-60">
+          <button type="submit" disabled={submitting || showProdForm} className="rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-60">
             {submitting ? "Creando…" : "Crear lead"}
           </button>
         </div>
