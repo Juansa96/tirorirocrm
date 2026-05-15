@@ -94,17 +94,26 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
 
   if (f.tipo === "cabecero") {
     modelo = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma;
-    ancho = f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
-    alto  = f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
+    ancho = f.anchoCama === "tbd" ? null : f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
+    alto  = f.altoCabecero === "tbd" ? null : f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
     color = f.telaLateral; relleno = f.telaVivo;
-    patas = extras([f.colgador && "Con colgador (+5€)", f.tapetes && "Tapetes protectores (+5€)"]);
+    const tbdAncho = f.anchoCama === "tbd";
+    const tbdAlto = f.altoCabecero === "tbd";
+    patas = extras([
+      f.colgador && "Con colgador (+5€)",
+      f.tapetes && "Tapetes protectores (+5€)",
+      (tbdAncho || tbdAlto) && `Medidas por decidir${tbdAncho && tbdAlto ? "" : tbdAncho ? " (ancho)" : " (alto)"}`,
+    ]);
   } else if (f.tipo === "puf") {
     modelo = "Patos";
-    ancho  = f.tamanoPuf === "custom" ? (Number(f.tamanoPufCustom) || null) : (Number(f.tamanoPuf) || null);
+    ancho  = f.tamanoPuf === "tbd" ? null : f.tamanoPuf === "custom" ? (Number(f.tamanoPufCustom) || null) : (Number(f.tamanoPuf) || null);
     color  = f.telaLateral; relleno = f.telaVivo;
-    patas  = extras([f.tapetes && "Tapetes protectores (+5€)"]);
+    patas  = extras([f.tapetes && "Tapetes protectores (+5€)", f.tamanoPuf === "tbd" && "Tamaño por decidir"]);
   } else if (f.tipo === "mesa") {
-    if (f.presetMesa === "custom") {
+    if (f.presetMesa === "tbd") {
+      modelo = "Medidas por decidir";
+      ancho = null; alto = null; relleno = "";
+    } else if (f.presetMesa === "custom") {
       modelo = "Medida personalizada";
       ancho = Number(f.mesaLargo) || null; alto = Number(f.mesaAlto) || null; relleno = f.mesaFondo;
     } else {
@@ -116,9 +125,10 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     patas = extras([f.tapetes && "Tapetes protectores (+5€)"]);
   } else if (f.tipo === "pantalla") {
     const fn = PANTALLA_FORMAS.find(x => x.id === f.formaPantalla)?.name.split("—")[0].trim() ?? "";
-    modelo = `${fn} ${f.tamanoPantalla}`.trim();
+    const tbd = f.tamanoPantalla === "tbd";
+    modelo = tbd ? `${fn} (medida por decidir)` : `${fn} ${f.tamanoPantalla}`.trim();
     relleno = f.formaPantalla;
-    patas = extras([f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)"]);
+    patas = extras([!tbd && f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)", tbd && "Medida por decidir"]);
   }
 
   return {
@@ -270,6 +280,7 @@ export function ProductoForm({
             <div className="flex flex-wrap gap-2">
               {CABECERO_ANCHOS.map(a => <button key={a} type="button" onClick={() => s({ anchoCama: a })} className={btn(f.anchoCama === a)}>{a} cm</button>)}
               <button type="button" onClick={() => s({ anchoCama: "custom" })} className={btn(f.anchoCama === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ anchoCama: "tbd" })} className={btn(f.anchoCama === "tbd")}>Por decidir</button>
             </div>
             {f.anchoCama === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.anchoCamaCustom} onChange={e => s({ anchoCamaCustom: e.target.value })} placeholder="cm" min={60} max={300} />}
           </div>
@@ -279,6 +290,7 @@ export function ProductoForm({
               <button type="button" onClick={() => s({ altoCabecero: "100" })} className={btn(f.altoCabecero === "100")}>100 cm (estándar)</button>
               <button type="button" onClick={() => s({ altoCabecero: "120" })} className={btn(f.altoCabecero === "120")}>120 cm</button>
               <button type="button" onClick={() => s({ altoCabecero: "custom" })} className={btn(f.altoCabecero === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ altoCabecero: "tbd" })} className={btn(f.altoCabecero === "tbd")}>Por decidir</button>
             </div>
             {f.altoCabecero === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.altoCabeceroCustom} onChange={e => s({ altoCabeceroCustom: e.target.value })} placeholder="cm" min={40} max={200} />}
           </div>
@@ -314,6 +326,7 @@ export function ProductoForm({
               <button type="button" onClick={() => s({ tamanoPuf: "40" })} className={btn(f.tamanoPuf === "40")}>40 cm</button>
               <button type="button" onClick={() => s({ tamanoPuf: "50" })} className={btn(f.tamanoPuf === "50")}>50 cm</button>
               <button type="button" onClick={() => s({ tamanoPuf: "custom" })} className={btn(f.tamanoPuf === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ tamanoPuf: "tbd" })} className={btn(f.tamanoPuf === "tbd")}>Por decidir</button>
             </div>
             {f.tamanoPuf === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.tamanoPufCustom} onChange={e => s({ tamanoPufCustom: e.target.value })} placeholder="cm" min={30} max={120} />}
           </div>
@@ -352,6 +365,7 @@ export function ProductoForm({
             <div className="flex flex-wrap gap-2">
               {MESA_PRESETS.map(p => <button key={p} type="button" onClick={() => s({ presetMesa: p })} className={btn(f.presetMesa === p)}>{p}</button>)}
               <button type="button" onClick={() => s({ presetMesa: "custom" })} className={btn(f.presetMesa === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ presetMesa: "tbd" })} className={btn(f.presetMesa === "tbd")}>Por decidir</button>
             </div>
             {f.presetMesa === "custom" && (
               <div className="mt-2 grid grid-cols-3 gap-2">
@@ -391,6 +405,7 @@ export function ProductoForm({
             <div className={section}>Medida</div>
             <div className="flex flex-wrap gap-2">
               {(PANTALLA_OPCIONES[f.formaPantalla] ?? []).map(sz => <button key={sz} type="button" onClick={() => s({ tamanoPantalla: sz })} className={btn(f.tamanoPantalla === sz)}>{sz}</button>)}
+              <button type="button" onClick={() => s({ tamanoPantalla: "tbd" })} className={btn(f.tamanoPantalla === "tbd")}>Por decidir</button>
             </div>
           </div>
           <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral={false} />
