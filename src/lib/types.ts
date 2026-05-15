@@ -101,13 +101,16 @@ export interface Nota {
 export interface Producto {
   id: string;
   leadId: string;
-  modelo: string;
-  ancho: number | null;
-  alto: number | null;
-  tela: string;
-  color: string;
-  relleno: string;
-  patas: string;
+  tipo: string;          // cabecero | banco | cojin | puf | mesa | pantalla
+  modelo: string;        // forma / variante display name
+  ancho: number | null;  // primary dimension cm
+  alto: number | null;   // secondary dimension cm
+  tela: string;          // main fabric name
+  color: string;         // lateral fabric (cabecero) OR size label
+  relleno: string;       // secondary info (profundidad, preset, etc.)
+  patas: string;         // extras (colgador, superficie, tamaño pantalla)
+  acabado: string;       // liso | vivo-simple | vivo-doble
+  coleccionTela: string; // Básicas | Premium
   cantidad: number;
   precioUnitario: number;
   notasProducto: string;

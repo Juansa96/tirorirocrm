@@ -78,6 +78,7 @@ function mapProducto(r: any): Producto {
   return {
     id: r.id,
     leadId: r.lead_id,
+    tipo: r.tipo ?? "",
     modelo: r.modelo ?? "",
     ancho: r.ancho != null ? Number(r.ancho) : null,
     alto: r.alto != null ? Number(r.alto) : null,
@@ -85,6 +86,8 @@ function mapProducto(r: any): Producto {
     color: r.color ?? "",
     relleno: r.relleno ?? "",
     patas: r.patas ?? "",
+    acabado: r.acabado ?? "",
+    coleccionTela: r.coleccion_tela ?? "",
     cantidad: Number(r.cantidad) || 1,
     precioUnitario: Number(r.precio_unitario) || 0,
     notasProducto: r.notas_producto ?? "",
@@ -322,6 +325,7 @@ export const actions = {
   async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
     await supabase.from("productos_lead").insert({
       lead_id: leadId,
+      tipo: input.tipo,
       modelo: input.modelo,
       ancho: input.ancho,
       alto: input.alto,
@@ -329,6 +333,8 @@ export const actions = {
       color: input.color,
       relleno: input.relleno,
       patas: input.patas,
+      acabado: input.acabado,
+      coleccion_tela: input.coleccionTela,
       cantidad: input.cantidad,
       precio_unitario: input.precioUnitario,
       notas_producto: input.notasProducto,
@@ -339,6 +345,7 @@ export const actions = {
 
   async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
     await supabase.from("productos_lead").update({
+      tipo: input.tipo,
       modelo: input.modelo,
       ancho: input.ancho,
       alto: input.alto,
@@ -346,6 +353,8 @@ export const actions = {
       color: input.color,
       relleno: input.relleno,
       patas: input.patas,
+      acabado: input.acabado,
+      coleccion_tela: input.coleccionTela,
       cantidad: input.cantidad,
       precio_unitario: input.precioUnitario,
       notas_producto: input.notasProducto,

@@ -51,89 +51,434 @@ function googleCalendarUrl(t: Tarea, clienteNombre: string): string {
   return `${base}&text=${title}&dates=${dates}&details=${encodeURIComponent("Lead: " + clienteNombre)}`;
 }
 
-// ── Producto form ──────────────────────────────────────────────────
-const EMPTY_PROD: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy"> = {
-  modelo: "", ancho: null, alto: null, tela: "", color: "",
-  relleno: "", patas: "", cantidad: 1, precioUnitario: 0, notasProducto: "",
+// ── Configurador data (mirrors tirorirohome.com web configurator) ─────────────
+const TIPOS_PRODUCTO = [
+  { id: "cabecero", label: "Cabecero" },
+  { id: "banco",    label: "Banco" },
+  { id: "cojin",    label: "Almohadón" },
+  { id: "puf",      label: "Puf" },
+  { id: "mesa",     label: "Mesa de centro" },
+  { id: "pantalla", label: "Pantalla de lámpara" },
+] as const;
+
+const CABECERO_FORMAS = [
+  { id: "recto",         name: "Calobra" },
+  { id: "semicirculo",   name: "Pregonda" },
+  { id: "corona-simple", name: "Macarella" },
+  { id: "corona-doble",  name: "Conta" },
+  { id: "ondas",         name: "Barbaria" },
+];
+const CABECERO_ANCHOS = ["90", "105", "135", "150", "160", "180", "200"];
+
+const BANCO_VARIANTES = [
+  { id: "madera",    name: "Patas de madera" },
+  { id: "enteladas", name: "Patas enteladas" },
+  { id: "baul",      name: "Estilo baúl" },
+];
+
+const ALMOHADON_OPCIONES = [
+  { id: "rodiles-40×40 cm",   label: "Rodiles — 40×40 cm" },
+  { id: "rodiles-45×45 cm",   label: "Rodiles — 45×45 cm" },
+  { id: "rodiles-50×50 cm",   label: "Rodiles — 50×50 cm" },
+  { id: "covadonga-50×30 cm", label: "Covadonga — 50×30 cm" },
+  { id: "covadonga-60×40 cm", label: "Covadonga — 60×40 cm" },
+  { id: "gulpiyuri-13×90 cm", label: "Gulpiyuri (rulo) — 13×90 cm" },
+];
+
+const PUF_TAMAÑOS = ["40", "50"];
+
+const MESA_PRESETS = ["120×45×60 cm", "80×45×80 cm"];
+const MESA_SUPERFICIES = [
+  { id: "nada",        name: "Sin superficie" },
+  { id: "metacrilato", name: "Metacrilato 5 mm (+50€)" },
+  { id: "cristal",     name: "Cristal 6 mm (+100€)" },
+];
+
+const PANTALLA_OPCIONES: Record<string, string[]> = {
+  cilindro:   ["Ø15×20 cm", "Ø25×25 cm", "Ø40×40 cm"],
+  cuadrado:   ["20×20 cm"],
+  rectangulo: ["20×40 cm"],
 };
+const PANTALLA_FORMAS = [
+  { id: "cilindro",   name: "Almanzor — Cilíndrico" },
+  { id: "cuadrado",   name: "Tormes — Cuadrado" },
+  { id: "rectangulo", name: "La Serrota — Rectangular" },
+];
+
+const FINISHES = [
+  { id: "liso",        name: "Sin acabado" },
+  { id: "vivo-simple", name: "Vivo simple (incluido)" },
+  { id: "vivo-doble",  name: "Vivo doble (+10€)" },
+];
+
+// Key telas from the web (free text, datalist for suggestions)
+const TELAS_SUGERIDAS = [
+  "Arequipa Beige","Ikat Natural","Ikat Verde Agua","Ikat Arena","Ikat Bali Azul",
+  "Mil Rayas Gris","Rayas Arena","Mil Rayas Azul Marino","Flor Azul Protea","Floralia Vintage",
+  "Morris Granadas Terracota","Pájaros Louise Azul","Pájaros Louise Rosa","Pájaros Louise Verde",
+  "Toile de Jouy Azul","Espiga Agua","Pata de Gallo Verde","Coral Costero","Lino Greca",
+  "Baqueira","Baqueira Roja","Cérler","Lola Gris","Rocío","Artesano Beige","Oxford",
+  "Lino Verde Botella","Lino Verde","Güell Lamadrid","Vichy Denim","Vichy Verde",
+  "Ramas Siena Azul","Flores Gardenia","Bibiana","Prints Botánicos","Rayas Verde Sage",
+  "Raya Monina","Rayas Jules Verde","Lino Azul Provenzal","Lino Flores Normandía","Lino Flores Senda",
+];
+
+type ProdTipo = "cabecero" | "banco" | "cojin" | "puf" | "mesa" | "pantalla" | "";
+
+interface ProdState {
+  tipo: ProdTipo;
+  // cabecero
+  forma: string; anchoCama: string; altoCm: string; telaLateral: string; colgador: boolean;
+  // banco
+  varianteBanco: string; largoBanco: string; altoBanco: string;
+  // cojin
+  opcionAlmohadon: string;
+  // puf
+  tamanoPuf: string; cantidadPuf: string;
+  // mesa
+  presetMesa: string; superficieMesa: string;
+  // pantalla
+  formaPantalla: string; tamanoPantalla: string;
+  // common
+  tela: string; coleccionTela: string; acabado: string;
+  cantidad: number; precioUnitario: number; notasProducto: string;
+}
+
+const EMPTY_PROD_STATE: ProdState = {
+  tipo: "", forma: "recto", anchoCama: "", altoCm: "", telaLateral: "", colgador: false,
+  varianteBanco: "madera", largoBanco: "", altoBanco: "",
+  opcionAlmohadon: "rodiles-45×45 cm",
+  tamanoPuf: "40", cantidadPuf: "1",
+  presetMesa: "120×45×60 cm", superficieMesa: "nada",
+  formaPantalla: "cilindro", tamanoPantalla: "Ø40×40 cm",
+  tela: "", coleccionTela: "Básicas", acabado: "vivo-simple",
+  cantidad: 1, precioUnitario: 0, notasProducto: "",
+};
+
+function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy"> {
+  let modelo = "", ancho: number | null = null, alto: number | null = null;
+  let color = "", relleno = "", patas = "";
+
+  if (f.tipo === "cabecero") {
+    modelo = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma;
+    ancho = f.anchoCama ? Number(f.anchoCama) : null;
+    alto = f.altoCm ? Number(f.altoCm) : null;
+    color = f.telaLateral;
+    patas = f.colgador ? "Con colgador" : "";
+  } else if (f.tipo === "banco") {
+    modelo = BANCO_VARIANTES.find(x => x.id === f.varianteBanco)?.name ?? f.varianteBanco;
+    ancho = f.largoBanco ? Number(f.largoBanco) : null;
+    alto = f.altoBanco ? Number(f.altoBanco) : null;
+  } else if (f.tipo === "cojin") {
+    const opt = ALMOHADON_OPCIONES.find(x => x.id === f.opcionAlmohadon);
+    modelo = opt?.label ?? f.opcionAlmohadon;
+    const dims = f.opcionAlmohadon.split("-")[1]?.replace(" cm", "").split("×");
+    ancho = dims ? Number(dims[0]) : null;
+    alto = dims ? Number(dims[1]) : null;
+  } else if (f.tipo === "puf") {
+    modelo = `${f.tamanoPuf} cm`;
+    ancho = Number(f.tamanoPuf);
+  } else if (f.tipo === "mesa") {
+    modelo = f.presetMesa;
+    const dims = f.presetMesa.replace(" cm", "").split("×");
+    ancho = dims[0] ? Number(dims[0]) : null;
+    alto = dims[1] ? Number(dims[1]) : null;
+    color = MESA_SUPERFICIES.find(x => x.id === f.superficieMesa)?.name ?? "";
+  } else if (f.tipo === "pantalla") {
+    const fn = PANTALLA_FORMAS.find(x => x.id === f.formaPantalla)?.name.split("—")[0].trim() ?? "";
+    modelo = `${fn} ${f.tamanoPantalla}`.trim();
+    relleno = f.formaPantalla;
+    patas = f.tamanoPantalla;
+  }
+
+  return {
+    tipo: f.tipo,
+    modelo,
+    ancho,
+    alto,
+    tela: f.tela,
+    color,
+    relleno,
+    patas,
+    acabado: f.acabado,
+    coleccionTela: f.coleccionTela,
+    cantidad: f.tipo === "puf" ? Number(f.cantidadPuf) : f.cantidad,
+    precioUnitario: f.precioUnitario,
+    notasProducto: f.notasProducto,
+  };
+}
+
+function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">): ProdState {
+  const s = { ...EMPTY_PROD_STATE };
+  s.tipo = p.tipo as ProdTipo;
+  s.tela = p.tela;
+  s.coleccionTela = p.coleccionTela || "Básicas";
+  s.acabado = p.acabado || "vivo-simple";
+  s.cantidad = p.cantidad;
+  s.precioUnitario = p.precioUnitario;
+  s.notasProducto = p.notasProducto;
+  if (p.tipo === "cabecero") {
+    s.forma = CABECERO_FORMAS.find(x => x.name === p.modelo)?.id ?? "recto";
+    s.anchoCama = p.ancho ? String(p.ancho) : "";
+    s.altoCm = p.alto ? String(p.alto) : "";
+    s.telaLateral = p.color;
+    s.colgador = p.patas === "Con colgador";
+  } else if (p.tipo === "banco") {
+    s.varianteBanco = BANCO_VARIANTES.find(x => x.name === p.modelo)?.id ?? "madera";
+    s.largoBanco = p.ancho ? String(p.ancho) : "";
+    s.altoBanco = p.alto ? String(p.alto) : "";
+  } else if (p.tipo === "cojin") {
+    s.opcionAlmohadon = ALMOHADON_OPCIONES.find(x => x.label === p.modelo)?.id ?? "rodiles-45×45 cm";
+  } else if (p.tipo === "puf") {
+    s.tamanoPuf = p.ancho ? String(p.ancho) : "40";
+    s.cantidadPuf = String(p.cantidad);
+  } else if (p.tipo === "mesa") {
+    s.presetMesa = p.modelo || "120×45×60 cm";
+    s.superficieMesa = MESA_SUPERFICIES.find(x => x.name === p.color)?.id ?? "nada";
+  } else if (p.tipo === "pantalla") {
+    s.formaPantalla = p.relleno || "cilindro";
+    s.tamanoPantalla = p.patas || "";
+  }
+  return s;
+}
 
 function ProductoForm({
   initial, onSave, onCancel,
 }: {
-  initial: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">;
-  onSave: (p: typeof initial) => void;
+  initial: ProdState;
+  onSave: (p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) => void;
   onCancel: () => void;
 }) {
-  const [f, setF] = useState(initial);
-  const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none";
+  const [f, setF] = useState<ProdState>(initial);
+  const s = (patch: Partial<ProdState>) => setF(prev => ({ ...prev, ...patch }));
+  const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
+  const btnTipo = (id: string) => `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${f.tipo === id ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
+
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Modelo</label>
-          <input list="modelos-list" className={inp} value={f.modelo} onChange={e => setF({...f, modelo: e.target.value})} placeholder="Cabecero Recto..." />
-          <datalist id="modelos-list">
-            <option value="Cabecero Recto" /><option value="Cabecero Redondeado" />
-            <option value="Cabecero Capitoné" /><option value="Cabecero con Patas" />
-          </datalist>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Ancho (cm)</label>
-          <input type="number" className={inp} value={f.ancho ?? ""} onChange={e => setF({...f, ancho: e.target.value ? Number(e.target.value) : null})} placeholder="150" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Alto (cm)</label>
-          <input type="number" className={inp} value={f.alto ?? ""} onChange={e => setF({...f, alto: e.target.value ? Number(e.target.value) : null})} placeholder="120" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Tela</label>
-          <input list="telas-list" className={inp} value={f.tela} onChange={e => setF({...f, tela: e.target.value})} placeholder="Terciopelo, Lino..." />
-          <datalist id="telas-list">
-            <option value="Terciopelo" /><option value="Lino" /><option value="Bouclé" />
-            <option value="Piel sintética" /><option value="Cotton" /><option value="Chenilla" />
-          </datalist>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Color</label>
-          <input className={inp} value={f.color} onChange={e => setF({...f, color: e.target.value})} placeholder="Beige, Gris perla..." />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Relleno</label>
-          <select className={inp} value={f.relleno} onChange={e => setF({...f, relleno: e.target.value})}>
-            <option value="">Seleccionar...</option>
-            <option value="HR 30">Espuma HR 30</option>
-            <option value="HR 35">Espuma HR 35</option>
-            <option value="Viscoelástica">Viscoelástica</option>
-            <option value="Fibra + espuma">Fibra + espuma</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Patas</label>
-          <select className={inp} value={f.patas} onChange={e => setF({...f, patas: e.target.value})}>
-            <option value="">Sin patas</option>
-            <option value="Madera natural">Madera natural</option>
-            <option value="Madera lacada blanca">Madera lacada blanca</option>
-            <option value="Madera lacada negra">Madera lacada negra</option>
-            <option value="Metal negro">Metal negro</option>
-            <option value="Metal dorado">Metal dorado</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Cantidad</label>
-          <input type="number" min={1} className={inp} value={f.cantidad} onChange={e => setF({...f, cantidad: Number(e.target.value) || 1})} />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Precio unit. (€)</label>
-          <input type="number" min={0} className={inp} value={f.precioUnitario} onChange={e => setF({...f, precioUnitario: Number(e.target.value) || 0})} />
-        </div>
-      </div>
+    <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      {/* Tipo de producto */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Notas del producto</label>
-        <textarea rows={2} className={`${inp} resize-none`} value={f.notasProducto} onChange={e => setF({...f, notasProducto: e.target.value})} placeholder="Observaciones adicionales..." />
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo de producto</div>
+        <div className="flex flex-wrap gap-2">
+          {TIPOS_PRODUCTO.map(t => (
+            <button key={t.id} type="button" onClick={() => s({ tipo: t.id as ProdTipo })} className={btnTipo(t.id)}>{t.label}</button>
+          ))}
+        </div>
       </div>
-      <div className="flex justify-end gap-2">
+
+      {/* Cabecero */}
+      {f.tipo === "cabecero" && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Forma</label>
+              <select className={inp} value={f.forma} onChange={e => s({ forma: e.target.value })}>
+                {CABECERO_FORMAS.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Ancho de cama (cm)</label>
+              <select className={inp} value={f.anchoCama} onChange={e => s({ anchoCama: e.target.value })}>
+                <option value="">Seleccionar…</option>
+                {CABECERO_ANCHOS.map(a => <option key={a} value={a}>{a} cm</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Alto (cm)</label>
+              <input type="number" className={inp} value={f.altoCm} onChange={e => s({ altoCm: e.target.value })} placeholder="ej. 100" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Acabado</label>
+              <select className={inp} value={f.acabado} onChange={e => s({ acabado: e.target.value })}>
+                {FINISHES.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+              </select>
+            </div>
+            <div className="flex items-end pb-1.5">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={f.colgador} onChange={e => s({ colgador: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" />
+                Con colgador (+5€)
+              </label>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Tela laterales (opcional — si es diferente)</label>
+            <input list="telas-lateral-list" className={inp} value={f.telaLateral} onChange={e => s({ telaLateral: e.target.value })} placeholder="Dejar vacío si es la misma tela" />
+            <datalist id="telas-lateral-list">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+          </div>
+        </div>
+      )}
+
+      {/* Banco */}
+      {f.tipo === "banco" && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div className="md:col-span-3">
+            <label className="mb-1 block text-xs font-medium text-slate-600">Variante</label>
+            <div className="flex gap-2">
+              {BANCO_VARIANTES.map(v => (
+                <button key={v.id} type="button" onClick={() => s({ varianteBanco: v.id })}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.varianteBanco === v.id ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+                  {v.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Largo (cm)</label>
+            <input type="number" className={inp} value={f.largoBanco} onChange={e => s({ largoBanco: e.target.value })} placeholder="ej. 120" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Alto (cm)</label>
+            <input type="number" className={inp} value={f.altoBanco} onChange={e => s({ altoBanco: e.target.value })} placeholder="ej. 45" />
+          </div>
+        </div>
+      )}
+
+      {/* Almohadón */}
+      {f.tipo === "cojin" && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Forma y tamaño</label>
+          <div className="flex flex-wrap gap-2">
+            {ALMOHADON_OPCIONES.map(o => (
+              <button key={o.id} type="button" onClick={() => s({ opcionAlmohadon: o.id })}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.opcionAlmohadon === o.id ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Puf */}
+      {f.tipo === "puf" && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Tamaño (diámetro)</label>
+            <div className="flex gap-2">
+              {PUF_TAMAÑOS.map(t => (
+                <button key={t} type="button" onClick={() => s({ tamanoPuf: t })}
+                  className={`rounded-lg border px-4 py-2 text-xs font-medium transition-colors ${f.tamanoPuf === t ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+                  {t} cm
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Cantidad</label>
+            <div className="flex gap-2">
+              {[["1","Individual"],["2","Pareja (×2)"]].map(([v,l]) => (
+                <button key={v} type="button" onClick={() => s({ cantidadPuf: v })}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${f.cantidadPuf === v ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mesa */}
+      {f.tipo === "mesa" && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Medidas (largo×alto×fondo)</label>
+            <div className="flex gap-2">
+              {MESA_PRESETS.map(p => (
+                <button key={p} type="button" onClick={() => s({ presetMesa: p })}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.presetMesa === p ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Superficie superior</label>
+            <select className={inp} value={f.superficieMesa} onChange={e => s({ superficieMesa: e.target.value })}>
+              {MESA_SUPERFICIES.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Pantalla de lámpara */}
+      {f.tipo === "pantalla" && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Forma</label>
+            <select className={inp} value={f.formaPantalla} onChange={e => s({ formaPantalla: e.target.value, tamanoPantalla: PANTALLA_OPCIONES[e.target.value]?.[0] ?? "" })}>
+              {PANTALLA_FORMAS.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Tamaño</label>
+            <select className={inp} value={f.tamanoPantalla} onChange={e => s({ tamanoPantalla: e.target.value })}>
+              {(PANTALLA_OPCIONES[f.formaPantalla] ?? []).map(sz => <option key={sz} value={sz}>{sz}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Tela — always visible once tipo is selected */}
+      {f.tipo && (
+        <div className="space-y-3 border-t border-slate-200 pt-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Tela principal</label>
+              <input list="telas-sugeridas" className={inp} value={f.tela} onChange={e => s({ tela: e.target.value })} placeholder="Ej. Arequipa Beige, Baqueira..." />
+              <datalist id="telas-sugeridas">{TELAS_SUGERIDAS.map(t => <option key={t} value={t} />)}</datalist>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Colección</label>
+              <div className="flex gap-2 pt-1">
+                {["Básicas","Premium"].map(c => (
+                  <button key={c} type="button" onClick={() => s({ coleccionTela: c })}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.coleccionTela === c ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Acabado — not shown for pantalla (ribete incluido always) or puf */}
+          {f.tipo !== "pantalla" && f.tipo !== "puf" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Acabado</label>
+              <div className="flex flex-wrap gap-2">
+                {FINISHES.map(x => (
+                  <button key={x.id} type="button" onClick={() => s({ acabado: x.id })}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${f.acabado === x.id ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+                    {x.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            {f.tipo !== "puf" && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Cantidad</label>
+                <input type="number" min={1} className={inp} value={f.cantidad} onChange={e => s({ cantidad: Number(e.target.value) || 1 })} />
+              </div>
+            )}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Precio unitario (€)</label>
+              <input type="number" min={0} className={inp} value={f.precioUnitario} onChange={e => s({ precioUnitario: Number(e.target.value) || 0 })} />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Notas adicionales</label>
+            <textarea rows={2} className={`${inp} resize-none`} value={f.notasProducto} onChange={e => s({ notasProducto: e.target.value })} placeholder="Observaciones…" />
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 pt-1">
         <button onClick={onCancel} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancelar</button>
-        <button onClick={() => onSave(f)} className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46]">
+        <button
+          disabled={!f.tipo}
+          onClick={() => onSave(prodStateToProducto(f))}
+          className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-40">
           <Check className="mr-1 inline h-3.5 w-3.5" />Guardar
         </button>
       </div>
@@ -190,9 +535,10 @@ function TareaRow({ tarea, clienteNombre }: { tarea: Tarea; clienteNombre: strin
           target="_blank"
           rel="noreferrer"
           title="Añadir a Google Calendar"
-          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
+          className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
         >
-          <Calendar className="h-4 w-4" />
+          <Calendar className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Calendar</span>
         </a>
         <button onClick={() => setEditing(true)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
           <Edit2 className="h-4 w-4" />
@@ -390,7 +736,7 @@ function ClienteDetalle() {
         {showProdForm && (
           <div className="mb-4">
             <ProductoForm
-              initial={EMPTY_PROD}
+              initial={EMPTY_PROD_STATE}
               onSave={(p) => { actions.addProducto(lead.id, p); setShowProdForm(false); }}
               onCancel={() => setShowProdForm(false)}
             />
@@ -406,7 +752,7 @@ function ClienteDetalle() {
             <div key={p.id}>
               {editingProd === p.id ? (
                 <ProductoForm
-                  initial={{ modelo: p.modelo, ancho: p.ancho, alto: p.alto, tela: p.tela, color: p.color, relleno: p.relleno, patas: p.patas, cantidad: p.cantidad, precioUnitario: p.precioUnitario, notasProducto: p.notasProducto }}
+                  initial={productoToState({ tipo: p.tipo, modelo: p.modelo, ancho: p.ancho, alto: p.alto, tela: p.tela, color: p.color, relleno: p.relleno, patas: p.patas, acabado: p.acabado, coleccionTela: p.coleccionTela, cantidad: p.cantidad, precioUnitario: p.precioUnitario, notasProducto: p.notasProducto })}
                   onSave={(updated) => { actions.updateProducto(p.id, updated); setEditingProd(null); }}
                   onCancel={() => setEditingProd(null)}
                 />
@@ -414,14 +760,18 @@ function ClienteDetalle() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-slate-900">{p.modelo || "Producto"}</div>
+                      <div className="flex items-center gap-2">
+                        {p.tipo && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">{TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}</span>}
+                        <span className="font-medium text-slate-900">{p.modelo || "Producto"}</span>
+                      </div>
                       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
                         {p.ancho && <span>Ancho: <strong>{p.ancho} cm</strong></span>}
                         {p.alto && <span>Alto: <strong>{p.alto} cm</strong></span>}
                         {p.tela && <span>Tela: <strong>{p.tela}</strong></span>}
-                        {p.color && <span>Color: <strong>{p.color}</strong></span>}
-                        {p.relleno && <span>Relleno: <strong>{p.relleno}</strong></span>}
-                        {p.patas && <span>Patas: <strong>{p.patas}</strong></span>}
+                        {p.coleccionTela && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px]">{p.coleccionTela}</span>}
+                        {p.color && <span>Lateral: <strong>{p.color}</strong></span>}
+                        {p.acabado && p.acabado !== "liso" && <span>Acabado: <strong>{p.acabado === "vivo-simple" ? "Vivo simple" : "Vivo doble"}</strong></span>}
+                        {p.patas && <span><strong>{p.patas}</strong></span>}
                         <span>Cant: <strong>{p.cantidad}</strong></span>
                         {p.precioUnitario > 0 && <span>Precio: <strong>{formatCurrency(p.precioUnitario)}</strong></span>}
                         {p.precioUnitario > 0 && p.cantidad > 1 && <span>Total: <strong>{formatCurrency(p.precioUnitario * p.cantidad)}</strong></span>}
