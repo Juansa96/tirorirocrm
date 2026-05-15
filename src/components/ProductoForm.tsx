@@ -94,17 +94,26 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
 
   if (f.tipo === "cabecero") {
     modelo = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma;
-    ancho = f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
-    alto  = f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
+    ancho = f.anchoCama === "tbd" ? null : f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
+    alto  = f.altoCabecero === "tbd" ? null : f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
     color = f.telaLateral; relleno = f.telaVivo;
-    patas = extras([f.colgador && "Con colgador (+5€)", f.tapetes && "Tapetes protectores (+5€)"]);
+    const tbdAncho = f.anchoCama === "tbd";
+    const tbdAlto = f.altoCabecero === "tbd";
+    patas = extras([
+      f.colgador && "Con colgador (+5€)",
+      f.tapetes && "Tapetes protectores (+5€)",
+      (tbdAncho || tbdAlto) && `Medidas por decidir${tbdAncho && tbdAlto ? "" : tbdAncho ? " (ancho)" : " (alto)"}`,
+    ]);
   } else if (f.tipo === "puf") {
     modelo = "Patos";
-    ancho  = f.tamanoPuf === "custom" ? (Number(f.tamanoPufCustom) || null) : (Number(f.tamanoPuf) || null);
+    ancho  = f.tamanoPuf === "tbd" ? null : f.tamanoPuf === "custom" ? (Number(f.tamanoPufCustom) || null) : (Number(f.tamanoPuf) || null);
     color  = f.telaLateral; relleno = f.telaVivo;
-    patas  = extras([f.tapetes && "Tapetes protectores (+5€)"]);
+    patas  = extras([f.tapetes && "Tapetes protectores (+5€)", f.tamanoPuf === "tbd" && "Tamaño por decidir"]);
   } else if (f.tipo === "mesa") {
-    if (f.presetMesa === "custom") {
+    if (f.presetMesa === "tbd") {
+      modelo = "Medidas por decidir";
+      ancho = null; alto = null; relleno = "";
+    } else if (f.presetMesa === "custom") {
       modelo = "Medida personalizada";
       ancho = Number(f.mesaLargo) || null; alto = Number(f.mesaAlto) || null; relleno = f.mesaFondo;
     } else {
@@ -116,9 +125,10 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     patas = extras([f.tapetes && "Tapetes protectores (+5€)"]);
   } else if (f.tipo === "pantalla") {
     const fn = PANTALLA_FORMAS.find(x => x.id === f.formaPantalla)?.name.split("—")[0].trim() ?? "";
-    modelo = `${fn} ${f.tamanoPantalla}`.trim();
+    const tbd = f.tamanoPantalla === "tbd";
+    modelo = tbd ? `${fn} (medida por decidir)` : `${fn} ${f.tamanoPantalla}`.trim();
     relleno = f.formaPantalla;
-    patas = extras([f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)"]);
+    patas = extras([!tbd && f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)", tbd && "Medida por decidir"]);
   }
 
   return {
