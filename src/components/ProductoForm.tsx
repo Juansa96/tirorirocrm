@@ -198,6 +198,39 @@ export function TelaSelect({ value, onChange, placeholder }: { value: string; on
   );
 }
 
+// ── TelaSection (nivel de módulo para evitar remount en cada render) ──
+const SECTION_CLS = "text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2";
+const BTN_CLS = (active: boolean) =>
+  `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
+
+function TelaSection({ tela, onTela, coleccionTela, onColeccion, telaLateral, onTelaLateral, showLateral }: {
+  tela: string; onTela: (v: string) => void;
+  coleccionTela: string; onColeccion: (v: string) => void;
+  telaLateral: string; onTelaLateral: (v: string) => void;
+  showLateral: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className={SECTION_CLS}>Tela principal</div>
+        <TelaSelect value={tela} onChange={onTela} />
+      </div>
+      <div>
+        <div className={SECTION_CLS}>Colección</div>
+        <div className="flex gap-2">
+          {["Básicas","Premium"].map(c => <button key={c} type="button" onClick={() => onColeccion(c)} className={BTN_CLS(coleccionTela === c)}>{c}</button>)}
+        </div>
+      </div>
+      {showLateral && (
+        <div>
+          <div className={SECTION_CLS}>Tela lateral <span className="normal-case font-normal text-slate-400">(opcional, +15€ — vacío = igual que la principal)</span></div>
+          <TelaSelect value={telaLateral} onChange={onTelaLateral} placeholder="Dejar vacío si es la misma tela" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── ProductoForm ──────────────────────────────────────────────────
 export function ProductoForm({
   initial, onSave, onCancel,
@@ -209,31 +242,8 @@ export function ProductoForm({
   const [f, setF] = useState<ProdState>(initial);
   const s = (patch: Partial<ProdState>) => setF(prev => ({ ...prev, ...patch }));
   const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
-  const btn = (active: boolean) => `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
-  const section = "text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2";
-
-  function TelaSection({ showLateral }: { showLateral: boolean }) {
-    return (
-      <div className="space-y-3">
-        <div>
-          <div className={section}>Tela principal</div>
-          <TelaSelect value={f.tela} onChange={v => s({ tela: v })} />
-        </div>
-        <div>
-          <div className={section}>Colección</div>
-          <div className="flex gap-2">
-            {["Básicas","Premium"].map(c => <button key={c} type="button" onClick={() => s({ coleccionTela: c })} className={btn(f.coleccionTela === c)}>{c}</button>)}
-          </div>
-        </div>
-        {showLateral && (
-          <div>
-            <div className={section}>Tela lateral <span className="normal-case font-normal text-slate-400">(opcional, +15€ — vacío = igual que la principal)</span></div>
-            <TelaSelect value={f.telaLateral} onChange={v => s({ telaLateral: v })} placeholder="Dejar vacío si es la misma tela" />
-          </div>
-        )}
-      </div>
-    );
-  }
+  const btn = (active: boolean) => BTN_CLS(active);
+  const section = SECTION_CLS;
 
   return (
     <div className="space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -272,7 +282,7 @@ export function ProductoForm({
             </div>
             {f.altoCabecero === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.altoCabeceroCustom} onChange={e => s({ altoCabeceroCustom: e.target.value })} placeholder="cm" min={40} max={200} />}
           </div>
-          <TelaSection showLateral />
+          <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral />
           <div>
             <div className={section}>Acabado</div>
             <div className="flex flex-wrap gap-2">
@@ -314,7 +324,7 @@ export function ProductoForm({
               <button type="button" onClick={() => s({ cantidadPuf: "2" })} className={btn(f.cantidadPuf === "2")}>2 pufs (pareja)</button>
             </div>
           </div>
-          <TelaSection showLateral />
+          <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral />
           <div>
             <div className={section}>Acabado</div>
             <div className="flex flex-wrap gap-2">
@@ -351,7 +361,7 @@ export function ProductoForm({
               </div>
             )}
           </div>
-          <TelaSection showLateral={false} />
+          <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral={false} />
           <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
             Acabado: <strong>Vivo simple</strong> — incluido en el precio
           </div>
@@ -383,7 +393,7 @@ export function ProductoForm({
               {(PANTALLA_OPCIONES[f.formaPantalla] ?? []).map(sz => <button key={sz} type="button" onClick={() => s({ tamanoPantalla: sz })} className={btn(f.tamanoPantalla === sz)}>{sz}</button>)}
             </div>
           </div>
-          <TelaSection showLateral={false} />
+          <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral={false} />
           <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
             Acabado: <strong>Ribete incluido</strong> — vivo en borde superior e inferior sin coste adicional
           </div>
