@@ -44,8 +44,8 @@ function ClientesList() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-        <div className="relative md:col-span-1">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="relative col-span-2 md:col-span-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o email" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-slate-400 focus:outline-none" />
         </div>

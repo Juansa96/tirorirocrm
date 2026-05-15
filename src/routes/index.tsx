@@ -107,11 +107,11 @@ function Dashboard() {
           <h2 className="text-base font-semibold text-slate-900">Valor por Etapa</h2>
           <span className="text-xs text-slate-400">Clic en barra → filtrar pipeline</span>
         </div>
-        <div className="h-[220px] w-full md:h-[280px]">
+        <div className="h-[240px] w-full md:h-[280px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 36 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-              <XAxis dataKey="etapa" tick={{ fontSize: 10, fill: "#64748b" }} interval={0} />
+              <XAxis dataKey="etapa" tick={{ fontSize: 10, fill: "#64748b" }} interval={0} angle={-30} textAnchor="end" />
               <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={formatAxisCurrency} />
               <Tooltip
                 cursor={{ fill: "rgba(0,0,0,0.04)" }}

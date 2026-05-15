@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useAuth } from "@/lib/auth";
+import { TiroritoLogo } from "./TiroritoLogo";
 
 interface NavItem {
   to: string;
@@ -23,17 +24,6 @@ const NAV: NavItem[] = [
   { to: "/tareas", label: "Tareas", icon: CalendarClock },
 ];
 
-function Logo({ light = false }: { light?: boolean }) {
-  return (
-    <div className="flex flex-col">
-      <div className="text-lg font-bold leading-tight">
-        <span className={light ? "text-white" : "text-slate-900"}>Tiroriro</span>
-        <span className="text-amber-500">Home</span>
-      </div>
-      {light && <div className="text-[11px] text-white/40">Sales CRM</div>}
-    </div>
-  );
-}
 
 function isActive(path: string, item: NavItem) {
   if (item.exact) return path === item.to;
@@ -48,7 +38,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
-        <Logo />
+        <TiroritoLogo className="h-9 w-auto text-[#1a4b5b]" />
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-slate-700">{displayName}</span>
           <button
@@ -63,14 +53,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       <div className="flex">
         <aside className="sticky top-0 hidden h-screen shrink-0 flex-col bg-[#1a1f36] md:flex md:w-[60px] lg:w-[240px]">
-          <div className="flex h-16 items-center justify-center px-4 lg:justify-start">
-            <div className="hidden lg:block">
-              <Logo light />
-            </div>
-            <div className="text-lg font-bold lg:hidden">
-              <span className="text-white">T</span>
-              <span className="text-amber-500">H</span>
-            </div>
+          <div className="flex h-16 items-center justify-center px-2 lg:justify-start lg:px-4">
+            <TiroritoLogo className="hidden h-10 w-auto text-white lg:block" />
+            <TiroritoLogo variant="icon" className="h-10 w-auto text-white lg:hidden" />
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
             {NAV.map((item) => {

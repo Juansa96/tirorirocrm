@@ -597,7 +597,7 @@ function ClienteDetalle() {
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
         <div>
           {editing ? (
-            <input value={lead.nombre} onChange={(e) => actions.updateLead(lead.id, { nombre: e.target.value })} className="rounded border border-slate-300 px-2 py-1 text-2xl font-bold" />
+            <input value={lead.nombre} onChange={(e) => actions.updateLead(lead.id, { nombre: e.target.value })} className="w-full rounded border border-slate-300 px-2 py-1 text-2xl font-bold" />
           ) : (
             <h1 className="text-2xl font-bold">{lead.nombre}</h1>
           )}
