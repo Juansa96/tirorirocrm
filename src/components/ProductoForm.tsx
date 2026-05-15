@@ -405,6 +405,7 @@ export function ProductoForm({
             <div className={section}>Medida</div>
             <div className="flex flex-wrap gap-2">
               {(PANTALLA_OPCIONES[f.formaPantalla] ?? []).map(sz => <button key={sz} type="button" onClick={() => s({ tamanoPantalla: sz })} className={btn(f.tamanoPantalla === sz)}>{sz}</button>)}
+              <button type="button" onClick={() => s({ tamanoPantalla: "tbd" })} className={btn(f.tamanoPantalla === "tbd")}>Por decidir</button>
             </div>
           </div>
           <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral={false} />
