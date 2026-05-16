@@ -486,6 +486,8 @@ export const actions = {
     if (error) { state = prevState; emit(); toast.error("Error al eliminar la nota."); }
   },
 
+
+
   async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
     const { data, error } = await supabase.from("productos_lead").insert({
       lead_id: leadId, tipo: input.tipo, modelo: input.modelo,
