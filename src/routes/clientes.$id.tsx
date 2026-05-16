@@ -308,7 +308,21 @@ function ClienteDetalle() {
               {editing ? <input value={lead.email} onChange={(e) => actions.updateLead(lead.id, { email: e.target.value })} className={inp} /> : (lead.email || <span className="text-slate-400">—</span>)}
             </InfoRow>
             <InfoRow icon={Phone} label="Teléfono">
-              {editing ? <input value={lead.telefono} onChange={(e) => actions.updateLead(lead.id, { telefono: e.target.value })} className={inp} /> : (lead.telefono || <span className="text-slate-400">—</span>)}
+              {editing ? (
+                <input value={lead.telefono} onChange={(e) => actions.updateLead(lead.id, { telefono: e.target.value })} className={inp} />
+              ) : lead.telefono ? (
+                <div className="flex items-center gap-2">
+                  <span>{lead.telefono}</span>
+                  <a
+                    href={`https://wa.me/${lead.telefono.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                  >
+                    WhatsApp
+                  </a>
+                </div>
+              ) : <span className="text-slate-400">—</span>}
             </InfoRow>
             <InfoRow icon={MapPin} label="Ciudad">
               {editing ? <input value={lead.ciudad} onChange={(e) => actions.updateLead(lead.id, { ciudad: e.target.value })} className={inp} /> : (lead.ciudad || <span className="text-slate-400">—</span>)}
