@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto } from "./types";
+import { VENDEDORES } from "./types";
 
 
 interface State {
@@ -12,120 +13,217 @@ interface State {
   productos: Producto[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
+  // leadId -> timestamp of last remote update (for conflict detection)
+  remoteUpdateTimestamps: Record<string, number>;
 }
 
-let state: State = { leads: [], tareas: [], audit: [], notas: [], productos: [], loaded: false, realtimeStatus: "connecting" };
+let state: State = {
+  leads: [], tareas: [], audit: [], notas: [], productos: [],
+  loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {},
+};
 const listeners = new Set<() => void>();
 
-function emit() {
-  listeners.forEach((l) => l());
+function emit() { listeners.forEach((l) => l()); }
+
+// Suppressed leads: after a local write we ignore the next realtime echo for 4 seconds
+const suppressedLeads = new Map<string, number>();
+function suppressLead(id: string) { suppressedLeads.set(id, Date.now() + 4000); }
+function isSuppressed(id: string): boolean {
+  const until = suppressedLeads.get(id);
+  if (!until) return false;
+  if (Date.now() > until) { suppressedLeads.delete(id); return false; }
+  return true;
 }
 
-function mapLead(r: any): Lead {
+function mapLead(r: Record<string, unknown>): Lead {
   return {
-    id: r.id,
-    nombre: r.nombre,
-    email: r.email ?? "",
-    telefono: r.telefono ?? "",
-    ciudad: r.ciudad ?? "",
-    producto: r.producto ?? "",
-    vendedor: r.vendedor,
+    id: r.id as string,
+    nombre: (r.nombre as string) ?? "",
+    email: (r.email as string) ?? "",
+    telefono: (r.telefono as string) ?? "",
+    ciudad: (r.ciudad as string) ?? "",
+    producto: (r.producto as string) ?? "",
+    vendedor: r.vendedor as string,
     etapa: r.etapa as Etapa,
     valor: Number(r.valor) || 0,
-    origen: r.origen ?? "",
-    redSocial: r.red_social ?? "",
-    fechaHold: r.fecha_hold ?? "",
+    origen: (r.origen as string) ?? "",
+    redSocial: (r.red_social as string) ?? "",
+    fechaHold: (r.fecha_hold as string) ?? "",
     valorProducto: Number(r.valor_producto) || 0,
     valorEnvio: Number(r.valor_envio) || 0,
-    fechaCreacion: r.created_at ?? "",
+    fechaCreacion: (r.created_at as string) ?? "",
   };
 }
 
-function mapTarea(r: any): Tarea {
+function mapTarea(r: Record<string, unknown>): Tarea {
   return {
-    id: r.id,
-    leadId: r.lead_id,
-    descripcion: r.descripcion,
-    fecha: r.fecha,
-    hora: r.hora ?? "",
-    vendedor: r.vendedor,
-    completada: !!r.completada,
+    id: r.id as string,
+    leadId: r.lead_id as string,
+    descripcion: r.descripcion as string,
+    fecha: r.fecha as string,
+    hora: (r.hora as string) ?? "",
+    vendedor: r.vendedor as string,
+    completada: !!(r.completada),
   };
 }
 
-function mapAudit(r: any): AuditEntry {
+function mapAudit(r: Record<string, unknown>): AuditEntry {
   return {
-    id: r.id,
-    tabla: r.tabla,
-    leadId: r.lead_id,
-    campo: r.campo,
-    valorAnterior: r.valor_anterior,
-    valorNuevo: r.valor_nuevo,
-    usuario: r.usuario,
-    createdAt: r.created_at,
+    id: r.id as string,
+    tabla: r.tabla as string,
+    leadId: (r.lead_id as string) ?? null,
+    campo: r.campo as string,
+    valorAnterior: (r.valor_anterior as string) ?? null,
+    valorNuevo: (r.valor_nuevo as string) ?? null,
+    usuario: (r.usuario as string) ?? null,
+    createdAt: r.created_at as string,
   };
 }
 
-function mapNota(r: any): Nota {
+function mapNota(r: Record<string, unknown>): Nota {
   return {
-    id: r.id,
-    leadId: r.lead_id,
-    contenido: r.contenido,
-    usuario: r.usuario ?? "",
-    createdAt: r.created_at,
+    id: r.id as string,
+    leadId: r.lead_id as string,
+    contenido: r.contenido as string,
+    usuario: (r.usuario as string) ?? "",
+    createdAt: r.created_at as string,
   };
 }
 
-function mapProducto(r: any): Producto {
+function mapProducto(r: Record<string, unknown>): Producto {
   return {
-    id: r.id,
-    leadId: r.lead_id,
-    tipo: r.tipo ?? "",
-    modelo: r.modelo ?? "",
+    id: r.id as string,
+    leadId: r.lead_id as string,
+    tipo: (r.tipo as string) ?? "",
+    modelo: (r.modelo as string) ?? "",
     ancho: r.ancho != null ? Number(r.ancho) : null,
     alto: r.alto != null ? Number(r.alto) : null,
-    tela: r.tela ?? "",
-    color: r.color ?? "",
-    relleno: r.relleno ?? "",
-    patas: r.patas ?? "",
-    acabado: r.acabado ?? "",
-    coleccionTela: r.coleccion_tela ?? "",
+    tela: (r.tela as string) ?? "",
+    color: (r.color as string) ?? "",
+    relleno: (r.relleno as string) ?? "",
+    patas: (r.patas as string) ?? "",
+    acabado: (r.acabado as string) ?? "",
+    coleccionTela: (r.coleccion_tela as string) ?? "",
     cantidad: Number(r.cantidad) || 1,
     precioUnitario: Number(r.precio_unitario) || 0,
-    notasProducto: r.notas_producto ?? "",
-    createdAt: r.created_at,
-    createdBy: r.created_by ?? "",
+    notasProducto: (r.notas_producto as string) ?? "",
+    createdAt: r.created_at as string,
+    createdBy: (r.created_by as string) ?? "",
   };
 }
 
 let currentUser: string | null = null;
-export function setCurrentUser(email: string | null) {
-  currentUser = email;
-}
+export function setCurrentUser(email: string | null) { currentUser = email; }
 
 let bootstrapped = false;
 async function bootstrap() {
-  try {
-    await fetch("/api/public/bootstrap").catch(() => {});
-  } catch {}
+  try { await fetch("/api/public/bootstrap").catch(() => {}); } catch {}
 }
 
 let initStarted = false;
 async function init() {
   if (initStarted) return;
   initStarted = true;
-  if (!bootstrapped) {
-    bootstrapped = true;
-    await bootstrap();
-  }
+  if (!bootstrapped) { bootstrapped = true; await bootstrap(); }
   await refetchAll();
+
   supabase
     .channel("tirocrm-realtime")
-    .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => refetchLeads())
-    .on("postgres_changes", { event: "*", schema: "public", table: "tareas" }, () => refetchTareas())
-    .on("postgres_changes", { event: "*", schema: "public", table: "audit_log" }, () => refetchAudit())
-    .on("postgres_changes", { event: "*", schema: "public", table: "notas" }, () => refetchNotas())
-    .on("postgres_changes", { event: "*", schema: "public", table: "productos_lead" }, () => refetchProductos())
+    // ── LEADS: surgical update from payload, no full refetch ──────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, (payload) => {
+      const newLead = mapLead(payload.new as Record<string, unknown>);
+      state = { ...state, leads: [newLead, ...state.leads] };
+      emit();
+      // Notify team about new external lead
+      const isExternal = newLead.origen === "Formulario web" || (payload.new as Record<string, unknown>).created_by === "formulario-web";
+      if (isExternal) {
+        toast.info(`Nuevo lead del formulario web: ${newLead.nombre}`, {
+          duration: 12000,
+          action: { label: "Ver", onClick: () => { window.location.assign(`/clientes/${newLead.id}`); } },
+        });
+      }
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "leads" }, (payload) => {
+      const updated = mapLead(payload.new as Record<string, unknown>);
+      if (!isSuppressed(updated.id)) {
+        // Mark as a remote update for conflict detection in open lead views
+        state = {
+          ...state,
+          leads: state.leads.map((l) => l.id === updated.id ? updated : l),
+          remoteUpdateTimestamps: { ...state.remoteUpdateTimestamps, [updated.id]: Date.now() },
+        };
+      } else {
+        state = { ...state, leads: state.leads.map((l) => l.id === updated.id ? updated : l) };
+      }
+      emit();
+    })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "leads" }, (payload) => {
+      const id = (payload.old as Record<string, unknown>).id as string;
+      state = { ...state, leads: state.leads.filter((l) => l.id !== id) };
+      emit();
+    })
+    // ── TAREAS: surgical ──────────────────────────────────────────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "tareas" }, (payload) => {
+      const t = mapTarea(payload.new as Record<string, unknown>);
+      if (!state.tareas.find((x) => x.id === t.id)) {
+        state = { ...state, tareas: [...state.tareas, t].sort((a, b) => a.fecha.localeCompare(b.fecha)) };
+        emit();
+      }
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tareas" }, (payload) => {
+      const t = mapTarea(payload.new as Record<string, unknown>);
+      state = { ...state, tareas: state.tareas.map((x) => x.id === t.id ? t : x) };
+      emit();
+    })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "tareas" }, (payload) => {
+      const id = (payload.old as Record<string, unknown>).id as string;
+      state = { ...state, tareas: state.tareas.filter((t) => t.id !== id) };
+      emit();
+    })
+    // ── AUDIT LOG: append-only from realtime, never delete ────────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "audit_log" }, (payload) => {
+      const a = mapAudit(payload.new as Record<string, unknown>);
+      if (!state.audit.find((x) => x.id === a.id)) {
+        state = { ...state, audit: [a, ...state.audit] };
+        emit();
+      }
+    })
+    // ── NOTAS: surgical ───────────────────────────────────────────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "notas" }, (payload) => {
+      const n = mapNota(payload.new as Record<string, unknown>);
+      if (!state.notas.find((x) => x.id === n.id)) {
+        state = { ...state, notas: [n, ...state.notas] };
+        emit();
+      }
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notas" }, (payload) => {
+      const n = mapNota(payload.new as Record<string, unknown>);
+      state = { ...state, notas: state.notas.map((x) => x.id === n.id ? n : x) };
+      emit();
+    })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "notas" }, (payload) => {
+      const id = (payload.old as Record<string, unknown>).id as string;
+      state = { ...state, notas: state.notas.filter((n) => n.id !== id) };
+      emit();
+    })
+    // ── PRODUCTOS: surgical ───────────────────────────────────────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "productos_lead" }, (payload) => {
+      const p = mapProducto(payload.new as Record<string, unknown>);
+      if (!state.productos.find((x) => x.id === p.id)) {
+        state = { ...state, productos: [...state.productos, p] };
+        emit();
+      }
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "productos_lead" }, (payload) => {
+      const p = mapProducto(payload.new as Record<string, unknown>);
+      state = { ...state, productos: state.productos.map((x) => x.id === p.id ? p : x) };
+      emit();
+    })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "productos_lead" }, (payload) => {
+      const id = (payload.old as Record<string, unknown>).id as string;
+      state = { ...state, productos: state.productos.filter((p) => p.id !== id) };
+      emit();
+    })
     .subscribe((status) => {
       const next: State["realtimeStatus"] =
         status === "SUBSCRIBED" ? "connected" :
@@ -168,7 +266,10 @@ function subscribe(cb: () => void) {
   return () => { listeners.delete(cb); };
 }
 
-const SERVER: State = { leads: [], tareas: [], audit: [], notas: [], productos: [], loaded: false, realtimeStatus: "connecting" };
+const SERVER: State = {
+  leads: [], tareas: [], audit: [], notas: [], productos: [],
+  loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {},
+};
 function getSnapshot(): State { return state; }
 function getServerSnapshot(): State { return SERVER; }
 
@@ -200,8 +301,9 @@ export const actions = {
       })
       .select()
       .single();
-    if (error || !data) return null;
-    const lead = mapLead(data);
+    if (error || !data) { toast.error("Error al crear el lead."); return null; }
+    const lead = mapLead(data as Record<string, unknown>);
+    suppressLead(lead.id);
     if (firstTask?.descripcion.trim()) {
       await supabase.from("tareas").insert({
         lead_id: lead.id,
@@ -239,8 +341,10 @@ export const actions = {
       dbPatch.valor = prod + envio;
       patch = { ...patch, valor: prod + envio };
     }
+    // Optimistic update
     state = { ...state, leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
     emit();
+    suppressLead(id);
     const { error } = await supabase.from("leads").update(dbPatch as never).eq("id", id);
     if (error) {
       state = prevState;
@@ -276,11 +380,7 @@ export const actions = {
     state = { ...state, leads: state.leads.filter((l) => l.id !== id) };
     emit();
     const { error } = await supabase.from("leads").delete().eq("id", id);
-    if (error) {
-      state = prevState;
-      emit();
-      toast.error("Error al eliminar el cliente.");
-    }
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar el cliente."); }
   },
 
   async addTarea(input: Omit<Tarea, "id" | "completada">) {
@@ -292,8 +392,7 @@ export const actions = {
       vendedor: input.vendedor,
       completada: false,
     });
-    if (error) { toast.error("Error al crear la tarea."); return; }
-    await refetchTareas();
+    if (error) toast.error("Error al crear la tarea.");
   },
 
   async updateTarea(id: string, patch: Partial<Pick<Tarea, "descripcion" | "fecha" | "hora" | "completada">>) {
@@ -306,11 +405,7 @@ export const actions = {
     if (patch.hora !== undefined) dbPatch.hora = patch.hora;
     if (patch.completada !== undefined) dbPatch.completada = patch.completada;
     const { error } = await supabase.from("tareas").update(dbPatch as never).eq("id", id);
-    if (error) {
-      state = prevState;
-      emit();
-      toast.error("Error al actualizar la tarea.");
-    }
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar la tarea."); }
   },
 
   async toggleTarea(id: string) {
@@ -324,11 +419,7 @@ export const actions = {
     state = { ...state, tareas: state.tareas.filter((t) => t.id !== id) };
     emit();
     const { error } = await supabase.from("tareas").delete().eq("id", id);
-    if (error) {
-      state = prevState;
-      emit();
-      toast.error("Error al eliminar la tarea.");
-    }
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar la tarea."); }
   },
 
   async addNota(leadId: string, contenido: string): Promise<boolean> {
@@ -340,10 +431,9 @@ export const actions = {
     if (error) {
       state = { ...state, notas: state.notas.filter((n) => n.id !== tempId) };
       emit();
-      console.error("addNota error:", error.message);
+      toast.error("Error al guardar la nota.");
       return false;
     }
-    await refetchNotas();
     return true;
   },
 
@@ -352,11 +442,7 @@ export const actions = {
     state = { ...state, notas: state.notas.map((n) => (n.id === id ? { ...n, contenido } : n)) };
     emit();
     const { error } = await supabase.from("notas").update({ contenido }).eq("id", id);
-    if (error) {
-      state = prevState;
-      emit();
-      toast.error("Error al guardar la nota.");
-    }
+    if (error) { state = prevState; emit(); toast.error("Error al guardar la nota."); }
   },
 
   async deleteNota(id: string) {
@@ -364,53 +450,30 @@ export const actions = {
     state = { ...state, notas: state.notas.filter((n) => n.id !== id) };
     emit();
     const { error } = await supabase.from("notas").delete().eq("id", id);
-    if (error) {
-      state = prevState;
-      emit();
-      toast.error("Error al eliminar la nota.");
-    }
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar la nota."); }
   },
 
   async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
     const { error } = await supabase.from("productos_lead").insert({
-      lead_id: leadId,
-      tipo: input.tipo,
-      modelo: input.modelo,
-      ancho: input.ancho,
-      alto: input.alto,
-      tela: input.tela,
-      color: input.color,
-      relleno: input.relleno,
-      patas: input.patas,
-      acabado: input.acabado,
-      coleccion_tela: input.coleccionTela,
-      cantidad: input.cantidad,
-      precio_unitario: input.precioUnitario,
-      notas_producto: input.notasProducto,
-      created_by: currentUser ?? "",
+      lead_id: leadId, tipo: input.tipo, modelo: input.modelo,
+      ancho: input.ancho, alto: input.alto, tela: input.tela,
+      color: input.color, relleno: input.relleno, patas: input.patas,
+      acabado: input.acabado, coleccion_tela: input.coleccionTela,
+      cantidad: input.cantidad, precio_unitario: input.precioUnitario,
+      notas_producto: input.notasProducto, created_by: currentUser ?? "",
     });
-    if (error) { toast.error("Error al guardar el producto."); return; }
-    await refetchProductos();
+    if (error) toast.error("Error al guardar el producto.");
   },
 
   async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
     const { error } = await supabase.from("productos_lead").update({
-      tipo: input.tipo,
-      modelo: input.modelo,
-      ancho: input.ancho,
-      alto: input.alto,
-      tela: input.tela,
-      color: input.color,
-      relleno: input.relleno,
-      patas: input.patas,
-      acabado: input.acabado,
-      coleccion_tela: input.coleccionTela,
-      cantidad: input.cantidad,
-      precio_unitario: input.precioUnitario,
+      tipo: input.tipo, modelo: input.modelo, ancho: input.ancho, alto: input.alto,
+      tela: input.tela, color: input.color, relleno: input.relleno, patas: input.patas,
+      acabado: input.acabado, coleccion_tela: input.coleccionTela,
+      cantidad: input.cantidad, precio_unitario: input.precioUnitario,
       notas_producto: input.notasProducto,
     }).eq("id", id);
-    if (error) { toast.error("Error al actualizar el producto."); return; }
-    await refetchProductos();
+    if (error) toast.error("Error al actualizar el producto.");
   },
 
   async deleteProducto(id: string) {
@@ -418,24 +481,9 @@ export const actions = {
     state = { ...state, productos: state.productos.filter((p) => p.id !== id) };
     emit();
     const { error } = await supabase.from("productos_lead").delete().eq("id", id);
-    if (error) {
-      state = prevState;
-      emit();
-      toast.error("Error al eliminar el producto.");
-    }
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar el producto."); }
   },
-
-  async deleteAuditEntry(id: string) {
-    const prevState = state;
-    state = { ...state, audit: state.audit.filter((a) => a.id !== id) };
-    emit();
-    const { error } = await supabase.from("audit_log").delete().eq("id", id);
-    if (error) {
-      state = prevState;
-      emit();
-      toast.error("Error al eliminar la entrada del historial.");
-    }
-  },
+  // deleteAuditEntry intentionally removed — audit log is append-only for trazabilidad
 };
 
 export function nextPendingTaskFor(leadId: string, tareas: Tarea[]): Tarea | undefined {
@@ -446,9 +494,7 @@ export function nextPendingTaskFor(leadId: string, tareas: Tarea[]): Tarea | und
 
 export function vendedorTotals(leads: Lead[]) {
   const map = new Map<string, { leads: number; valor: number }>();
-  ["isangradortorres@gmail.com", "rocionavarreteurdiales98@gmail.com", "sangradortorresjuan@gmail.com", "bea.gyerro@gmail.com"].forEach((v) =>
-    map.set(v, { leads: 0, valor: 0 }),
-  );
+  VENDEDORES.forEach((v) => map.set(v, { leads: 0, valor: 0 }));
   leads.forEach((l) => {
     const cur = map.get(l.vendedor) ?? { leads: 0, valor: 0 };
     cur.leads += 1;

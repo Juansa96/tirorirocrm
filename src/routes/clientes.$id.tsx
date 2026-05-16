@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
-  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock,
+  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, vendorName, type Etapa, type Producto, type Tarea } from "@/lib/types";
@@ -125,7 +125,7 @@ function TareaRow({ tarea, clienteNombre }: { tarea: Tarea; clienteNombre: strin
 // ── Main component ────────────────────────────────────────────────
 function ClienteDetalle() {
   const { id } = Route.useParams();
-  const { leads, tareas, audit, notas, productos } = useStore();
+  const { leads, tareas, audit, notas, productos, remoteUpdateTimestamps } = useStore();
   const navigate = useNavigate();
   const lead = leads.find((l) => l.id === id);
 
@@ -140,6 +140,12 @@ function ClienteDetalle() {
   const [editNotaText, setEditNotaText] = useState("");
   const [showProdForm, setShowProdForm] = useState(false);
   const [editingProd, setEditingProd] = useState<string | null>(null);
+  // Conflict detection: banner when another user modifies this lead while we have it open
+  const [conflictBanner, setConflictBanner] = useState(false);
+  const lastSeenRemote = useRef<number | undefined>(undefined);
+  // Closed Won/Lost reason dialog
+  const [closingEtapa, setClosingEtapa] = useState<Etapa | null>(null);
+  const [closingReason, setClosingReason] = useState("");
 
   const hasUnsaved = showProdForm || editingProd !== null;
 
@@ -149,6 +155,20 @@ function ClienteDetalle() {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [hasUnsaved]);
+
+  // Show conflict banner when another user edits this lead while we have it open
+  useEffect(() => {
+    const remote = remoteUpdateTimestamps[id];
+    if (!remote) return;
+    if (lastSeenRemote.current === undefined) {
+      lastSeenRemote.current = remote;
+      return;
+    }
+    if (remote !== lastSeenRemote.current) {
+      lastSeenRemote.current = remote;
+      setConflictBanner(true);
+    }
+  }, [remoteUpdateTimestamps, id]);
 
   function goBack() {
     if (hasUnsaved) {
@@ -176,12 +196,71 @@ function ClienteDetalle() {
 
   const inp = "w-full rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none";
 
+  // Closed Won/Lost confirmation dialog
+  function handleEtapaClick(etapa: Etapa) {
+    if (etapa === "Closed Won" || etapa === "Closed Lost") {
+      setClosingEtapa(etapa);
+      setClosingReason("");
+    } else {
+      actions.setLeadEtapa(lead!.id, etapa);
+    }
+  }
+
+  async function confirmClose() {
+    if (!closingEtapa || !lead) return;
+    await actions.setLeadEtapa(lead.id, closingEtapa);
+    if (closingReason.trim()) {
+      await actions.addNota(lead.id, `[${closingEtapa}] ${closingReason.trim()}`);
+    }
+    setClosingEtapa(null);
+    setClosingReason("");
+  }
+
   return (
     <div className="space-y-4">
       <button onClick={goBack} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
         <ArrowLeft className="h-4 w-4" /> Volver
         {hasUnsaved && <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Sin guardar</span>}
       </button>
+
+      {/* Conflict banner */}
+      {conflictBanner && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+          <p className="flex-1 text-sm text-amber-800">
+            Otro usuario ha modificado este lead mientras lo tenías abierto. Los datos mostrados son los más recientes.
+          </p>
+          <button onClick={() => setConflictBanner(false)} className="shrink-0 text-amber-500 hover:text-amber-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Closed Won/Lost dialog */}
+      {closingEtapa && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold text-white" style={{ backgroundColor: ETAPA_COLORS[closingEtapa] }}>
+              {closingEtapa}
+            </span>
+            <span className="text-sm font-medium text-slate-700">Motivo del cierre (opcional)</span>
+          </div>
+          <textarea
+            autoFocus
+            value={closingReason}
+            onChange={(e) => setClosingReason(e.target.value)}
+            placeholder={closingEtapa === "Closed Won" ? "¿Qué fue determinante para cerrar la venta?" : "¿Por qué se perdió este lead?"}
+            rows={2}
+            className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+          />
+          <div className="mt-3 flex gap-2 justify-end">
+            <button onClick={() => setClosingEtapa(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <button onClick={confirmClose} className="rounded-lg px-3 py-1.5 text-sm font-medium text-white" style={{ backgroundColor: ETAPA_COLORS[closingEtapa] }}>
+              Confirmar cierre
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
@@ -210,7 +289,7 @@ function ClienteDetalle() {
           {ETAPAS.map((e) => {
             const active = lead.etapa === e;
             return (
-              <button key={e} onClick={() => actions.setLeadEtapa(lead.id, e)}
+              <button key={e} onClick={() => handleEtapaClick(e)}
                 className="rounded-full px-3 py-1.5 text-xs font-medium transition-all"
                 style={{ backgroundColor: active ? ETAPA_COLORS[e] : "#f1f5f9", color: active ? "#fff" : "#475569" }}>
                 {e}
@@ -530,9 +609,6 @@ function ClienteDetalle() {
                 <span className="text-slate-600">a</span>
                 <span className="font-medium text-slate-700">{formatAuditValue(a.campo, a.valorNuevo)}</span>
                 <span className="ml-auto text-xs text-slate-400">{formatDateTime(a.createdAt)}</span>
-                <button onClick={() => { if (confirm("¿Eliminar este registro del historial?")) actions.deleteAuditEntry(a.id); }} className="ml-1 rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-500">
-                  <Trash2 className="h-3 w-3" />
-                </button>
               </li>
             ))}
           </ul>

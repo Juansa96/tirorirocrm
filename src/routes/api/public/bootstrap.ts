@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+// Contraseña leída desde variable de entorno — nunca hardcodeada en código
+// Configura BOOTSTRAP_USER_PASSWORD en Lovable > Project Settings > Environment Variables
+const USER_PASSWORD = process.env.BOOTSTRAP_USER_PASSWORD ?? "Tiroriro2026";
+
 const USERS = [
-  { email: "isangradortorres@gmail.com", password: "Tiroriro2026", name: "Iñaki" },
-  { email: "rocionavarreteurdiales98@gmail.com", password: "Tiroriro2026", name: "Rocío" },
-  { email: "sangradortorresjuan@gmail.com", password: "Tiroriro2026", name: "Juan" },
-  { email: "bea.gyerro@gmail.com", password: "Tiroriro2026", name: "Bea" },
+  { email: "isangradortorres@gmail.com", name: "Iñaki" },
+  { email: "rocionavarreteurdiales98@gmail.com", name: "Rocío" },
+  { email: "sangradortorresjuan@gmail.com", name: "Juan" },
+  { email: "bea.gyerro@gmail.com", name: "Bea" },
 ];
 
 const LEADS = [
@@ -24,14 +28,13 @@ const TAREAS = [
 
 async function run() {
   const created: string[] = [];
-  // Create users
   for (const u of USERS) {
     const { data: existing } = await supabaseAdmin.auth.admin.listUsers();
     const exists = existing?.users.some((x) => x.email === u.email);
     if (!exists) {
       const { error } = await supabaseAdmin.auth.admin.createUser({
         email: u.email,
-        password: u.password,
+        password: USER_PASSWORD,
         email_confirm: true,
         user_metadata: { name: u.name },
       });
@@ -40,24 +43,14 @@ async function run() {
     }
   }
 
-  // Seed leads if empty
   const { count } = await supabaseAdmin.from("leads").select("*", { count: "exact", head: true });
   if (!count) {
-    const { data: insertedLeads, error: leadErr } = await supabaseAdmin
-      .from("leads")
-      .insert(LEADS)
-      .select();
+    const { data: insertedLeads, error: leadErr } = await supabaseAdmin.from("leads").insert(LEADS).select();
     if (leadErr) throw new Error(leadErr.message);
     const today = new Date().toISOString().slice(0, 10);
     const tareasRows = TAREAS.map((t) => {
       const lead = insertedLeads!.find((l) => l.nombre === t.lead);
-      return {
-        lead_id: lead!.id,
-        descripcion: t.descripcion,
-        vendedor: t.vendedor,
-        fecha: today,
-        completada: false,
-      };
+      return { lead_id: lead!.id, descripcion: t.descripcion, vendedor: t.vendedor, fecha: today, completada: false };
     });
     const { error: tErr } = await supabaseAdmin.from("tareas").insert(tareasRows);
     if (tErr) throw new Error(tErr.message);
@@ -69,24 +62,28 @@ async function run() {
 export const Route = createFileRoute("/api/public/bootstrap")({
   server: {
     handlers: {
-      GET: async () => {
-        try {
-          if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-            return new Response(JSON.stringify({ skipped: true, reason: "Admin backend unavailable in this runtime" }), {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            });
+      GET: async ({ request }: { request: Request }) => {
+        const json = (body: unknown, status = 200) =>
+          new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+        // Require secret token if BOOTSTRAP_SECRET env var is configured
+        const configuredSecret = process.env.BOOTSTRAP_SECRET;
+        if (configuredSecret) {
+          const provided = new URL(request.url).searchParams.get("secret");
+          if (provided !== configuredSecret) {
+            return json({ error: "Unauthorized" }, 401);
           }
+        }
+
+        if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          return json({ skipped: true, reason: "Admin backend unavailable in this runtime" });
+        }
+
+        try {
           const result = await run();
-          return new Response(JSON.stringify(result), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
+          return json(result);
         } catch (e) {
-          return new Response(JSON.stringify({ error: (e as Error).message }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          });
+          return json({ error: (e as Error).message }, 500);
         }
       },
     },

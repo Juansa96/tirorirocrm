@@ -25,7 +25,7 @@ function ClientesList() {
 
   const filtered = leads.filter((l) => {
     const ql = q.toLowerCase();
-    if (q && !l.nombre.toLowerCase().includes(ql) && !l.email.toLowerCase().includes(ql)) return false;
+    if (q && !l.nombre.toLowerCase().includes(ql) && !l.email.toLowerCase().includes(ql) && !l.telefono.toLowerCase().includes(ql)) return false;
     if (vendedor && l.vendedor !== vendedor) return false;
     if (producto && l.producto !== producto) return false;
     if (ciudad && l.ciudad !== ciudad) return false;
@@ -47,7 +47,7 @@ function ClientesList() {
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="relative col-span-2 md:col-span-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o email" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-slate-400 focus:outline-none" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre, email o teléfono" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-slate-400 focus:outline-none" />
         </div>
         <select value={vendedor} onChange={(e) => setVendedor(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
           <option value="">Todos los vendedores</option>

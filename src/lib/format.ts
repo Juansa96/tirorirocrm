@@ -21,13 +21,20 @@ export function formatAxisCurrency(n: number): string {
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
+// Parse a YYYY-MM-DD string as local time, not UTC.
+// new Date("2026-05-15") parses as UTC midnight → off-by-one in UTC+2 timezone.
+function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function formatShortDate(iso: string): string {
-  const d = new Date(iso);
+  const d = parseLocalDate(iso);
   return `${d.getDate()} ${MESES[d.getMonth()]}`;
 }
 
 export function formatLongDate(iso: string): string {
-  const d = new Date(iso);
+  const d = parseLocalDate(iso);
   const yy = String(d.getFullYear()).slice(-2);
   return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]} ${yy}`;
 }
@@ -42,8 +49,7 @@ export type DateStatus = "vencida" | "hoy" | "mañana" | "futura";
 export function dateStatus(iso: string): DateStatus {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const d = new Date(iso);
-  d.setHours(0, 0, 0, 0);
+  const d = parseLocalDate(iso);
   const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
   if (diff < 0) return "vencida";
   if (diff === 0) return "hoy";
