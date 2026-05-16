@@ -487,18 +487,33 @@ export const actions = {
   },
 
   async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
-    const { error } = await supabase.from("productos_lead").insert({
+    const { data, error } = await supabase.from("productos_lead").insert({
       lead_id: leadId, tipo: input.tipo, modelo: input.modelo,
       ancho: input.ancho, alto: input.alto, tela: input.tela,
       color: input.color, relleno: input.relleno, patas: input.patas,
       acabado: input.acabado, coleccion_tela: input.coleccionTela,
       cantidad: input.cantidad, precio_unitario: input.precioUnitario,
       notas_producto: input.notasProducto, created_by: currentUser ?? "",
-    });
-    if (error) toast.error("Error al guardar el producto.");
+    }).select().single();
+    if (error) { toast.error("Error al guardar el producto."); return; }
+    if (data) {
+      const nuevo = mapProducto(data as Record<string, unknown>);
+      if (!state.productos.find((x) => x.id === nuevo.id)) {
+        state = { ...state, productos: [...state.productos, nuevo] };
+        emit();
+      }
+    }
+    await syncLeadValorFromProductos(leadId);
   },
 
   async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
+    const prev = state.productos.find((p) => p.id === id);
+    const prevState = state;
+    if (prev) {
+      const optimistic: Producto = { ...prev, ...input };
+      state = { ...state, productos: state.productos.map((p) => p.id === id ? optimistic : p) };
+      emit();
+    }
     const { error } = await supabase.from("productos_lead").update({
       tipo: input.tipo, modelo: input.modelo, ancho: input.ancho, alto: input.alto,
       tela: input.tela, color: input.color, relleno: input.relleno, patas: input.patas,
@@ -506,15 +521,18 @@ export const actions = {
       cantidad: input.cantidad, precio_unitario: input.precioUnitario,
       notas_producto: input.notasProducto,
     }).eq("id", id);
-    if (error) toast.error("Error al actualizar el producto.");
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); return; }
+    if (prev) await syncLeadValorFromProductos(prev.leadId);
   },
 
   async deleteProducto(id: string) {
+    const prev = state.productos.find((p) => p.id === id);
     const prevState = state;
     state = { ...state, productos: state.productos.filter((p) => p.id !== id) };
     emit();
     const { error } = await supabase.from("productos_lead").delete().eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al eliminar el producto."); }
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar el producto."); return; }
+    if (prev) await syncLeadValorFromProductos(prev.leadId);
   },
 
   // Presence: call on mount (leadId) and unmount (null) of the lead detail page
