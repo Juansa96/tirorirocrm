@@ -134,7 +134,7 @@ function useErrorCapture() {
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
     // Expose to console for support debugging: tiroriroCRMErrors()
-    (window as Record<string, unknown>).tiroriroCRMErrors = () =>
+    (window as unknown as Record<string, unknown>).tiroriroCRMErrors = () =>
       JSON.parse(localStorage.getItem("tiroriro_errors") ?? "[]");
     return () => {
       window.removeEventListener("error", onError);
