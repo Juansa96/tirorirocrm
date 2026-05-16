@@ -310,6 +310,23 @@ export function useStore(): State {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+async function syncLeadValorFromProductos(leadId: string) {
+  const lead = state.leads.find((l) => l.id === leadId);
+  if (!lead) return;
+  const productos = state.productos.filter((p) => p.leadId === leadId);
+  if (productos.length === 0) return;
+  const valorProducto = productos.reduce((acc, p) => acc + (p.precioUnitario || 0) * (p.cantidad || 1), 0);
+  if (valorProducto === lead.valorProducto) return;
+  const valor = valorProducto + lead.valorEnvio;
+  state = {
+    ...state,
+    leads: state.leads.map((l) => l.id === leadId ? { ...l, valorProducto, valor } : l),
+  };
+  emit();
+  suppressLead(leadId);
+  await supabase.from("leads").update({ valor_producto: valorProducto, valor } as never).eq("id", leadId);
+}
+
 export const actions = {
   async addLead(
     input: Omit<Lead, "id" | "fechaCreacion">,
