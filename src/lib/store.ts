@@ -15,11 +15,13 @@ interface State {
   realtimeStatus: "connected" | "connecting" | "disconnected";
   // leadId -> timestamp of last remote update (for conflict detection)
   remoteUpdateTimestamps: Record<string, number>;
+  // leadId -> list of other users currently viewing that lead (Presence)
+  presenceEditors: Record<string, string[]>;
 }
 
 let state: State = {
   leads: [], tareas: [], audit: [], notas: [], productos: [],
-  loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {},
+  loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
 
@@ -114,6 +116,25 @@ function mapProducto(r: Record<string, unknown>): Producto {
 
 let currentUser: string | null = null;
 export function setCurrentUser(email: string | null) { currentUser = email; }
+
+// Presence channel (ephemeral — no DB table needed)
+let presenceChannel: ReturnType<typeof supabase.channel> | null = null;
+
+function syncPresence() {
+  if (!presenceChannel) return;
+  const raw = presenceChannel.presenceState<{ user: string; editing: string }>();
+  const editors: Record<string, string[]> = {};
+  for (const presences of Object.values(raw)) {
+    for (const p of presences) {
+      if (p.editing && p.user && p.user !== currentUser) {
+        if (!editors[p.editing]) editors[p.editing] = [];
+        editors[p.editing].push(p.user);
+      }
+    }
+  }
+  state = { ...state, presenceEditors: editors };
+  emit();
+}
 
 let bootstrapped = false;
 async function bootstrap() {
@@ -232,6 +253,18 @@ async function init() {
       state = { ...state, realtimeStatus: next };
       emit();
     });
+
+  // Presence channel: shows who else is viewing the same lead in real time
+  presenceChannel = supabase.channel("tirocrm-presence");
+  presenceChannel
+    .on("presence", { event: "sync" }, syncPresence)
+    .on("presence", { event: "join" }, syncPresence)
+    .on("presence", { event: "leave" }, syncPresence)
+    .subscribe(async (status) => {
+      if (status === "SUBSCRIBED" && currentUser) {
+        await presenceChannel!.track({ user: currentUser, editing: "" });
+      }
+    });
 }
 
 async function refetchLeads() {
@@ -268,7 +301,7 @@ function subscribe(cb: () => void) {
 
 const SERVER: State = {
   leads: [], tareas: [], audit: [], notas: [], productos: [],
-  loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {},
+  loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
 function getServerSnapshot(): State { return SERVER; }
@@ -483,6 +516,13 @@ export const actions = {
     const { error } = await supabase.from("productos_lead").delete().eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al eliminar el producto."); }
   },
+
+  // Presence: call on mount (leadId) and unmount (null) of the lead detail page
+  trackEditing(leadId: string | null) {
+    if (!presenceChannel || !currentUser) return;
+    void presenceChannel.track({ user: currentUser, editing: leadId ?? "" });
+  },
+
   // deleteAuditEntry intentionally removed — audit log is append-only for trazabilidad
 };
 

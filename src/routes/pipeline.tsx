@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Plus, Clock, X, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useStore, actions, nextPendingTaskFor } from "@/lib/store";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName, type Etapa } from "@/lib/types";
 import { formatCurrency, dateLabel } from "@/lib/format";
@@ -89,6 +89,8 @@ function Pipeline() {
   const { etapa: filterEtapa, vendedor: filterVendedor } = Route.useSearch();
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<Etapa | null>(null);
+  // Touch drag state (mobile support — HTML5 drag API doesn't work on touch)
+  const touchDragId = useRef<string | null>(null);
 
   const visibleEtapas = filterEtapa ? ETAPAS.filter((e) => e === filterEtapa) : ETAPAS;
   const hasFilter = !!(filterEtapa || filterVendedor);
@@ -151,6 +153,7 @@ function Pipeline() {
             return (
               <div
                 key={etapa}
+                data-etapa={etapa}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={() => {
@@ -195,6 +198,22 @@ function Pipeline() {
                         draggable
                         onDragStart={() => setDraggingId(lead.id)}
                         onDragEnd={() => setDraggingId(null)}
+                        onTouchStart={() => { touchDragId.current = lead.id; }}
+                        onTouchMove={(e) => {
+                          if (!touchDragId.current) return;
+                          const touch = e.touches[0];
+                          const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                          const col = el?.closest("[data-etapa]");
+                          const over = col?.getAttribute("data-etapa") as Etapa | null;
+                          setDragOver(over ?? null);
+                        }}
+                        onTouchEnd={() => {
+                          if (touchDragId.current && dragOver) {
+                            actions.setLeadEtapa(touchDragId.current, dragOver);
+                          }
+                          touchDragId.current = null;
+                          setDragOver(null);
+                        }}
                       >
                         <LeadCard
                           lead={lead}

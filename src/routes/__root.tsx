@@ -114,8 +114,38 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
+function useErrorCapture() {
+  useEffect(() => {
+    const MAX = 30;
+    function capture(entry: Record<string, unknown>) {
+      try {
+        const existing = JSON.parse(localStorage.getItem("tiroriro_errors") ?? "[]") as unknown[];
+        existing.unshift({ ...entry, ts: new Date().toISOString() });
+        localStorage.setItem("tiroriro_errors", JSON.stringify(existing.slice(0, MAX)));
+      } catch {}
+    }
+    function onError(e: ErrorEvent) {
+      capture({ type: "error", msg: e.message, src: `${e.filename}:${e.lineno}`, stack: (e.error as Error | null)?.stack });
+    }
+    function onRejection(e: PromiseRejectionEvent) {
+      const msg = e.reason instanceof Error ? e.reason.message : String(e.reason);
+      capture({ type: "unhandled_rejection", msg });
+    }
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    // Expose to console for support debugging: tiroriroCRMErrors()
+    (window as Record<string, unknown>).tiroriroCRMErrors = () =>
+      JSON.parse(localStorage.getItem("tiroriro_errors") ?? "[]");
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useErrorCapture();
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

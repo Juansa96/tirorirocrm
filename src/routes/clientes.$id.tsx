@@ -125,7 +125,7 @@ function TareaRow({ tarea, clienteNombre }: { tarea: Tarea; clienteNombre: strin
 // ── Main component ────────────────────────────────────────────────
 function ClienteDetalle() {
   const { id } = Route.useParams();
-  const { leads, tareas, audit, notas, productos, remoteUpdateTimestamps } = useStore();
+  const { leads, tareas, audit, notas, productos, remoteUpdateTimestamps, presenceEditors } = useStore();
   const navigate = useNavigate();
   const lead = leads.find((l) => l.id === id);
 
@@ -155,6 +155,12 @@ function ClienteDetalle() {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [hasUnsaved]);
+
+  // Track presence: announce we're viewing this lead, clear on unmount
+  useEffect(() => {
+    actions.trackEditing(id);
+    return () => { actions.trackEditing(null); };
+  }, [id]);
 
   // Show conflict banner when another user edits this lead while we have it open
   useEffect(() => {
@@ -222,6 +228,14 @@ function ClienteDetalle() {
         <ArrowLeft className="h-4 w-4" /> Volver
         {hasUnsaved && <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Sin guardar</span>}
       </button>
+
+      {/* Presence banner: who else is viewing this lead right now */}
+      {(presenceEditors[id] ?? []).length > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800">
+          <Radio className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+          <span>También está viendo: <strong>{(presenceEditors[id] ?? []).join(", ")}</strong></span>
+        </div>
+      )}
 
       {/* Conflict banner */}
       {conflictBanner && (
