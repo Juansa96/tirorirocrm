@@ -265,13 +265,16 @@ function TareasPage() {
           <option value="">Todos los vendedores</option>
           {VENDEDORES.map((v) => (<option key={v} value={v}>{vendorName(v)}</option>))}
         </select>
-        {view === "lista" && (
-          <select value={estado} onChange={(e) => setEstado(e.target.value as typeof estado)} className={inputCls}>
-            <option value="pendiente">Pendientes</option>
-            <option value="completada">Completadas</option>
-            <option value="todas">Todas</option>
-          </select>
-        )}
+        <select
+          value={estado}
+          onChange={(e) => setEstado(e.target.value as typeof estado)}
+          disabled={view !== "lista"}
+          className={`${inputCls} ${view === "lista" ? "" : "hidden"}`}
+        >
+          <option value="pendiente">Pendientes</option>
+          <option value="completada">Completadas</option>
+          <option value="todas">Todas</option>
+        </select>
       </div>
 
       {/* Content */}
