@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Columns3, List, CalendarClock, LogOut, Search, X,
+  LayoutDashboard, Columns3, List, CalendarClock, LogOut, Search, X, BarChart2,
 } from "lucide-react";
 import { useState, useEffect, useRef, type ComponentType } from "react";
 import { useAuth } from "@/lib/auth";
@@ -21,6 +21,7 @@ const NAV: NavItem[] = [
   { to: "/pipeline", label: "Pipeline", icon: Columns3 },
   { to: "/clientes", label: "Clientes", icon: List },
   { to: "/tareas", label: "Tareas", icon: CalendarClock },
+  { to: "/datos", label: "Datos", icon: BarChart2 },
 ];
 
 function isActive(path: string, item: NavItem) {
