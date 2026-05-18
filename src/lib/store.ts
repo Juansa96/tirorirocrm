@@ -473,17 +473,28 @@ export const actions = {
   },
 
   async addNota(leadId: string, contenido: string): Promise<boolean> {
-    const tempId = `opt-${Date.now()}`;
+    // Use a real UUID so we can swap it with the DB UUID before realtime fires,
+    // preventing the duplicate-note bug (realtime INSERT couldn't find the tempId
+    // and added the note a second time).
+    const tempId = crypto.randomUUID();
     const optimistic: Nota = { id: tempId, leadId, contenido, usuario: currentUser ?? "", createdAt: new Date().toISOString() };
     state = { ...state, notas: [optimistic, ...state.notas] };
     emit();
-    const { error } = await supabase.from("notas").insert({ lead_id: leadId, contenido, usuario: currentUser ?? "" });
+    const { data, error } = await supabase
+      .from("notas")
+      .insert({ lead_id: leadId, contenido, usuario: currentUser ?? "" })
+      .select()
+      .single();
     if (error) {
       state = { ...state, notas: state.notas.filter((n) => n.id !== tempId) };
       emit();
       toast.error("Error al guardar la nota.");
       return false;
     }
+    // Replace temp entry with the real DB row — realtime dedup will now skip it
+    const real = mapNota(data as Record<string, unknown>);
+    state = { ...state, notas: state.notas.map((n) => (n.id === tempId ? real : n)) };
+    emit();
     return true;
   },
 
