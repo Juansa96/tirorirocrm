@@ -398,7 +398,7 @@ export const actions = {
     state = { ...state, leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
     emit();
     suppressLead(id);
-    const { error } = await supabase.from("leads").update(dbPatch as never).eq("id", id);
+    const { error } = await supabase.from("leads").update(dbPatch as Record<string, unknown>).eq("id", id);
     if (error) {
       state = prevState;
       emit();
