@@ -5,7 +5,7 @@ import {
   Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Producto, type Tarea } from "@/lib/types";
+import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Lead, type Producto, type Tarea } from "@/lib/types";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -185,7 +185,7 @@ function ClienteDetalle() {
     setEditing(true);
   }
 
-  function saveDraftField(field: keyof typeof draft, value: string) {
+  function saveDraftField(field: keyof NonNullable<typeof draft>, value: string) {
     if (!lead || !draft) return;
     if (value !== lead[field as keyof typeof lead]) {
       void actions.updateLead(lead.id, { [field]: value } as Partial<Lead>);

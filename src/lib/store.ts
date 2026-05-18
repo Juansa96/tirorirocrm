@@ -403,7 +403,7 @@ export const actions = {
 
     // Guardado principal (sin edad)
     if (Object.keys(dbPatch).length > 0) {
-      const { error } = await supabase.from("leads").update(dbPatch as Record<string, unknown>).eq("id", id);
+      const { error } = await supabase.from("leads").update(dbPatch as never).eq("id", id);
       if (error) {
         state = prevState;
         emit();
