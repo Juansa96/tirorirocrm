@@ -385,7 +385,9 @@ export const actions = {
     if (patch.origen !== undefined) dbPatch.origen = patch.origen;
     if (patch.redSocial !== undefined) dbPatch.red_social = patch.redSocial;
     if (patch.fechaHold !== undefined) dbPatch.fecha_hold = patch.fechaHold || null;
-    if (patch.edad !== undefined) dbPatch.edad = patch.edad;
+    // edad se guarda por separado para que un fallo por columna inexistente
+    // no impida guardar el resto de campos
+    const edadValue = patch.edad;
     if (patch.valorProducto !== undefined) dbPatch.valor_producto = patch.valorProducto;
     if (patch.valorEnvio !== undefined) dbPatch.valor_envio = patch.valorEnvio;
     if ((patch.valorProducto !== undefined || patch.valorEnvio !== undefined) && prevLead) {
@@ -398,12 +400,23 @@ export const actions = {
     state = { ...state, leads: state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
     emit();
     suppressLead(id);
-    const { error } = await supabase.from("leads").update(dbPatch as Record<string, unknown>).eq("id", id);
-    if (error) {
-      state = prevState;
-      emit();
-      toast.error("Error al guardar el cliente. Los cambios no se han guardado.");
-      return;
+
+    // Guardado principal (sin edad)
+    if (Object.keys(dbPatch).length > 0) {
+      const { error } = await supabase.from("leads").update(dbPatch as Record<string, unknown>).eq("id", id);
+      if (error) {
+        state = prevState;
+        emit();
+        toast.error("Error al guardar el cliente. Los cambios no se han guardado.");
+        return;
+      }
+    }
+
+    // Guardado de edad por separado — falla silenciosamente si la columna no existe aún
+    if (edadValue !== undefined) {
+      await supabase.from("leads").update({ edad: edadValue } as never).eq("id", id).then(({ error }) => {
+        if (error) console.warn("[updateLead] edad column not available yet:", error.message);
+      });
     }
     if (prevLead && currentUser) {
       const isValorDerived = patch.valorProducto !== undefined || patch.valorEnvio !== undefined;
