@@ -402,7 +402,8 @@ export const actions = {
     if (error) {
       state = prevState;
       emit();
-      toast.error("Error al guardar el cliente. Los cambios no se han guardado.");
+      console.error("[updateLead] Supabase error:", error);
+      toast.error(`Error al guardar: ${error.message ?? error.code ?? "desconocido"}`);
       return;
     }
     if (prevLead && currentUser) {
