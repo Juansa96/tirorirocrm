@@ -5,7 +5,7 @@ import {
   Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, vendorName, type Etapa, type Producto, type Tarea } from "@/lib/types";
+import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Producto, type Tarea } from "@/lib/types";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -379,6 +379,21 @@ function ClienteDetalle() {
             <InfoRow icon={Radio} label="Red social">
               {editing && draft ? <input value={draft.redSocial} onChange={(e) => setDraft({ ...draft, redSocial: e.target.value })} onBlur={(e) => saveDraftField("redSocial", e.target.value)} className={inp} placeholder="@usuario..." /> : (lead.redSocial || <span className="text-slate-400">—</span>)}
             </InfoRow>
+            <div>
+              <div className="mb-1.5 text-xs text-slate-500">Edad aprox.</div>
+              <div className="flex flex-wrap gap-1.5">
+                {RANGOS_EDAD.map(r => (
+                  <button
+                    key={r}
+                    onClick={() => actions.updateLead(lead.id, { edad: lead.edad === r ? "" : r })}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${lead.edad === r ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 bg-white text-slate-500 hover:border-slate-400"}`}
+                  >
+                    {r}
+                  </button>
+                ))}
+                {!lead.edad && <span className="self-center text-xs text-slate-300">Sin especificar</span>}
+              </div>
+            </div>
             {lead.origen && (
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500">Origen:</span>

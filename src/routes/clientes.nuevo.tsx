@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Plus } from "lucide-react";
 import { actions } from "@/lib/store";
-import { VENDEDORES, ETAPAS, ORIGENES, vendorName, type Etapa } from "@/lib/types";
+import { VENDEDORES, ETAPAS, ORIGENES, RANGOS_EDAD, vendorName, type Etapa } from "@/lib/types";
 import { todayISO } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE } from "@/components/ProductoForm";
 import type { Producto } from "@/lib/types";
@@ -26,6 +26,7 @@ function NuevoLead() {
     origen: "" as string,
     redSocial: "",
     fechaHold: "",
+    edad: "",
   });
   const [tarea, setTarea] = useState({ descripcion: "", fecha: todayISO(), hora: "" });
   const [prodState, setProdState] = useState<Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy"> | null>(null);
@@ -91,6 +92,18 @@ function NuevoLead() {
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Red social / usuario</label>
               <input value={form.redSocial} onChange={e => setForm({...form, redSocial: e.target.value})} className={cls} placeholder="@usuario, perfil de IG..." />
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-slate-700">Rango de edad</label>
+              <div className="flex flex-wrap gap-2">
+                {RANGOS_EDAD.map(r => (
+                  <button key={r} type="button"
+                    onClick={() => setForm({...form, edad: form.edad === r ? "" : r})}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${form.edad === r ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}>
+                    {r}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

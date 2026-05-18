@@ -4,7 +4,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { useStore } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName } from "@/lib/types";
+import { ETAPAS, ETAPA_COLORS, VENDEDORES, RANGOS_EDAD, vendorName } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 
 export const Route = createFileRoute("/datos")({
@@ -151,6 +151,13 @@ function DatosPage() {
     byDay[(d.getDay() + 6) % 7]++;
   });
   const dayData = DIAS.map((dia, i) => ({ dia, count: byDay[i] }));
+
+  // ── Edad ─────────────────────────────────────────────────────────
+  const edadData = RANGOS_EDAD.map(r => ({
+    rango: r,
+    count: leads.filter(l => l.edad === r).length,
+  }));
+  const sinEdad = leads.filter(l => !l.edad).length;
 
   // ── Conversión por canal ─────────────────────────────────────────
   const conversionPorCanal = Object.entries(
@@ -380,10 +387,28 @@ function DatosPage() {
         </Card>
       </div>
 
-      {/* Nota sobre edad */}
-      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400">
-        💡 <strong className="text-slate-500">Edad de los solicitantes</strong> — El CRM no captura la edad aún. Si quieres este dato, puedo añadir un campo opcional de edad (o rango de edad) al formulario de nuevo lead.
-      </div>
+      {/* Edad */}
+      <Card title="Rango de edad de los clientes">
+        {edadData.every(d => d.count === 0) ? (
+          <div className="py-8 text-center text-sm text-slate-300">
+            Sin datos de edad aún — rellena el campo en cada lead para verlo aquí
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={edadData} margin={{ left: -20 }}>
+                <XAxis dataKey="rango" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, "leads"]} />
+                <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            {sinEdad > 0 && (
+              <p className="text-center text-xs text-slate-400">{sinEdad} lead{sinEdad !== 1 ? "s" : ""} sin edad registrada</p>
+            )}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

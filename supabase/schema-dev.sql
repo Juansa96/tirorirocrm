@@ -21,6 +21,7 @@ CREATE TABLE public.leads (
   valor_producto NUMERIC NOT NULL DEFAULT 0,
   valor_envio NUMERIC NOT NULL DEFAULT 0,
   fecha_creacion DATE NOT NULL DEFAULT CURRENT_DATE,
+  edad TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

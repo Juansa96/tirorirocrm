@@ -53,6 +53,7 @@ function mapLead(r: Record<string, unknown>): Lead {
     fechaHold: (r.fecha_hold as string) ?? "",
     valorProducto: Number(r.valor_producto) || 0,
     valorEnvio: Number(r.valor_envio) || 0,
+    edad: (r.edad as string) ?? "",
     fechaCreacion: (r.created_at as string) ?? "",
   };
 }
@@ -348,6 +349,7 @@ export const actions = {
         fecha_hold: input.fechaHold || null,
         valor_producto: input.valorProducto ?? 0,
         valor_envio: input.valorEnvio ?? 0,
+        edad: input.edad ?? "",
       })
       .select()
       .single();
@@ -383,6 +385,7 @@ export const actions = {
     if (patch.origen !== undefined) dbPatch.origen = patch.origen;
     if (patch.redSocial !== undefined) dbPatch.red_social = patch.redSocial;
     if (patch.fechaHold !== undefined) dbPatch.fecha_hold = patch.fechaHold || null;
+    if (patch.edad !== undefined) dbPatch.edad = patch.edad;
     if (patch.valorProducto !== undefined) dbPatch.valor_producto = patch.valorProducto;
     if (patch.valorEnvio !== undefined) dbPatch.valor_envio = patch.valorEnvio;
     if ((patch.valorProducto !== undefined || patch.valorEnvio !== undefined) && prevLead) {

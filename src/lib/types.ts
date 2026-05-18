@@ -62,6 +62,9 @@ export const ORIGENES = [
 
 export type Origen = (typeof ORIGENES)[number] | string;
 
+export const RANGOS_EDAD = ["< 30", "30-40", "40-50", "50-60", "> 60"] as const;
+export type RangoEdad = (typeof RANGOS_EDAD)[number] | "";
+
 export interface Lead {
   id: string;
   nombre: string;
@@ -77,6 +80,7 @@ export interface Lead {
   fechaHold: string;
   valorProducto: number;
   valorEnvio: number;
+  edad: string;
   fechaCreacion: string;
 }
 
