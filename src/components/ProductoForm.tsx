@@ -60,6 +60,7 @@ export const TELAS_SUGERIDAS = [
 
 // ── Tipos ─────────────────────────────────────────────────────────
 export type ProdTipo = "cabecero" | "puf" | "mesa" | "pantalla" | "";
+export const FORMA_POR_DECIDIR = "tbd";
 
 export interface ProdState {
   tipo: ProdTipo;
@@ -77,7 +78,7 @@ export interface ProdState {
 
 export const EMPTY_PROD_STATE: ProdState = {
   tipo: "",
-  forma: "recto", anchoCama: "150", anchoCamaCustom: "", altoCabecero: "100", altoCabeceroCustom: "", telaLateral: "", colgador: false,
+  forma: "", anchoCama: "150", anchoCamaCustom: "", altoCabecero: "100", altoCabeceroCustom: "", telaLateral: "", colgador: false,
   tamanoPuf: "40", tamanoPufCustom: "", cantidadPuf: "1",
   presetMesa: "120×45×60 cm", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   formaPantalla: "cilindro", tamanoPantalla: "Ø40×40 cm",
@@ -93,15 +94,19 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
   const extras = (items: (string | false)[]) => items.filter(Boolean).join(" · ");
 
   if (f.tipo === "cabecero") {
-    modelo = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma;
+    modelo = f.forma === FORMA_POR_DECIDIR || !f.forma
+      ? "Forma por decidir"
+      : (CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma);
     ancho = f.anchoCama === "tbd" ? null : f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
     alto  = f.altoCabecero === "tbd" ? null : f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
     color = f.telaLateral; relleno = f.telaVivo;
+    const tbdForma = f.forma === FORMA_POR_DECIDIR || !f.forma;
     const tbdAncho = f.anchoCama === "tbd";
     const tbdAlto = f.altoCabecero === "tbd";
     patas = extras([
       f.colgador && "Con colgador (+5€)",
       f.tapetes && "Tapetes protectores (+5€)",
+      tbdForma && "Forma por decidir",
       (tbdAncho || tbdAlto) && `Medidas por decidir${tbdAncho && tbdAlto ? "" : tbdAncho ? " (ancho)" : " (alto)"}`,
     ]);
   } else if (f.tipo === "puf") {
@@ -149,7 +154,8 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   s.tapetes = p.patas?.includes("Tapetes") ?? false;
 
   if (p.tipo === "cabecero") {
-    s.forma = CABECERO_FORMAS.find(x => x.name === p.modelo)?.id ?? "recto";
+    const formaMatch = CABECERO_FORMAS.find(x => x.name === p.modelo);
+    s.forma = formaMatch ? formaMatch.id : (p.modelo === "Forma por decidir" ? FORMA_POR_DECIDIR : "");
     const a = p.ancho ? String(p.ancho) : "";
     s.anchoCama = CABECERO_ANCHOS.includes(a) ? a : (a ? "custom" : "150");
     s.anchoCamaCustom = CABECERO_ANCHOS.includes(a) ? "" : a;
@@ -184,15 +190,20 @@ const TELA_INP = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm foc
 const TELA_BTN = (active: boolean) =>
   `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
 
+export const TELA_POR_DECIDIR = "Por decidir";
+
 export function TelaSelect({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const [modo, setModo] = useState<"web" | "otro">(() =>
-    value !== "" && !TELAS_SUGERIDAS.includes(value) ? "otro" : "web"
-  );
+  const [modo, setModo] = useState<"web" | "otro" | "tbd">(() => {
+    if (value === TELA_POR_DECIDIR) return "tbd";
+    if (value !== "" && !TELAS_SUGERIDAS.includes(value)) return "otro";
+    return "web";
+  });
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button type="button" className={TELA_BTN(modo === "web")} onClick={() => { setModo("web"); onChange(""); }}>Tela de la web</button>
         <button type="button" className={TELA_BTN(modo === "otro")} onClick={() => { setModo("otro"); onChange(""); }}>Otra tela</button>
+        <button type="button" className={TELA_BTN(modo === "tbd")} onClick={() => { setModo("tbd"); onChange(TELA_POR_DECIDIR); }}>Por decidir</button>
       </div>
       {modo === "web" && (
         <select className={TELA_INP} value={value} onChange={e => onChange(e.target.value)}>
@@ -203,6 +214,11 @@ export function TelaSelect({ value, onChange, placeholder }: { value: string; on
       {modo === "otro" && (
         <input type="text" className={TELA_INP} value={value} onChange={e => onChange(e.target.value)}
           placeholder={placeholder ?? "Escribe el nombre de la tela…"} autoFocus />
+      )}
+      {modo === "tbd" && (
+        <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Tela pendiente de decidir — se puede editar más adelante
+        </div>
       )}
     </div>
   );
@@ -273,7 +289,13 @@ export function ProductoForm({
             <div className={section}>Forma</div>
             <div className="flex flex-wrap gap-2">
               {CABECERO_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ forma: x.id })} className={btn(f.forma === x.id)}>{x.name}</button>)}
+              <button type="button" onClick={() => s({ forma: FORMA_POR_DECIDIR })} className={btn(f.forma === FORMA_POR_DECIDIR || !f.forma)}>Por decidir</button>
             </div>
+            {(f.forma === FORMA_POR_DECIDIR || !f.forma) && (
+              <div className="mt-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Forma pendiente de decidir — se puede editar más adelante
+              </div>
+            )}
           </div>
           <div>
             <div className={section}>Ancho de cabecero</div>
