@@ -73,7 +73,7 @@ function DatosPage() {
 
   const now = new Date();
   const thisMonth = leads.filter(l => {
-    const d = new Date(l.fechaCreacion || l.created_at ?? "");
+    const d = new Date(l.fechaCreacion || "");
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
