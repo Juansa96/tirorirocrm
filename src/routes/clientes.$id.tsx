@@ -130,6 +130,9 @@ function ClienteDetalle() {
   const lead = leads.find((l) => l.id === id);
 
   const [editing, setEditing] = useState(false);
+  // Draft text fields — only sent to Supabase on blur or when "Hecho" is clicked,
+  // NOT on every keystroke (prevents audit-log spam and excessive DB writes)
+  const [draft, setDraft] = useState<{ nombre: string; email: string; telefono: string; ciudad: string; redSocial: string } | null>(null);
   const [valorProductoEdit, setValorProductoEdit] = useState(false);
   const [valorEnvioEdit, setValorEnvioEdit] = useState(false);
   const [localValorProducto, setLocalValorProducto] = useState<number | null>(null);
@@ -175,6 +178,33 @@ function ClienteDetalle() {
       setConflictBanner(true);
     }
   }, [remoteUpdateTimestamps, id]);
+
+  function openEditing() {
+    if (!lead) return;
+    setDraft({ nombre: lead.nombre, email: lead.email, telefono: lead.telefono, ciudad: lead.ciudad, redSocial: lead.redSocial });
+    setEditing(true);
+  }
+
+  function saveDraftField(field: keyof typeof draft, value: string) {
+    if (!lead || !draft) return;
+    if (value !== lead[field as keyof typeof lead]) {
+      void actions.updateLead(lead.id, { [field]: value } as Partial<Lead>);
+    }
+  }
+
+  function closeEditing() {
+    if (lead && draft) {
+      const patch: Partial<Lead> = {};
+      if (draft.nombre !== lead.nombre) patch.nombre = draft.nombre;
+      if (draft.email !== lead.email) patch.email = draft.email;
+      if (draft.telefono !== lead.telefono) patch.telefono = draft.telefono;
+      if (draft.ciudad !== lead.ciudad) patch.ciudad = draft.ciudad;
+      if (draft.redSocial !== lead.redSocial) patch.redSocial = draft.redSocial;
+      if (Object.keys(patch).length > 0) void actions.updateLead(lead.id, patch);
+    }
+    setDraft(null);
+    setEditing(false);
+  }
 
   function goBack() {
     if (hasUnsaved) {
@@ -279,8 +309,13 @@ function ClienteDetalle() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
         <div>
-          {editing ? (
-            <input value={lead.nombre} onChange={(e) => actions.updateLead(lead.id, { nombre: e.target.value })} className="w-full rounded border border-slate-300 px-2 py-1 text-2xl font-bold" />
+          {editing && draft ? (
+            <input
+              value={draft.nombre}
+              onChange={(e) => setDraft({ ...draft, nombre: e.target.value })}
+              onBlur={(e) => saveDraftField("nombre", e.target.value)}
+              className="w-full rounded border border-slate-300 px-2 py-1 text-2xl font-bold"
+            />
           ) : (
             <h1 className="text-2xl font-bold">{lead.nombre}</h1>
           )}
@@ -290,7 +325,7 @@ function ClienteDetalle() {
         </div>
         <div className="flex gap-2">
           <DeleteLeadButton id={lead.id} redirectAfter />
-          <button onClick={() => setEditing(!editing)} className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46]">
+          <button onClick={editing ? closeEditing : openEditing} className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46]">
             {editing ? "Hecho" : "Editar"}
           </button>
         </div>
@@ -319,11 +354,11 @@ function ClienteDetalle() {
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Información</div>
           <div className="space-y-3 text-sm">
             <InfoRow icon={Mail} label="Email">
-              {editing ? <input value={lead.email} onChange={(e) => actions.updateLead(lead.id, { email: e.target.value })} className={inp} /> : (lead.email || <span className="text-slate-400">—</span>)}
+              {editing && draft ? <input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} onBlur={(e) => saveDraftField("email", e.target.value)} className={inp} /> : (lead.email || <span className="text-slate-400">—</span>)}
             </InfoRow>
             <InfoRow icon={Phone} label="Teléfono">
               {editing ? (
-                <input value={lead.telefono} onChange={(e) => actions.updateLead(lead.id, { telefono: e.target.value })} className={inp} />
+                <input value={draft?.telefono ?? lead.telefono} onChange={(e) => draft && setDraft({ ...draft, telefono: e.target.value })} onBlur={(e) => saveDraftField("telefono", e.target.value)} className={inp} />
               ) : lead.telefono ? (
                 <div className="flex items-center gap-2">
                   <span>{lead.telefono}</span>
@@ -339,10 +374,10 @@ function ClienteDetalle() {
               ) : <span className="text-slate-400">—</span>}
             </InfoRow>
             <InfoRow icon={MapPin} label="Ciudad">
-              {editing ? <input value={lead.ciudad} onChange={(e) => actions.updateLead(lead.id, { ciudad: e.target.value })} className={inp} /> : (lead.ciudad || <span className="text-slate-400">—</span>)}
+              {editing && draft ? <input value={draft.ciudad} onChange={(e) => setDraft({ ...draft, ciudad: e.target.value })} onBlur={(e) => saveDraftField("ciudad", e.target.value)} className={inp} /> : (lead.ciudad || <span className="text-slate-400">—</span>)}
             </InfoRow>
             <InfoRow icon={Radio} label="Red social">
-              {editing ? <input value={lead.redSocial} onChange={(e) => actions.updateLead(lead.id, { redSocial: e.target.value })} className={inp} placeholder="@usuario..." /> : (lead.redSocial || <span className="text-slate-400">—</span>)}
+              {editing && draft ? <input value={draft.redSocial} onChange={(e) => setDraft({ ...draft, redSocial: e.target.value })} onBlur={(e) => saveDraftField("redSocial", e.target.value)} className={inp} placeholder="@usuario..." /> : (lead.redSocial || <span className="text-slate-400">—</span>)}
             </InfoRow>
             {lead.origen && (
               <div className="flex items-center gap-2 text-xs">
