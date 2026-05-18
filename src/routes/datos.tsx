@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useMemo } from "react";
+import { Download } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -62,106 +64,159 @@ function Empty() {
 function DatosPage() {
   const { leads, notas, productos } = useStore();
 
-  // ── KPIs ────────────────────────────────────────────────────────
-  const total = leads.length;
-  const closedWon  = leads.filter(l => l.etapa === "Closed Won").length;
-  const closedLost = leads.filter(l => l.etapa === "Closed Lost").length;
+  // ── Filtros ──────────────────────────────────────────────────────
+  const now = new Date();
+  const [vendedorFilter, setVendedorFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [activePreset, setActivePreset] = useState("all");
+
+  function applyPreset(p: string) {
+    setActivePreset(p);
+    if (p === "month") {
+      setDateFrom(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10));
+      setDateTo(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10));
+    } else if (p === "quarter") {
+      const d = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      setDateFrom(d.toISOString().slice(0, 10));
+      setDateTo("");
+    } else if (p === "semester") {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      setDateFrom(d.toISOString().slice(0, 10));
+      setDateTo("");
+    } else {
+      setDateFrom("");
+      setDateTo("");
+    }
+  }
+
+  const filtered = useMemo(() => leads.filter(l => {
+    if (vendedorFilter !== "all" && l.vendedor !== vendedorFilter) return false;
+    if (dateFrom && l.fechaCreacion < dateFrom) return false;
+    if (dateTo && l.fechaCreacion > dateTo) return false;
+    return true;
+  }), [leads, vendedorFilter, dateFrom, dateTo]);
+
+  const filteredIds = useMemo(() => new Set(filtered.map(l => l.id)), [filtered]);
+  const filteredProductos = useMemo(() => productos.filter(p => filteredIds.has(p.leadId)), [productos, filteredIds]);
+  const filteredNotas = useMemo(() => notas.filter(n => filteredIds.has(n.leadId)), [notas, filteredIds]);
+
+  const activeFilters = vendedorFilter !== "all" || dateFrom || dateTo;
+
+  // ── KPIs ─────────────────────────────────────────────────────────
+  const total = filtered.length;
+  const closedWon  = filtered.filter(l => l.etapa === "Closed Won").length;
+  const closedLost = filtered.filter(l => l.etapa === "Closed Lost").length;
   const totalCerrados = closedWon + closedLost;
   const convRate = totalCerrados > 0 ? Math.round(closedWon / totalCerrados * 100) : 0;
-  const valorTotal = leads.reduce((s, l) => s + l.valor, 0);
-  const valorWon   = leads.filter(l => l.etapa === "Closed Won").reduce((s, l) => s + l.valor, 0);
+  const valorTotal = filtered.reduce((s, l) => s + l.valor, 0);
+  const valorWon = filtered.filter(l => l.etapa === "Closed Won").reduce((s, l) => s + l.valor, 0);
+  const ticketMedio = closedWon > 0 ? Math.round(valorWon / closedWon) : 0;
+  const onHold = filtered.filter(l => l.etapa === "On Hold").length;
 
-  const now = new Date();
-  const thisMonth = leads.filter(l => {
+  const thisMonth = filtered.filter(l => {
     const d = new Date(l.fechaCreacion || "");
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
-  // ── Pipeline funnel ──────────────────────────────────────────────
+  // ── Pipeline funnel ───────────────────────────────────────────────
   const pipelineData = ETAPAS.map(e => ({
     etapa: e.replace("Primer Contacto", "1er Contacto"),
-    count: leads.filter(l => l.etapa === e).length,
-    valor: leads.filter(l => l.etapa === e).reduce((s, l) => s + l.valor, 0),
+    count: filtered.filter(l => l.etapa === e).length,
+    valor: filtered.filter(l => l.etapa === e).reduce((s, l) => s + l.valor, 0),
     color: ETAPA_COLORS[e],
   }));
 
-  // ── Canales ──────────────────────────────────────────────────────
-  const canalData = count(leads.map(l => l.origen || "Sin especificar"))
+  // ── Canales ───────────────────────────────────────────────────────
+  const canalData = count(filtered.map(l => l.origen || "Sin especificar"))
     .map(({ key, n }) => ({ name: key, value: n }));
 
-  // ── Vendedores ───────────────────────────────────────────────────
-  const vendedorData = VENDEDORES.map(v => ({
-    name: vendorName(v).split(" ")[0],
-    leads: leads.filter(l => l.vendedor === v).length,
-    ganados: leads.filter(l => l.vendedor === v && l.etapa === "Closed Won").length,
-    valor: leads.filter(l => l.vendedor === v).reduce((s, l) => s + l.valor, 0),
-  }));
+  // ── Valor por canal ───────────────────────────────────────────────
+  const valorCanalData = Object.entries(
+    filtered.reduce((acc, l) => {
+      const o = l.origen || "Sin especificar";
+      acc[o] = (acc[o] ?? 0) + l.valor;
+      return acc;
+    }, {} as Record<string, number>)
+  )
+    .map(([canal, valor]) => ({ canal, valor: Math.round(valor) }))
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 8);
 
-  // ── Productos ────────────────────────────────────────────────────
-  const tipoData = count(productos.map(p => p.tipo || "Sin tipo"))
+  // ── Vendedores ────────────────────────────────────────────────────
+  const vendedorData = VENDEDORES.map(v => {
+    const vLeads = filtered.filter(l => l.vendedor === v);
+    const ganados = vLeads.filter(l => l.etapa === "Closed Won");
+    return {
+      name: vendorName(v).split(" ")[0],
+      leads: vLeads.length,
+      ganados: ganados.length,
+      valor: vLeads.reduce((s, l) => s + l.valor, 0),
+      ticketMedio: ganados.length > 0 ? Math.round(ganados.reduce((s, l) => s + l.valor, 0) / ganados.length) : 0,
+      tasaConv: vLeads.filter(l => ["Closed Won","Closed Lost"].includes(l.etapa)).length > 0
+        ? Math.round(ganados.length / vLeads.filter(l => ["Closed Won","Closed Lost"].includes(l.etapa)).length * 100)
+        : 0,
+    };
+  }).filter(v => v.leads > 0 || vendedorFilter === "all");
+
+  // ── Productos ─────────────────────────────────────────────────────
+  const tipoData = count(filteredProductos.map(p => p.tipo || "Sin tipo"))
     .map(({ key, n }) => ({ name: key.charAt(0).toUpperCase() + key.slice(1), value: n }));
 
   const modeloData = count(
-    productos.filter(p => p.modelo && p.modelo !== "Forma por decidir").map(p => p.modelo)
+    filteredProductos.filter(p => p.modelo && p.modelo !== "Forma por decidir").map(p => p.modelo)
   ).slice(0, 8);
 
-  // ── Telas ────────────────────────────────────────────────────────
+  // ── Telas ─────────────────────────────────────────────────────────
   const telaData = count(
-    productos.filter(p => p.tela && p.tela !== "Por decidir").map(p => p.tela)
+    filteredProductos.filter(p => p.tela && p.tela !== "Por decidir").map(p => p.tela)
   ).slice(0, 10);
   const maxTela = telaData[0]?.n ?? 1;
 
-  // ── Colección ────────────────────────────────────────────────────
+  // ── Colección ─────────────────────────────────────────────────────
   const coleccionData = count(
-    productos.filter(p => p.coleccionTela).map(p => p.coleccionTela)
+    filteredProductos.filter(p => p.coleccionTela).map(p => p.coleccionTela)
   ).map(({ key, n }) => ({ name: key, value: n }));
 
-  // ── Anchos de cabecero ───────────────────────────────────────────
+  // ── Anchos de cabecero ────────────────────────────────────────────
   const anchoData = count(
-    productos.filter(p => p.tipo === "cabecero" && p.ancho).map(p => `${p.ancho} cm`)
+    filteredProductos.filter(p => p.tipo === "cabecero" && p.ancho).map(p => `${p.ancho} cm`)
   ).slice(0, 8);
   const maxAncho = anchoData[0]?.n ?? 1;
 
-  // ── Ciudades ─────────────────────────────────────────────────────
+  // ── Ciudades ──────────────────────────────────────────────────────
   const ciudadData = count(
-    leads.filter(l => l.ciudad).map(l => l.ciudad)
+    filtered.filter(l => l.ciudad).map(l => l.ciudad)
   ).slice(0, 8);
   const maxCiudad = ciudadData[0]?.n ?? 1;
 
-  // ── Motivos de cierre ────────────────────────────────────────────
-  const wonReasons  = notas.filter(n => n.contenido.startsWith("[Closed Won]")).map(n => n.contenido.replace("[Closed Won]", "").trim()).filter(Boolean);
-  const lostReasons = notas.filter(n => n.contenido.startsWith("[Closed Lost]")).map(n => n.contenido.replace("[Closed Lost]", "").trim()).filter(Boolean);
+  // ── Motivos de cierre ─────────────────────────────────────────────
+  const wonReasons  = filteredNotas.filter(n => n.contenido.startsWith("[Closed Won]")).map(n => n.contenido.replace("[Closed Won]", "").trim()).filter(Boolean);
+  const lostReasons = filteredNotas.filter(n => n.contenido.startsWith("[Closed Lost]")).map(n => n.contenido.replace("[Closed Lost]", "").trim()).filter(Boolean);
 
-  // ── Temporal: últimos 6 meses ────────────────────────────────────
+  // ── Temporal: últimos 6 meses ─────────────────────────────────────
   const months = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
     return { label: MESES_SHORT[d.getMonth()], month: d.getMonth(), year: d.getFullYear(), count: 0 };
   });
-  leads.forEach(l => {
+  filtered.forEach(l => {
     const d = new Date(l.fechaCreacion || "");
     const m = months.find(x => x.month === d.getMonth() && x.year === d.getFullYear());
     if (m) m.count++;
   });
 
-  // ── Días de semana ───────────────────────────────────────────────
+  // ── Días de semana ────────────────────────────────────────────────
   const byDay = Array(7).fill(0);
-  leads.forEach(l => {
+  filtered.forEach(l => {
     const d = new Date(l.fechaCreacion || "");
     if (isNaN(d.getTime())) return;
     byDay[(d.getDay() + 6) % 7]++;
   });
   const dayData = DIAS.map((dia, i) => ({ dia, count: byDay[i] }));
 
-  // ── Edad ─────────────────────────────────────────────────────────
-  const edadData = RANGOS_EDAD.map(r => ({
-    rango: r,
-    count: leads.filter(l => l.edad === r).length,
-  }));
-  const sinEdad = leads.filter(l => !l.edad).length;
-
-  // ── Conversión por canal ─────────────────────────────────────────
+  // ── Conversión por canal ──────────────────────────────────────────
   const conversionPorCanal = Object.entries(
-    leads.reduce((acc, l) => {
+    filtered.reduce((acc, l) => {
       const o = l.origen || "Sin especificar";
       if (!acc[o]) acc[o] = { total: 0, won: 0 };
       acc[o].total++;
@@ -173,21 +228,125 @@ function DatosPage() {
     .map(([canal, v]) => ({ canal, tasa: Math.round(v.won / v.total * 100), total: v.total }))
     .sort((a, b) => b.tasa - a.tasa);
 
+  // ── Edad ──────────────────────────────────────────────────────────
+  const edadData = RANGOS_EDAD.map(r => ({
+    rango: r,
+    count: filtered.filter(l => l.edad === r).length,
+  }));
+  const sinEdad = filtered.filter(l => !l.edad).length;
+
+  // ── Export CSV ────────────────────────────────────────────────────
+  function exportCSV() {
+    const headers = ["Nombre","Email","Teléfono","Ciudad","Vendedor","Etapa","Origen","Valor Producto (€)","Valor Envío (€)","Valor Total (€)","Edad","Red Social","Fecha Creación"];
+    const rows = filtered.map(l => [
+      l.nombre, l.email, l.telefono, l.ciudad, vendorName(l.vendedor),
+      l.etapa, l.origen, l.valorProducto, l.valorEnvio, l.valor,
+      l.edad, l.redSocial, l.fechaCreacion,
+    ]);
+    const csv = [headers, ...rows]
+      .map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tirorirocrm_leads_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const tooltipStyle = { fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" };
+  const presetBtn = (p: string, label: string) =>
+    `px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${activePreset === p ? "bg-[#1a1f36] text-white border-[#1a1f36]" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Datos</h1>
-        <p className="text-xs text-slate-400">Análisis sobre {total} leads · {productos.length} productos configurados</p>
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Datos</h1>
+          <p className="text-xs text-slate-400">
+            {activeFilters
+              ? `${filtered.length} de ${leads.length} leads · con filtros activos`
+              : `${leads.length} leads en total · ${filteredProductos.length} productos`}
+          </p>
+        </div>
+        <button
+          onClick={exportCSV}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
+        >
+          <Download className="h-4 w-4" />
+          Exportar Excel
+        </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Filtros</div>
+        <div className="flex flex-wrap gap-3">
+          {/* Preset fechas */}
+          <div className="flex gap-1.5">
+            {[
+              { p: "all", label: "Todo" },
+              { p: "month", label: "Este mes" },
+              { p: "quarter", label: "3 meses" },
+              { p: "semester", label: "6 meses" },
+            ].map(({ p, label }) => (
+              <button key={p} onClick={() => applyPreset(p)} className={presetBtn(p, label)}>{label}</button>
+            ))}
+          </div>
+
+          {/* Fechas custom */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date" value={dateFrom}
+              onChange={e => { setDateFrom(e.target.value); setActivePreset("custom"); }}
+              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-slate-400"
+            />
+            <span className="text-xs text-slate-400">—</span>
+            <input
+              type="date" value={dateTo}
+              onChange={e => { setDateTo(e.target.value); setActivePreset("custom"); }}
+              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-slate-400"
+            />
+          </div>
+
+          {/* Vendedor */}
+          <select
+            value={vendedorFilter}
+            onChange={e => setVendedorFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-slate-400 bg-white"
+          >
+            <option value="all">Todos los vendedores</option>
+            {VENDEDORES.map(v => <option key={v} value={v}>{vendorName(v)}</option>)}
+          </select>
+
+          {/* Reset */}
+          {activeFilters && (
+            <button
+              onClick={() => { setVendedorFilter("all"); setDateFrom(""); setDateTo(""); setActivePreset("all"); }}
+              className="text-xs text-slate-400 hover:text-slate-700 underline"
+            >
+              Quitar filtros
+            </button>
+          )}
+        </div>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KPI label="Total leads" value={total} sub={`${thisMonth} este mes`} />
         <KPI label="Conversión" value={`${convRate}%`} sub={`${closedWon} ganados / ${totalCerrados} cerrados`} />
-        <KPI label="Valor pipeline" value={formatCurrency(valorTotal)} sub="leads activos" />
-        <KPI label="Ingresos cerrados" value={formatCurrency(valorWon)} sub="Closed Won" />
+        <KPI label="Ticket medio" value={ticketMedio > 0 ? formatCurrency(ticketMedio) : "—"} sub="por lead cerrado Won" />
+        <KPI label="Ingresos cerrados" value={formatCurrency(valorWon)} sub={`Pipeline total: ${formatCurrency(valorTotal)}`} />
+      </div>
+
+      {/* KPIs fila 2 */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KPI label="On Hold" value={onHold} sub="pendientes de retomar" />
+        <KPI label="Closed Won" value={closedWon} />
+        <KPI label="Closed Lost" value={closedLost} />
+        <KPI label="Productos" value={filteredProductos.length} sub="configurados" />
       </div>
 
       {/* Pipeline funnel + canales */}
@@ -246,18 +405,80 @@ function DatosPage() {
         </Card>
       </div>
 
-      {/* Vendedores */}
-      <Card title="Rendimiento por vendedor">
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={vendedorData} margin={{ left: -10 }}>
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="leads" name="Total leads" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="ganados" name="Closed Won" fill="#10b981" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      {/* Vendedores — leads + ganados */}
+      <Card title="Rendimiento por vendedor — leads y cierres">
+        {vendedorData.length === 0 ? <Empty /> : (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={vendedorData} margin={{ left: -10 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="leads" name="Total leads" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="ganados" name="Closed Won" fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
+
+      {/* Vendedores — ticket medio + conversión */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card title="Ticket medio por vendedor (€)">
+          {vendedorData.filter(v => v.ticketMedio > 0).length === 0 ? <Empty /> : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={vendedorData} margin={{ left: -10 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${v}€`} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}€`, "ticket medio"]} />
+                <Bar dataKey="ticketMedio" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        <Card title="Tasa de conversión por vendedor (%)">
+          {vendedorData.filter(v => v.tasaConv > 0).length === 0 ? <Empty /> : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={vendedorData} margin={{ left: -10 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`, "conversión"]} />
+                <Bar dataKey="tasaConv" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+      </div>
+
+      {/* Valor por canal */}
+      <Card title="Valor (€) generado por canal">
+        {valorCanalData.length === 0 ? <Empty /> : (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={valorCanalData} layout="vertical" margin={{ left: 0, right: 24 }}>
+              <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `${v}€`} />
+              <YAxis type="category" dataKey="canal" tick={{ fontSize: 10 }} width={100} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}€`, "valor"]} />
+              <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
+                {valorCanalData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
+
+      {/* Conversión por canal */}
+      <Card title="Tasa de conversión por canal">
+        {conversionPorCanal.length === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-300">
+            Necesitas más leads cerrados (Won/Lost) por canal
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {conversionPorCanal.map(({ canal, tasa, total }, i) => (
+              <HBar key={canal} label={canal} value={tasa} max={100} color={PALETTE[i % PALETTE.length]} note={`${tasa}% (${total} leads)`} />
+            ))}
+          </div>
+        )}
       </Card>
 
       {/* Productos y modelos */}
@@ -323,32 +544,39 @@ function DatosPage() {
         </Card>
       </div>
 
-      {/* Ciudades + conversión por canal */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card title="Ciudades con más leads">
-          {ciudadData.length === 0 ? <Empty /> : (
-            <div className="space-y-2">
-              {ciudadData.map(({ key, n }, i) => (
-                <HBar key={key} label={key} value={n} max={maxCiudad} color={PALETTE[i % PALETTE.length]} />
-              ))}
-            </div>
-          )}
-        </Card>
+      {/* Ciudades */}
+      <Card title="Ciudades con más leads">
+        {ciudadData.length === 0 ? <Empty /> : (
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            {ciudadData.map(({ key, n }, i) => (
+              <HBar key={key} label={key} value={n} max={maxCiudad} color={PALETTE[i % PALETTE.length]} />
+            ))}
+          </div>
+        )}
+      </Card>
 
-        <Card title="Tasa de conversión por canal">
-          {conversionPorCanal.length === 0 ? (
-            <div className="py-8 text-center text-sm text-slate-300">
-              Necesitas más leads cerrados (Won/Lost) por canal para ver este dato
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {conversionPorCanal.map(({ canal, tasa, total }, i) => (
-                <HBar key={canal} label={canal} value={tasa} max={100} color={PALETTE[i % PALETTE.length]} note={`${tasa}% (${total} leads)`} />
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
+      {/* Edad */}
+      <Card title="Rango de edad de los clientes">
+        {edadData.every(d => d.count === 0) ? (
+          <div className="py-8 text-center text-sm text-slate-300">
+            Sin datos de edad aún — rellena el campo en cada lead para verlo aquí
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={edadData} margin={{ left: -20 }}>
+                <XAxis dataKey="rango" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, "leads"]} />
+                <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            {sinEdad > 0 && (
+              <p className="text-center text-xs text-slate-400">{sinEdad} lead{sinEdad !== 1 ? "s" : ""} sin edad registrada</p>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* Motivos de cierre */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -386,29 +614,6 @@ function DatosPage() {
           )}
         </Card>
       </div>
-
-      {/* Edad */}
-      <Card title="Rango de edad de los clientes">
-        {edadData.every(d => d.count === 0) ? (
-          <div className="py-8 text-center text-sm text-slate-300">
-            Sin datos de edad aún — rellena el campo en cada lead para verlo aquí
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={edadData} margin={{ left: -20 }}>
-                <XAxis dataKey="rango" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, "leads"]} />
-                <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-            {sinEdad > 0 && (
-              <p className="text-center text-xs text-slate-400">{sinEdad} lead{sinEdad !== 1 ? "s" : ""} sin edad registrada</p>
-            )}
-          </div>
-        )}
-      </Card>
     </div>
   );
 }
