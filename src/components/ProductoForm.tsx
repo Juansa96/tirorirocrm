@@ -541,7 +541,7 @@ export function ProductoForm({
         <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancelar</button>
         <button
           type="button"
-          disabled={!f.tipo}
+          disabled={!f.tipo || (f.tipo === "otro" && !f.otroDescripcion.trim())}
           onClick={() => onSave(prodStateToProducto(f))}
           className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-40">
           <Check className="mr-1 inline h-3.5 w-3.5" />Guardar producto
