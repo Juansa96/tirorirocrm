@@ -196,6 +196,15 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.formaPantalla = p.relleno || "cilindro";
     s.tamanoPantalla = (p.patas ?? "").split(" · ")[0] || "";
     s.cantidad = p.cantidad;
+  } else if (p.tipo === "almohadon") {
+    s.almohadonMedidas = p.modelo === "Almohadón" ? "" : p.modelo;
+    s.almohadonTela = p.color || p.tela || "";
+    if (p.patas === "Sin ribete") { s.almohadonSinRibete = true; s.almohadonRibete = ""; }
+    else if (p.patas?.startsWith("Ribete: ")) { s.almohadonSinRibete = false; s.almohadonRibete = p.patas.slice(8); }
+    s.cantidad = p.cantidad;
+  } else if (p.tipo === "otro") {
+    s.otroDescripcion = p.modelo;
+    s.cantidad = p.cantidad;
   }
   return s;
 }
