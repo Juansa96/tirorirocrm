@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TareasRouteImport } from './routes/tareas'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DatosRouteImport } from './routes/datos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
@@ -32,6 +33,11 @@ const PipelineRoute = PipelineRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatosRoute = DatosRouteImport.update({
+  id: '/datos',
+  path: '/datos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -67,6 +73,7 @@ const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
   '/tareas': typeof TareasRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
   '/tareas': typeof TareasRoute
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
   '/tareas': typeof TareasRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/datos'
     | '/login'
     | '/pipeline'
     | '/tareas'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/datos'
     | '/login'
     | '/pipeline'
     | '/tareas'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/datos'
     | '/login'
     | '/pipeline'
     | '/tareas'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DatosRoute: typeof DatosRoute
   LoginRoute: typeof LoginRoute
   PipelineRoute: typeof PipelineRoute
   TareasRoute: typeof TareasRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/datos': {
+      id: '/datos'
+      path: '/datos'
+      fullPath: '/datos'
+      preLoaderRoute: typeof DatosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -217,6 +237,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DatosRoute: DatosRoute,
   LoginRoute: LoginRoute,
   PipelineRoute: PipelineRoute,
   TareasRoute: TareasRoute,
