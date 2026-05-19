@@ -465,6 +465,56 @@ export function ProductoForm({
         </>
       )}
 
+      {/* ── ALMOHADÓN ── */}
+      {f.tipo === "almohadon" && (
+        <>
+          <div>
+            <div className={section}>Medidas</div>
+            <input type="text" className={inp} value={f.almohadonMedidas} onChange={e => s({ almohadonMedidas: e.target.value })} placeholder="Ej. 50x50 cm" />
+          </div>
+          <div>
+            <div className={section}>Tela</div>
+            <input type="text" className={inp} value={f.almohadonTela} onChange={e => s({ almohadonTela: e.target.value })} placeholder="Tela elegida…" />
+          </div>
+          <div>
+            <div className={section}>Ribete</div>
+            <input
+              type="text"
+              className={inp}
+              value={f.almohadonRibete}
+              onChange={e => s({ almohadonRibete: e.target.value })}
+              placeholder="Tipo de ribete…"
+              disabled={f.almohadonSinRibete}
+            />
+            <label className="mt-2 flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={f.almohadonSinRibete}
+                onChange={e => s({ almohadonSinRibete: e.target.checked, almohadonRibete: e.target.checked ? "" : f.almohadonRibete })}
+                className="h-4 w-4 accent-[#1a1f36]"
+              />
+              Sin ribete
+            </label>
+          </div>
+        </>
+      )}
+
+      {/* ── OTRO ── */}
+      {f.tipo === "otro" && (
+        <div>
+          <div className={section}>¿Qué producto es? <span className="text-red-500">*</span></div>
+          <input
+            type="text"
+            className={inp}
+            value={f.otroDescripcion}
+            onChange={e => s({ otroDescripcion: e.target.value })}
+            placeholder="Describe el producto…"
+            required
+          />
+        </div>
+      )}
+
+
       {/* ── Precio / cantidad / notas ── */}
       {f.tipo && (
         <div className="space-y-3 border-t border-slate-200 pt-4">
