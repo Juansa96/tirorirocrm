@@ -4,10 +4,12 @@ import type { Producto } from "@/lib/types";
 
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
-  { id: "cabecero", label: "Cabecero" },
-  { id: "puf",      label: "Puf" },
-  { id: "mesa",     label: "Mesa de centro" },
-  { id: "pantalla", label: "Pantalla de lámpara" },
+  { id: "cabecero",  label: "Cabecero" },
+  { id: "puf",       label: "Puf" },
+  { id: "mesa",      label: "Mesa de centro" },
+  { id: "pantalla",  label: "Pantalla de lámpara" },
+  { id: "almohadon", label: "Almohadón" },
+  { id: "otro",      label: "Otro" },
 ] as const;
 
 export const CABECERO_FORMAS = [
@@ -59,7 +61,7 @@ export const TELAS_SUGERIDAS = [
 ];
 
 // ── Tipos ─────────────────────────────────────────────────────────
-export type ProdTipo = "cabecero" | "puf" | "mesa" | "pantalla" | "";
+export type ProdTipo = "cabecero" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
 export const FORMA_POR_DECIDIR = "tbd";
 
 export interface ProdState {
@@ -73,6 +75,8 @@ export interface ProdState {
   formaPantalla: string; tamanoPantalla: string;
   tela: string; coleccionTela: string; acabado: string; telaVivo: string;
   tapetes: boolean;
+  almohadonMedidas: string; almohadonTela: string; almohadonRibete: string; almohadonSinRibete: boolean;
+  otroDescripcion: string;
   cantidad: number; precioUnitario: number; notasProducto: string;
 }
 
@@ -84,6 +88,8 @@ export const EMPTY_PROD_STATE: ProdState = {
   formaPantalla: "cilindro", tamanoPantalla: "Ø40×40 cm",
   tela: "", coleccionTela: "Básicas", acabado: "vivo-simple", telaVivo: "",
   tapetes: false,
+  almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
+  otroDescripcion: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
 
@@ -136,9 +142,18 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     patas = extras([!tbd && f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)", tbd && "Medida por decidir"]);
   }
 
+  if (f.tipo === "almohadon") {
+    modelo = f.almohadonMedidas || "Almohadón";
+    color = f.almohadonTela;
+    patas = f.almohadonSinRibete ? "Sin ribete" : (f.almohadonRibete ? `Ribete: ${f.almohadonRibete}` : "");
+  } else if (f.tipo === "otro") {
+    modelo = f.otroDescripcion;
+  }
+
   return {
     tipo: f.tipo, modelo, ancho, alto,
-    tela: f.tela, color, relleno, patas,
+    tela: f.tipo === "almohadon" ? f.almohadonTela : f.tela,
+    color, relleno, patas,
     acabado: f.acabado, coleccionTela: f.coleccionTela,
     cantidad: f.tipo === "puf" ? Number(f.cantidadPuf) : f.cantidad,
     precioUnitario: f.precioUnitario, notasProducto: f.notasProducto,
@@ -180,6 +195,15 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   } else if (p.tipo === "pantalla") {
     s.formaPantalla = p.relleno || "cilindro";
     s.tamanoPantalla = (p.patas ?? "").split(" · ")[0] || "";
+    s.cantidad = p.cantidad;
+  } else if (p.tipo === "almohadon") {
+    s.almohadonMedidas = p.modelo === "Almohadón" ? "" : p.modelo;
+    s.almohadonTela = p.color || p.tela || "";
+    if (p.patas === "Sin ribete") { s.almohadonSinRibete = true; s.almohadonRibete = ""; }
+    else if (p.patas?.startsWith("Ribete: ")) { s.almohadonSinRibete = false; s.almohadonRibete = p.patas.slice(8); }
+    s.cantidad = p.cantidad;
+  } else if (p.tipo === "otro") {
+    s.otroDescripcion = p.modelo;
     s.cantidad = p.cantidad;
   }
   return s;
@@ -441,6 +465,56 @@ export function ProductoForm({
         </>
       )}
 
+      {/* ── ALMOHADÓN ── */}
+      {f.tipo === "almohadon" && (
+        <>
+          <div>
+            <div className={section}>Medidas</div>
+            <input type="text" className={inp} value={f.almohadonMedidas} onChange={e => s({ almohadonMedidas: e.target.value })} placeholder="Ej. 50x50 cm" />
+          </div>
+          <div>
+            <div className={section}>Tela</div>
+            <input type="text" className={inp} value={f.almohadonTela} onChange={e => s({ almohadonTela: e.target.value })} placeholder="Tela elegida…" />
+          </div>
+          <div>
+            <div className={section}>Ribete</div>
+            <input
+              type="text"
+              className={inp}
+              value={f.almohadonRibete}
+              onChange={e => s({ almohadonRibete: e.target.value })}
+              placeholder="Tipo de ribete…"
+              disabled={f.almohadonSinRibete}
+            />
+            <label className="mt-2 flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={f.almohadonSinRibete}
+                onChange={e => s({ almohadonSinRibete: e.target.checked, almohadonRibete: e.target.checked ? "" : f.almohadonRibete })}
+                className="h-4 w-4 accent-[#1a1f36]"
+              />
+              Sin ribete
+            </label>
+          </div>
+        </>
+      )}
+
+      {/* ── OTRO ── */}
+      {f.tipo === "otro" && (
+        <div>
+          <div className={section}>¿Qué producto es? <span className="text-red-500">*</span></div>
+          <input
+            type="text"
+            className={inp}
+            value={f.otroDescripcion}
+            onChange={e => s({ otroDescripcion: e.target.value })}
+            placeholder="Describe el producto…"
+            required
+          />
+        </div>
+      )}
+
+
       {/* ── Precio / cantidad / notas ── */}
       {f.tipo && (
         <div className="space-y-3 border-t border-slate-200 pt-4">
@@ -467,7 +541,7 @@ export function ProductoForm({
         <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancelar</button>
         <button
           type="button"
-          disabled={!f.tipo}
+          disabled={!f.tipo || (f.tipo === "otro" && !f.otroDescripcion.trim())}
           onClick={() => onSave(prodStateToProducto(f))}
           className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-40">
           <Check className="mr-1 inline h-3.5 w-3.5" />Guardar producto
