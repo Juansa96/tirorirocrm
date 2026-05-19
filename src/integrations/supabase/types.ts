@@ -51,6 +51,7 @@ export type Database = {
         Row: {
           ciudad: string | null
           created_at: string
+          edad: string
           email: string | null
           etapa: string
           fecha_creacion: string
@@ -70,6 +71,7 @@ export type Database = {
         Insert: {
           ciudad?: string | null
           created_at?: string
+          edad?: string
           email?: string | null
           etapa?: string
           fecha_creacion?: string
@@ -89,6 +91,7 @@ export type Database = {
         Update: {
           ciudad?: string | null
           created_at?: string
+          edad?: string
           email?: string | null
           etapa?: string
           fecha_creacion?: string
