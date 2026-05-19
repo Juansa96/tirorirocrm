@@ -61,7 +61,7 @@ export const TELAS_SUGERIDAS = [
 ];
 
 // ── Tipos ─────────────────────────────────────────────────────────
-export type ProdTipo = "cabecero" | "puf" | "mesa" | "pantalla" | "";
+export type ProdTipo = "cabecero" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
 export const FORMA_POR_DECIDIR = "tbd";
 
 export interface ProdState {
@@ -75,6 +75,8 @@ export interface ProdState {
   formaPantalla: string; tamanoPantalla: string;
   tela: string; coleccionTela: string; acabado: string; telaVivo: string;
   tapetes: boolean;
+  almohadonMedidas: string; almohadonTela: string; almohadonRibete: string; almohadonSinRibete: boolean;
+  otroDescripcion: string;
   cantidad: number; precioUnitario: number; notasProducto: string;
 }
 
@@ -86,6 +88,8 @@ export const EMPTY_PROD_STATE: ProdState = {
   formaPantalla: "cilindro", tamanoPantalla: "Ø40×40 cm",
   tela: "", coleccionTela: "Básicas", acabado: "vivo-simple", telaVivo: "",
   tapetes: false,
+  almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
+  otroDescripcion: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
 
