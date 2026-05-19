@@ -4,10 +4,12 @@ import type { Producto } from "@/lib/types";
 
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
-  { id: "cabecero", label: "Cabecero" },
-  { id: "puf",      label: "Puf" },
-  { id: "mesa",     label: "Mesa de centro" },
-  { id: "pantalla", label: "Pantalla de lámpara" },
+  { id: "cabecero",  label: "Cabecero" },
+  { id: "puf",       label: "Puf" },
+  { id: "mesa",      label: "Mesa de centro" },
+  { id: "pantalla",  label: "Pantalla de lámpara" },
+  { id: "almohadon", label: "Almohadón" },
+  { id: "otro",      label: "Otro" },
 ] as const;
 
 export const CABECERO_FORMAS = [
