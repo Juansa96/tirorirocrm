@@ -142,9 +142,18 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     patas = extras([!tbd && f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)", tbd && "Medida por decidir"]);
   }
 
+  if (f.tipo === "almohadon") {
+    modelo = f.almohadonMedidas || "Almohadón";
+    color = f.almohadonTela;
+    patas = f.almohadonSinRibete ? "Sin ribete" : (f.almohadonRibete ? `Ribete: ${f.almohadonRibete}` : "");
+  } else if (f.tipo === "otro") {
+    modelo = f.otroDescripcion;
+  }
+
   return {
     tipo: f.tipo, modelo, ancho, alto,
-    tela: f.tela, color, relleno, patas,
+    tela: f.tipo === "almohadon" ? f.almohadonTela : f.tela,
+    color, relleno, patas,
     acabado: f.acabado, coleccionTela: f.coleccionTela,
     cantidad: f.tipo === "puf" ? Number(f.cantidadPuf) : f.cantidad,
     precioUnitario: f.precioUnitario, notasProducto: f.notasProducto,
