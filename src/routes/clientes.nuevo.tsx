@@ -42,7 +42,7 @@ function NuevoLead() {
     }
     setSubmitting(true);
     const tipoLabel = prodState
-      ? ({ cabecero: "Cabecero", banco: "Banco", cojin: "Almohadón", puf: "Puf", mesa: "Mesa de centro", pantalla: "Pantalla de lámpara" } as Record<string, string>)[prodState.tipo] ?? prodState.tipo
+      ? ({ cabecero: "Cabecero", banco: "Banco", cojin: "Almohadón", almohadon: "Almohadón", puf: "Puf", mesa: "Mesa de centro", pantalla: "Pantalla de lámpara", otro: "Otro" } as Record<string, string>)[prodState.tipo] ?? prodState.tipo
       : "Cabecero";
     const lead = await actions.addLead(
       { ...form, producto: tipoLabel, valor: form.valorProducto + form.valorEnvio },
