@@ -19,6 +19,8 @@ function ClientesList() {
   const [vendedor, setVendedor] = useState("");
   const [producto, setProducto] = useState("");
   const [ciudad, setCiudad] = useState("");
+  type SortKey = "fechaCreacion" | "nombre" | "vendedor" | "etapa" | "valor" | "ciudad" | "proximaAccion";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
   const productos = useMemo(() => Array.from(new Set(leads.map((l) => l.producto).filter(Boolean))), [leads]);
   const ciudades = useMemo(() => Array.from(new Set(leads.map((l) => l.ciudad).filter(Boolean))), [leads]);
@@ -32,12 +34,77 @@ function ClientesList() {
     return true;
   });
 
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      let cmp = 0;
+      switch (sort.key) {
+        case "fechaCreacion": {
+          const timeA = a.fechaCreacion ? new Date(a.fechaCreacion).getTime() : Infinity;
+          const timeB = b.fechaCreacion ? new Date(b.fechaCreacion).getTime() : Infinity;
+          cmp = timeA - timeB;
+          break;
+        }
+        case "nombre":
+          cmp = a.nombre.localeCompare(b.nombre, "es");
+          break;
+        case "vendedor":
+          cmp = (a.vendedor || "").localeCompare(b.vendedor || "", "es");
+          break;
+        case "etapa":
+          cmp = ETAPAS.indexOf(a.etapa) - ETAPAS.indexOf(b.etapa);
+          break;
+        case "valor":
+          cmp = (a.valor || 0) - (b.valor || 0);
+          break;
+        case "ciudad":
+          cmp = (a.ciudad || "").localeCompare(b.ciudad || "", "es");
+          break;
+        case "proximaAccion": {
+          const nextA = nextPendingTaskFor(a.id, tareas);
+          const nextB = nextPendingTaskFor(b.id, tareas);
+          const dateA = nextA ? new Date(nextA.fecha).getTime() : Infinity;
+          const dateB = nextB ? new Date(nextB.fecha).getTime() : Infinity;
+          cmp = dateA - dateB;
+          break;
+        }
+      }
+      return sort.dir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [filtered, sort, tareas]);
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) => {
+      if (prev?.key === key) {
+        return prev.dir === "asc" ? { key, dir: "desc" } : null;
+      }
+      return { key, dir: "asc" };
+    });
+  }
+
+  function SortHeader({ label, sortKey }: { label: string; sortKey: SortKey }) {
+    const active = sort?.key === sortKey;
+    return (
+      <th
+        className="cursor-pointer select-none px-4 py-3 hover:text-slate-700"
+        onClick={() => toggleSort(sortKey)}
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {active && (sort.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+        </span>
+      </th>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Clientes</h1>
-          <p className="text-sm text-slate-500">{filtered.length} de {leads.length} registros</p>
+          <p className="text-sm text-slate-500">{sorted.length} de {leads.length} registros</p>
         </div>
         <Link to="/clientes/nuevo" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a2f46]">
           <Plus className="h-4 w-4" /> Nuevo Lead
@@ -67,20 +134,22 @@ function ClientesList() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Vendedor</th>
-              <th className="px-4 py-3">Etapa</th>
-              <th className="px-4 py-3">Valor</th>
-              <th className="px-4 py-3">Ciudad</th>
-              <th className="px-4 py-3">Próxima Acción</th>
+              <SortHeader label="Fecha de entrada" sortKey="fechaCreacion" />
+              <SortHeader label="Nombre" sortKey="nombre" />
+              <SortHeader label="Vendedor" sortKey="vendedor" />
+              <SortHeader label="Etapa" sortKey="etapa" />
+              <SortHeader label="Valor" sortKey="valor" />
+              <SortHeader label="Ciudad" sortKey="ciudad" />
+              <SortHeader label="Próxima Acción" sortKey="proximaAccion" />
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
-            {filtered.map((l) => {
+            {sorted.map((l) => {
               const next = nextPendingTaskFor(l.id, tareas);
               return (
                 <tr key={l.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50">
+                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatShortDate(l.fechaCreacion)}</td>
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-900">{l.nombre}</div>
                     {l.email && <div className="text-xs text-slate-500">{l.email}</div>}
@@ -101,15 +170,15 @@ function ClientesList() {
                 </tr>
               );
             })}
-            {filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-400">Sin resultados</td></tr>
+            {sorted.length === 0 && (
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400">Sin resultados</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       <div className="space-y-2 md:hidden">
-        {filtered.map((l) => {
+        {sorted.map((l) => {
           const next = nextPendingTaskFor(l.id, tareas);
           return (
             <div key={l.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
@@ -128,7 +197,7 @@ function ClientesList() {
             </div>
           );
         })}
-        {filtered.length === 0 && <div className="py-8 text-center text-sm text-slate-400">Sin resultados</div>}
+        {sorted.length === 0 && <div className="py-8 text-center text-sm text-slate-400">Sin resultados</div>}
       </div>
     </div>
   );
