@@ -38,7 +38,9 @@ function Dashboard() {
   const navigate = useNavigate();
   const [filterVendedor, setFilterVendedor] = useState("");
 
-  const filteredLeads = filterVendedor ? leads.filter((l) => l.vendedor === filterVendedor) : leads;
+  const filteredLeads = filterVendedor
+    ? leads.filter((l) => !l.vendedor || l.vendedor === filterVendedor)
+    : leads;
 
   const totalLeads = filteredLeads.length;
   const valorPipeline = filteredLeads
