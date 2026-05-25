@@ -91,7 +91,7 @@ function DatosPage() {
   }
 
   const filtered = useMemo(() => leads.filter(l => {
-    if (vendedorFilter !== "all" && l.vendedor !== vendedorFilter) return false;
+    if (vendedorFilter !== "all" && l.vendedor && l.vendedor !== vendedorFilter) return false;
     if (dateFrom && l.fechaCreacion < dateFrom) return false;
     if (dateTo && l.fechaCreacion > dateTo) return false;
     return true;

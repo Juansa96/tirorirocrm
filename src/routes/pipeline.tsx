@@ -144,7 +144,7 @@ function Pipeline() {
         <div className={`flex snap-x snap-mandatory gap-3 md:snap-none ${filterEtapa ? "md:max-w-sm" : "md:grid md:grid-cols-6"}`}>
           {visibleEtapas.map((etapa) => {
             const colLeads = leads.filter(
-              (l) => l.etapa === etapa && (!filterVendedor || l.vendedor === filterVendedor)
+              (l) => l.etapa === etapa && (!filterVendedor || !l.vendedor || l.vendedor === filterVendedor)
             );
             const total = colLeads.reduce((s, l) => s + l.valor, 0);
             const isOver = dragOver === etapa;
