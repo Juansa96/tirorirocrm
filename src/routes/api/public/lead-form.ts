@@ -50,6 +50,11 @@ export const Route = createFileRoute("/api/public/lead-form")({
             ? (({ cabecero: "Cabecero", banco: "Banco", cojin: "Almohadón", puf: "Puf", mesa: "Mesa de centro", pantalla: "Pantalla de lámpara" } as Record<string, string>)[(configurador as Record<string, unknown>).tipo as string] ?? "Cabecero")
             : "Cabecero";
 
+          // Precio del configurador (si el cliente venía del configurador con precio calculado)
+          const precioProducto = typeof configurador === "object" && configurador !== null
+            ? Math.max(0, Number((configurador as Record<string, unknown>).precio) || 0)
+            : 0;
+
           const { data: lead, error: leadErr } = await supabaseAdmin.from("leads").insert({
             nombre: nombreClean,
             email: emailClean,
@@ -58,7 +63,9 @@ export const Route = createFileRoute("/api/public/lead-form")({
             producto: tipoProducto,
             vendedor,
             etapa: "Discovery",
-            valor: 0,
+            valor: precioProducto,
+            valor_producto: precioProducto,
+            valor_envio: 0,
             origen: sanitize(origen, 50) || "Formulario web",
             red_social: "",
             fecha_hold: null,
@@ -72,7 +79,11 @@ export const Route = createFileRoute("/api/public/lead-form")({
 
           if (configurador && typeof configurador === "object") {
             const producto = buildProducto(configurador as Record<string, string>);
-            if (producto) await supabaseAdmin.from("productos_lead").insert({ lead_id: lead.id, ...producto });
+            if (producto) await supabaseAdmin.from("productos_lead").insert({
+              lead_id: lead.id,
+              ...producto,
+              precio_unitario: precioProducto,
+            });
           }
 
           const today = new Date().toISOString().slice(0, 10);
