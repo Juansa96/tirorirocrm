@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { VENDEDORES } from "@/lib/types";
 import { buildProducto } from "@/lib/product-schema";
 
@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
             ? (({ cabecero: "Cabecero", banco: "Banco", cojin: "Almohadón", puf: "Puf", mesa: "Mesa de centro", pantalla: "Pantalla de lámpara" } as Record<string, string>)[(configurador as Record<string, unknown>).tipo as string] ?? "Cabecero")
             : "Cabecero";
 
-          const { data: lead, error: leadErr } = await supabase.from("leads").insert({
+          const { data: lead, error: leadErr } = await supabaseAdmin.from("leads").insert({
             nombre: nombreClean,
             email: emailClean,
             telefono: sanitize(telefono, 20),
@@ -67,16 +67,16 @@ export const Route = createFileRoute("/api/public/lead-form")({
           if (leadErr || !lead) return json({ error: leadErr?.message ?? "Error creando lead" }, 500);
 
           if (mensaje) {
-            await supabase.from("notas").insert({ lead_id: lead.id, contenido: sanitize(mensaje, 2000), usuario: "formulario-web" });
+            await supabaseAdmin.from("notas").insert({ lead_id: lead.id, contenido: sanitize(mensaje, 2000), usuario: "formulario-web" });
           }
 
           if (configurador && typeof configurador === "object") {
             const producto = buildProducto(configurador as Record<string, string>);
-            if (producto) await supabase.from("productos_lead").insert({ lead_id: lead.id, ...producto });
+            if (producto) await supabaseAdmin.from("productos_lead").insert({ lead_id: lead.id, ...producto });
           }
 
           const today = new Date().toISOString().slice(0, 10);
-          await supabase.from("tareas").insert({
+          await supabaseAdmin.from("tareas").insert({
             lead_id: lead.id,
             descripcion: `Primer contacto con ${nombreClean} (formulario web)`,
             fecha: today, hora: "", vendedor, completada: false,
