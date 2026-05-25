@@ -157,7 +157,7 @@ async function init() {
       state = { ...state, leads: [newLead, ...state.leads] };
       emit();
       // Notify team about new external lead
-      const isExternal = newLead.origen === "Formulario web" || (payload.new as Record<string, unknown>).created_by === "formulario-web";
+      const isExternal = newLead.origen === "Formulario web" || newLead.origen === "Configurador" || (payload.new as Record<string, unknown>).created_by === "formulario-web";
       if (isExternal) {
         toast.info(`Nuevo lead del formulario web: ${newLead.nombre}`, {
           duration: 12000,
