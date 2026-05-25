@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ExternalLink, Search } from "lucide-react";
+import { Plus, ExternalLink, Search, ArrowUp, ArrowDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
-import { VENDEDORES, vendorName } from "@/lib/types";
-import { formatCurrency, dateLabel } from "@/lib/format";
+import { VENDEDORES, vendorName, ETAPAS } from "@/lib/types";
+import { formatCurrency, dateLabel, formatShortDate } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { StageBadge } from "@/components/StageBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
