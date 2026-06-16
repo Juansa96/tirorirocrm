@@ -107,16 +107,16 @@ function Pipeline() {
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-900">Pipeline</h1>
           <p className="text-xs text-slate-400">Arrastra las tarjetas para mover etapas</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <div className="relative min-w-0 flex-1 sm:flex-initial">
             <select
               value={filterVendedor ?? ""}
               onChange={(e) => setVendedor(e.target.value)}
-              className="appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none"
+              className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none"
             >
               <option value="">Todos los vendedores</option>
               {VENDEDORES.map((v) => (
@@ -126,13 +126,13 @@ function Pipeline() {
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           </div>
           {hasFilter && (
-            <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
+            <button onClick={clearFilters} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
               <X className="h-3 w-3" /> Quitar
             </button>
           )}
           <Link
             to="/clientes/nuevo"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#2a2f46]"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#2a2f46]"
           >
             <Plus className="h-3.5 w-3.5" /> Nuevo Lead
           </Link>
