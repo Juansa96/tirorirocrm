@@ -23,13 +23,17 @@ const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
 // Parse a YYYY-MM-DD string as local time, not UTC.
 // new Date("2026-05-15") parses as UTC midnight → off-by-one in UTC+2 timezone.
+// If iso contains a time component (timestamptz), defer to native Date.
 function parseLocalDate(iso: string): Date {
+  if (!iso) return new Date(NaN);
+  if (iso.length > 10) return new Date(iso);
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
 export function formatShortDate(iso: string): string {
   const d = parseLocalDate(iso);
+  if (isNaN(d.getTime())) return "—";
   return `${d.getDate()} ${MESES[d.getMonth()]}`;
 }
 
