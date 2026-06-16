@@ -130,7 +130,7 @@ function ClientesList() {
         </select>
       </div>
 
-      <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -184,37 +184,40 @@ function ClientesList() {
         </table>
       </div>
 
-      <div className="space-y-2 md:hidden">
+      <div className="space-y-2 lg:hidden">
         {sorted.map((l) => {
           const next = nextPendingTaskFor(l.id, tareas);
           return (
-            <div key={l.id} className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all active:scale-[0.99] active:shadow-inner">
+            <div key={l.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <Link
                 to="/clientes/$id"
                 params={{ id: l.id }}
                 aria-label={`Abrir ficha de ${l.nombre}`}
-                className="flex items-stretch"
+                className="block p-3 transition-colors active:bg-slate-50"
               >
-                <div className="flex-1 p-3 pr-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-semibold text-slate-900">{l.nombre}</div>
-                      <div className="mt-0.5 text-[11px] text-slate-400">Entrada: {formatShortDate(l.fechaCreacion)}</div>
-                    </div>
-                    <StageBadge etapa={l.etapa} />
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold text-slate-900">{l.nombre}</div>
+                    <div className="mt-0.5 text-[11px] text-slate-400">Entrada: {formatShortDate(l.fechaCreacion)}</div>
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    <SellerBadge vendedor={l.vendedor} />
-                    {l.valor > 0 && <span className="font-medium">{formatCurrency(l.valor)}</span>}
-                    {next && <span className="text-amber-700">· {dateLabel(next.fecha)}</span>}
-                  </div>
+                  <div className="shrink-0"><StageBadge etapa={l.etapa} /></div>
                 </div>
-                <div className="flex w-12 items-center justify-center bg-slate-50 text-slate-400 transition-all group-hover:bg-[#1a1f36] group-hover:text-white group-active:bg-[#1a1f36] group-active:text-white">
-                  <ChevronRight className="h-5 w-5 animate-pulse-x" />
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                  <SellerBadge vendedor={l.vendedor} />
+                  {l.valor > 0 && <span className="font-medium">{formatCurrency(l.valor)}</span>}
+                  {l.ciudad && <span className="truncate text-slate-500">· {l.ciudad}</span>}
+                  {next && <span className="text-amber-700">· {dateLabel(next.fecha)}</span>}
                 </div>
               </Link>
-              <div className="absolute right-14 top-2">
+              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-2 py-1.5">
                 <DeleteLeadButton id={l.id} variant="menu" />
+                <Link
+                  to="/clientes/$id"
+                  params={{ id: l.id }}
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2a2f46]"
+                >
+                  Abrir ficha <ChevronRight className="h-4 w-4 animate-pulse-x" />
+                </Link>
               </div>
             </div>
           );
