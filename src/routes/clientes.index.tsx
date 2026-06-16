@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ExternalLink, Search, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, ChevronRight, Search, ArrowUp, ArrowDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
 import { VENDEDORES, vendorName, ETAPAS } from "@/lib/types";
@@ -148,10 +148,12 @@ function ClientesList() {
             {sorted.map((l) => {
               const next = nextPendingTaskFor(l.id, tareas);
               return (
-                <tr key={l.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50">
+                <tr key={l.id} className="group border-t border-slate-100 transition-colors hover:bg-slate-50">
                   <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatShortDate(l.fechaCreacion)}</td>
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-900">{l.nombre}</div>
+                    <Link to="/clientes/$id" params={{ id: l.id }} className="block font-semibold text-slate-900 hover:text-[#1a4b5b] hover:underline">
+                      {l.nombre}
+                    </Link>
                     {l.email && <div className="text-xs text-slate-500">{l.email}</div>}
                   </td>
                   <td className="px-4 py-3"><SellerBadge vendedor={l.vendedor} /></td>
@@ -161,8 +163,13 @@ function ClientesList() {
                   <td className="px-4 py-3 text-slate-600">{next ? dateLabel(next.fecha) : <span className="text-slate-400">—</span>}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-1">
-                      <Link to="/clientes/$id" params={{ id: l.id }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                        <ExternalLink className="h-4 w-4" />
+                      <Link
+                        to="/clientes/$id"
+                        params={{ id: l.id }}
+                        aria-label={`Abrir ficha de ${l.nombre}`}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-all hover:bg-[#1a1f36] hover:text-white hover:shadow-md"
+                      >
+                        <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
                       </Link>
                       <DeleteLeadButton id={l.id} variant="menu" />
                     </div>
@@ -181,18 +188,33 @@ function ClientesList() {
         {sorted.map((l) => {
           const next = nextPendingTaskFor(l.id, tareas);
           return (
-            <div key={l.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
-              <div className="flex items-start justify-between gap-2">
-                <Link to="/clientes/$id" params={{ id: l.id }} className="flex-1 font-semibold text-slate-900">
-                  {l.nombre}
-                </Link>
-                <StageBadge etapa={l.etapa} />
+            <div key={l.id} className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all active:scale-[0.99] active:shadow-inner">
+              <Link
+                to="/clientes/$id"
+                params={{ id: l.id }}
+                aria-label={`Abrir ficha de ${l.nombre}`}
+                className="flex items-stretch"
+              >
+                <div className="flex-1 p-3 pr-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-semibold text-slate-900">{l.nombre}</div>
+                      <div className="mt-0.5 text-[11px] text-slate-400">Entrada: {formatShortDate(l.fechaCreacion)}</div>
+                    </div>
+                    <StageBadge etapa={l.etapa} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <SellerBadge vendedor={l.vendedor} />
+                    {l.valor > 0 && <span className="font-medium">{formatCurrency(l.valor)}</span>}
+                    {next && <span className="text-amber-700">· {dateLabel(next.fecha)}</span>}
+                  </div>
+                </div>
+                <div className="flex w-12 items-center justify-center bg-slate-50 text-slate-400 transition-all group-hover:bg-[#1a1f36] group-hover:text-white group-active:bg-[#1a1f36] group-active:text-white">
+                  <ChevronRight className="h-5 w-5 animate-pulse-x" />
+                </div>
+              </Link>
+              <div className="absolute right-14 top-2">
                 <DeleteLeadButton id={l.id} variant="menu" />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                <SellerBadge vendedor={l.vendedor} />
-                {l.valor > 0 && <span className="font-medium">{formatCurrency(l.valor)}</span>}
-                {next && <span className="text-amber-700">· {dateLabel(next.fecha)}</span>}
               </div>
             </div>
           );
