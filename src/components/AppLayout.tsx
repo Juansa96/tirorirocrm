@@ -131,12 +131,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
-        <TiroritoLogo className="h-5 w-auto text-[#1a4b5b]" />
-        <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 md:hidden">
+        <TiroritoLogo className="h-5 w-auto shrink-0 text-[#1a4b5b]" />
+        <div className="ml-auto flex min-w-0 items-center gap-2">
           <GlobalSearch />
-          <Link to="/perfil" className="text-sm font-medium text-slate-700 hover:text-[#1a4b5b]">{displayName}</Link>
-          <button onClick={() => void signOut()} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200" aria-label="Cerrar sesión">
+          <Link to="/perfil" aria-label="Mi perfil" title={displayName} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-[#1a1f36]">{initials}</Link>
+          <button onClick={() => void signOut()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200" aria-label="Cerrar sesión">
             <LogOut className="h-4 w-4" />
           </button>
         </div>
@@ -183,14 +183,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
         {NAV.map((item) => {
           const active = isActive(path, item);
           const Icon = item.icon;
           return (
-            <Link key={item.to} to={item.to} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors ${active ? "text-[#1a1f36]" : "text-slate-500"}`}>
-              <Icon className={`h-5 w-5 ${active ? "text-amber-500" : ""}`} />
-              {item.label}
+            <Link key={item.to} to={item.to} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium transition-colors ${active ? "text-[#1a1f36]" : "text-slate-500"}`}>
+              <Icon className={`h-5 w-5 shrink-0 ${active ? "text-amber-500" : ""}`} />
+              <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );
         })}
