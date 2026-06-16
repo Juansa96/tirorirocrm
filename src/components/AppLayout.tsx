@@ -131,12 +131,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
-        <TiroritoLogo className="h-5 w-auto text-[#1a4b5b]" />
-        <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 md:hidden">
+        <TiroritoLogo className="h-5 w-auto shrink-0 text-[#1a4b5b]" />
+        <div className="ml-auto flex min-w-0 items-center gap-2">
           <GlobalSearch />
-          <Link to="/perfil" className="text-sm font-medium text-slate-700 hover:text-[#1a4b5b]">{displayName}</Link>
-          <button onClick={() => void signOut()} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200" aria-label="Cerrar sesión">
+          <Link to="/perfil" aria-label="Mi perfil" title={displayName} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-[#1a1f36]">{initials}</Link>
+          <button onClick={() => void signOut()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200" aria-label="Cerrar sesión">
             <LogOut className="h-4 w-4" />
           </button>
         </div>
