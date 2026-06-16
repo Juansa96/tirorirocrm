@@ -183,14 +183,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
         {NAV.map((item) => {
           const active = isActive(path, item);
           const Icon = item.icon;
           return (
-            <Link key={item.to} to={item.to} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors ${active ? "text-[#1a1f36]" : "text-slate-500"}`}>
-              <Icon className={`h-5 w-5 ${active ? "text-amber-500" : ""}`} />
-              {item.label}
+            <Link key={item.to} to={item.to} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium transition-colors ${active ? "text-[#1a1f36]" : "text-slate-500"}`}>
+              <Icon className={`h-5 w-5 shrink-0 ${active ? "text-amber-500" : ""}`} />
+              <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );
         })}
