@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TareasRouteImport } from './routes/tareas'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PipelineRouteImport } from './routes/pipeline'
+import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DatosRouteImport } from './routes/datos'
 import { Route as IndexRouteImport } from './routes/index'
@@ -34,6 +35,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const PipelineRoute = PipelineRouteImport.update({
   id: '/pipeline',
   path: '/pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PerfilRoute = PerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
+  '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
   '/tareas': typeof TareasRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
+  '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
   '/tareas': typeof TareasRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
+  '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
   '/tareas': typeof TareasRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/datos'
     | '/login'
+    | '/perfil'
     | '/pipeline'
     | '/reset-password'
     | '/tareas'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/'
     | '/datos'
     | '/login'
+    | '/perfil'
     | '/pipeline'
     | '/reset-password'
     | '/tareas'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/'
     | '/datos'
     | '/login'
+    | '/perfil'
     | '/pipeline'
     | '/reset-password'
     | '/tareas'
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DatosRoute: typeof DatosRoute
   LoginRoute: typeof LoginRoute
+  PerfilRoute: typeof PerfilRoute
   PipelineRoute: typeof PipelineRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TareasRoute: typeof TareasRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/pipeline'
       fullPath: '/pipeline'
       preLoaderRoute: typeof PipelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/perfil': {
+      id: '/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof PerfilRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -259,6 +279,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DatosRoute: DatosRoute,
   LoginRoute: LoginRoute,
+  PerfilRoute: PerfilRoute,
   PipelineRoute: PipelineRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TareasRoute: TareasRoute,

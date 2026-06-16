@@ -135,7 +135,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <TiroritoLogo className="h-5 w-auto text-[#1a4b5b]" />
         <div className="flex items-center gap-2">
           <GlobalSearch />
-          <span className="text-sm font-medium text-slate-700">{displayName}</span>
+          <Link to="/perfil" className="text-sm font-medium text-slate-700 hover:text-[#1a4b5b]">{displayName}</Link>
           <button onClick={() => void signOut()} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200" aria-label="Cerrar sesión">
             <LogOut className="h-4 w-4" />
           </button>
