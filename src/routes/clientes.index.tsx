@@ -188,18 +188,33 @@ function ClientesList() {
         {sorted.map((l) => {
           const next = nextPendingTaskFor(l.id, tareas);
           return (
-            <div key={l.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
-              <div className="flex items-start justify-between gap-2">
-                <Link to="/clientes/$id" params={{ id: l.id }} className="flex-1 font-semibold text-slate-900">
-                  {l.nombre}
-                </Link>
-                <StageBadge etapa={l.etapa} />
+            <div key={l.id} className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all active:scale-[0.99] active:shadow-inner">
+              <Link
+                to="/clientes/$id"
+                params={{ id: l.id }}
+                aria-label={`Abrir ficha de ${l.nombre}`}
+                className="flex items-stretch"
+              >
+                <div className="flex-1 p-3 pr-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-semibold text-slate-900">{l.nombre}</div>
+                      <div className="mt-0.5 text-[11px] text-slate-400">Entrada: {formatShortDate(l.fechaCreacion)}</div>
+                    </div>
+                    <StageBadge etapa={l.etapa} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <SellerBadge vendedor={l.vendedor} />
+                    {l.valor > 0 && <span className="font-medium">{formatCurrency(l.valor)}</span>}
+                    {next && <span className="text-amber-700">· {dateLabel(next.fecha)}</span>}
+                  </div>
+                </div>
+                <div className="flex w-12 items-center justify-center bg-slate-50 text-slate-400 transition-all group-hover:bg-[#1a1f36] group-hover:text-white group-active:bg-[#1a1f36] group-active:text-white">
+                  <ChevronRight className="h-5 w-5 animate-pulse-x" />
+                </div>
+              </Link>
+              <div className="absolute right-14 top-2">
                 <DeleteLeadButton id={l.id} variant="menu" />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                <SellerBadge vendedor={l.vendedor} />
-                {l.valor > 0 && <span className="font-medium">{formatCurrency(l.valor)}</span>}
-                {next && <span className="text-amber-700">· {dateLabel(next.fecha)}</span>}
               </div>
             </div>
           );
