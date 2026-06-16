@@ -308,22 +308,22 @@ function ClienteDetalle() {
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-        <div>
+        <div className="min-w-0 flex-1">
           {editing && draft ? (
             <input
               value={draft.nombre}
               onChange={(e) => setDraft({ ...draft, nombre: e.target.value })}
               onBlur={(e) => saveDraftField("nombre", e.target.value)}
-              className="w-full rounded border border-slate-300 px-2 py-1 text-2xl font-bold"
+              className="w-full rounded border border-slate-300 px-2 py-1 text-xl font-bold sm:text-2xl"
             />
           ) : (
-            <h1 className="text-2xl font-bold">{lead.nombre}</h1>
+            <h1 className="truncate text-xl font-bold sm:text-2xl">{lead.nombre}</h1>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <SellerBadge vendedor={lead.vendedor} />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <DeleteLeadButton id={lead.id} redirectAfter />
           <button onClick={editing ? closeEditing : openEditing} className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46]">
             {editing ? "Hecho" : "Editar"}
