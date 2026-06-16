@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ExternalLink, Search, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, ChevronRight, Search, ArrowUp, ArrowDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
 import { VENDEDORES, vendorName, ETAPAS } from "@/lib/types";
