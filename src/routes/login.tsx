@@ -134,7 +134,7 @@ function LoginPage() {
           )}
         </div>
 
-        <Link to="/login" className="hidden" />
+        
       </form>
     </div>
   );
