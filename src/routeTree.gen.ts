@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TareasRouteImport } from './routes/tareas'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DatosRouteImport } from './routes/datos'
@@ -23,6 +24,11 @@ import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/boot
 const TareasRoute = TareasRouteImport.update({
   id: '/tareas',
   path: '/tareas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PipelineRoute = PipelineRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/datos': typeof DatosRoute
   '/login': typeof LoginRoute
   '/pipeline': typeof PipelineRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/datos'
     | '/login'
     | '/pipeline'
+    | '/reset-password'
     | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/datos'
     | '/login'
     | '/pipeline'
+    | '/reset-password'
     | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/datos'
     | '/login'
     | '/pipeline'
+    | '/reset-password'
     | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   DatosRoute: typeof DatosRoute
   LoginRoute: typeof LoginRoute
   PipelineRoute: typeof PipelineRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   TareasRoute: typeof TareasRoute
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNuevoRoute: typeof ClientesNuevoRoute
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/tareas'
       fullPath: '/tareas'
       preLoaderRoute: typeof TareasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pipeline': {
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   DatosRoute: DatosRoute,
   LoginRoute: LoginRoute,
   PipelineRoute: PipelineRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   TareasRoute: TareasRoute,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNuevoRoute: ClientesNuevoRoute,
