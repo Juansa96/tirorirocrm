@@ -148,10 +148,12 @@ function ClientesList() {
             {sorted.map((l) => {
               const next = nextPendingTaskFor(l.id, tareas);
               return (
-                <tr key={l.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50">
+                <tr key={l.id} className="group border-t border-slate-100 transition-colors hover:bg-slate-50">
                   <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatShortDate(l.fechaCreacion)}</td>
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-900">{l.nombre}</div>
+                    <Link to="/clientes/$id" params={{ id: l.id }} className="block font-semibold text-slate-900 hover:text-[#1a4b5b] hover:underline">
+                      {l.nombre}
+                    </Link>
                     {l.email && <div className="text-xs text-slate-500">{l.email}</div>}
                   </td>
                   <td className="px-4 py-3"><SellerBadge vendedor={l.vendedor} /></td>
@@ -161,8 +163,13 @@ function ClientesList() {
                   <td className="px-4 py-3 text-slate-600">{next ? dateLabel(next.fecha) : <span className="text-slate-400">—</span>}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-1">
-                      <Link to="/clientes/$id" params={{ id: l.id }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                        <ExternalLink className="h-4 w-4" />
+                      <Link
+                        to="/clientes/$id"
+                        params={{ id: l.id }}
+                        aria-label={`Abrir ficha de ${l.nombre}`}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-all hover:bg-[#1a1f36] hover:text-white hover:shadow-md"
+                      >
+                        <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
                       </Link>
                       <DeleteLeadButton id={l.id} variant="menu" />
                     </div>
