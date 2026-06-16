@@ -142,3 +142,11 @@
     color: var(--color-foreground);
   }
 }
+
+@keyframes pulse-x {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+.animate-pulse-x {
+  animation: pulse-x 1.4s ease-in-out infinite;
+}
