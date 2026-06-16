@@ -94,12 +94,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = useRouterState({ select: (s) => s.location.pathname });
 
+  const isPublic = path === "/login" || path === "/reset-password";
+
   useEffect(() => {
     if (loading) return;
-    if (!session && path !== "/login") {
+    if (!session && !isPublic) {
       router.navigate({ to: "/login" });
     }
-  }, [session, loading, path, router]);
+  }, [session, loading, isPublic, router]);
 
   if (loading) {
     return (
@@ -109,7 +111,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (path === "/login") return <>{children}</>;
+  if (isPublic) return <>{children}</>;
   if (!session) return null;
   return <AppLayout>{children}</AppLayout>;
 }
