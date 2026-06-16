@@ -166,8 +166,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="space-y-2 border-t border-white/10 p-3">
             <div className="px-1"><RealtimeDot /></div>
             <div className="hidden items-center gap-2 lg:flex">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-[#1a1f36]">{initials}</div>
-              <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium text-white">{displayName}</div></div>
+              <Link to="/perfil" className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-[#1a1f36] hover:opacity-90" aria-label="Mi perfil">{initials}</Link>
+              <Link to="/perfil" className="min-w-0 flex-1 truncate text-sm font-medium text-white hover:underline">{displayName}</Link>
               <button onClick={() => void signOut()} className="flex h-8 w-8 items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white" aria-label="Cerrar sesión">
                 <LogOut className="h-4 w-4" />
               </button>
