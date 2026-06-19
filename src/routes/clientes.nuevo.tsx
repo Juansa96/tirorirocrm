@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Check } from "lucide-react";
 import { actions } from "@/lib/store";
 import { VENDEDORES, ETAPAS, ORIGENES, RANGOS_EDAD, vendorName, type Etapa } from "@/lib/types";
-import { todayISO } from "@/lib/format";
+import { todayISO, defaultEnvio, isMadrid } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE } from "@/components/ProductoForm";
 import type { Producto } from "@/lib/types";
 
