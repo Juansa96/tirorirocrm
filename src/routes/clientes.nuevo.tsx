@@ -28,10 +28,19 @@ function NuevoLead() {
     fechaHold: "",
     edad: "",
   });
+  const [envioTouched, setEnvioTouched] = useState(false);
   const [tarea, setTarea] = useState({ descripcion: "", fecha: todayISO(), hora: "" });
   const [prodState, setProdState] = useState<Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy"> | null>(null);
   const [showProdForm, setShowProdForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  function onCiudadChange(v: string) {
+    setForm(prev => ({
+      ...prev,
+      ciudad: v,
+      valorEnvio: envioTouched ? prev.valorEnvio : defaultEnvio(v),
+    }));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
