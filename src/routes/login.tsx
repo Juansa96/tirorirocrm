@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { TiroritoLogo } from "@/components/TiroritoLogo";
@@ -19,9 +19,9 @@ function LoginPage() {
   const [mode, setMode] = useState<"login" | "forgot">("login");
   const [resetMsg, setResetMsg] = useState<string | null>(null);
 
-  if (session) {
-    navigate({ to: "/" });
-  }
+  useEffect(() => {
+    if (session) navigate({ to: "/" });
+  }, [session, navigate]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
