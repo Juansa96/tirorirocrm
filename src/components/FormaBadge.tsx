@@ -21,25 +21,25 @@ const FORMA_LABEL: Record<string, string> = {
 };
 
 function FormaSVG({ forma, className = "h-3.5 w-3.5" }: { forma: string; className?: string }) {
-  // Each SVG draws the silhouette of the cabecero/pantalla shape, viewBox 0 0 32 16
-  const common = { className, viewBox: "0 0 32 16", fill: "currentColor" } as const;
+  // Mirrors the SVGs used on tirorirohome.com (viewBox 0 0 32 32, stroked silhouette)
+  const common = { className, viewBox: "0 0 32 32", fill: "none", stroke: "currentColor", strokeWidth: 1.5 } as const;
   switch (forma) {
     case "recto":
-      return <svg {...common}><rect x="2" y="2" width="28" height="12" rx="1" /></svg>;
+      return <svg {...common}><rect x="4" y="6" width="24" height="16" rx="1" /></svg>;
     case "semicirculo":
-      return <svg {...common}><path d="M2 14 V8 a14 6 0 0 1 28 0 V14 Z" /></svg>;
+      return <svg {...common}><path d="M 4 22 L 4 14 Q 16 4 28 14 L 28 22 Z" /></svg>;
     case "corona-simple":
-      return <svg {...common}><path d="M2 14 V6 Q8 6 10 6 Q16 -1 22 6 Q24 6 30 6 V14 Z" /></svg>;
+      return <svg {...common}><path d="M 2 22 L 2 14 C 8 14 10 11 10.4 9.2 A 5.6 1.6 0 0 1 21.6 9.2 C 22 11 24 14 30 14 L 30 22 Z" /></svg>;
     case "corona-doble":
-      return <svg {...common}><path d="M2 14 V8 Q6 8 8 8 Q11 3 14 8 Q16 8 18 8 Q21 1 24 8 Q27 8 30 8 V14 Z" /></svg>;
+      return <svg {...common}><path d="M 2 22 L 2 14 Q 7 14 7 11.5 Q 12 11.5 12 9 A 4 2 0 0 1 20 9 Q 20 11.5 25 11.5 Q 25 14 30 14 L 30 22 Z" /></svg>;
     case "ondas":
-      return <svg {...common}><path d="M2 14 V8 Q4 4 6 8 Q8 4 10 8 Q12 4 14 8 Q16 4 18 8 Q20 4 22 8 Q24 4 26 8 Q28 4 30 8 V14 Z" /></svg>;
+      return <svg {...common}><path d="M 2 22 L 2 15 Q 5.5 8 9 15 Q 12.5 8 16 15 Q 19.5 8 23 15 Q 26.5 8 30 15 L 30 22 Z" /></svg>;
     case "cilindro":
-      return <svg {...common}><ellipse cx="16" cy="3" rx="10" ry="2" /><path d="M6 3 V13 a10 2 0 0 0 20 0 V3" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>;
+      return <svg {...common}><ellipse cx="16" cy="6" rx="10" ry="2" /><path d="M6 6 V26 a10 2 0 0 0 20 0 V6" /></svg>;
     case "cuadrado":
-      return <svg {...common}><rect x="6" y="2" width="20" height="12" rx="0.5" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>;
+      return <svg {...common}><rect x="6" y="6" width="20" height="20" rx="1" /></svg>;
     case "rectangulo":
-      return <svg {...common}><rect x="2" y="3" width="28" height="10" rx="0.5" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>;
+      return <svg {...common}><rect x="2" y="8" width="28" height="16" rx="1" /></svg>;
     default:
       return null;
   }
