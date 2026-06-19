@@ -378,6 +378,12 @@ export const actions = {
     if (error || !data) { toast.error("Error al crear el lead."); return null; }
     const lead = mapLead(data as Record<string, unknown>);
     suppressLead(lead.id);
+    // Insert locally so the UI updates immediately. The realtime INSERT echo
+    // is deduped in the handler (find by id), avoiding refetching 5 tables.
+    if (!state.leads.find((l) => l.id === lead.id)) {
+      state = { ...state, leads: [lead, ...state.leads] };
+      emit();
+    }
     if (firstTask?.descripcion.trim()) {
       await supabase.from("tareas").insert({
         lead_id: lead.id,
@@ -388,7 +394,6 @@ export const actions = {
         completada: false,
       });
     }
-    await refetchAll();
     return lead;
   },
 
