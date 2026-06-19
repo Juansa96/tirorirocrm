@@ -5,6 +5,7 @@ import { actions } from "@/lib/store";
 import { VENDEDORES, ETAPAS, ORIGENES, RANGOS_EDAD, vendorName, type Etapa } from "@/lib/types";
 import { todayISO, defaultEnvio, isMadrid } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE } from "@/components/ProductoForm";
+import { FormaBadge } from "@/components/FormaBadge";
 import type { Producto } from "@/lib/types";
 
 export const Route = createFileRoute("/clientes/nuevo")({
@@ -194,9 +195,10 @@ function NuevoLead() {
             />
           )}
           {prodState && !showProdForm && (
-            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
-              <span className="font-medium text-emerald-800">
-                {prodState.tipo} {prodState.modelo ? `— ${prodState.modelo}` : ""}{prodState.tela ? ` · ${prodState.tela}` : ""}
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+              <span className="flex flex-wrap items-center gap-1.5 font-medium text-emerald-800">
+                <span>{prodState.tipo} {prodState.modelo ? `— ${prodState.modelo}` : ""}{prodState.tela ? ` · ${prodState.tela}` : ""}</span>
+                <FormaBadge modelo={prodState.modelo} />
               </span>
               <button type="button" onClick={() => setProdState(null)} className="text-xs text-slate-500 hover:text-red-600">Quitar</button>
             </div>
