@@ -162,8 +162,15 @@ function NuevoLead() {
               <input type="number" min={0} value={form.valorProducto} onChange={e => setForm({...form, valorProducto: parseFloat(e.target.value) || 0})} className={cls} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Valor envío (€)</label>
-              <input type="number" min={0} value={form.valorEnvio} onChange={e => setForm({...form, valorEnvio: parseFloat(e.target.value) || 0})} className={cls} />
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Valor envío (€)
+                <span className="ml-1 font-normal text-slate-400">
+                  · {form.ciudad ? (isMadrid(form.ciudad) ? "Madrid 40€" : "Fuera de Madrid — a consultar (mín. 60€)") : "Madrid 40€ · fuera mín. 60€ a consultar"}
+                </span>
+              </label>
+              <input type="number" min={0} value={form.valorEnvio}
+                onChange={e => { setEnvioTouched(true); setForm({...form, valorEnvio: parseFloat(e.target.value) || 0}); }}
+                className={cls} />
             </div>
           </div>
         </div>
