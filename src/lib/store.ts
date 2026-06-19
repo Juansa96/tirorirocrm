@@ -137,17 +137,11 @@ function syncPresence() {
   emit();
 }
 
-let bootstrapped = false;
-async function bootstrap() {
-  try { await fetch("/api/public/bootstrap").catch(() => {}); } catch {}
-}
-
 let initStarted = false;
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 async function init() {
   if (initStarted) return;
   initStarted = true;
-  if (!bootstrapped) { bootstrapped = true; await bootstrap(); }
   await refetchAll();
 
   realtimeChannel = supabase
