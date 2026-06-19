@@ -21,6 +21,7 @@ import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 
 const TareasRoute = TareasRouteImport.update({
   id: '/tareas',
@@ -82,6 +83,12 @@ const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   path: '/api/public/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/clientes/': typeof ClientesIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +118,7 @@ export interface FileRoutesByTo {
   '/clientes': typeof ClientesIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +134,7 @@ export interface FileRoutesById {
   '/clientes/': typeof ClientesIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/clientes/'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
+    | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
+    | '/lovable/email/queue/process'
   id:
     | '__root__'
     | '/'
@@ -169,6 +181,7 @@ export interface FileRouteTypes {
     | '/clientes/'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
+    | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +197,7 @@ export interface RootRouteChildren {
   ClientesIndexRoute: typeof ClientesIndexRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -272,6 +286,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -288,6 +309,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientesIndexRoute: ClientesIndexRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
