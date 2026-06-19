@@ -103,7 +103,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
             nombre: nombreClean,
             email: emailClean,
             telefono: sanitize(telefono, 20),
-            ciudad: sanitize(ciudad, 100),
+            ciudad: ciudadClean,
             producto: tipoProducto,
             vendedor,
             etapa: "Discovery",
