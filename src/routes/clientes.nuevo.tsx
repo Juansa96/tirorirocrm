@@ -105,13 +105,18 @@ function NuevoLead() {
             <div className="md:col-span-2">
               <label className="mb-1 block text-xs font-medium text-slate-700">Rango de edad</label>
               <div className="flex flex-wrap gap-2">
-                {RANGOS_EDAD.map(r => (
-                  <button key={r} type="button"
-                    onClick={() => setForm({...form, edad: form.edad === r ? "" : r})}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${form.edad === r ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}>
-                    {r}
-                  </button>
-                ))}
+                {RANGOS_EDAD.map(r => {
+                  const selected = form.edad === r;
+                  return (
+                    <button key={r} type="button"
+                      aria-pressed={selected}
+                      onClick={() => setForm({...form, edad: selected ? "" : r})}
+                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${selected ? "border-[#1a1f36] bg-[#1a1f36] text-white shadow-sm ring-2 ring-[#1a1f36]/20" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}>
+                      {selected && <Check className="h-3 w-3" />}
+                      {r}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
