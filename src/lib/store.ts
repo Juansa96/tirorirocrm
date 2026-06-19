@@ -319,7 +319,6 @@ export async function teardownStore() {
     if (presenceChannel) { await supabase.removeChannel(presenceChannel); presenceChannel = null; }
   } catch { /* ignore */ }
   initStarted = false;
-  bootstrapped = false;
   state = {
     leads: [], tareas: [], audit: [], notas: [], productos: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
