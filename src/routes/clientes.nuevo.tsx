@@ -5,6 +5,7 @@ import { actions } from "@/lib/store";
 import { VENDEDORES, ETAPAS, ORIGENES, RANGOS_EDAD, vendorName, type Etapa } from "@/lib/types";
 import { todayISO, defaultEnvio, isMadrid } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE } from "@/components/ProductoForm";
+import { FormaBadge } from "@/components/FormaBadge";
 import type { Producto } from "@/lib/types";
 
 export const Route = createFileRoute("/clientes/nuevo")({
