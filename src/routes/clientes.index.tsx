@@ -122,6 +122,7 @@ function ClientesList() {
         </div>
         <select value={vendedor} onChange={(e) => setVendedor(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
           <option value="">Todos los vendedores</option>
+          <option value="__sin__">Sin asignar</option>
           {VENDEDORES.map((v) => (<option key={v} value={v}>{vendorName(v)}</option>))}
         </select>
         <select value={producto} onChange={(e) => setProducto(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
