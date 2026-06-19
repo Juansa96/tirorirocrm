@@ -12,12 +12,12 @@ import { EmailChangeEmail } from '@/lib/email-templates/email-change'
 import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirm your email',
-  invite: "You've been invited",
-  magiclink: 'Your login link',
-  recovery: 'Reset your password',
-  email_change: 'Confirm your new email',
-  reauthentication: 'Your verification code',
+  signup: 'Confirma tu email',
+  invite: 'Te han invitado a Tiroriro Home CRM',
+  magiclink: 'Tu enlace de acceso',
+  recovery: 'Restablece tu contraseña',
+  email_change: 'Confirma tu nuevo email',
+  reauthentication: 'Tu código de verificación',
 }
 
 // Template mapping
@@ -31,7 +31,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "tirorirocrm"
+const SITE_NAME = "Tiroriro Home CRM"
 const SENDER_DOMAIN = "notify.tirorirohome.com"
 const ROOT_DOMAIN = "tirorirohome.com"
 const FROM_DOMAIN = "notify.tirorirohome.com"
