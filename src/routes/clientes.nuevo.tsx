@@ -96,7 +96,7 @@ function NuevoLead() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Ciudad</label>
-              <input value={form.ciudad} onChange={e => setForm({...form, ciudad: e.target.value})} className={cls} />
+              <input value={form.ciudad} onChange={e => onCiudadChange(e.target.value)} className={cls} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Red social / usuario</label>
