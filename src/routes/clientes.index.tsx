@@ -28,7 +28,11 @@ function ClientesList() {
   const filtered = leads.filter((l) => {
     const ql = q.toLowerCase();
     if (q && !l.nombre.toLowerCase().includes(ql) && !l.email.toLowerCase().includes(ql) && !l.telefono.toLowerCase().includes(ql)) return false;
-    if (vendedor && l.vendedor && l.vendedor !== vendedor) return false;
+    if (vendedor) {
+      if (vendedor === "__sin__") {
+        if (l.vendedor) return false;
+      } else if (l.vendedor !== vendedor) return false;
+    }
     if (producto && l.producto !== producto) return false;
     if (ciudad && l.ciudad !== ciudad) return false;
     return true;
@@ -118,6 +122,7 @@ function ClientesList() {
         </div>
         <select value={vendedor} onChange={(e) => setVendedor(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
           <option value="">Todos los vendedores</option>
+          <option value="__sin__">Sin asignar</option>
           {VENDEDORES.map((v) => (<option key={v} value={v}>{vendorName(v)}</option>))}
         </select>
         <select value={producto} onChange={(e) => setProducto(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
