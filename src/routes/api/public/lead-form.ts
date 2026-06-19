@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
           const body = await request.json().catch(() => null);
           if (!body || typeof body !== "object") return json({ error: "Invalid JSON body" }, 400);
 
-          const { nombre, email, telefono, ciudad, mensaje, origen, configurador } = body as Record<string, unknown>;
+          const { nombre, email, telefono, ciudad, mensaje, origen, configurador, productos, valor_envio } = body as Record<string, unknown>;
           const nombreClean = sanitize(nombre);
           const emailClean = sanitize(email, 254);
 
@@ -46,14 +46,30 @@ export const Route = createFileRoute("/api/public/lead-form")({
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) return json({ error: "email inválido" }, 400);
 
           const vendedor = randomVendedor();
-          const tipoProducto = typeof configurador === "object" && configurador !== null && "tipo" in configurador
-            ? (({ cabecero: "Cabecero", banco: "Banco", cojin: "Almohadón", puf: "Puf", mesa: "Mesa de centro", pantalla: "Pantalla de lámpara" } as Record<string, string>)[(configurador as Record<string, unknown>).tipo as string] ?? "Cabecero")
+
+          // Build the list of product configs to insert.
+          // Accept either `productos: [...]` (new, supports multiple) or legacy `configurador: {...}` (single).
+          type ProdConfig = { config: Record<string, unknown>; precio: number; cantidad: number };
+          const rawList: unknown[] = Array.isArray(productos)
+            ? productos
+            : (configurador && typeof configurador === "object" ? [configurador] : []);
+
+          const prodConfigs: ProdConfig[] = rawList
+            .filter((p): p is Record<string, unknown> => p !== null && typeof p === "object")
+            .map((p) => {
+              // Each item can be either the raw config (legacy) or { ...config, precio, cantidad }
+              const precio = Math.max(0, Number(p.precio) || 0);
+              const cantidad = Math.max(1, Math.floor(Number(p.cantidad) || 1));
+              return { config: p, precio, cantidad };
+            });
+
+          const primerTipo = prodConfigs[0]?.config?.tipo as string | undefined;
+          const tipoProducto = primerTipo
+            ? (({ cabecero: "Cabecero", banco: "Banco", cojin: "Almohadón", puf: "Puf", mesa: "Mesa de centro", pantalla: "Pantalla de lámpara" } as Record<string, string>)[primerTipo] ?? "Cabecero")
             : "Cabecero";
 
-          // Precio del configurador (si el cliente venía del configurador con precio calculado)
-          const precioProducto = typeof configurador === "object" && configurador !== null
-            ? Math.max(0, Number((configurador as Record<string, unknown>).precio) || 0)
-            : 0;
+          const totalProductos = prodConfigs.reduce((acc, p) => acc + p.precio * p.cantidad, 0);
+          const envioNum = Math.max(0, Number(valor_envio) || 0);
 
           const { data: lead, error: leadErr } = await supabaseAdmin.from("leads").insert({
             nombre: nombreClean,
@@ -63,9 +79,9 @@ export const Route = createFileRoute("/api/public/lead-form")({
             producto: tipoProducto,
             vendedor,
             etapa: "Discovery",
-            valor: precioProducto,
-            valor_producto: precioProducto,
-            valor_envio: 0,
+            valor: totalProductos + envioNum,
+            valor_producto: totalProductos,
+            valor_envio: envioNum,
             origen: sanitize(origen, 50) || "Formulario web",
             red_social: "",
             fecha_hold: null,
@@ -77,13 +93,16 @@ export const Route = createFileRoute("/api/public/lead-form")({
             await supabaseAdmin.from("notas").insert({ lead_id: lead.id, contenido: sanitize(mensaje, 2000), usuario: "formulario-web" });
           }
 
-          if (configurador && typeof configurador === "object") {
-            const producto = buildProducto(configurador as Record<string, string>);
-            if (producto) await supabaseAdmin.from("productos_lead").insert({
-              lead_id: lead.id,
-              ...producto,
-              precio_unitario: precioProducto,
-            });
+          for (const { config, precio, cantidad } of prodConfigs) {
+            const producto = buildProducto(config as Record<string, string>);
+            if (producto) {
+              await supabaseAdmin.from("productos_lead").insert({
+                lead_id: lead.id,
+                ...producto,
+                precio_unitario: precio,
+                cantidad,
+              });
+            }
           }
 
           const today = new Date().toISOString().slice(0, 10);
