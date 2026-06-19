@@ -103,13 +103,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [session, loading, isPublic, router]);
 
+  // Initial auth check: keep screen blank-ish (no centered spinner that flashes
+  // and jumps the layout). A thin top progress bar signals activity instead.
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700" />
-          <p className="text-sm text-slate-500">Cargando…</p>
+      <div className="min-h-screen bg-slate-50">
+        <div className="fixed left-0 right-0 top-0 z-50 h-0.5 overflow-hidden bg-slate-200">
+          <div className="h-full w-1/3 animate-[loading_1.2s_ease-in-out_infinite] bg-[#1a4b5b]" />
         </div>
+        <style>{`@keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}`}</style>
       </div>
     );
   }
