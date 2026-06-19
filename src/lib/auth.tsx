@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error?.message ?? null };
     },
     async signOut() {
+      await teardownStore();
       await supabase.auth.signOut();
     },
   };
