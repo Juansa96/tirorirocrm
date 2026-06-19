@@ -312,7 +312,7 @@ export function ProductoForm({
           <div>
             <div className={section}>Forma</div>
             <div className="flex flex-wrap gap-2">
-              {CABECERO_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ forma: x.id })} className={btn(f.forma === x.id)}>{x.name}</button>)}
+              {CABECERO_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ forma: x.id })} className={`${btn(f.forma === x.id)} inline-flex items-center gap-1.5`}><span>{x.name}</span><FormaBadge modelo={x.name} className="border-transparent bg-transparent px-0 py-0" /></button>)}
               <button type="button" onClick={() => s({ forma: FORMA_POR_DECIDIR })} className={btn(f.forma === FORMA_POR_DECIDIR || !f.forma)}>Por decidir</button>
             </div>
             {(f.forma === FORMA_POR_DECIDIR || !f.forma) && (
