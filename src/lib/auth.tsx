@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { vendorName } from "./types";
-import { setCurrentUser } from "./store";
+import { setCurrentUser, teardownStore } from "./store";
 
 interface AuthCtx {
   session: Session | null;
