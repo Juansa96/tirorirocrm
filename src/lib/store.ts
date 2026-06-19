@@ -312,6 +312,22 @@ export function useStore(): State {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+// Tear down realtime + presence subscriptions and reset in-memory state.
+// Called on signOut so the next user starts clean and we don't leak channels.
+export async function teardownStore() {
+  try {
+    if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
+    if (presenceChannel) { await supabase.removeChannel(presenceChannel); presenceChannel = null; }
+  } catch { /* ignore */ }
+  initStarted = false;
+  bootstrapped = false;
+  state = {
+    leads: [], tareas: [], audit: [], notas: [], productos: [],
+    loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
+  };
+  emit();
+}
+
 async function syncLeadValorFromProductos(leadId: string) {
   const lead = state.leads.find((l) => l.id === leadId);
   if (!lead) return;
