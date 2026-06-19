@@ -155,10 +155,15 @@ async function init() {
     // ── LEADS: surgical update from payload, no full refetch ──────────
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, (payload) => {
       const newLead = mapLead(payload.new as Record<string, unknown>);
+      if (state.leads.find((l) => l.id === newLead.id)) return;
       state = { ...state, leads: [newLead, ...state.leads] };
       emit();
-      // Notify team about new external lead
-      const isExternal = newLead.origen === "Formulario web" || newLead.origen === "Configurador" || (payload.new as Record<string, unknown>).created_by === "formulario-web";
+      // Notify team about externally-created leads (formulario web / configurador)
+      const createdBy = (payload.new as Record<string, unknown>).created_by as string | null | undefined;
+      const isExternal =
+        createdBy === "formulario-web" ||
+        newLead.origen === "Formulario web" ||
+        newLead.origen === "Configurador";
       if (isExternal) {
         toast.info(`Nuevo lead del formulario web: ${newLead.nombre}`, {
           duration: 12000,
@@ -373,6 +378,12 @@ export const actions = {
     if (error || !data) { toast.error("Error al crear el lead."); return null; }
     const lead = mapLead(data as Record<string, unknown>);
     suppressLead(lead.id);
+    // Insert locally so the UI updates immediately. The realtime INSERT echo
+    // is deduped in the handler (find by id), avoiding refetching 5 tables.
+    if (!state.leads.find((l) => l.id === lead.id)) {
+      state = { ...state, leads: [lead, ...state.leads] };
+      emit();
+    }
     if (firstTask?.descripcion.trim()) {
       await supabase.from("tareas").insert({
         lead_id: lead.id,
@@ -383,7 +394,6 @@ export const actions = {
         completada: false,
       });
     }
-    await refetchAll();
     return lead;
   },
 
