@@ -155,10 +155,15 @@ async function init() {
     // ── LEADS: surgical update from payload, no full refetch ──────────
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, (payload) => {
       const newLead = mapLead(payload.new as Record<string, unknown>);
+      if (state.leads.find((l) => l.id === newLead.id)) return;
       state = { ...state, leads: [newLead, ...state.leads] };
       emit();
-      // Notify team about new external lead
-      const isExternal = newLead.origen === "Formulario web" || newLead.origen === "Configurador" || (payload.new as Record<string, unknown>).created_by === "formulario-web";
+      // Notify team about externally-created leads (formulario web / configurador)
+      const createdBy = (payload.new as Record<string, unknown>).created_by as string | null | undefined;
+      const isExternal =
+        createdBy === "formulario-web" ||
+        newLead.origen === "Formulario web" ||
+        newLead.origen === "Configurador";
       if (isExternal) {
         toast.info(`Nuevo lead del formulario web: ${newLead.nombre}`, {
           duration: 12000,
