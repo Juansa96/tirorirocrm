@@ -26,7 +26,7 @@ const bodySchema = z.object({
   ciudad: z.string().trim().max(100).optional().default(""),
   mensaje: z.string().trim().max(2000).optional().default(""),
   origen: z.string().trim().max(50).optional().default(""),
-  valor_envio: z.coerce.number().min(0).max(100_000).optional().default(0),
+  valor_envio: z.coerce.number().min(0).max(100_000).optional(),
   productos: z.array(productoSchema).max(50).optional(),
   configurador: productoSchema.optional(),
 });
