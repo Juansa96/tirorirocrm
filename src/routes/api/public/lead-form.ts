@@ -89,7 +89,15 @@ export const Route = createFileRoute("/api/public/lead-form")({
             : "Cabecero";
 
           const totalProductos = prodConfigs.reduce((acc, p) => acc + p.precio * p.cantidad, 0);
-          const envioNum = Math.max(0, Number(valor_envio) || 0);
+          const ciudadClean = sanitize(ciudad, 100);
+          const isMadrid = (() => {
+            const c = ciudadClean.toLowerCase();
+            return c === "madrid" || c.startsWith("madrid,") || c.includes(" madrid") || c.endsWith(" madrid");
+          })();
+          // Default envío: Madrid 40€, fuera 60€ (mínimo a consultar). Si el formulario manda valor, respetar.
+          const envioNum = valor_envio !== undefined
+            ? Math.max(0, Number(valor_envio) || 0)
+            : (isMadrid ? 40 : 60);
 
           const { data: lead, error: leadErr } = await supabaseAdmin.from("leads").insert({
             nombre: nombreClean,
