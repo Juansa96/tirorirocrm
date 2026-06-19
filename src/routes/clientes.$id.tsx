@@ -547,9 +547,10 @@ function ClienteDetalle() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {p.tipo && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">{TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}</span>}
                         <span className="font-medium text-slate-900">{p.modelo || "Producto"}</span>
+                        <FormaBadge modelo={p.modelo} />
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
                         {p.ancho && <span>Ancho: <strong>{p.ancho} cm</strong></span>}
