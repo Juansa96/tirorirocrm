@@ -56,15 +56,14 @@ export const Route = createFileRoute("/api/public/lead-form")({
         }
 
         try {
-          const body = await request.json().catch(() => null);
-          if (!body || typeof body !== "object") return json({ error: "Invalid JSON body" }, 400);
-
-          const { nombre, email, telefono, ciudad, mensaje, origen, configurador, productos, valor_envio } = body as Record<string, unknown>;
+          const raw = await request.json().catch(() => null);
+          const parsed = bodySchema.safeParse(raw);
+          if (!parsed.success) {
+            return json({ error: "Datos inválidos", issues: parsed.error.flatten() }, 400);
+          }
+          const { nombre, email, telefono, ciudad, mensaje, origen, configurador, productos, valor_envio } = parsed.data;
           const nombreClean = sanitize(nombre);
           const emailClean = sanitize(email, 254);
-
-          if (!nombreClean || !emailClean) return json({ error: "nombre y email son requeridos" }, 400);
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) return json({ error: "email inválido" }, 400);
 
           const vendedor = randomVendedor();
 
