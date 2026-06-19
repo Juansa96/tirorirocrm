@@ -120,6 +120,13 @@ export const Route = createFileRoute("/api/public/lead-form")({
           if (mensaje) {
             await supabaseAdmin.from("notas").insert({ lead_id: lead.id, contenido: sanitize(mensaje, 2000), usuario: "formulario-web" });
           }
+          if (valor_envio === undefined && !isMadrid && ciudadClean) {
+            await supabaseAdmin.from("notas").insert({
+              lead_id: lead.id,
+              contenido: `⚠️ Envío a consultar — ${ciudadClean} (fuera de Madrid). Aplicado mínimo provisional 60€.`,
+              usuario: "sistema",
+            });
+          }
 
           for (const { config, precio, cantidad } of prodConfigs) {
             const producto = buildProducto(config as Record<string, string>);
