@@ -256,7 +256,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recalc_lead_valor: { Args: { _lead_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
