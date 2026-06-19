@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import type { Producto } from "@/lib/types";
+import { FormaBadge } from "@/components/FormaBadge";
 
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
