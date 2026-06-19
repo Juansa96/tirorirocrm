@@ -68,9 +68,11 @@ function ClientesList() {
         case "proximaAccion": {
           const nextA = nextPendingTaskFor(a.id, tareas);
           const nextB = nextPendingTaskFor(b.id, tareas);
-          const dateA = nextA ? new Date(nextA.fecha).getTime() : Infinity;
-          const dateB = nextB ? new Date(nextB.fecha).getTime() : Infinity;
-          cmp = dateA - dateB;
+          // Leads sin próxima tarea van siempre al final, independientemente de la dirección
+          if (!nextA && !nextB) { cmp = 0; break; }
+          if (!nextA) return 1;
+          if (!nextB) return -1;
+          cmp = new Date(nextA.fecha).getTime() - new Date(nextB.fecha).getTime();
           break;
         }
       }
