@@ -143,13 +143,14 @@ async function bootstrap() {
 }
 
 let initStarted = false;
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 async function init() {
   if (initStarted) return;
   initStarted = true;
   if (!bootstrapped) { bootstrapped = true; await bootstrap(); }
   await refetchAll();
 
-  supabase
+  realtimeChannel = supabase
     .channel("tirocrm-realtime")
     // ── LEADS: surgical update from payload, no full refetch ──────────
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, (payload) => {
