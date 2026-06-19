@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { VENDEDORES } from "@/lib/types";
 import { buildProducto } from "@/lib/product-schema";
@@ -11,6 +12,24 @@ function sanitize(val: unknown, maxLen = 200): string {
   if (val === null || val === undefined) return "";
   return String(val).trim().slice(0, maxLen);
 }
+
+const productoSchema = z.object({
+  tipo: z.string().max(50).optional(),
+  precio: z.coerce.number().min(0).max(1_000_000).optional(),
+  cantidad: z.coerce.number().int().min(1).max(999).optional(),
+}).passthrough();
+
+const bodySchema = z.object({
+  nombre: z.string().trim().min(1).max(200),
+  email: z.string().trim().email().max(254),
+  telefono: z.string().trim().max(20).optional().default(""),
+  ciudad: z.string().trim().max(100).optional().default(""),
+  mensaje: z.string().trim().max(2000).optional().default(""),
+  origen: z.string().trim().max(50).optional().default(""),
+  valor_envio: z.coerce.number().min(0).max(100_000).optional().default(0),
+  productos: z.array(productoSchema).max(50).optional(),
+  configurador: productoSchema.optional(),
+});
 
 export const Route = createFileRoute("/api/public/lead-form")({
   server: {
@@ -26,12 +45,14 @@ export const Route = createFileRoute("/api/public/lead-form")({
         const json = (body: unknown, status = 200) =>
           new Response(JSON.stringify(body), { status, headers: cors });
 
-        // Require API key if LEAD_FORM_API_KEY env var is configured
-        if (configuredApiKey) {
-          const providedKey = request.headers.get("x-api-key");
-          if (providedKey !== configuredApiKey) {
-            return json({ error: "Unauthorized" }, 401);
-          }
+        // API key is mandatory to prevent anonymous lead spam.
+        if (!configuredApiKey) {
+          console.error("LEAD_FORM_API_KEY not configured; rejecting public submission");
+          return json({ error: "Endpoint not configured" }, 503);
+        }
+        const providedKey = request.headers.get("x-api-key");
+        if (providedKey !== configuredApiKey) {
+          return json({ error: "Unauthorized" }, 401);
         }
 
         try {
