@@ -28,7 +28,11 @@ function ClientesList() {
   const filtered = leads.filter((l) => {
     const ql = q.toLowerCase();
     if (q && !l.nombre.toLowerCase().includes(ql) && !l.email.toLowerCase().includes(ql) && !l.telefono.toLowerCase().includes(ql)) return false;
-    if (vendedor && l.vendedor && l.vendedor !== vendedor) return false;
+    if (vendedor) {
+      if (vendedor === "__sin__") {
+        if (l.vendedor) return false;
+      } else if (l.vendedor !== vendedor) return false;
+    }
     if (producto && l.producto !== producto) return false;
     if (ciudad && l.ciudad !== ciudad) return false;
     return true;
