@@ -68,3 +68,13 @@ export function dateLabel(iso: string): string {
   if (s === "mañana") return "Mañana";
   return formatShortDate(iso);
 }
+
+// Envío por defecto Tiroriro: 40€ en Madrid, 60€ mínimo a consultar fuera.
+export function isMadrid(ciudad: string): boolean {
+  const c = (ciudad || "").trim().toLowerCase();
+  if (!c) return false;
+  return c === "madrid" || c.startsWith("madrid,") || c.includes(" madrid") || c.endsWith(" madrid");
+}
+export function defaultEnvio(ciudad: string): number {
+  return isMadrid(ciudad) ? 40 : 60;
+}

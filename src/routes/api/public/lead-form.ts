@@ -26,7 +26,7 @@ const bodySchema = z.object({
   ciudad: z.string().trim().max(100).optional().default(""),
   mensaje: z.string().trim().max(2000).optional().default(""),
   origen: z.string().trim().max(50).optional().default(""),
-  valor_envio: z.coerce.number().min(0).max(100_000).optional().default(0),
+  valor_envio: z.coerce.number().min(0).max(100_000).optional(),
   productos: z.array(productoSchema).max(50).optional(),
   configurador: productoSchema.optional(),
 });
@@ -89,13 +89,21 @@ export const Route = createFileRoute("/api/public/lead-form")({
             : "Cabecero";
 
           const totalProductos = prodConfigs.reduce((acc, p) => acc + p.precio * p.cantidad, 0);
-          const envioNum = Math.max(0, Number(valor_envio) || 0);
+          const ciudadClean = sanitize(ciudad, 100);
+          const isMadrid = (() => {
+            const c = ciudadClean.toLowerCase();
+            return c === "madrid" || c.startsWith("madrid,") || c.includes(" madrid") || c.endsWith(" madrid");
+          })();
+          // Default envío: Madrid 40€, fuera 60€ (mínimo a consultar). Si el formulario manda valor, respetar.
+          const envioNum = valor_envio !== undefined
+            ? Math.max(0, Number(valor_envio) || 0)
+            : (isMadrid ? 40 : 60);
 
           const { data: lead, error: leadErr } = await supabaseAdmin.from("leads").insert({
             nombre: nombreClean,
             email: emailClean,
             telefono: sanitize(telefono, 20),
-            ciudad: sanitize(ciudad, 100),
+            ciudad: ciudadClean,
             producto: tipoProducto,
             vendedor,
             etapa: "Discovery",
@@ -111,6 +119,13 @@ export const Route = createFileRoute("/api/public/lead-form")({
 
           if (mensaje) {
             await supabaseAdmin.from("notas").insert({ lead_id: lead.id, contenido: sanitize(mensaje, 2000), usuario: "formulario-web" });
+          }
+          if (valor_envio === undefined && !isMadrid && ciudadClean) {
+            await supabaseAdmin.from("notas").insert({
+              lead_id: lead.id,
+              contenido: `⚠️ Envío a consultar — ${ciudadClean} (fuera de Madrid). Aplicado mínimo provisional 60€.`,
+              usuario: "sistema",
+            });
           }
 
           for (const { config, precio, cantidad } of prodConfigs) {

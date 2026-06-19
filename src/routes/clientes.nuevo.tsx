@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Check } from "lucide-react";
 import { actions } from "@/lib/store";
 import { VENDEDORES, ETAPAS, ORIGENES, RANGOS_EDAD, vendorName, type Etapa } from "@/lib/types";
-import { todayISO } from "@/lib/format";
+import { todayISO, defaultEnvio, isMadrid } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE } from "@/components/ProductoForm";
 import type { Producto } from "@/lib/types";
 
@@ -28,10 +28,19 @@ function NuevoLead() {
     fechaHold: "",
     edad: "",
   });
+  const [envioTouched, setEnvioTouched] = useState(false);
   const [tarea, setTarea] = useState({ descripcion: "", fecha: todayISO(), hora: "" });
   const [prodState, setProdState] = useState<Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy"> | null>(null);
   const [showProdForm, setShowProdForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  function onCiudadChange(v: string) {
+    setForm(prev => ({
+      ...prev,
+      ciudad: v,
+      valorEnvio: envioTouched ? prev.valorEnvio : defaultEnvio(v),
+    }));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -87,7 +96,7 @@ function NuevoLead() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Ciudad</label>
-              <input value={form.ciudad} onChange={e => setForm({...form, ciudad: e.target.value})} className={cls} />
+              <input value={form.ciudad} onChange={e => onCiudadChange(e.target.value)} className={cls} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Red social / usuario</label>
@@ -96,13 +105,18 @@ function NuevoLead() {
             <div className="md:col-span-2">
               <label className="mb-1 block text-xs font-medium text-slate-700">Rango de edad</label>
               <div className="flex flex-wrap gap-2">
-                {RANGOS_EDAD.map(r => (
-                  <button key={r} type="button"
-                    onClick={() => setForm({...form, edad: form.edad === r ? "" : r})}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${form.edad === r ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}>
-                    {r}
-                  </button>
-                ))}
+                {RANGOS_EDAD.map(r => {
+                  const selected = form.edad === r;
+                  return (
+                    <button key={r} type="button"
+                      aria-pressed={selected}
+                      onClick={() => setForm({...form, edad: selected ? "" : r})}
+                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${selected ? "border-[#1a1f36] bg-[#1a1f36] text-white shadow-sm ring-2 ring-[#1a1f36]/20" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}>
+                      {selected && <Check className="h-3 w-3" />}
+                      {r}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -148,8 +162,15 @@ function NuevoLead() {
               <input type="number" min={0} value={form.valorProducto} onChange={e => setForm({...form, valorProducto: parseFloat(e.target.value) || 0})} className={cls} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Valor envío (€)</label>
-              <input type="number" min={0} value={form.valorEnvio} onChange={e => setForm({...form, valorEnvio: parseFloat(e.target.value) || 0})} className={cls} />
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Valor envío (€)
+                <span className="ml-1 font-normal text-slate-400">
+                  · {form.ciudad ? (isMadrid(form.ciudad) ? "Madrid 40€" : "Fuera de Madrid — a consultar (mín. 60€)") : "Madrid 40€ · fuera mín. 60€ a consultar"}
+                </span>
+              </label>
+              <input type="number" min={0} value={form.valorEnvio}
+                onChange={e => { setEnvioTouched(true); setForm({...form, valorEnvio: parseFloat(e.target.value) || 0}); }}
+                className={cls} />
             </div>
           </div>
         </div>
