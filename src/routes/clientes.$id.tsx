@@ -441,9 +441,10 @@ function ClienteDetalle() {
                     const subtotal = (p.precioUnitario || 0) * (p.cantidad || 1);
                     return (
                       <div key={p.id} className="flex items-baseline justify-between gap-2 text-sm">
-                        <span className="min-w-0 flex-1 truncate text-slate-600">
-                          {p.modelo || "Producto"}
-                          {p.cantidad > 1 && <span className="text-slate-400"> ×{p.cantidad}</span>}
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-slate-600">
+                          <span className="truncate">{p.modelo || "Producto"}</span>
+                          <FormaBadge modelo={p.modelo} />
+                          {p.cantidad > 1 && <span className="text-slate-400">×{p.cantidad}</span>}
                         </span>
                         <span className="font-semibold text-slate-900">{formatCurrency(subtotal)}</span>
                       </div>
