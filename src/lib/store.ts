@@ -298,6 +298,42 @@ async function init() {
       state = { ...state, productos: state.productos.filter((p) => p.id !== id) };
       emit();
     })
+    // ── PEDIDOS: surgical ─────────────────────────────────────────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, (payload) => {
+      const p = mapPedido(payload.new as Record<string, unknown>);
+      if (!state.pedidos.find((x) => x.id === p.id)) {
+        state = { ...state, pedidos: [...state.pedidos, p] };
+        emit();
+      }
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, (payload) => {
+      const p = mapPedido(payload.new as Record<string, unknown>);
+      state = { ...state, pedidos: state.pedidos.map((x) => x.id === p.id ? p : x) };
+      emit();
+    })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "pedidos" }, (payload) => {
+      const id = (payload.old as Record<string, unknown>).id as string;
+      state = { ...state, pedidos: state.pedidos.filter((p) => p.id !== id) };
+      emit();
+    })
+    // ── PEDIDO_TELAS: surgical ────────────────────────────────────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedido_telas" }, (payload) => {
+      const t = mapPedidoTela(payload.new as Record<string, unknown>);
+      if (!state.pedidoTelas.find((x) => x.id === t.id)) {
+        state = { ...state, pedidoTelas: [...state.pedidoTelas, t] };
+        emit();
+      }
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedido_telas" }, (payload) => {
+      const t = mapPedidoTela(payload.new as Record<string, unknown>);
+      state = { ...state, pedidoTelas: state.pedidoTelas.map((x) => x.id === t.id ? t : x) };
+      emit();
+    })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "pedido_telas" }, (payload) => {
+      const id = (payload.old as Record<string, unknown>).id as string;
+      state = { ...state, pedidoTelas: state.pedidoTelas.filter((t) => t.id !== id) };
+      emit();
+    })
     .subscribe((status) => {
       const next: State["realtimeStatus"] =
         status === "SUBSCRIBED" ? "connected" :
@@ -306,6 +342,7 @@ async function init() {
       state = { ...state, realtimeStatus: next };
       emit();
     });
+
 
   // Presence channel: shows who else is viewing the same lead in real time
   presenceChannel = supabase.channel("tirocrm-presence");
@@ -340,11 +377,20 @@ async function refetchProductos() {
   const { data, error } = await supabase.from("productos_lead").select("*").order("created_at", { ascending: true });
   if (!error && data) { state = { ...state, productos: data.map(mapProducto) }; emit(); }
 }
+async function refetchPedidos() {
+  const { data, error } = await supabase.from("pedidos" as never).select("*").order("created_at", { ascending: false });
+  if (!error && data) { state = { ...state, pedidos: (data as unknown as Record<string, unknown>[]).map(mapPedido) }; emit(); }
+}
+async function refetchPedidoTelas() {
+  const { data, error } = await supabase.from("pedido_telas" as never).select("*").order("orden", { ascending: true });
+  if (!error && data) { state = { ...state, pedidoTelas: (data as unknown as Record<string, unknown>[]).map(mapPedidoTela) }; emit(); }
+}
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas()]);
   state = { ...state, loaded: true };
   emit();
 }
+
 
 function subscribe(cb: () => void) {
   listeners.add(cb);
