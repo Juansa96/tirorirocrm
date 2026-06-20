@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ChevronRight, Search, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
 import { VENDEDORES, vendorName, ETAPAS } from "@/lib/types";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/clientes/")({
 });
 
 function ClientesList() {
-  const { leads, tareas } = useStore();
+  const { leads, tareas, pedidos } = useStore();
   const [q, setQ] = useState("");
   const [vendedor, setVendedor] = useState("");
   const [producto, setProducto] = useState("");
@@ -148,12 +148,14 @@ function ClientesList() {
               <SortHeader label="Valor" sortKey="valor" />
               <SortHeader label="Ciudad" sortKey="ciudad" />
               <SortHeader label="Próxima Acción" sortKey="proximaAccion" />
+              <th className="px-4 py-3">Pedidos</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {sorted.map((l) => {
               const next = nextPendingTaskFor(l.id, tareas);
+              const nPedidos = pedidos.filter((p) => p.leadId === l.id).length;
               return (
                 <tr key={l.id} className="group border-t border-slate-100 transition-colors hover:bg-slate-50">
                   <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatShortDate(l.fechaCreacion)}</td>
@@ -168,6 +170,13 @@ function ClientesList() {
                   <td className="px-4 py-3 font-medium">{l.valor > 0 ? formatCurrency(l.valor) : <span className="text-slate-400">—</span>}</td>
                   <td className="px-4 py-3 text-slate-600">{l.ciudad}</td>
                   <td className="px-4 py-3 text-slate-600">{next ? dateLabel(next.fecha) : <span className="text-slate-400">—</span>}</td>
+                  <td className="px-4 py-3">
+                    {nPedidos > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                        <Package className="h-3 w-3" /> {nPedidos}
+                      </span>
+                    ) : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-1">
                       <Link
@@ -185,7 +194,7 @@ function ClientesList() {
               );
             })}
             {sorted.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400">Sin resultados</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-slate-400">Sin resultados</td></tr>
             )}
           </tbody>
         </table>

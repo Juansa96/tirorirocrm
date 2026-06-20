@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Users, TrendingUp, Trophy, Percent, Plus, ChevronDown } from "lucide-react";
+import { Users, TrendingUp, Trophy, Percent, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
 import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { useStore, vendedorTotals } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName, type Etapa } from "@/lib/types";
+import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName, semaforoPedido, type Etapa } from "@/lib/types";
 import { formatCurrency, formatAxisCurrency } from "@/lib/format";
 import { TaskItem } from "@/components/TaskItem";
 import { sellerStyle } from "@/components/SellerBadge";
@@ -34,7 +34,7 @@ function KpiCard({ icon: Icon, label, value, badgeBg, iconColor, empty }: {
 }
 
 function Dashboard() {
-  const { leads, tareas } = useStore();
+  const { leads, tareas, pedidos } = useStore();
   const navigate = useNavigate();
   const [filterVendedor, setFilterVendedor] = useState("");
 
@@ -62,6 +62,14 @@ function Dashboard() {
 
   const vendTotals = vendedorTotals(leads);
   const maxVendValor = Math.max(1, ...VENDEDORES.map((v) => vendTotals.get(v)!.valor));
+
+  // Pedidos en riesgo (ámbar) o atrasados (rojo), no entregados
+  const pedidosRiesgo = pedidos.filter((p) => {
+    if (p.entregado) return false;
+    const s = semaforoPedido(p);
+    return s.estado !== "verde";
+  });
+  const pedidosAtrasados = pedidosRiesgo.filter((p) => semaforoPedido(p).estado === "rojo");
 
   function goEtapa(etapa: Etapa) {
     navigate({
@@ -103,6 +111,31 @@ function Dashboard() {
         <KpiCard icon={Trophy} label="CERRADO GANADO" value={formatCurrency(cerradoGanado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
         <KpiCard icon={Percent} label="TASA DE CONVERSIÓN" value={tasaConv !== null ? `${tasaConv.toFixed(1)}%` : "—"} badgeBg="bg-violet-100" iconColor="text-violet-600" empty={tasaConv === null} />
       </div>
+
+      {pedidosRiesgo.length > 0 && (
+        <Link
+          to="/pedidos"
+          className={`flex flex-wrap items-center gap-3 rounded-xl border-2 p-4 transition-shadow hover:shadow-md ${pedidosAtrasados.length > 0 ? "border-rose-200 bg-rose-50/60" : "border-amber-200 bg-amber-50/60"}`}
+        >
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${pedidosAtrasados.length > 0 ? "bg-rose-100" : "bg-amber-100"}`}>
+            <AlertTriangle className={`h-5 w-5 ${pedidosAtrasados.length > 0 ? "text-rose-600" : "text-amber-600"}`} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className={`text-sm font-bold ${pedidosAtrasados.length > 0 ? "text-rose-800" : "text-amber-800"}`}>
+              {pedidosAtrasados.length > 0
+                ? `${pedidosAtrasados.length} pedido${pedidosAtrasados.length > 1 ? "s" : ""} atrasado${pedidosAtrasados.length > 1 ? "s" : ""}`
+                : `${pedidosRiesgo.length} pedido${pedidosRiesgo.length > 1 ? "s" : ""} en riesgo`}
+            </div>
+            <div className={`text-xs ${pedidosAtrasados.length > 0 ? "text-rose-600" : "text-amber-600"}`}>
+              {pedidosRiesgo.length} pedido{pedidosRiesgo.length > 1 ? "s" : ""} fuera de la ruta ideal — revisa para evitar cuellos de botella
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
+            <Package className="h-3.5 w-3.5" /> Ver pedidos
+          </div>
+        </Link>
+      )}
+
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
         <div className="mb-1 flex items-center justify-between">

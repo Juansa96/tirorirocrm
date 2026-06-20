@@ -2,10 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
-  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle,
+  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Lead, type Producto, type Tarea } from "@/lib/types";
+import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Lead, type Tarea } from "@/lib/types";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -126,7 +126,7 @@ function TareaRow({ tarea, clienteNombre }: { tarea: Tarea; clienteNombre: strin
 // ── Main component ────────────────────────────────────────────────
 function ClienteDetalle() {
   const { id } = Route.useParams();
-  const { leads, tareas, audit, notas, productos, remoteUpdateTimestamps, presenceEditors } = useStore();
+  const { leads, tareas, audit, notas, productos, pedidos, remoteUpdateTimestamps, presenceEditors } = useStore();
   const navigate = useNavigate();
   const lead = leads.find((l) => l.id === id);
 
@@ -332,7 +332,7 @@ function ClienteDetalle() {
         </div>
       </div>
 
-      {/* Etapa */}
+      {/* Etapa + razón de urgencia */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Etapa</div>
         <div className="flex flex-wrap gap-2">
@@ -347,6 +347,26 @@ function ClienteDetalle() {
             );
           })}
         </div>
+        {lead.etapa !== "Closed Won" && lead.etapa !== "Closed Lost" && (
+          <div className="mt-3">
+            <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <Zap className="h-3.5 w-3.5 text-amber-500" />
+              Razón de urgencia / situación actual
+            </label>
+            <input
+              type="text"
+              defaultValue={lead.razonUrgencia}
+              key={lead.id + lead.razonUrgencia}
+              onBlur={(e) => {
+                if (e.target.value !== lead.razonUrgencia) {
+                  void actions.updateLead(lead.id, { razonUrgencia: e.target.value });
+                }
+              }}
+              placeholder="Ej: esperando confirmación de medidas, pendiente de envío de muestras…"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            />
+          </div>
+        )}
       </div>
 
       {/* Info + Valor */}
@@ -544,7 +564,7 @@ function ClienteDetalle() {
                   onCancel={() => setEditingProd(null)}
                 />
               ) : (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className={`rounded-lg border p-3 ${p.caracteristicasConfirmadas ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-slate-50"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -566,6 +586,29 @@ function ClienteDetalle() {
                         {p.precioUnitario > 0 && p.cantidad > 1 && <span>Total: <strong>{formatCurrency(p.precioUnitario * p.cantidad)}</strong></span>}
                       </div>
                       {p.notasProducto && <div className="mt-1 text-xs italic text-slate-500">{p.notasProducto}</div>}
+
+                      {/* Confirmación + pago 50 + crear pedido */}
+                      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-2.5">
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={p.caracteristicasConfirmadas}
+                            onChange={(e) => actions.updateProductoFlags(p.id, { caracteristicasConfirmadas: e.target.checked })}
+                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className="font-medium">Características confirmadas</span>
+                        </label>
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={p.pagado50}
+                            onChange={(e) => actions.updateProductoFlags(p.id, { pagado50: e.target.checked })}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span>Pagado 50%</span>
+                        </label>
+                        <CrearPedidoButton producto={p} pedidos={pedidos.filter((pd) => pd.productoLeadId === p.id)} navigate={navigate} />
+                      </div>
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <button onClick={() => setEditingProd(p.id)} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"><Edit2 className="h-4 w-4" /></button>
@@ -708,5 +751,80 @@ function InfoRow({ icon: Icon, label, children }: { icon: React.ComponentType<{ 
         <div className="text-slate-900">{children}</div>
       </div>
     </div>
+  );
+}
+
+function CrearPedidoButton({
+  producto, pedidos, navigate,
+}: {
+  producto: { id: string; caracteristicasConfirmadas: boolean; pagado50: boolean };
+  pedidos: { id: string }[];
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  // Si ya hay pedido(s), muestra chips clicables
+  if (pedidos.length > 0) {
+    return (
+      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        {pedidos.map((pd, i) => (
+          <button
+            key={pd.id}
+            onClick={() => navigate({ to: "/pedidos/$id", params: { id: pd.id } })}
+            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-200"
+          >
+            <Package className="h-3 w-3" /> Pedido #{i + 1}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  // Sin confirmación → no se puede crear
+  if (!producto.caracteristicasConfirmadas) {
+    return (
+      <span className="ml-auto text-[11px] italic text-slate-400">
+        Confirma características para crear pedido
+      </span>
+    );
+  }
+
+  async function handle(manualConfirm = false) {
+    if (producto.pagado50 || manualConfirm) {
+      const ped = await actions.crearPedido({
+        productoId: producto.id,
+        pagado50: producto.pagado50,
+        pagoTodoAlFinal: false,
+        creadoManualmente: manualConfirm && !producto.pagado50,
+      });
+      if (ped) navigate({ to: "/pedidos/$id", params: { id: ped.id } });
+    } else {
+      if (confirm("¿Crear este pedido sin que se haya pagado el 50%? (ej. cliente de confianza o pago al final)")) {
+        const ped = await actions.crearPedido({
+          productoId: producto.id,
+          pagado50: false,
+          pagoTodoAlFinal: true,
+          creadoManualmente: true,
+        });
+        if (ped) navigate({ to: "/pedidos/$id", params: { id: ped.id } });
+      }
+    }
+  }
+
+  if (producto.pagado50) {
+    return (
+      <button
+        onClick={() => handle(false)}
+        className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+      >
+        <Package className="h-3.5 w-3.5" /> Crear pedido
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={() => handle(false)}
+      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+      title="Pago 50% no marcado — pedirá confirmación"
+    >
+      <Package className="h-3.5 w-3.5" /> Crear pedido (sin pago)
+    </button>
   );
 }

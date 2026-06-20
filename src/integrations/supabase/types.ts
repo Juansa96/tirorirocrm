@@ -142,11 +142,13 @@ export type Database = {
           email: string | null
           etapa: string
           fecha_creacion: string
+          fecha_entrada_etapa: string
           fecha_hold: string | null
           id: string
           nombre: string
           origen: string | null
           producto: string | null
+          razon_urgencia: string | null
           red_social: string | null
           telefono: string | null
           updated_at: string
@@ -162,11 +164,13 @@ export type Database = {
           email?: string | null
           etapa?: string
           fecha_creacion?: string
+          fecha_entrada_etapa?: string
           fecha_hold?: string | null
           id?: string
           nombre: string
           origen?: string | null
           producto?: string | null
+          razon_urgencia?: string | null
           red_social?: string | null
           telefono?: string | null
           updated_at?: string
@@ -182,11 +186,13 @@ export type Database = {
           email?: string | null
           etapa?: string
           fecha_creacion?: string
+          fecha_entrada_etapa?: string
           fecha_hold?: string | null
           id?: string
           nombre?: string
           origen?: string | null
           producto?: string | null
+          razon_urgencia?: string | null
           red_social?: string | null
           telefono?: string | null
           updated_at?: string
@@ -229,20 +235,172 @@ export type Database = {
           },
         ]
       }
+      pedido_telas: {
+        Row: {
+          created_at: string
+          estado: string
+          fecha_recibo: string | null
+          id: string
+          nombre_tela: string | null
+          orden: number
+          pedido_id: string
+          tipo_tela: string
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          fecha_recibo?: string | null
+          id?: string
+          nombre_tela?: string | null
+          orden?: number
+          pedido_id: string
+          tipo_tela: string
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          fecha_recibo?: string | null
+          id?: string
+          nombre_tela?: string | null
+          orden?: number
+          pedido_id?: string
+          tipo_tela?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_telas_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pedidos: {
+        Row: {
+          creado_manualmente: boolean
+          created_at: string
+          dias_plazo: number
+          entregado: boolean
+          entregado_fecha: string | null
+          estado_pedido: string
+          estructura_hecha: boolean
+          estructura_hecha_fecha: string | null
+          factura: string | null
+          fecha_creacion_pedido: string
+          fecha_entrega_real: string | null
+          fecha_limite: string | null
+          id: string
+          lead_id: string
+          notas_pedido: string | null
+          pagado_50: boolean
+          pagado_completo: boolean
+          pago_todo_al_final: boolean
+          precio: number
+          producto_lead_id: string
+          reserva: number
+          tapizado_hecho: boolean
+          tapizado_hecho_fecha: string | null
+          tela_pedida: boolean
+          tela_pedida_fecha: string | null
+          tela_recibida: boolean
+          tela_recibida_fecha: string | null
+          updated_at: string
+        }
+        Insert: {
+          creado_manualmente?: boolean
+          created_at?: string
+          dias_plazo?: number
+          entregado?: boolean
+          entregado_fecha?: string | null
+          estado_pedido?: string
+          estructura_hecha?: boolean
+          estructura_hecha_fecha?: string | null
+          factura?: string | null
+          fecha_creacion_pedido?: string
+          fecha_entrega_real?: string | null
+          fecha_limite?: string | null
+          id?: string
+          lead_id: string
+          notas_pedido?: string | null
+          pagado_50?: boolean
+          pagado_completo?: boolean
+          pago_todo_al_final?: boolean
+          precio?: number
+          producto_lead_id: string
+          reserva?: number
+          tapizado_hecho?: boolean
+          tapizado_hecho_fecha?: string | null
+          tela_pedida?: boolean
+          tela_pedida_fecha?: string | null
+          tela_recibida?: boolean
+          tela_recibida_fecha?: string | null
+          updated_at?: string
+        }
+        Update: {
+          creado_manualmente?: boolean
+          created_at?: string
+          dias_plazo?: number
+          entregado?: boolean
+          entregado_fecha?: string | null
+          estado_pedido?: string
+          estructura_hecha?: boolean
+          estructura_hecha_fecha?: string | null
+          factura?: string | null
+          fecha_creacion_pedido?: string
+          fecha_entrega_real?: string | null
+          fecha_limite?: string | null
+          id?: string
+          lead_id?: string
+          notas_pedido?: string | null
+          pagado_50?: boolean
+          pagado_completo?: boolean
+          pago_todo_al_final?: boolean
+          precio?: number
+          producto_lead_id?: string
+          reserva?: number
+          tapizado_hecho?: boolean
+          tapizado_hecho_fecha?: string | null
+          tela_pedida?: boolean
+          tela_pedida_fecha?: string | null
+          tela_recibida?: boolean
+          tela_recibida_fecha?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_producto_lead_id_fkey"
+            columns: ["producto_lead_id"]
+            isOneToOne: false
+            referencedRelation: "productos_lead"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       productos_lead: {
         Row: {
           acabado: string | null
           alto: number | null
           ancho: number | null
           cantidad: number
+          caracteristicas_confirmadas: boolean
           coleccion_tela: string | null
           color: string | null
           created_at: string
           created_by: string | null
+          fecha_confirmacion: string | null
           id: string
           lead_id: string | null
           modelo: string | null
           notas_producto: string | null
+          pagado_50: boolean
           patas: string | null
           precio_unitario: number
           relleno: string | null
@@ -254,14 +412,17 @@ export type Database = {
           alto?: number | null
           ancho?: number | null
           cantidad?: number
+          caracteristicas_confirmadas?: boolean
           coleccion_tela?: string | null
           color?: string | null
           created_at?: string
           created_by?: string | null
+          fecha_confirmacion?: string | null
           id?: string
           lead_id?: string | null
           modelo?: string | null
           notas_producto?: string | null
+          pagado_50?: boolean
           patas?: string | null
           precio_unitario?: number
           relleno?: string | null
@@ -273,14 +434,17 @@ export type Database = {
           alto?: number | null
           ancho?: number | null
           cantidad?: number
+          caracteristicas_confirmadas?: boolean
           coleccion_tela?: string | null
           color?: string | null
           created_at?: string
           created_by?: string | null
+          fecha_confirmacion?: string | null
           id?: string
           lead_id?: string | null
           modelo?: string | null
           notas_producto?: string | null
+          pagado_50?: boolean
           patas?: string | null
           precio_unitario?: number
           relleno?: string | null

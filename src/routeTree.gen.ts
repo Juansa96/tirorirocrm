@@ -16,7 +16,9 @@ import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DatosRouteImport } from './routes/datos'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PedidosIndexRouteImport } from './routes/pedidos.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
+import { Route as PedidosIdRouteImport } from './routes/pedidos.$id'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
@@ -60,9 +62,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PedidosIndexRoute = PedidosIndexRouteImport.update({
+  id: '/pedidos/',
+  path: '/pedidos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientesIndexRoute = ClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidosIdRoute = PedidosIdRouteImport.update({
+  id: '/pedidos/$id',
+  path: '/pedidos/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientesNuevoRoute = ClientesNuevoRouteImport.update({
@@ -112,7 +124,9 @@ export interface FileRoutesByFullPath {
   '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
+  '/pedidos/$id': typeof PedidosIdRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/pedidos/': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -129,7 +143,9 @@ export interface FileRoutesByTo {
   '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
+  '/pedidos/$id': typeof PedidosIdRoute
   '/clientes': typeof ClientesIndexRoute
+  '/pedidos': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -147,7 +163,9 @@ export interface FileRoutesById {
   '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
+  '/pedidos/$id': typeof PedidosIdRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/pedidos/': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -166,7 +184,9 @@ export interface FileRouteTypes {
     | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/pedidos/$id'
     | '/clientes/'
+    | '/pedidos/'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -183,7 +203,9 @@ export interface FileRouteTypes {
     | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/pedidos/$id'
     | '/clientes'
+    | '/pedidos'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -200,7 +222,9 @@ export interface FileRouteTypes {
     | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/pedidos/$id'
     | '/clientes/'
+    | '/pedidos/'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -218,7 +242,9 @@ export interface RootRouteChildren {
   TareasRoute: typeof TareasRoute
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNuevoRoute: typeof ClientesNuevoRoute
+  PedidosIdRoute: typeof PedidosIdRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
+  PedidosIndexRoute: typeof PedidosIndexRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -277,11 +303,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pedidos/': {
+      id: '/pedidos/'
+      path: '/pedidos'
+      fullPath: '/pedidos/'
+      preLoaderRoute: typeof PedidosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clientes/': {
       id: '/clientes/'
       path: '/clientes'
       fullPath: '/clientes/'
       preLoaderRoute: typeof ClientesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedidos/$id': {
+      id: '/pedidos/$id'
+      path: '/pedidos/$id'
+      fullPath: '/pedidos/$id'
+      preLoaderRoute: typeof PedidosIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clientes/nuevo': {
@@ -346,7 +386,9 @@ const rootRouteChildren: RootRouteChildren = {
   TareasRoute: TareasRoute,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNuevoRoute: ClientesNuevoRoute,
+  PedidosIdRoute: PedidosIdRoute,
   ClientesIndexRoute: ClientesIndexRoute,
+  PedidosIndexRoute: PedidosIndexRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,

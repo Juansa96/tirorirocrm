@@ -29,9 +29,25 @@ function vendorFirst(v: string) {
   return vendorName(v).split(" ")[0];
 }
 
+function daysInStage(lead: ReturnType<typeof useStore>["leads"][0]): number {
+  if (!lead.fechaEntradaEtapa) return 0;
+  const diff = Date.now() - new Date(lead.fechaEntradaEtapa).getTime();
+  return Math.max(0, Math.floor(diff / 86400000));
+}
+
+function urgencyStyle(days: number, closed: boolean): { bg: string; text: string; icon: string } | null {
+  if (closed) return null;
+  if (days < 7) return { bg: "bg-slate-100", text: "text-slate-500", icon: "text-slate-400" };
+  if (days < 14) return { bg: "bg-amber-50", text: "text-amber-700", icon: "text-amber-500" };
+  return { bg: "bg-rose-50", text: "text-rose-700", icon: "text-rose-500" };
+}
+
 function LeadCard({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; onNavigate: () => void }) {
   const next = nextPendingTaskFor(lead.id, tareas);
   const dot = sellerStyle(lead.vendedor).dot;
+  const closed = lead.etapa === "Closed Won" || lead.etapa === "Closed Lost";
+  const days = daysInStage(lead);
+  const urg = urgencyStyle(days, closed);
 
   return (
     <div
@@ -71,9 +87,22 @@ function LeadCard({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useSto
         )}
       </div>
 
+      {/* Urgency indicator — días en etapa + razón */}
+      {urg && (
+        <div className={`mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] ${urg.bg}`} title={lead.razonUrgencia || undefined}>
+          <Clock className={`h-3 w-3 shrink-0 ${urg.icon}`} />
+          <span className={`shrink-0 font-semibold ${urg.text}`}>{days}d</span>
+          {lead.razonUrgencia ? (
+            <span className={`min-w-0 truncate ${urg.text}`}>· {lead.razonUrgencia}</span>
+          ) : (
+            <span className="min-w-0 truncate text-slate-400 italic">· sin razón</span>
+          )}
+        </div>
+      )}
+
       {/* Next task — subtle amber pill */}
       {next && (
-        <div className="mt-2.5 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs">
+        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs">
           <Clock className="h-3 w-3 shrink-0 text-amber-500" />
           <span className="shrink-0 font-semibold text-amber-700">{dateLabel(next.fecha)}</span>
           <span className="min-w-0 truncate text-slate-400">· {next.descripcion}</span>

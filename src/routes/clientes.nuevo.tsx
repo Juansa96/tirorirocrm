@@ -31,7 +31,7 @@ function NuevoLead() {
   });
   const [envioTouched, setEnvioTouched] = useState(false);
   const [tarea, setTarea] = useState({ descripcion: "", fecha: todayISO(), hora: "" });
-  const [prodState, setProdState] = useState<Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy"> | null>(null);
+  const [prodState, setProdState] = useState<Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50"> | null>(null);
   const [showProdForm, setShowProdForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 

@@ -95,7 +95,7 @@ export const EMPTY_PROD_STATE: ProdState = {
 };
 
 // ── Conversiones ──────────────────────────────────────────────────
-export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy"> {
+export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50"> {
   let modelo = "", ancho: number | null = null, alto: number | null = null;
   let color = "", relleno = "", patas = "";
   const extras = (items: (string | false)[]) => items.filter(Boolean).join(" · ");
@@ -161,7 +161,7 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
   };
 }
 
-export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">): ProdState {
+export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">): ProdState {
   const s = { ...EMPTY_PROD_STATE };
   s.tipo = p.tipo as ProdTipo;
   s.tela = p.tela; s.coleccionTela = p.coleccionTela || "Básicas";
@@ -287,7 +287,7 @@ export function ProductoForm({
   initial, onSave, onCancel,
 }: {
   initial: ProdState;
-  onSave: (p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) => void;
+  onSave: (p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) => void;
   onCancel: () => void;
 }) {
   const [f, setF] = useState<ProdState>(initial);

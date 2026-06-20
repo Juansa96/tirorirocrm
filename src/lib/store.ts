@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto } from "./types";
-import { VENDEDORES } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela } from "./types";
+import { VENDEDORES, telasPorTipo } from "./types";
+
 
 
 interface State {
@@ -11,16 +12,16 @@ interface State {
   audit: AuditEntry[];
   notas: Nota[];
   productos: Producto[];
+  pedidos: Pedido[];
+  pedidoTelas: PedidoTela[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
-  // leadId -> timestamp of last remote update (for conflict detection)
   remoteUpdateTimestamps: Record<string, number>;
-  // leadId -> list of other users currently viewing that lead (Presence)
   presenceEditors: Record<string, string[]>;
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -55,6 +56,8 @@ function mapLead(r: Record<string, unknown>): Lead {
     valorEnvio: Number(r.valor_envio) || 0,
     edad: (r.edad as string) ?? "",
     fechaCreacion: (r.created_at as string) ?? "",
+    fechaEntradaEtapa: (r.fecha_entrada_etapa as string) ?? (r.created_at as string) ?? "",
+    razonUrgencia: (r.razon_urgencia as string) ?? "",
   };
 }
 
@@ -112,6 +115,55 @@ function mapProducto(r: Record<string, unknown>): Producto {
     notasProducto: (r.notas_producto as string) ?? "",
     createdAt: r.created_at as string,
     createdBy: (r.created_by as string) ?? "",
+    caracteristicasConfirmadas: !!r.caracteristicas_confirmadas,
+    fechaConfirmacion: (r.fecha_confirmacion as string) ?? "",
+    pagado50: !!r.pagado_50,
+  };
+}
+
+function mapPedido(r: Record<string, unknown>): Pedido {
+  return {
+    id: r.id as string,
+    productoLeadId: r.producto_lead_id as string,
+    leadId: r.lead_id as string,
+    fechaCreacionPedido: (r.fecha_creacion_pedido as string) ?? "",
+    diasPlazo: Number(r.dias_plazo) || 20,
+    fechaLimite: (r.fecha_limite as string) ?? "",
+    fechaEntregaReal: (r.fecha_entrega_real as string) ?? "",
+    pagado50: !!r.pagado_50,
+    pagoTodoAlFinal: !!r.pago_todo_al_final,
+    creadoManualmente: !!r.creado_manualmente,
+    estadoPedido: (r.estado_pedido as string) ?? "En proceso",
+    telaPedida: !!r.tela_pedida,
+    telaPedidaFecha: (r.tela_pedida_fecha as string) ?? "",
+    telaRecibida: !!r.tela_recibida,
+    telaRecibidaFecha: (r.tela_recibida_fecha as string) ?? "",
+    estructuraHecha: !!r.estructura_hecha,
+    estructuraHechaFecha: (r.estructura_hecha_fecha as string) ?? "",
+    tapizadoHecho: !!r.tapizado_hecho,
+    tapizadoHechoFecha: (r.tapizado_hecho_fecha as string) ?? "",
+    entregado: !!r.entregado,
+    entregadoFecha: (r.entregado_fecha as string) ?? "",
+    precio: Number(r.precio) || 0,
+    reserva: Number(r.reserva) || 0,
+    pagadoCompleto: !!r.pagado_completo,
+    factura: (r.factura as string) ?? "",
+    notasPedido: (r.notas_pedido as string) ?? "",
+    createdAt: (r.created_at as string) ?? "",
+    updatedAt: (r.updated_at as string) ?? "",
+  };
+}
+
+function mapPedidoTela(r: Record<string, unknown>): PedidoTela {
+  return {
+    id: r.id as string,
+    pedidoId: r.pedido_id as string,
+    tipoTela: (r.tipo_tela as string) ?? "",
+    nombreTela: (r.nombre_tela as string) ?? "",
+    estado: (r.estado as string) ?? "Pedida",
+    fechaRecibo: (r.fecha_recibo as string) ?? "",
+    orden: Number(r.orden) || 0,
+    createdAt: (r.created_at as string) ?? "",
   };
 }
 
@@ -246,6 +298,42 @@ async function init() {
       state = { ...state, productos: state.productos.filter((p) => p.id !== id) };
       emit();
     })
+    // ── PEDIDOS: surgical ─────────────────────────────────────────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, (payload) => {
+      const p = mapPedido(payload.new as Record<string, unknown>);
+      if (!state.pedidos.find((x) => x.id === p.id)) {
+        state = { ...state, pedidos: [...state.pedidos, p] };
+        emit();
+      }
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, (payload) => {
+      const p = mapPedido(payload.new as Record<string, unknown>);
+      state = { ...state, pedidos: state.pedidos.map((x) => x.id === p.id ? p : x) };
+      emit();
+    })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "pedidos" }, (payload) => {
+      const id = (payload.old as Record<string, unknown>).id as string;
+      state = { ...state, pedidos: state.pedidos.filter((p) => p.id !== id) };
+      emit();
+    })
+    // ── PEDIDO_TELAS: surgical ────────────────────────────────────────
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedido_telas" }, (payload) => {
+      const t = mapPedidoTela(payload.new as Record<string, unknown>);
+      if (!state.pedidoTelas.find((x) => x.id === t.id)) {
+        state = { ...state, pedidoTelas: [...state.pedidoTelas, t] };
+        emit();
+      }
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedido_telas" }, (payload) => {
+      const t = mapPedidoTela(payload.new as Record<string, unknown>);
+      state = { ...state, pedidoTelas: state.pedidoTelas.map((x) => x.id === t.id ? t : x) };
+      emit();
+    })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "pedido_telas" }, (payload) => {
+      const id = (payload.old as Record<string, unknown>).id as string;
+      state = { ...state, pedidoTelas: state.pedidoTelas.filter((t) => t.id !== id) };
+      emit();
+    })
     .subscribe((status) => {
       const next: State["realtimeStatus"] =
         status === "SUBSCRIBED" ? "connected" :
@@ -254,6 +342,7 @@ async function init() {
       state = { ...state, realtimeStatus: next };
       emit();
     });
+
 
   // Presence channel: shows who else is viewing the same lead in real time
   presenceChannel = supabase.channel("tirocrm-presence");
@@ -288,11 +377,20 @@ async function refetchProductos() {
   const { data, error } = await supabase.from("productos_lead").select("*").order("created_at", { ascending: true });
   if (!error && data) { state = { ...state, productos: data.map(mapProducto) }; emit(); }
 }
+async function refetchPedidos() {
+  const { data, error } = await supabase.from("pedidos" as never).select("*").order("created_at", { ascending: false });
+  if (!error && data) { state = { ...state, pedidos: (data as unknown as Record<string, unknown>[]).map(mapPedido) }; emit(); }
+}
+async function refetchPedidoTelas() {
+  const { data, error } = await supabase.from("pedido_telas" as never).select("*").order("orden", { ascending: true });
+  if (!error && data) { state = { ...state, pedidoTelas: (data as unknown as Record<string, unknown>[]).map(mapPedidoTela) }; emit(); }
+}
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas()]);
   state = { ...state, loaded: true };
   emit();
 }
+
 
 function subscribe(cb: () => void) {
   listeners.add(cb);
@@ -301,7 +399,7 @@ function subscribe(cb: () => void) {
 }
 
 const SERVER: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
@@ -320,7 +418,7 @@ export async function teardownStore() {
   } catch { /* ignore */ }
   initStarted = false;
   state = {
-    leads: [], tareas: [], audit: [], notas: [], productos: [],
+    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
   };
   emit();
@@ -345,7 +443,7 @@ async function syncLeadValorFromProductos(leadId: string) {
 
 export const actions = {
   async addLead(
-    input: Omit<Lead, "id" | "fechaCreacion">,
+    input: Omit<Lead, "id" | "fechaCreacion" | "fechaEntradaEtapa" | "razonUrgencia">,
     firstTask?: { descripcion: string; fecha: string; hora?: string },
   ): Promise<Lead | null> {
     const { data, error } = await supabase
@@ -552,7 +650,7 @@ export const actions = {
 
 
 
-  async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
+  async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) {
     const { data, error } = await supabase.from("productos_lead").insert({
       lead_id: leadId, tipo: input.tipo, modelo: input.modelo,
       ancho: input.ancho, alto: input.alto, tela: input.tela,
@@ -572,7 +670,7 @@ export const actions = {
     await syncLeadValorFromProductos(leadId);
   },
 
-  async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
+  async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) {
     const prev = state.productos.find((p) => p.id === id);
     const prevState = state;
     if (prev) {
@@ -607,8 +705,141 @@ export const actions = {
     void presenceChannel.track({ user: currentUser, editing: leadId ?? "" });
   },
 
-  // deleteAuditEntry intentionally removed — audit log is append-only for trazabilidad
+  // ── PRODUCTOS extra (confirmación / pago 50) ─────────────────────
+  async updateProductoFlags(id: string, patch: { caracteristicasConfirmadas?: boolean; pagado50?: boolean }) {
+    const prevState = state;
+    state = {
+      ...state,
+      productos: state.productos.map((p) => p.id === id ? { ...p, ...patch } : p),
+    };
+    emit();
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.caracteristicasConfirmadas !== undefined) dbPatch.caracteristicas_confirmadas = patch.caracteristicasConfirmadas;
+    if (patch.pagado50 !== undefined) dbPatch.pagado_50 = patch.pagado50;
+    const { error } = await supabase.from("productos_lead").update(dbPatch as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); }
+  },
+
+  // ── PEDIDOS ──────────────────────────────────────────────────────
+  async crearPedido(opts: {
+    productoId: string;
+    diasPlazo?: number;
+    pagado50: boolean;
+    pagoTodoAlFinal: boolean;
+    creadoManualmente: boolean;
+  }): Promise<Pedido | null> {
+    const prod = state.productos.find((p) => p.id === opts.productoId);
+    if (!prod) { toast.error("Producto no encontrado."); return null; }
+    if (!prod.caracteristicasConfirmadas) {
+      toast.error("Confirma primero las características del producto.");
+      return null;
+    }
+    const precio = (prod.precioUnitario || 0) * (prod.cantidad || 1);
+    const { data, error } = await supabase.from("pedidos" as never).insert({
+      producto_lead_id: prod.id,
+      lead_id: prod.leadId,
+      dias_plazo: opts.diasPlazo ?? 20,
+      pagado_50: opts.pagado50,
+      pago_todo_al_final: opts.pagoTodoAlFinal,
+      creado_manualmente: opts.creadoManualmente,
+      precio,
+    } as never).select().single();
+    if (error || !data) { toast.error("Error al crear el pedido."); return null; }
+    const pedido = mapPedido(data as Record<string, unknown>);
+    if (!state.pedidos.find((p) => p.id === pedido.id)) {
+      state = { ...state, pedidos: [pedido, ...state.pedidos] };
+      emit();
+    }
+    // Pre-rellena telas según el tipo del producto
+    const tipos = telasPorTipo(prod.tipo);
+    if (tipos.length > 0) {
+      const rows = tipos.map((t, i) => ({
+        pedido_id: pedido.id,
+        tipo_tela: t,
+        nombre_tela: i === 0 ? (prod.tela || "") : "",
+        estado: "Pedida",
+        orden: i,
+      }));
+      await supabase.from("pedido_telas" as never).insert(rows as never);
+    }
+    toast.success("Pedido creado.");
+    return pedido;
+  },
+
+  async updatePedido(id: string, patch: Partial<Pedido>) {
+    const prevState = state;
+    state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, ...patch } : p) };
+    emit();
+    const dbPatch: Record<string, unknown> = {};
+    const map: Record<string, string> = {
+      diasPlazo: "dias_plazo",
+      fechaEntregaReal: "fecha_entrega_real",
+      pagado50: "pagado_50",
+      pagoTodoAlFinal: "pago_todo_al_final",
+      telaPedida: "tela_pedida",
+      telaPedidaFecha: "tela_pedida_fecha",
+      telaRecibida: "tela_recibida",
+      telaRecibidaFecha: "tela_recibida_fecha",
+      estructuraHecha: "estructura_hecha",
+      estructuraHechaFecha: "estructura_hecha_fecha",
+      tapizadoHecho: "tapizado_hecho",
+      tapizadoHechoFecha: "tapizado_hecho_fecha",
+      entregado: "entregado",
+      entregadoFecha: "entregado_fecha",
+      precio: "precio",
+      reserva: "reserva",
+      pagadoCompleto: "pagado_completo",
+      factura: "factura",
+      notasPedido: "notas_pedido",
+    };
+    for (const [k, v] of Object.entries(patch)) {
+      const col = map[k];
+      if (col) dbPatch[col] = v === "" ? null : v;
+    }
+    const { error } = await supabase.from("pedidos" as never).update(dbPatch as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); }
+  },
+
+  async deletePedido(id: string) {
+    const prevState = state;
+    state = { ...state, pedidos: state.pedidos.filter((p) => p.id !== id) };
+    emit();
+    const { error } = await supabase.from("pedidos" as never).delete().eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar el pedido."); }
+  },
+
+  async addPedidoTela(pedidoId: string, tipoTela: string) {
+    const orden = state.pedidoTelas.filter((t) => t.pedidoId === pedidoId).length;
+    const { error } = await supabase.from("pedido_telas" as never).insert({
+      pedido_id: pedidoId, tipo_tela: tipoTela, estado: "Pedida", orden,
+    } as never);
+    if (error) toast.error("Error al añadir la tela.");
+  },
+
+  async updatePedidoTela(id: string, patch: Partial<PedidoTela>) {
+    const prevState = state;
+    state = { ...state, pedidoTelas: state.pedidoTelas.map((t) => t.id === id ? { ...t, ...patch } : t) };
+    emit();
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.tipoTela !== undefined) dbPatch.tipo_tela = patch.tipoTela;
+    if (patch.nombreTela !== undefined) dbPatch.nombre_tela = patch.nombreTela;
+    if (patch.estado !== undefined) dbPatch.estado = patch.estado;
+    if (patch.fechaRecibo !== undefined) dbPatch.fecha_recibo = patch.fechaRecibo || null;
+    const { error } = await supabase.from("pedido_telas" as never).update(dbPatch as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); }
+  },
+
+  async deletePedidoTela(id: string) {
+    const prevState = state;
+    state = { ...state, pedidoTelas: state.pedidoTelas.filter((t) => t.id !== id) };
+    emit();
+    const { error } = await supabase.from("pedido_telas" as never).delete().eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar la tela."); }
+  },
+
+  // deleteAuditEntry intentionally removed — audit log is append-only
 };
+
 
 export function nextPendingTaskFor(leadId: string, tareas: Tarea[]): Tarea | undefined {
   return tareas
