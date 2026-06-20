@@ -22,7 +22,7 @@ interface State {
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -401,7 +401,7 @@ function subscribe(cb: () => void) {
 }
 
 const SERVER: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
@@ -420,7 +420,7 @@ export async function teardownStore() {
   } catch { /* ignore */ }
   initStarted = false;
   state = {
-    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
+    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
   };
   emit();
