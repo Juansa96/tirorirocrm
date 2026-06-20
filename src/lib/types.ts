@@ -84,6 +84,7 @@ export interface Lead {
   fechaCreacion: string;
   fechaEntradaEtapa: string;
   razonUrgencia: string;
+  clienteTipo: string;        // 'normal' | 'partner_ab'
 }
 
 export interface Tarea {
@@ -246,3 +247,34 @@ export function estadoColumna(p: Pedido): "Tela pedida" | "Tela recibida" | "En 
 }
 
 export const ESTADOS_PEDIDO_COL = ["Tela pedida", "Tela recibida", "En producción", "Terminado", "Entregado"] as const;
+
+// ───────────── Catálogo de productos ─────────────
+export interface CatalogoProducto {
+  id: string;
+  tipo: string;          // "Cabecero", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón", "Cubrecanapé"
+  modelo: string;
+  descripcion: string;
+  precioDesde: number;
+  activo: boolean;
+  orden: number;
+}
+
+// Mapping catálogo (label) ↔ tipo interno usado en productos_lead
+export const CATALOG_TO_INTERNAL: Record<string, string> = {
+  "Cabecero": "cabecero",
+  "Puf": "puf",
+  "Mesa de centro": "mesa",
+  "Pantalla de lámpara": "pantalla",
+  "Almohadón": "almohadon",
+  "Cubrecanapé": "otro",
+};
+
+export const INTERNAL_TO_CATALOG: Record<string, string> = {
+  cabecero: "Cabecero",
+  puf: "Puf",
+  mesa: "Mesa de centro",
+  pantalla: "Pantalla de lámpara",
+  almohadon: "Almohadón",
+  otro: "Cubrecanapé",
+};
+

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto } from "./types";
 import { VENDEDORES, telasPorTipo } from "./types";
 
 
@@ -14,6 +14,7 @@ interface State {
   productos: Producto[];
   pedidos: Pedido[];
   pedidoTelas: PedidoTela[];
+  catalogo: CatalogoProducto[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
   remoteUpdateTimestamps: Record<string, number>;
@@ -21,7 +22,7 @@ interface State {
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -58,6 +59,7 @@ function mapLead(r: Record<string, unknown>): Lead {
     fechaCreacion: (r.created_at as string) ?? "",
     fechaEntradaEtapa: (r.fecha_entrada_etapa as string) ?? (r.created_at as string) ?? "",
     razonUrgencia: (r.razon_urgencia as string) ?? "",
+    clienteTipo: (r.cliente_tipo as string) ?? "normal",
   };
 }
 
@@ -385,8 +387,23 @@ async function refetchPedidoTelas() {
   const { data, error } = await supabase.from("pedido_telas" as never).select("*").order("orden", { ascending: true });
   if (!error && data) { state = { ...state, pedidoTelas: (data as unknown as Record<string, unknown>[]).map(mapPedidoTela) }; emit(); }
 }
+async function refetchCatalogo() {
+  const { data, error } = await supabase.from("catalogo_productos" as never).select("*").order("tipo", { ascending: true }).order("orden", { ascending: true });
+  if (!error && data) {
+    const rows = (data as unknown as Record<string, unknown>[]).map((r): CatalogoProducto => ({
+      id: r.id as string,
+      tipo: (r.tipo as string) ?? "",
+      modelo: (r.modelo as string) ?? "",
+      descripcion: (r.descripcion as string) ?? "",
+      precioDesde: Number(r.precio_desde) || 0,
+      activo: r.activo !== false,
+      orden: Number(r.orden) || 0,
+    }));
+    state = { ...state, catalogo: rows }; emit();
+  }
+}
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo()]);
   state = { ...state, loaded: true };
   emit();
 }
@@ -399,7 +416,7 @@ function subscribe(cb: () => void) {
 }
 
 const SERVER: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
@@ -418,7 +435,7 @@ export async function teardownStore() {
   } catch { /* ignore */ }
   initStarted = false;
   state = {
-    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
+    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
   };
   emit();
@@ -503,6 +520,8 @@ export const actions = {
     if (patch.origen !== undefined) dbPatch.origen = patch.origen;
     if (patch.redSocial !== undefined) dbPatch.red_social = patch.redSocial;
     if (patch.fechaHold !== undefined) dbPatch.fecha_hold = patch.fechaHold || null;
+    if (patch.razonUrgencia !== undefined) dbPatch.razon_urgencia = patch.razonUrgencia;
+    if (patch.clienteTipo !== undefined) dbPatch.cliente_tipo = patch.clienteTipo;
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos
     const edadValue = patch.edad;

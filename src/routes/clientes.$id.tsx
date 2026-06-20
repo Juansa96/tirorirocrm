@@ -367,6 +367,20 @@ function ClienteDetalle() {
             />
           </div>
         )}
+        <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+            <input
+              type="checkbox"
+              checked={lead.clienteTipo === "partner_ab"}
+              onChange={(e) => void actions.updateLead(lead.id, { clienteTipo: e.target.checked ? "partner_ab" : "normal" })}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-[#1a4b5b] focus:ring-[#1a4b5b]"
+            />
+            Cliente Alejandra Blanc (partner)
+          </label>
+          {lead.clienteTipo === "partner_ab" && (
+            <span className="rounded-full bg-[#e6f1f4] px-2 py-0.5 text-[10px] font-bold text-[#1a4b5b]">PARTNER · 5 días</span>
+          )}
+        </div>
       </div>
 
       {/* Info + Valor */}

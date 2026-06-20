@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Check } from "lucide-react";
 import type { Producto } from "@/lib/types";
+import { CATALOG_TO_INTERNAL } from "@/lib/types";
+import { useStore } from "@/lib/store";
 import { FormaBadge } from "@/components/FormaBadge";
 
 // ── Constantes ────────────────────────────────────────────────────
@@ -282,6 +284,99 @@ function TelaSection({ tela, onTela, coleccionTela, onColeccion, telaLateral, on
   );
 }
 
+// ── CatalogoSelector: dos desplegables encadenados (Tipo → Modelo) ──
+function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState>) => void }) {
+  const { catalogo } = useStore();
+  const internalToLabel: Record<string, string> = {
+    cabecero: "Cabecero", puf: "Puf", mesa: "Mesa de centro",
+    pantalla: "Pantalla de lámpara", almohadon: "Almohadón", otro: "Cubrecanapé",
+  };
+
+  const tipos = useMemo(() => {
+    const fromCat = Array.from(new Set(catalogo.map(c => c.tipo)));
+    // Fallback al hardcoded si el catálogo aún no ha cargado
+    return fromCat.length > 0
+      ? fromCat
+      : ["Cabecero", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón", "Cubrecanapé"];
+  }, [catalogo]);
+
+  const tipoLabel = f.tipo ? internalToLabel[f.tipo] ?? "" : "";
+  const modelosTipo = useMemo(
+    () => catalogo.filter(c => c.tipo === tipoLabel).sort((a, b) => a.orden - b.orden),
+    [catalogo, tipoLabel]
+  );
+
+  const selectedModelo = useMemo(() => {
+    if (!modelosTipo.length) return "";
+    // Cabecero: forma id → nombre del modelo
+    if (f.tipo === "cabecero") {
+      const m = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? "";
+      return modelosTipo.find(x => x.modelo === m)?.id ?? "";
+    }
+    if (f.tipo === "pantalla") {
+      const m = PANTALLA_FORMAS.find(x => x.id === f.formaPantalla)?.name.split("—")[0].trim() ?? "";
+      return modelosTipo.find(x => x.modelo === m)?.id ?? "";
+    }
+    if (f.tipo === "puf") {
+      return modelosTipo.find(x => x.modelo === "Patos")?.id ?? "";
+    }
+    if (f.tipo === "almohadon") return modelosTipo[0]?.id ?? "";
+    if (f.tipo === "otro") return modelosTipo[0]?.id ?? "";
+    if (f.tipo === "mesa") {
+      return modelosTipo.find(x => x.modelo === "Cabo de Palos")?.id ?? "";
+    }
+    return "";
+  }, [modelosTipo, f.tipo, f.forma, f.formaPantalla]);
+
+  function setTipo(label: string) {
+    const internal = (CATALOG_TO_INTERNAL[label] ?? "") as ProdTipo;
+    s({ tipo: internal });
+  }
+  function setModelo(id: string) {
+    const m = modelosTipo.find(x => x.id === id);
+    if (!m) return;
+    if (f.tipo === "cabecero") {
+      const forma = CABECERO_FORMAS.find(x => x.name === m.modelo)?.id ?? FORMA_POR_DECIDIR;
+      s({ forma });
+    } else if (f.tipo === "pantalla") {
+      const fp = PANTALLA_FORMAS.find(x => x.name.split("—")[0].trim() === m.modelo)?.id;
+      if (fp) s({ formaPantalla: fp });
+    } else if (f.tipo === "otro") {
+      s({ otroDescripcion: m.modelo });
+    }
+    // Para puf / mesa / almohadón mantenemos selección visible aunque no haya forma interna distinta
+  }
+
+  const sel = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none";
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div>
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Tipo de producto</div>
+        <select className={sel} value={tipoLabel} onChange={(e) => setTipo(e.target.value)}>
+          <option value="">— Selecciona tipo —</option>
+          {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div>
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Modelo</div>
+        <select
+          className={sel}
+          value={selectedModelo}
+          onChange={(e) => setModelo(e.target.value)}
+          disabled={!tipoLabel || modelosTipo.length === 0}
+        >
+          <option value="">{tipoLabel ? "— Selecciona modelo —" : "Elige tipo primero"}</option>
+          {modelosTipo.map(m => (
+            <option key={m.id} value={m.id}>
+              {m.modelo}{m.activo ? "" : " (Próximamente)"}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 // ── ProductoForm ──────────────────────────────────────────────────
 export function ProductoForm({
   initial, onSave, onCancel,
@@ -298,14 +393,8 @@ export function ProductoForm({
 
   return (
     <div className="space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <div>
-        <div className={section}>Tipo de producto</div>
-        <div className="flex flex-wrap gap-2">
-          {TIPOS_PRODUCTO.map(t => (
-            <button key={t.id} type="button" onClick={() => s({ tipo: t.id as ProdTipo })} className={btn(f.tipo === t.id)}>{t.label}</button>
-          ))}
-        </div>
-      </div>
+      <CatalogoSelector f={f} s={s} />
+
 
       {/* ── CABECERO ── */}
       {f.tipo === "cabecero" && (
