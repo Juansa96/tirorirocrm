@@ -564,7 +564,7 @@ function ClienteDetalle() {
                   onCancel={() => setEditingProd(null)}
                 />
               ) : (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className={`rounded-lg border p-3 ${p.caracteristicasConfirmadas ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-slate-50"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -586,6 +586,29 @@ function ClienteDetalle() {
                         {p.precioUnitario > 0 && p.cantidad > 1 && <span>Total: <strong>{formatCurrency(p.precioUnitario * p.cantidad)}</strong></span>}
                       </div>
                       {p.notasProducto && <div className="mt-1 text-xs italic text-slate-500">{p.notasProducto}</div>}
+
+                      {/* Confirmación + pago 50 + crear pedido */}
+                      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-2.5">
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={p.caracteristicasConfirmadas}
+                            onChange={(e) => actions.updateProductoFlags(p.id, { caracteristicasConfirmadas: e.target.checked })}
+                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className="font-medium">Características confirmadas</span>
+                        </label>
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={p.pagado50}
+                            onChange={(e) => actions.updateProductoFlags(p.id, { pagado50: e.target.checked })}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span>Pagado 50%</span>
+                        </label>
+                        <CrearPedidoButton producto={p} pedidos={pedidos.filter((pd) => pd.productoLeadId === p.id)} navigate={navigate} />
+                      </div>
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <button onClick={() => setEditingProd(p.id)} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"><Edit2 className="h-4 w-4" /></button>
