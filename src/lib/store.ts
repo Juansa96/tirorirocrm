@@ -858,6 +858,7 @@ export const actions = {
     return pedido;
   },
 
+  async updatePedido(id: string, patch: Partial<Pedido>) {
     const prevState = state;
     state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, ...patch } : p) };
     emit();
