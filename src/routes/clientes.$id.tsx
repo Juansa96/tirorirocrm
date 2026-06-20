@@ -332,7 +332,7 @@ function ClienteDetalle() {
         </div>
       </div>
 
-      {/* Etapa */}
+      {/* Etapa + razón de urgencia */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Etapa</div>
         <div className="flex flex-wrap gap-2">
@@ -347,6 +347,26 @@ function ClienteDetalle() {
             );
           })}
         </div>
+        {lead.etapa !== "Closed Won" && lead.etapa !== "Closed Lost" && (
+          <div className="mt-3">
+            <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <Zap className="h-3.5 w-3.5 text-amber-500" />
+              Razón de urgencia / situación actual
+            </label>
+            <input
+              type="text"
+              defaultValue={lead.razonUrgencia}
+              key={lead.id + lead.razonUrgencia}
+              onBlur={(e) => {
+                if (e.target.value !== lead.razonUrgencia) {
+                  void actions.updateLead(lead.id, { razonUrgencia: e.target.value });
+                }
+              }}
+              placeholder="Ej: esperando confirmación de medidas, pendiente de envío de muestras…"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+            />
+          </div>
+        )}
       </div>
 
       {/* Info + Valor */}
