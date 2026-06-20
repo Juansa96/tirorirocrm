@@ -149,6 +149,22 @@ function PedidoDetalle() {
                 className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none"
               />
             </Field>
+            {lead?.clienteTipo === "partner_ab" && (
+              <Field label="Precio con IVA (€)">
+                <input
+                  type="number" step="0.01" defaultValue={pedido.precioConIva ?? ""} key={"piva-" + pedido.precioConIva}
+                  onBlur={(e) => { const v = e.target.value === "" ? null : parseFloat(e.target.value); if (v !== pedido.precioConIva) void actions.updatePedido(pedido.id, { precioConIva: v as number | null }); }}
+                  className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none"
+                />
+              </Field>
+            )}
+            <Field label="Coste envío (€)">
+              <input
+                type="number" step="0.01" defaultValue={pedido.costeEnvio} key={"e-" + pedido.costeEnvio}
+                onBlur={(e) => { const v = parseFloat(e.target.value) || 0; if (v !== pedido.costeEnvio) void actions.updatePedido(pedido.id, { costeEnvio: v }); }}
+                className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none"
+              />
+            </Field>
             <Field label="Reserva (€)">
               <input
                 type="number" step="0.01" defaultValue={pedido.reserva} key={"r-" + pedido.reserva}
@@ -172,9 +188,13 @@ function PedidoDetalle() {
               />
             </Field>
             <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+              <span className="text-slate-500">Total (precio + envío)</span>
+              <span className="font-bold text-slate-900">{formatCurrency(pedido.precio + pedido.costeEnvio)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Pendiente</span>
               <span className="font-bold text-slate-900">
-                {formatCurrency(Math.max(0, pedido.precio - pedido.reserva - (pedido.pagadoCompleto ? (pedido.precio - pedido.reserva) : 0)))}
+                {formatCurrency(Math.max(0, pedido.precio + pedido.costeEnvio - pedido.reserva - (pedido.pagadoCompleto ? (pedido.precio + pedido.costeEnvio - pedido.reserva) : 0)))}
               </span>
             </div>
           </div>
