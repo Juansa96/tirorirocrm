@@ -47,6 +47,39 @@ export type Database = {
         }
         Relationships: []
       }
+      catalogo_productos: {
+        Row: {
+          activo: boolean
+          created_at: string
+          descripcion: string
+          id: string
+          modelo: string
+          orden: number
+          precio_desde: number
+          tipo: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string
+          id?: string
+          modelo: string
+          orden?: number
+          precio_desde?: number
+          tipo: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string
+          id?: string
+          modelo?: string
+          orden?: number
+          precio_desde?: number
+          tipo?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -137,6 +170,7 @@ export type Database = {
       leads: {
         Row: {
           ciudad: string | null
+          cliente_tipo: string
           created_at: string
           edad: string
           email: string | null
@@ -159,6 +193,7 @@ export type Database = {
         }
         Insert: {
           ciudad?: string | null
+          cliente_tipo?: string
           created_at?: string
           edad?: string
           email?: string | null
@@ -181,6 +216,7 @@ export type Database = {
         }
         Update: {
           ciudad?: string | null
+          cliente_tipo?: string
           created_at?: string
           edad?: string
           email?: string | null
