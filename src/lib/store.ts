@@ -387,8 +387,23 @@ async function refetchPedidoTelas() {
   const { data, error } = await supabase.from("pedido_telas" as never).select("*").order("orden", { ascending: true });
   if (!error && data) { state = { ...state, pedidoTelas: (data as unknown as Record<string, unknown>[]).map(mapPedidoTela) }; emit(); }
 }
+async function refetchCatalogo() {
+  const { data, error } = await supabase.from("catalogo_productos" as never).select("*").order("tipo", { ascending: true }).order("orden", { ascending: true });
+  if (!error && data) {
+    const rows = (data as unknown as Record<string, unknown>[]).map((r): CatalogoProducto => ({
+      id: r.id as string,
+      tipo: (r.tipo as string) ?? "",
+      modelo: (r.modelo as string) ?? "",
+      descripcion: (r.descripcion as string) ?? "",
+      precioDesde: Number(r.precio_desde) || 0,
+      activo: r.activo !== false,
+      orden: Number(r.orden) || 0,
+    }));
+    state = { ...state, catalogo: rows }; emit();
+  }
+}
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo()]);
   state = { ...state, loaded: true };
   emit();
 }
