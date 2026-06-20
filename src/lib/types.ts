@@ -82,6 +82,8 @@ export interface Lead {
   valorEnvio: number;
   edad: string;
   fechaCreacion: string;
+  fechaEntradaEtapa: string;
+  razonUrgencia: string;
 }
 
 export interface Tarea {
@@ -107,19 +109,22 @@ export interface Producto {
   leadId: string;
   tipo: string;          // cabecero | banco | cojin | puf | mesa | pantalla
   modelo: string;        // forma / variante display name
-  ancho: number | null;  // primary dimension cm
-  alto: number | null;   // secondary dimension cm
-  tela: string;          // main fabric name
-  color: string;         // lateral fabric (cabecero) OR size label
-  relleno: string;       // secondary info (profundidad, preset, etc.)
-  patas: string;         // extras (colgador, superficie, tamaño pantalla)
-  acabado: string;       // liso | vivo-simple | vivo-doble
-  coleccionTela: string; // Básicas | Premium
+  ancho: number | null;
+  alto: number | null;
+  tela: string;
+  color: string;
+  relleno: string;
+  patas: string;
+  acabado: string;
+  coleccionTela: string;
   cantidad: number;
   precioUnitario: number;
   notasProducto: string;
   createdAt: string;
   createdBy: string;
+  caracteristicasConfirmadas: boolean;
+  fechaConfirmacion: string;
+  pagado50: boolean;
 }
 
 export interface AuditEntry {
@@ -132,3 +137,112 @@ export interface AuditEntry {
   usuario: string | null;
   createdAt: string;
 }
+
+// ───────────── Pedidos ─────────────
+export interface Pedido {
+  id: string;
+  productoLeadId: string;
+  leadId: string;
+  fechaCreacionPedido: string;
+  diasPlazo: number;
+  fechaLimite: string;        // YYYY-MM-DD
+  fechaEntregaReal: string;
+  pagado50: boolean;
+  pagoTodoAlFinal: boolean;
+  creadoManualmente: boolean;
+  estadoPedido: string;       // En proceso | Terminado | Entregado
+  telaPedida: boolean;
+  telaPedidaFecha: string;
+  telaRecibida: boolean;
+  telaRecibidaFecha: string;
+  estructuraHecha: boolean;
+  estructuraHechaFecha: string;
+  tapizadoHecho: boolean;
+  tapizadoHechoFecha: string;
+  entregado: boolean;
+  entregadoFecha: string;
+  precio: number;
+  reserva: number;
+  pagadoCompleto: boolean;
+  factura: string;
+  notasPedido: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PedidoTela {
+  id: string;
+  pedidoId: string;
+  tipoTela: string;
+  nombreTela: string;
+  estado: string;   // Pedida | Recibida
+  fechaRecibo: string;
+  orden: number;
+  createdAt: string;
+}
+
+// Plantilla de telas según tipo de producto (punto de partida; el usuario puede editar libremente)
+export function telasPorTipo(tipo: string): string[] {
+  const t = (tipo || "").toLowerCase();
+  if (t === "cabecero") return ["Frontal", "Lateral", "Vivo"];
+  if (t === "puf") return ["Superior", "Lateral", "Vivo"];
+  if (t === "cojin" || t === "cojín") return ["Principal"];
+  if (t === "banco") return ["Asiento", "Lateral", "Vivo"];
+  if (t === "pantalla") return ["Principal"];
+  if (t === "mesa") return [];
+  return ["Principal"];
+}
+
+// ───────────── Semáforo de ruta ideal ─────────────
+export type RutaEstado = "verde" | "ambar" | "rojo";
+
+/**
+ * Reparte dias_plazo en 4 tramos (25/50/75/100) → tela_pedida, tela_recibida,
+ * estructura+tapizado, entregado. Compara hito real con hito esperado para hoy.
+ */
+export function semaforoPedido(p: Pedido, hoyMs?: number): { estado: RutaEstado; hitoActual: number; hitoEsperado: number; diasRestantes: number } {
+  const ahora = hoyMs ?? Date.now();
+  const creado = new Date(p.fechaCreacionPedido).getTime();
+  const transcurridos = Math.max(0, (ahora - creado) / 86400000);
+  const ratio = p.diasPlazo > 0 ? transcurridos / p.diasPlazo : 0;
+  // hitoEsperado: 0..4
+  let hitoEsperado = 0;
+  if (ratio >= 0.25) hitoEsperado = 1;
+  if (ratio >= 0.5) hitoEsperado = 2;
+  if (ratio >= 0.75) hitoEsperado = 3;
+  if (ratio >= 1) hitoEsperado = 4;
+
+  // hitoActual real
+  let hitoActual = 0;
+  if (p.telaPedida) hitoActual = 1;
+  if (p.telaRecibida) hitoActual = 2;
+  if (p.estructuraHecha && p.tapizadoHecho) hitoActual = 3;
+  if (p.entregado) hitoActual = 4;
+
+  const fechaLim = p.fechaLimite ? new Date(p.fechaLimite + "T23:59:59").getTime() : creado + p.diasPlazo * 86400000;
+  const diasRestantes = Math.ceil((fechaLim - ahora) / 86400000);
+
+  let estado: RutaEstado = "verde";
+  if (p.entregado) {
+    estado = "verde";
+  } else if (ahora > fechaLim) {
+    estado = "rojo";
+  } else {
+    const gap = hitoEsperado - hitoActual;
+    if (gap <= 0) estado = "verde";
+    else if (gap === 1) estado = "ambar";
+    else estado = "rojo";
+  }
+
+  return { estado, hitoActual, hitoEsperado, diasRestantes };
+}
+
+export function estadoColumna(p: Pedido): "Tela pedida" | "Tela recibida" | "En producción" | "Terminado" | "Entregado" {
+  if (p.entregado) return "Entregado";
+  if (p.estructuraHecha && p.tapizadoHecho) return "Terminado";
+  if (p.estructuraHecha || p.tapizadoHecho) return "En producción";
+  if (p.telaRecibida) return "Tela recibida";
+  return "Tela pedida";
+}
+
+export const ESTADOS_PEDIDO_COL = ["Tela pedida", "Tela recibida", "En producción", "Terminado", "Entregado"] as const;
