@@ -21,7 +21,7 @@ interface State {
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], pedidos: [], pedidoTelas: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -353,7 +353,7 @@ function subscribe(cb: () => void) {
 }
 
 const SERVER: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
@@ -372,7 +372,7 @@ export async function teardownStore() {
   } catch { /* ignore */ }
   initStarted = false;
   state = {
-    leads: [], tareas: [], audit: [], notas: [], productos: [],
+    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
   };
   emit();
@@ -397,7 +397,7 @@ async function syncLeadValorFromProductos(leadId: string) {
 
 export const actions = {
   async addLead(
-    input: Omit<Lead, "id" | "fechaCreacion">,
+    input: Omit<Lead, "id" | "fechaCreacion" | "fechaEntradaEtapa" | "razonUrgencia">,
     firstTask?: { descripcion: string; fecha: string; hora?: string },
   ): Promise<Lead | null> {
     const { data, error } = await supabase
@@ -604,7 +604,7 @@ export const actions = {
 
 
 
-  async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
+  async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) {
     const { data, error } = await supabase.from("productos_lead").insert({
       lead_id: leadId, tipo: input.tipo, modelo: input.modelo,
       ancho: input.ancho, alto: input.alto, tela: input.tela,
@@ -624,7 +624,7 @@ export const actions = {
     await syncLeadValorFromProductos(leadId);
   },
 
-  async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy">) {
+  async updateProducto(id: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) {
     const prev = state.productos.find((p) => p.id === id);
     const prevState = state;
     if (prev) {
