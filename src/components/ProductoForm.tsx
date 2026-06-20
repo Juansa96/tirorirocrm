@@ -300,14 +300,8 @@ export function ProductoForm({
 
   return (
     <div className="space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <div>
-        <div className={section}>Tipo de producto</div>
-        <div className="flex flex-wrap gap-2">
-          {TIPOS_PRODUCTO.map(t => (
-            <button key={t.id} type="button" onClick={() => s({ tipo: t.id as ProdTipo })} className={btn(f.tipo === t.id)}>{t.label}</button>
-          ))}
-        </div>
-      </div>
+      <CatalogoSelector f={f} s={s} />
+
 
       {/* ── CABECERO ── */}
       {f.tipo === "cabecero" && (
