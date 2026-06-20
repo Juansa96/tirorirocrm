@@ -84,6 +84,7 @@ export interface Lead {
   fechaCreacion: string;
   fechaEntradaEtapa: string;
   razonUrgencia: string;
+  clienteTipo: string;        // 'normal' | 'partner_ab'
 }
 
 export interface Tarea {
