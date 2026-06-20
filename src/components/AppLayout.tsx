@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Columns3, List, CalendarClock, LogOut, Search, X, BarChart2,
+  LayoutDashboard, Columns3, List, CalendarClock, LogOut, Search, X, BarChart2, Package,
 } from "lucide-react";
 import { useState, useEffect, useRef, type ComponentType } from "react";
 import { useAuth } from "@/lib/auth";
@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { to: "/clientes", label: "Clientes", icon: List },
   { to: "/tareas", label: "Tareas", icon: CalendarClock },
   { to: "/datos", label: "Datos", icon: BarChart2 },
+  { to: "/pedidos", label: "Pedidos", icon: Package },
 ];
 
 function isActive(path: string, item: NavItem) {
@@ -183,7 +184,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white md:hidden">
         {NAV.map((item) => {
           const active = isActive(path, item);
           const Icon = item.icon;
