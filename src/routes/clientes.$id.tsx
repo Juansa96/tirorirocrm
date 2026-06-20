@@ -753,3 +753,78 @@ function InfoRow({ icon: Icon, label, children }: { icon: React.ComponentType<{ 
     </div>
   );
 }
+
+function CrearPedidoButton({
+  producto, pedidos, navigate,
+}: {
+  producto: { id: string; caracteristicasConfirmadas: boolean; pagado50: boolean };
+  pedidos: { id: string }[];
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  // Si ya hay pedido(s), muestra chips clicables
+  if (pedidos.length > 0) {
+    return (
+      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        {pedidos.map((pd, i) => (
+          <button
+            key={pd.id}
+            onClick={() => navigate({ to: "/pedidos/$id", params: { id: pd.id } })}
+            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-200"
+          >
+            <Package className="h-3 w-3" /> Pedido #{i + 1}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  // Sin confirmación → no se puede crear
+  if (!producto.caracteristicasConfirmadas) {
+    return (
+      <span className="ml-auto text-[11px] italic text-slate-400">
+        Confirma características para crear pedido
+      </span>
+    );
+  }
+
+  async function handle(manualConfirm = false) {
+    if (producto.pagado50 || manualConfirm) {
+      const ped = await actions.crearPedido({
+        productoId: producto.id,
+        pagado50: producto.pagado50,
+        pagoTodoAlFinal: false,
+        creadoManualmente: manualConfirm && !producto.pagado50,
+      });
+      if (ped) navigate({ to: "/pedidos/$id", params: { id: ped.id } });
+    } else {
+      if (confirm("¿Crear este pedido sin que se haya pagado el 50%? (ej. cliente de confianza o pago al final)")) {
+        const ped = await actions.crearPedido({
+          productoId: producto.id,
+          pagado50: false,
+          pagoTodoAlFinal: true,
+          creadoManualmente: true,
+        });
+        if (ped) navigate({ to: "/pedidos/$id", params: { id: ped.id } });
+      }
+    }
+  }
+
+  if (producto.pagado50) {
+    return (
+      <button
+        onClick={() => handle(false)}
+        className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+      >
+        <Package className="h-3.5 w-3.5" /> Crear pedido
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={() => handle(false)}
+      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+      title="Pago 50% no marcado — pedirá confirmación"
+    >
+      <Package className="h-3.5 w-3.5" /> Crear pedido (sin pago)
+    </button>
+  );
+}
