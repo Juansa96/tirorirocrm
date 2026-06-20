@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Package, AlertTriangle, Sparkles } from "lucide-react";
-import { useStore } from "@/lib/store";
-import { semaforoPedido, type RutaEstado } from "@/lib/types";
+import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check } from "lucide-react";
+import { useStore, actions } from "@/lib/store";
+import { semaforoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
 
@@ -17,28 +17,47 @@ const SEM_COLOR: Record<RutaEstado, { bg: string; text: string; dot: string; lab
   rojo:  { bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500",    label: "Atrasado",  border: "border-rose-200" },
 };
 
-const COLS: RutaEstado[] = ["verde", "ambar", "rojo"];
+const ESTADO_OPTS = ["Todos", "En proceso", "Terminado", "Entregado"] as const;
+type EstadoFiltro = typeof ESTADO_OPTS[number];
 
 function PedidosIndex() {
-  const { pedidos, leads, productos } = useStore();
-  const [view, setView] = useState<"kanban" | "lista">("kanban");
+  const { pedidos, leads, productos, pedidoTelas } = useStore();
   const [tab, setTab] = useState<"normal" | "ab">("normal");
+  const [search, setSearch] = useState("");
+  const [estadoF, setEstadoF] = useState<EstadoFiltro>("Todos");
+  const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
+  const [newOpen, setNewOpen] = useState(false);
 
   const enriched = useMemo(() => pedidos.map((p) => {
     const lead = leads.find((l) => l.id === p.leadId);
     const prod = productos.find((pr) => pr.id === p.productoLeadId);
     const sem = semaforoPedido(p);
-    return { pedido: p, lead, producto: prod, sem };
-  }), [pedidos, leads, productos]);
+    const tls = pedidoTelas.filter((t) => t.pedidoId === p.id);
+    const totalT = tls.length;
+    const okT = tls.filter((t) => t.estado === "Recibida").length;
+    return { pedido: p, lead, producto: prod, sem, totalT, okT };
+  }), [pedidos, leads, productos, pedidoTelas]);
 
   const abCount = enriched.filter(({ lead }) => lead?.clienteTipo === "partner_ab").length;
   const normalCount = enriched.length - abCount;
 
-  const visible = enriched.filter(({ lead }) =>
+  const baseTab = enriched.filter(({ lead }) =>
     tab === "ab" ? lead?.clienteTipo === "partner_ab" : lead?.clienteTipo !== "partner_ab"
   );
 
-  const atrasados = visible.filter(({ pedido, sem }) => !pedido.entregado && sem.estado === "rojo");
+  const visible = baseTab.filter(({ pedido, lead, producto, sem }) => {
+    if (estadoF !== "Todos" && pedido.estadoPedido !== estadoF) return false;
+    if (semF !== "todos" && sem.estado !== semF) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const nombre = (lead?.nombre || pedido.clienteNombreLibre || "").toLowerCase();
+      const prodTxt = ((producto?.modelo || "") + " " + (producto?.tipo || "")).toLowerCase();
+      if (!nombre.includes(q) && !prodTxt.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const atrasados = baseTab.filter(({ pedido, sem }) => !pedido.entregado && sem.estado === "rojo");
 
   return (
     <div className="space-y-5">
@@ -49,45 +68,27 @@ function PedidosIndex() {
           </h1>
           <p className="text-sm text-slate-500">{visible.length} pedidos {tab === "ab" ? "de Alejandra Blanc" : "normales"}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
-            <button onClick={() => setView("kanban")} className={`rounded-md px-3 py-1 text-xs font-medium ${view === "kanban" ? "bg-[#1a1f36] text-white" : "text-slate-600"}`}>Kanban</button>
-            <button onClick={() => setView("lista")} className={`rounded-md px-3 py-1 text-xs font-medium ${view === "lista" ? "bg-[#1a1f36] text-white" : "text-slate-600"}`}>Lista</button>
-          </div>
-        </div>
+        <button
+          onClick={() => setNewOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3 py-2 text-sm font-medium text-white hover:bg-[#2a2f46]"
+        >
+          <Plus className="h-4 w-4" /> Nuevo pedido
+        </button>
       </div>
 
-      {/* Tabs Pedidos vs Alejandra Blanc */}
+      {/* Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200">
-        <button
-          onClick={() => setTab("normal")}
-          className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${
-            tab === "normal" ? "border-[#1a1f36] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <Package className="h-4 w-4" />
-          Pedidos
+        <button onClick={() => setTab("normal")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "normal" ? "border-[#1a1f36] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+          <Package className="h-4 w-4" /> Pedidos
           <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{normalCount}</span>
         </button>
-        <button
-          onClick={() => setTab("ab")}
-          className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${
-            tab === "ab" ? "border-[#1a4b5b] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <Sparkles className="h-4 w-4 text-[#1a4b5b]" />
-          Alejandra Blanc
+        <button onClick={() => setTab("ab")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "ab" ? "border-[#1a4b5b] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+          <Sparkles className="h-4 w-4 text-[#1a4b5b]" /> Alejandra Blanc
           <span className="rounded-full bg-[#e6f1f4] px-1.5 py-0.5 text-[10px] font-bold text-[#1a4b5b]">{abCount}</span>
         </button>
       </div>
 
-      {tab === "ab" && (
-        <div className="rounded-xl border border-[#1a4b5b]/20 bg-[#f6fbfc] px-4 py-3 text-xs text-[#1a4b5b]">
-          Partner — estudio de decoración con plazo de entrega corto (5 días). Vista simplificada para ganar agilidad.
-        </div>
-      )}
-
-      {/* Pedidos atrasados — franja superior */}
+      {/* Atrasados banner */}
       {atrasados.length > 0 && (
         <div className="rounded-xl border-2 border-rose-200 bg-rose-50/60 p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -101,7 +102,7 @@ function PedidosIndex() {
               <Link key={pedido.id} to="/pedidos/$id" params={{ id: pedido.id }} className="block rounded-lg border border-rose-300 bg-white p-3 transition-shadow hover:shadow-md">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-slate-900">{lead?.nombre ?? "—"}</div>
+                    <div className="truncate text-sm font-semibold text-slate-900">{lead?.nombre ?? pedido.clienteNombreLibre ?? "—"}</div>
                     <div className="truncate text-xs text-slate-500">{producto?.modelo || producto?.tipo || "Producto"}</div>
                   </div>
                   <span className="shrink-0 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
@@ -114,95 +115,302 @@ function PedidosIndex() {
         </div>
       )}
 
-      {view === "kanban" ? (
-        <div className="-mx-4 overflow-x-auto px-4 pb-6 md:mx-0 md:px-0">
-          <div className="flex snap-x snap-mandatory gap-3 md:grid md:grid-cols-3">
-            {COLS.map((col) => {
-              const c = SEM_COLOR[col];
-              const colPedidos = visible.filter(({ pedido, sem }) => {
-                if (pedido.entregado) return col === "verde";
-                return sem.estado === col;
-              });
-              return (
-                <div key={col} className={`w-[78vw] shrink-0 snap-center rounded-xl border ${c.border} bg-white md:w-auto md:min-w-0`}>
-                  <div className={`flex items-center gap-2 rounded-t-xl px-3 py-2 ${c.bg}`}>
-                    <span className={`h-2 w-2 rounded-full ${c.dot}`} />
-                    <span className={`min-w-0 truncate text-xs font-bold uppercase tracking-wide ${c.text}`}>{c.label}</span>
-                    <span className={`ml-auto shrink-0 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-white border ${c.border} px-1.5 text-[10px] font-bold ${c.text}`}>
-                      {colPedidos.length}
-                    </span>
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por cliente o producto…"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-2 text-sm focus:border-slate-400 focus:bg-white focus:outline-none"
+          />
+        </div>
+        <select value={estadoF} onChange={(e) => setEstadoF(e.target.value as EstadoFiltro)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
+          {ESTADO_OPTS.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+          {(["todos", "verde", "ambar", "rojo"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSemF(s)}
+              className={`rounded-md px-2 py-1 font-medium ${semF === s ? "bg-slate-900 text-white" : "text-slate-600"}`}
+            >
+              {s === "todos" ? "Todos" : SEM_COLOR[s].label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabla editable */}
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-3 py-2.5">Cliente</th>
+              <th className="px-3 py-2.5">Producto</th>
+              <th className="px-3 py-2.5">Telas</th>
+              <th className="px-3 py-2.5 text-center">Estr.</th>
+              <th className="px-3 py-2.5 text-center">Tapi.</th>
+              <th className="px-3 py-2.5">Deadline</th>
+              <th className="px-3 py-2.5">Días</th>
+              <th className="px-3 py-2.5 text-right">Precio</th>
+              <th className="px-3 py-2.5 text-right">Reserva</th>
+              <th className="px-3 py-2.5 text-right">Envío</th>
+              <th className="px-3 py-2.5 text-center">Pagado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map(({ pedido, lead, producto, sem, totalT, okT }) => (
+              <PedidoRow key={pedido.id} pedido={pedido} lead={lead} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+            ))}
+            {visible.length === 0 && (
+              <tr><td colSpan={11} className="px-4 py-8 text-center text-sm text-slate-400">Sin pedidos</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {newOpen && <NuevoPedidoModal onClose={() => setNewOpen(false)} />}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+function PedidoRow({ pedido, lead, producto, sem, totalT, okT }: {
+  pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined;
+  sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number;
+}) {
+  const c = SEM_COLOR[sem.estado];
+  const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
+  return (
+    <tr className="border-t border-slate-100 hover:bg-slate-50/60">
+      <td className="px-3 py-2">
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-semibold text-slate-900 hover:text-[#1a4b5b] hover:underline">
+          {lead?.nombre ?? pedido.clienteNombreLibre ?? "—"}
+        </Link>
+        {!lead && pedido.clienteNombreLibre && (
+          <div className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</div>
+        )}
+      </td>
+      <td className="px-3 py-2 text-xs text-slate-600">
+        {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "—"}
+        {producto?.ancho && producto?.alto && (
+          <div className="text-[11px] text-slate-400">{producto.ancho}×{producto.alto}</div>
+        )}
+      </td>
+      <td className="px-3 py-2">
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${okT === totalT && totalT > 0 ? "bg-emerald-50 text-emerald-700" : okT > 0 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+          {okT}/{totalT}
+        </Link>
+      </td>
+      <td className="px-3 py-2 text-center">
+        <CheckCell value={pedido.estructuraHecha} onChange={(v) => actions.updatePedido(pedido.id, { estructuraHecha: v, estructuraHechaFecha: v && !pedido.estructuraHechaFecha ? new Date().toISOString().slice(0, 10) : pedido.estructuraHechaFecha })} />
+      </td>
+      <td className="px-3 py-2 text-center">
+        <CheckCell value={pedido.tapizadoHecho} onChange={(v) => actions.updatePedido(pedido.id, { tapizadoHecho: v, tapizadoHechoFecha: v && !pedido.tapizadoHechoFecha ? new Date().toISOString().slice(0, 10) : pedido.tapizadoHechoFecha })} />
+      </td>
+      <td className={`px-3 py-2 text-xs ${sem.diasRestantes < 0 && !pedido.entregado ? "font-bold text-rose-700" : "text-slate-600"}`}>
+        {formatShortDate(pedido.fechaLimite)}
+      </td>
+      <td className="px-3 py-2">
+        <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${c.bg} ${c.text}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
+          {pedido.entregado ? "OK" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d` : `${Math.abs(sem.diasRestantes)}d tarde`}
+        </span>
+      </td>
+      <td className="px-3 py-2 text-right">
+        <NumberCell value={pedido.precio} onSave={(v) => actions.updatePedido(pedido.id, { precio: v })} />
+      </td>
+      <td className="px-3 py-2 text-right">
+        <NumberCell value={pedido.reserva} onSave={(v) => actions.updatePedido(pedido.id, { reserva: v })} />
+      </td>
+      <td className="px-3 py-2 text-right">
+        <NumberCell value={pedido.costeEnvio} onSave={(v) => actions.updatePedido(pedido.id, { costeEnvio: v })} />
+      </td>
+      <td className="px-3 py-2 text-center">
+        <CheckCell value={pedido.pagadoCompleto} onChange={(v) => actions.updatePedido(pedido.id, { pagadoCompleto: v })} />
+      </td>
+    </tr>
+  );
+}
+
+function CheckCell({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!value)}
+      className={`flex h-6 w-6 mx-auto items-center justify-center rounded border ${value ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-transparent hover:border-slate-500"}`}
+    >
+      <Check className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function NumberCell({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+  return (
+    <input
+      type="number"
+      step="0.01"
+      defaultValue={value}
+      key={value}
+      onBlur={(e) => {
+        const v = parseFloat(e.target.value) || 0;
+        if (v !== value) onSave(v);
+      }}
+      className="w-20 rounded border border-transparent bg-transparent px-1 py-0.5 text-right text-sm hover:border-slate-200 focus:border-slate-400 focus:bg-white focus:outline-none"
+    />
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
+  const { leads, productos } = useStore();
+  const [mode, setMode] = useState<"lead" | "libre">("lead");
+  const [leadId, setLeadId] = useState<string>("");
+  const [leadSearch, setLeadSearch] = useState("");
+  const [nombreLibre, setNombreLibre] = useState("");
+  const [prodMode, setProdMode] = useState<"existente" | "nuevo">("nuevo");
+  const [productoId, setProductoId] = useState<string>("");
+  const [tipo, setTipo] = useState<string>("cabecero");
+  const [modelo, setModelo] = useState("");
+  const [diasPlazo, setDiasPlazo] = useState(20);
+  const [precio, setPrecio] = useState(0);
+  const [reserva, setReserva] = useState(0);
+  const [costeEnvio, setCosteEnvio] = useState(0);
+  const [saving, setSaving] = useState(false);
+
+  const leadFiltered = useMemo(() => {
+    const q = leadSearch.toLowerCase();
+    return leads.filter((l) => l.nombre.toLowerCase().includes(q)).slice(0, 8);
+  }, [leads, leadSearch]);
+
+  const productosDelLead = useMemo(
+    () => productos.filter((p) => leadId && p.leadId === leadId),
+    [productos, leadId]
+  );
+
+  async function submit() {
+    if (mode === "lead" && !leadId) return;
+    if (mode === "libre" && !nombreLibre.trim()) return;
+    if (prodMode === "existente" && !productoId) return;
+    if (prodMode === "nuevo" && !tipo) return;
+    setSaving(true);
+    const created = await actions.crearPedidoManual({
+      leadId: mode === "lead" ? leadId : null,
+      clienteNombreLibre: mode === "libre" ? nombreLibre.trim() : "",
+      productoId: prodMode === "existente" ? productoId : null,
+      nuevoProducto: prodMode === "nuevo" ? { tipo, modelo: modelo.trim() } : undefined,
+      diasPlazo, precio, reserva, costeEnvio,
+    });
+    setSaving(false);
+    if (created) onClose();
+  }
+
+  const selectedLead = leads.find((l) => l.id === leadId);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="my-8 w-full max-w-xl rounded-xl bg-white p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">Nuevo pedido</h2>
+          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Cliente */}
+          <div>
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</div>
+            <div className="mb-2 inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente existente</button>
+              <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>No está en el CRM</button>
+            </div>
+            {mode === "lead" ? (
+              <div className="space-y-1.5">
+                <input
+                  value={selectedLead ? selectedLead.nombre : leadSearch}
+                  onChange={(e) => { setLeadSearch(e.target.value); setLeadId(""); }}
+                  placeholder="Buscar lead por nombre…"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
+                />
+                {!selectedLead && leadSearch && (
+                  <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                    {leadFiltered.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-slate-400">Sin coincidencias</div>
+                    ) : leadFiltered.map((l) => (
+                      <button key={l.id} onClick={() => { setLeadId(l.id); setLeadSearch(""); }} className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50">
+                        {l.nombre}
+                      </button>
+                    ))}
                   </div>
-                  <div className="space-y-2 p-2">
-                    {colPedidos.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">
-                        Vacío
-                      </div>
-                    ) : (
-                      colPedidos.map(({ pedido, lead, producto, sem }) => (
-                        <Link key={pedido.id} to="/pedidos/$id" params={{ id: pedido.id }} className="block rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-shadow hover:shadow-md">
-                          <div className="truncate text-[13px] font-semibold text-slate-900">{lead?.nombre ?? "—"}</div>
-                          <div className="mt-1 truncate text-xs text-slate-500">{producto?.modelo || producto?.tipo || "Producto"}</div>
-                          <div className={`mt-2 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${c.bg} ${c.text}`}>
-                            {pedido.entregado
-                              ? "Entregado"
-                              : sem.diasRestantes >= 0
-                                ? `${sem.diasRestantes}d restantes`
-                                : `${Math.abs(sem.diasRestantes)}d tarde`}
-                          </div>
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                )}
+              </div>
+            ) : (
+              <input
+                value={nombreLibre}
+                onChange={(e) => setNombreLibre(e.target.value)}
+                placeholder="Nombre del cliente"
+                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            )}
+          </div>
+
+          {/* Producto */}
+          <div>
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</div>
+            {productosDelLead.length > 0 && (
+              <div className="mb-2 inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+                <button onClick={() => setProdMode("existente")} className={`rounded-md px-2 py-1 ${prodMode === "existente" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Existente del lead</button>
+                <button onClick={() => setProdMode("nuevo")} className={`rounded-md px-2 py-1 ${prodMode === "nuevo" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Nuevo producto</button>
+              </div>
+            )}
+            {prodMode === "existente" && productosDelLead.length > 0 ? (
+              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
+                <option value="">— Selecciona producto —</option>
+                {productosDelLead.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}{p.modelo ? ` · ${p.modelo}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
+                  {TIPOS_PRODUCTO.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                <input value={modelo} onChange={(e) => setModelo(e.target.value)} placeholder="Modelo" className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+              </div>
+            )}
+          </div>
+
+          {/* Datos pedido */}
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Días de plazo"><input type="number" min={1} value={diasPlazo} onChange={(e) => setDiasPlazo(parseInt(e.target.value) || 20)} className="w-full rounded border border-slate-200 px-2 py-1 text-sm" /></Field>
+            <Field label="Precio (€)"><input type="number" step="0.01" value={precio} onChange={(e) => setPrecio(parseFloat(e.target.value) || 0)} className="w-full rounded border border-slate-200 px-2 py-1 text-sm" /></Field>
+            <Field label="Reserva (€)"><input type="number" step="0.01" value={reserva} onChange={(e) => setReserva(parseFloat(e.target.value) || 0)} className="w-full rounded border border-slate-200 px-2 py-1 text-sm" /></Field>
+            <Field label="Coste envío (€)"><input type="number" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded border border-slate-200 px-2 py-1 text-sm" /></Field>
+          </div>
+
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            Total a cobrar: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+            <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">Cancelar</button>
+            <button onClick={submit} disabled={saving} className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-50">
+              {saving ? "Creando…" : "Crear pedido"}
+            </button>
           </div>
         </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Producto</th>
-                <th className="px-4 py-3">Plazo</th>
-                <th className="px-4 py-3">Fecha límite</th>
-                <th className="px-4 py-3">Precio</th>
-                <th className="px-4 py-3">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map(({ pedido, lead, producto, sem }) => {
-                const c = SEM_COLOR[sem.estado];
-                return (
-                  <tr key={pedido.id} className="border-t border-slate-100 hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-semibold text-slate-900 hover:text-[#1a4b5b] hover:underline">
-                        {lead?.nombre ?? "—"}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "—"} · {producto?.modelo}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{pedido.diasPlazo}d</td>
-                    <td className="px-4 py-3 text-slate-600">{formatShortDate(pedido.fechaLimite)}</td>
-                    <td className="px-4 py-3 font-medium">{formatCurrency(pedido.precio)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ${c.bg} ${c.text}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
-                        {pedido.entregado ? "Entregado" : c.label}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-              {visible.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400">Sin pedidos</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="mb-0.5 block text-xs text-slate-500">{label}</label>
+      {children}
     </div>
   );
 }
