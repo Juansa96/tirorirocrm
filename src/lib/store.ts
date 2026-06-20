@@ -520,6 +520,8 @@ export const actions = {
     if (patch.origen !== undefined) dbPatch.origen = patch.origen;
     if (patch.redSocial !== undefined) dbPatch.red_social = patch.redSocial;
     if (patch.fechaHold !== undefined) dbPatch.fecha_hold = patch.fechaHold || null;
+    if (patch.razonUrgencia !== undefined) dbPatch.razon_urgencia = patch.razonUrgencia;
+    if (patch.clienteTipo !== undefined) dbPatch.cliente_tipo = patch.clienteTipo;
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos
     const edadValue = patch.edad;
