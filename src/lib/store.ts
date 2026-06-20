@@ -21,7 +21,7 @@ interface State {
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], pedidos: [], pedidoTelas: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
