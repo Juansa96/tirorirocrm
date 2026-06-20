@@ -809,10 +809,13 @@ export const actions = {
       entregado: "entregado",
       entregadoFecha: "entregado_fecha",
       precio: "precio",
+      precioConIva: "precio_con_iva",
+      costeEnvio: "coste_envio",
       reserva: "reserva",
       pagadoCompleto: "pagado_completo",
       factura: "factura",
       notasPedido: "notas_pedido",
+      clienteNombreLibre: "cliente_nombre_libre",
     };
     for (const [k, v] of Object.entries(patch)) {
       const col = map[k];
