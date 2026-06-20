@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Users, TrendingUp, Trophy, Percent, Plus, ChevronDown } from "lucide-react";
+import { Users, TrendingUp, Trophy, Percent, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
 import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { useStore, vendedorTotals } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName, type Etapa } from "@/lib/types";
+import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName, semaforoPedido, type Etapa } from "@/lib/types";
 import { formatCurrency, formatAxisCurrency } from "@/lib/format";
 import { TaskItem } from "@/components/TaskItem";
 import { sellerStyle } from "@/components/SellerBadge";
@@ -34,7 +34,7 @@ function KpiCard({ icon: Icon, label, value, badgeBg, iconColor, empty }: {
 }
 
 function Dashboard() {
-  const { leads, tareas } = useStore();
+  const { leads, tareas, pedidos } = useStore();
   const navigate = useNavigate();
   const [filterVendedor, setFilterVendedor] = useState("");
 
@@ -62,6 +62,14 @@ function Dashboard() {
 
   const vendTotals = vendedorTotals(leads);
   const maxVendValor = Math.max(1, ...VENDEDORES.map((v) => vendTotals.get(v)!.valor));
+
+  // Pedidos en riesgo (ámbar) o atrasados (rojo), no entregados
+  const pedidosRiesgo = pedidos.filter((p) => {
+    if (p.entregado) return false;
+    const s = semaforoPedido(p);
+    return s.estado !== "verde";
+  });
+  const pedidosAtrasados = pedidosRiesgo.filter((p) => semaforoPedido(p).estado === "rojo");
 
   function goEtapa(etapa: Etapa) {
     navigate({
