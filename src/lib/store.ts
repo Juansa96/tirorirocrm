@@ -127,7 +127,8 @@ function mapPedido(r: Record<string, unknown>): Pedido {
   return {
     id: r.id as string,
     productoLeadId: r.producto_lead_id as string,
-    leadId: r.lead_id as string,
+    leadId: (r.lead_id as string) ?? "",
+    clienteNombreLibre: (r.cliente_nombre_libre as string) ?? "",
     fechaCreacionPedido: (r.fecha_creacion_pedido as string) ?? "",
     diasPlazo: Number(r.dias_plazo) || 20,
     fechaLimite: (r.fecha_limite as string) ?? "",
@@ -147,6 +148,8 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     entregado: !!r.entregado,
     entregadoFecha: (r.entregado_fecha as string) ?? "",
     precio: Number(r.precio) || 0,
+    precioConIva: r.precio_con_iva != null ? Number(r.precio_con_iva) : null,
+    costeEnvio: Number(r.coste_envio) || 0,
     reserva: Number(r.reserva) || 0,
     pagadoCompleto: !!r.pagado_completo,
     factura: (r.factura as string) ?? "",
