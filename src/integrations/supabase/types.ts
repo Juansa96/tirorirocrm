@@ -314,6 +314,8 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          cliente_nombre_libre: string | null
+          coste_envio: number
           creado_manualmente: boolean
           created_at: string
           dias_plazo: number
@@ -327,13 +329,14 @@ export type Database = {
           fecha_entrega_real: string | null
           fecha_limite: string | null
           id: string
-          lead_id: string
+          lead_id: string | null
           notas_pedido: string | null
           pagado_50: boolean
           pagado_completo: boolean
           pago_todo_al_final: boolean
           precio: number
-          producto_lead_id: string
+          precio_con_iva: number | null
+          producto_lead_id: string | null
           reserva: number
           tapizado_hecho: boolean
           tapizado_hecho_fecha: string | null
@@ -344,6 +347,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cliente_nombre_libre?: string | null
+          coste_envio?: number
           creado_manualmente?: boolean
           created_at?: string
           dias_plazo?: number
@@ -357,13 +362,14 @@ export type Database = {
           fecha_entrega_real?: string | null
           fecha_limite?: string | null
           id?: string
-          lead_id: string
+          lead_id?: string | null
           notas_pedido?: string | null
           pagado_50?: boolean
           pagado_completo?: boolean
           pago_todo_al_final?: boolean
           precio?: number
-          producto_lead_id: string
+          precio_con_iva?: number | null
+          producto_lead_id?: string | null
           reserva?: number
           tapizado_hecho?: boolean
           tapizado_hecho_fecha?: string | null
@@ -374,6 +380,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cliente_nombre_libre?: string | null
+          coste_envio?: number
           creado_manualmente?: boolean
           created_at?: string
           dias_plazo?: number
@@ -387,13 +395,14 @@ export type Database = {
           fecha_entrega_real?: string | null
           fecha_limite?: string | null
           id?: string
-          lead_id?: string
+          lead_id?: string | null
           notas_pedido?: string | null
           pagado_50?: boolean
           pagado_completo?: boolean
           pago_todo_al_final?: boolean
           precio?: number
-          producto_lead_id?: string
+          precio_con_iva?: number | null
+          producto_lead_id?: string | null
           reserva?: number
           tapizado_hecho?: boolean
           tapizado_hecho_fecha?: string | null

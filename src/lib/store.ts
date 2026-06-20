@@ -127,7 +127,8 @@ function mapPedido(r: Record<string, unknown>): Pedido {
   return {
     id: r.id as string,
     productoLeadId: r.producto_lead_id as string,
-    leadId: r.lead_id as string,
+    leadId: (r.lead_id as string) ?? "",
+    clienteNombreLibre: (r.cliente_nombre_libre as string) ?? "",
     fechaCreacionPedido: (r.fecha_creacion_pedido as string) ?? "",
     diasPlazo: Number(r.dias_plazo) || 20,
     fechaLimite: (r.fecha_limite as string) ?? "",
@@ -147,6 +148,8 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     entregado: !!r.entregado,
     entregadoFecha: (r.entregado_fecha as string) ?? "",
     precio: Number(r.precio) || 0,
+    precioConIva: r.precio_con_iva != null ? Number(r.precio_con_iva) : null,
+    costeEnvio: Number(r.coste_envio) || 0,
     reserva: Number(r.reserva) || 0,
     pagadoCompleto: !!r.pagado_completo,
     factura: (r.factura as string) ?? "",
@@ -785,6 +788,76 @@ export const actions = {
     return pedido;
   },
 
+  // Creación manual: no exige características confirmadas ni pagos.
+  // Acepta lead existente o nombre libre, y producto existente o nuevo.
+  async crearPedidoManual(opts: {
+    leadId: string | null;
+    clienteNombreLibre?: string;
+    productoId?: string | null;
+    nuevoProducto?: { tipo: string; modelo: string };
+    diasPlazo: number;
+    precio: number;
+    reserva: number;
+    costeEnvio: number;
+    fechaCreacion?: string;
+  }): Promise<Pedido | null> {
+    let productoId = opts.productoId ?? null;
+    let tipoProd = "";
+    let telaSeed = "";
+    if (!productoId && opts.nuevoProducto) {
+      const { data: pd, error: pe } = await supabase.from("productos_lead").insert({
+        lead_id: opts.leadId,
+        tipo: opts.nuevoProducto.tipo,
+        modelo: opts.nuevoProducto.modelo,
+        cantidad: 1,
+        precio_unitario: opts.precio,
+        caracteristicas_confirmadas: true,
+        created_by: currentUser ?? "manual",
+      } as never).select().single();
+      if (pe || !pd) { toast.error("Error al crear el producto."); return null; }
+      productoId = (pd as Record<string, unknown>).id as string;
+      tipoProd = opts.nuevoProducto.tipo;
+    } else if (productoId) {
+      const existing = state.productos.find((p) => p.id === productoId);
+      tipoProd = existing?.tipo ?? "";
+      telaSeed = existing?.tela ?? "";
+    }
+    if (!productoId) { toast.error("Selecciona o crea un producto."); return null; }
+
+    const insertPedido: Record<string, unknown> = {
+      producto_lead_id: productoId,
+      lead_id: opts.leadId,
+      cliente_nombre_libre: opts.clienteNombreLibre ?? "",
+      dias_plazo: opts.diasPlazo,
+      precio: opts.precio,
+      reserva: opts.reserva,
+      coste_envio: opts.costeEnvio,
+      creado_manualmente: true,
+    };
+    if (opts.fechaCreacion) insertPedido.fecha_creacion_pedido = opts.fechaCreacion;
+
+    const { data, error } = await supabase.from("pedidos" as never).insert(insertPedido as never).select().single();
+    if (error || !data) { toast.error("Error al crear el pedido."); return null; }
+    const pedido = mapPedido(data as Record<string, unknown>);
+    if (!state.pedidos.find((p) => p.id === pedido.id)) {
+      state = { ...state, pedidos: [pedido, ...state.pedidos] };
+      emit();
+    }
+    const tipos = telasPorTipo(tipoProd);
+    if (tipos.length > 0) {
+      const rows = tipos.map((t, i) => ({
+        pedido_id: pedido.id,
+        tipo_tela: t,
+        nombre_tela: i === 0 ? telaSeed : "",
+        estado: "Pedida",
+        orden: i,
+      }));
+      await supabase.from("pedido_telas" as never).insert(rows as never);
+    }
+    toast.success("Pedido creado.");
+    return pedido;
+  },
+
   async updatePedido(id: string, patch: Partial<Pedido>) {
     const prevState = state;
     state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, ...patch } : p) };
@@ -806,10 +879,13 @@ export const actions = {
       entregado: "entregado",
       entregadoFecha: "entregado_fecha",
       precio: "precio",
+      precioConIva: "precio_con_iva",
+      costeEnvio: "coste_envio",
       reserva: "reserva",
       pagadoCompleto: "pagado_completo",
       factura: "factura",
       notasPedido: "notas_pedido",
+      clienteNombreLibre: "cliente_nombre_libre",
     };
     for (const [k, v] of Object.entries(patch)) {
       const col = map[k];

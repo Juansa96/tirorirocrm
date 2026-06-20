@@ -144,6 +144,7 @@ export interface Pedido {
   id: string;
   productoLeadId: string;
   leadId: string;
+  clienteNombreLibre: string;
   fechaCreacionPedido: string;
   diasPlazo: number;
   fechaLimite: string;        // YYYY-MM-DD
@@ -163,6 +164,8 @@ export interface Pedido {
   entregado: boolean;
   entregadoFecha: string;
   precio: number;
+  precioConIva: number | null;
+  costeEnvio: number;
   reserva: number;
   pagadoCompleto: boolean;
   factura: string;
