@@ -705,8 +705,141 @@ export const actions = {
     void presenceChannel.track({ user: currentUser, editing: leadId ?? "" });
   },
 
-  // deleteAuditEntry intentionally removed — audit log is append-only for trazabilidad
+  // ── PRODUCTOS extra (confirmación / pago 50) ─────────────────────
+  async updateProductoFlags(id: string, patch: { caracteristicasConfirmadas?: boolean; pagado50?: boolean }) {
+    const prevState = state;
+    state = {
+      ...state,
+      productos: state.productos.map((p) => p.id === id ? { ...p, ...patch } : p),
+    };
+    emit();
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.caracteristicasConfirmadas !== undefined) dbPatch.caracteristicas_confirmadas = patch.caracteristicasConfirmadas;
+    if (patch.pagado50 !== undefined) dbPatch.pagado_50 = patch.pagado50;
+    const { error } = await supabase.from("productos_lead").update(dbPatch as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); }
+  },
+
+  // ── PEDIDOS ──────────────────────────────────────────────────────
+  async crearPedido(opts: {
+    productoId: string;
+    diasPlazo?: number;
+    pagado50: boolean;
+    pagoTodoAlFinal: boolean;
+    creadoManualmente: boolean;
+  }): Promise<Pedido | null> {
+    const prod = state.productos.find((p) => p.id === opts.productoId);
+    if (!prod) { toast.error("Producto no encontrado."); return null; }
+    if (!prod.caracteristicasConfirmadas) {
+      toast.error("Confirma primero las características del producto.");
+      return null;
+    }
+    const precio = (prod.precioUnitario || 0) * (prod.cantidad || 1);
+    const { data, error } = await supabase.from("pedidos" as never).insert({
+      producto_lead_id: prod.id,
+      lead_id: prod.leadId,
+      dias_plazo: opts.diasPlazo ?? 20,
+      pagado_50: opts.pagado50,
+      pago_todo_al_final: opts.pagoTodoAlFinal,
+      creado_manualmente: opts.creadoManualmente,
+      precio,
+    } as never).select().single();
+    if (error || !data) { toast.error("Error al crear el pedido."); return null; }
+    const pedido = mapPedido(data as Record<string, unknown>);
+    if (!state.pedidos.find((p) => p.id === pedido.id)) {
+      state = { ...state, pedidos: [pedido, ...state.pedidos] };
+      emit();
+    }
+    // Pre-rellena telas según el tipo del producto
+    const tipos = telasPorTipo(prod.tipo);
+    if (tipos.length > 0) {
+      const rows = tipos.map((t, i) => ({
+        pedido_id: pedido.id,
+        tipo_tela: t,
+        nombre_tela: i === 0 ? (prod.tela || "") : "",
+        estado: "Pedida",
+        orden: i,
+      }));
+      await supabase.from("pedido_telas" as never).insert(rows as never);
+    }
+    toast.success("Pedido creado.");
+    return pedido;
+  },
+
+  async updatePedido(id: string, patch: Partial<Pedido>) {
+    const prevState = state;
+    state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, ...patch } : p) };
+    emit();
+    const dbPatch: Record<string, unknown> = {};
+    const map: Record<string, string> = {
+      diasPlazo: "dias_plazo",
+      fechaEntregaReal: "fecha_entrega_real",
+      pagado50: "pagado_50",
+      pagoTodoAlFinal: "pago_todo_al_final",
+      telaPedida: "tela_pedida",
+      telaPedidaFecha: "tela_pedida_fecha",
+      telaRecibida: "tela_recibida",
+      telaRecibidaFecha: "tela_recibida_fecha",
+      estructuraHecha: "estructura_hecha",
+      estructuraHechaFecha: "estructura_hecha_fecha",
+      tapizadoHecho: "tapizado_hecho",
+      tapizadoHechoFecha: "tapizado_hecho_fecha",
+      entregado: "entregado",
+      entregadoFecha: "entregado_fecha",
+      precio: "precio",
+      reserva: "reserva",
+      pagadoCompleto: "pagado_completo",
+      factura: "factura",
+      notasPedido: "notas_pedido",
+    };
+    for (const [k, v] of Object.entries(patch)) {
+      const col = map[k];
+      if (col) dbPatch[col] = v === "" ? null : v;
+    }
+    const { error } = await supabase.from("pedidos" as never).update(dbPatch as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); }
+  },
+
+  async deletePedido(id: string) {
+    const prevState = state;
+    state = { ...state, pedidos: state.pedidos.filter((p) => p.id !== id) };
+    emit();
+    const { error } = await supabase.from("pedidos" as never).delete().eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar el pedido."); }
+  },
+
+  async addPedidoTela(pedidoId: string, tipoTela: string) {
+    const orden = state.pedidoTelas.filter((t) => t.pedidoId === pedidoId).length;
+    const { error } = await supabase.from("pedido_telas" as never).insert({
+      pedido_id: pedidoId, tipo_tela: tipoTela, estado: "Pedida", orden,
+    } as never);
+    if (error) toast.error("Error al añadir la tela.");
+  },
+
+  async updatePedidoTela(id: string, patch: Partial<PedidoTela>) {
+    const prevState = state;
+    state = { ...state, pedidoTelas: state.pedidoTelas.map((t) => t.id === id ? { ...t, ...patch } : t) };
+    emit();
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.tipoTela !== undefined) dbPatch.tipo_tela = patch.tipoTela;
+    if (patch.nombreTela !== undefined) dbPatch.nombre_tela = patch.nombreTela;
+    if (patch.estado !== undefined) dbPatch.estado = patch.estado;
+    if (patch.fechaRecibo !== undefined) dbPatch.fecha_recibo = patch.fechaRecibo || null;
+    const { error } = await supabase.from("pedido_telas" as never).update(dbPatch as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); }
+  },
+
+  async deletePedidoTela(id: string) {
+    const prevState = state;
+    state = { ...state, pedidoTelas: state.pedidoTelas.filter((t) => t.id !== id) };
+    emit();
+    const { error } = await supabase.from("pedido_telas" as never).delete().eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar la tela."); }
+  },
+
+  // deleteAuditEntry intentionally removed — audit log is append-only
 };
+
 
 export function nextPendingTaskFor(leadId: string, tareas: Tarea[]): Tarea | undefined {
   return tareas
