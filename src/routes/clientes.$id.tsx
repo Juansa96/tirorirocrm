@@ -2,10 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
-  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle,
+  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Lead, type Producto, type Tarea } from "@/lib/types";
+import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Lead, type Tarea } from "@/lib/types";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -126,7 +126,7 @@ function TareaRow({ tarea, clienteNombre }: { tarea: Tarea; clienteNombre: strin
 // ── Main component ────────────────────────────────────────────────
 function ClienteDetalle() {
   const { id } = Route.useParams();
-  const { leads, tareas, audit, notas, productos, remoteUpdateTimestamps, presenceEditors } = useStore();
+  const { leads, tareas, audit, notas, productos, pedidos, remoteUpdateTimestamps, presenceEditors } = useStore();
   const navigate = useNavigate();
   const lead = leads.find((l) => l.id === id);
 
