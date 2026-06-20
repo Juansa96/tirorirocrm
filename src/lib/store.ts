@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto } from "./types";
-import { VENDEDORES } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela } from "./types";
+import { VENDEDORES, telasPorTipo } from "./types";
+
 
 
 interface State {
@@ -11,16 +12,16 @@ interface State {
   audit: AuditEntry[];
   notas: Nota[];
   productos: Producto[];
+  pedidos: Pedido[];
+  pedidoTelas: PedidoTela[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
-  // leadId -> timestamp of last remote update (for conflict detection)
   remoteUpdateTimestamps: Record<string, number>;
-  // leadId -> list of other users currently viewing that lead (Presence)
   presenceEditors: Record<string, string[]>;
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -55,6 +56,8 @@ function mapLead(r: Record<string, unknown>): Lead {
     valorEnvio: Number(r.valor_envio) || 0,
     edad: (r.edad as string) ?? "",
     fechaCreacion: (r.created_at as string) ?? "",
+    fechaEntradaEtapa: (r.fecha_entrada_etapa as string) ?? (r.created_at as string) ?? "",
+    razonUrgencia: (r.razon_urgencia as string) ?? "",
   };
 }
 
@@ -112,6 +115,55 @@ function mapProducto(r: Record<string, unknown>): Producto {
     notasProducto: (r.notas_producto as string) ?? "",
     createdAt: r.created_at as string,
     createdBy: (r.created_by as string) ?? "",
+    caracteristicasConfirmadas: !!r.caracteristicas_confirmadas,
+    fechaConfirmacion: (r.fecha_confirmacion as string) ?? "",
+    pagado50: !!r.pagado_50,
+  };
+}
+
+function mapPedido(r: Record<string, unknown>): Pedido {
+  return {
+    id: r.id as string,
+    productoLeadId: r.producto_lead_id as string,
+    leadId: r.lead_id as string,
+    fechaCreacionPedido: (r.fecha_creacion_pedido as string) ?? "",
+    diasPlazo: Number(r.dias_plazo) || 20,
+    fechaLimite: (r.fecha_limite as string) ?? "",
+    fechaEntregaReal: (r.fecha_entrega_real as string) ?? "",
+    pagado50: !!r.pagado_50,
+    pagoTodoAlFinal: !!r.pago_todo_al_final,
+    creadoManualmente: !!r.creado_manualmente,
+    estadoPedido: (r.estado_pedido as string) ?? "En proceso",
+    telaPedida: !!r.tela_pedida,
+    telaPedidaFecha: (r.tela_pedida_fecha as string) ?? "",
+    telaRecibida: !!r.tela_recibida,
+    telaRecibidaFecha: (r.tela_recibida_fecha as string) ?? "",
+    estructuraHecha: !!r.estructura_hecha,
+    estructuraHechaFecha: (r.estructura_hecha_fecha as string) ?? "",
+    tapizadoHecho: !!r.tapizado_hecho,
+    tapizadoHechoFecha: (r.tapizado_hecho_fecha as string) ?? "",
+    entregado: !!r.entregado,
+    entregadoFecha: (r.entregado_fecha as string) ?? "",
+    precio: Number(r.precio) || 0,
+    reserva: Number(r.reserva) || 0,
+    pagadoCompleto: !!r.pagado_completo,
+    factura: (r.factura as string) ?? "",
+    notasPedido: (r.notas_pedido as string) ?? "",
+    createdAt: (r.created_at as string) ?? "",
+    updatedAt: (r.updated_at as string) ?? "",
+  };
+}
+
+function mapPedidoTela(r: Record<string, unknown>): PedidoTela {
+  return {
+    id: r.id as string,
+    pedidoId: r.pedido_id as string,
+    tipoTela: (r.tipo_tela as string) ?? "",
+    nombreTela: (r.nombre_tela as string) ?? "",
+    estado: (r.estado as string) ?? "Pedida",
+    fechaRecibo: (r.fecha_recibo as string) ?? "",
+    orden: Number(r.orden) || 0,
+    createdAt: (r.created_at as string) ?? "",
   };
 }
 
