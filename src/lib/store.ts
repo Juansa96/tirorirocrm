@@ -58,6 +58,7 @@ function mapLead(r: Record<string, unknown>): Lead {
     fechaCreacion: (r.created_at as string) ?? "",
     fechaEntradaEtapa: (r.fecha_entrada_etapa as string) ?? (r.created_at as string) ?? "",
     razonUrgencia: (r.razon_urgencia as string) ?? "",
+    clienteTipo: (r.cliente_tipo as string) ?? "normal",
   };
 }
 
