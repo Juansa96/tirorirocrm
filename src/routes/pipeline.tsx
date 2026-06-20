@@ -35,12 +35,8 @@ function daysInStage(lead: ReturnType<typeof useStore>["leads"][0]): number {
   return Math.max(0, Math.floor(diff / 86400000));
 }
 
-function urgencyStyle(days: number, closed: boolean): { bg: string; text: string; icon: string } | null {
-  if (closed) return null;
-  if (days < 7) return { bg: "bg-slate-100", text: "text-slate-500", icon: "text-slate-400" };
-  if (days < 14) return { bg: "bg-amber-50", text: "text-amber-700", icon: "text-amber-500" };
-  return { bg: "bg-rose-50", text: "text-rose-700", icon: "text-rose-500" };
-}
+// Urgency colors removed for now — días en etapa se muestra en gris neutro.
+
 
 function LeadCard({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; onNavigate: () => void }) {
   const next = nextPendingTaskFor(lead.id, tareas);
