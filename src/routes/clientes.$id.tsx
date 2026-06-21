@@ -786,6 +786,56 @@ function InfoRow({ icon: Icon, label, children }: { icon: React.ComponentType<{ 
   );
 }
 
+const ETIQUETAS_SUGERIDAS = ["Mayorista", "Problemático", "Recurrente", "VIP", "Prioritario", "Urgente"];
+
+function EtiquetasEditor({ lead }: { lead: Lead }) {
+  const [input, setInput] = useState("");
+  const tags = lead.etiquetas ?? [];
+  function add(t: string) {
+    const v = t.trim();
+    if (!v || tags.includes(v)) { setInput(""); return; }
+    void actions.updateLead(lead.id, { etiquetas: [...tags, v] });
+    setInput("");
+  }
+  function remove(t: string) {
+    void actions.updateLead(lead.id, { etiquetas: tags.filter((x) => x !== t) });
+  }
+  const sugerencias = ETIQUETAS_SUGERIDAS.filter((s) => !tags.includes(s));
+  return (
+    <div>
+      <div className="mb-1.5 text-xs text-slate-500">Etiquetas</div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tags.map((t) => (
+          <span key={t} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">
+            {t}
+            <button onClick={() => remove(t)} className="rounded-full hover:bg-slate-200" aria-label={`Quitar ${t}`}>
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(input); } }}
+          onBlur={() => input.trim() && add(input)}
+          placeholder="+ etiqueta"
+          className="min-w-[90px] flex-1 rounded-full border border-dashed border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
+        />
+      </div>
+      {sugerencias.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {sugerencias.map((s) => (
+            <button key={s} onClick={() => add(s)} className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-400 hover:text-slate-700">
+              + {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function CrearPedidoButton({
   producto, pedidos, navigate,
 }: {
