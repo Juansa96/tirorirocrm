@@ -60,6 +60,18 @@ function mapLead(r: Record<string, unknown>): Lead {
     fechaEntradaEtapa: (r.fecha_entrada_etapa as string) ?? (r.created_at as string) ?? "",
     razonUrgencia: (r.razon_urgencia as string) ?? "",
     clienteTipo: (r.cliente_tipo as string) ?? "normal",
+    etiquetas: Array.isArray(r.etiquetas) ? (r.etiquetas as string[]) : [],
+  };
+}
+
+function mapLeadFoto(r: Record<string, unknown>): import("./types").LeadFoto {
+  return {
+    id: r.id as string,
+    leadId: r.lead_id as string,
+    storagePath: r.storage_path as string,
+    url: r.url as string,
+    pie: (r.pie as string) ?? "",
+    createdAt: (r.created_at as string) ?? "",
   };
 }
 
