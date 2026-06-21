@@ -693,6 +693,9 @@ function ClienteDetalle() {
         </div>
       </div>
 
+      {/* Fotos */}
+      <FotosSection leadId={lead.id} />
+
       {/* Notas */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
