@@ -186,7 +186,7 @@ function DatosPage() {
 
   // ── Ciudades ──────────────────────────────────────────────────────
   const ciudadData = count(
-    filtered.filter(l => l.ciudad).map(l => l.ciudad)
+    filtered.filter(l => l.ciudad).map(l => normalizeCiudad(l.ciudad))
   ).slice(0, 8);
   const maxCiudad = ciudadData[0]?.n ?? 1;
 
