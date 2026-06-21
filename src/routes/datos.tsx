@@ -6,6 +6,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { useStore } from "@/lib/store";
+import type { Etapa } from "@/lib/types";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, RANGOS_EDAD, vendorName } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 
