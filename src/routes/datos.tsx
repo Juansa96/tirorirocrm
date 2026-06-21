@@ -257,6 +257,36 @@ function DatosPage() {
     .map(([canal, v]) => ({ canal, tasa: Math.round(v.won / v.total * 100), total: v.total }))
     .sort((a, b) => b.tasa - a.tasa);
 
+  // ── Funnel de conversión por etapa ────────────────────────────────
+  // Para cada lead, calculamos la "etapa máxima alcanzada" mirando su etapa actual
+  // y el histórico de la auditoría (campo='etapa'). Así un Closed Lost cuenta como
+  // "alcanzó" Discovery / Primer Contacto / Negotiation si pasó por ellas.
+  const FUNNEL_ORDER: Etapa[] = ["Discovery", "Primer Contacto", "Negotiation", "Closed Won"];
+  const etapaRank: Record<string, number> = {
+    "Discovery": 0, "Primer Contacto": 1, "Negotiation": 2, "Closed Won": 3,
+    "On Hold": -1, "Closed Lost": -1,
+  };
+  const filteredIdSet = filteredIds;
+  const maxRankByLead = new Map<string, number>();
+  filtered.forEach(l => {
+    const r = etapaRank[l.etapa] ?? -1;
+    maxRankByLead.set(l.id, r);
+  });
+  audit.forEach(a => {
+    if (a.campo !== "etapa" || !a.leadId || !filteredIdSet.has(a.leadId)) return;
+    [a.valorAnterior, a.valorNuevo].forEach(v => {
+      if (!v) return;
+      const r = etapaRank[v] ?? -1;
+      const cur = maxRankByLead.get(a.leadId!) ?? -1;
+      if (r > cur) maxRankByLead.set(a.leadId!, r);
+    });
+  });
+  const totalFunnel = filtered.length;
+  const funnelData = FUNNEL_ORDER.map((etapa, i) => {
+    const reached = Array.from(maxRankByLead.values()).filter(r => r >= i).length;
+    return { etapa, count: reached, pct: totalFunnel > 0 ? Math.round(reached / totalFunnel * 100) : 0 };
+  });
+
   // ── Edad ──────────────────────────────────────────────────────────
   const edadData = RANGOS_EDAD.map(r => ({
     rango: r,
