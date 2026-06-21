@@ -513,9 +513,9 @@ function DatosPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card title="Tipos de producto más pedidos">
           {tipoData.length === 0 ? <Empty /> : (
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie data={tipoData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`} labelLine={false} fontSize={10}>
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart margin={{ top: 16, right: 16, bottom: 16, left: 16 }}>
+                <Pie data={tipoData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`} labelLine={false} fontSize={10}>
                   {tipoData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={tooltipStyle} />
