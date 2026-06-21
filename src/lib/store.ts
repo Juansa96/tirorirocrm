@@ -65,7 +65,7 @@ function mapLead(r: Record<string, unknown>): Lead {
   };
 }
 
-function mapLeadFoto(r: Record<string, unknown>): import("./types").LeadFoto {
+function mapLeadFoto(r: Record<string, unknown>): LeadFoto {
   return {
     id: r.id as string,
     leadId: r.lead_id as string,
