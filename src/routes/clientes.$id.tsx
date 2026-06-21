@@ -194,15 +194,8 @@ function ClienteDetalle() {
   }
 
   function closeEditing() {
-    if (lead && draft) {
-      const patch: Partial<Lead> = {};
-      if (draft.nombre !== lead.nombre) patch.nombre = draft.nombre;
-      if (draft.email !== lead.email) patch.email = draft.email;
-      if (draft.telefono !== lead.telefono) patch.telefono = draft.telefono;
-      if (draft.ciudad !== lead.ciudad) patch.ciudad = draft.ciudad;
-      if (draft.redSocial !== lead.redSocial) patch.redSocial = draft.redSocial;
-      if (Object.keys(patch).length > 0) void actions.updateLead(lead.id, patch);
-    }
+    // Los campos ya se guardan onBlur en saveDraftField; aquí solo cerramos el modo edición.
+    // No re-aplicamos un patch global para evitar guardados duplicados que generan dos entradas en el histórico.
     setDraft(null);
     setEditing(false);
   }
