@@ -142,8 +142,8 @@ function PedidosIndex() {
         </div>
       </div>
 
-      {/* Tabla editable */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* Tabla editable — solo desktop */}
+      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm md:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
@@ -171,7 +171,136 @@ function PedidosIndex() {
         </table>
       </div>
 
+      {/* Cards — solo móvil */}
+      <div className="space-y-2.5 md:hidden">
+        {visible.map(({ pedido, lead, producto, sem, totalT, okT }) => (
+          <PedidoCard key={pedido.id} pedido={pedido} lead={lead} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+        ))}
+        {visible.length === 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-400">Sin pedidos</div>
+        )}
+      </div>
+
       {newOpen && <NuevoPedidoModal onClose={() => setNewOpen(false)} />}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Card móvil + bottom sheet de edición
+function PedidoCard({ pedido, lead, producto, sem, totalT, okT }: {
+  pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined;
+  sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number;
+}) {
+  const [editing, setEditing] = useState(false);
+  const c = SEM_COLOR[sem.estado];
+  const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
+  const nombre = lead?.nombre ?? pedido.clienteNombreLibre ?? "—";
+  const diasLabel = pedido.entregado ? "Entregado" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d restantes` : `${Math.abs(sem.diasRestantes)}d de retraso`;
+  const borderLeft = sem.estado === "verde" ? "border-l-emerald-500" : sem.estado === "ambar" ? "border-l-amber-500" : "border-l-rose-500";
+
+  return (
+    <>
+      <div className={`rounded-xl border border-slate-200 border-l-4 ${borderLeft} bg-white shadow-sm`}>
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="flex items-start gap-3 p-3.5 active:bg-slate-50">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
+              <h3 className="truncate text-base font-semibold text-slate-900">{nombre}</h3>
+            </div>
+            <div className="mt-0.5 truncate text-sm text-slate-600">
+              {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "—"}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              <span className={`font-medium ${sem.estado === "rojo" && !pedido.entregado ? "text-rose-700" : "text-slate-600"}`}>{diasLabel}</span>
+              <span className="text-slate-400">·</span>
+              <span className="text-slate-500">{formatShortDate(pedido.fechaLimite)}</span>
+              {totalT > 0 && (
+                <>
+                  <span className="text-slate-400">·</span>
+                  <span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span>
+                </>
+              )}
+            </div>
+            {!lead && pedido.clienteNombreLibre && (
+              <div className="mt-1.5 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</div>
+            )}
+          </div>
+          <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-300" />
+        </Link>
+
+        {/* Hitos rápidos táctiles */}
+        <div className="grid grid-cols-3 border-t border-slate-100">
+          <ToggleHito label="Estructura" active={pedido.estructuraHecha} onToggle={() => actions.updatePedido(pedido.id, { estructuraHecha: !pedido.estructuraHecha, estructuraHechaFecha: !pedido.estructuraHecha && !pedido.estructuraHechaFecha ? new Date().toISOString().slice(0, 10) : pedido.estructuraHechaFecha })} />
+          <ToggleHito label="Tapizado" active={pedido.tapizadoHecho} onToggle={() => actions.updatePedido(pedido.id, { tapizadoHecho: !pedido.tapizadoHecho, tapizadoHechoFecha: !pedido.tapizadoHecho && !pedido.tapizadoHechoFecha ? new Date().toISOString().slice(0, 10) : pedido.tapizadoHechoFecha })} />
+          <button onClick={() => setEditing(true)} className="flex h-12 items-center justify-center gap-1.5 border-l border-slate-100 text-xs font-medium text-slate-600 active:bg-slate-100">
+            <Pencil className="h-3.5 w-3.5" /> Editar
+          </button>
+        </div>
+      </div>
+      {editing && <EditPedidoSheet pedido={pedido} onClose={() => setEditing(false)} />}
+    </>
+  );
+}
+
+function ToggleHito({ label, active, onToggle }: { label: string; active: boolean; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle} className={`flex h-12 items-center justify-center gap-1.5 border-r border-slate-100 text-xs font-medium active:bg-slate-100 ${active ? "text-emerald-700" : "text-slate-500"}`}>
+      <span className={`flex h-4 w-4 items-center justify-center rounded border ${active ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white"}`}>
+        {active && <Check className="h-3 w-3" />}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function EditPedidoSheet({ pedido, onClose }: { pedido: Pedido; onClose: () => void }) {
+  const [precio, setPrecio] = useState(pedido.precio);
+  const [reserva, setReserva] = useState(pedido.reserva);
+  const [costeEnvio, setCosteEnvio] = useState(pedido.costeEnvio);
+  const [pagado, setPagado] = useState(pedido.pagadoCompleto);
+
+  async function save() {
+    await actions.updatePedido(pedido.id, { precio, reserva, costeEnvio, pagadoCompleto: pagado });
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-900/50" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full rounded-t-2xl bg-white p-5 pb-8 shadow-2xl">
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">Editar pedido</h2>
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 active:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="space-y-3">
+          <SheetField label="Precio (€)"><input type="number" inputMode="decimal" step="0.01" value={precio} onChange={(e) => setPrecio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-slate-500 focus:outline-none" /></SheetField>
+          <SheetField label="Reserva (€)"><input type="number" inputMode="decimal" step="0.01" value={reserva} onChange={(e) => setReserva(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-slate-500 focus:outline-none" /></SheetField>
+          <SheetField label="Coste envío (€)"><input type="number" inputMode="decimal" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-slate-500 focus:outline-none" /></SheetField>
+          <button onClick={() => setPagado(!pagado)} className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-base ${pagado ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-300 bg-white text-slate-700"}`}>
+            <span className="font-medium">Pagado completo</span>
+            <span className={`flex h-6 w-6 items-center justify-center rounded border-2 ${pagado ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white"}`}>
+              {pagado && <Check className="h-4 w-4" />}
+            </span>
+          </button>
+          <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
+            Total: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button onClick={onClose} className="flex-1 rounded-lg border border-slate-300 py-3 text-base font-medium text-slate-700 active:bg-slate-100">Cancelar</button>
+            <button onClick={save} className="flex-1 rounded-lg bg-[#1a1f36] py-3 text-base font-semibold text-white active:bg-[#2a2f46]">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SheetField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</label>
+      {children}
     </div>
   );
 }
