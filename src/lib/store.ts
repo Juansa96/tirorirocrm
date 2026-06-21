@@ -15,6 +15,7 @@ interface State {
   pedidos: Pedido[];
   pedidoTelas: PedidoTela[];
   catalogo: CatalogoProducto[];
+  leadFotos: LeadFoto[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
   remoteUpdateTimestamps: Record<string, number>;
