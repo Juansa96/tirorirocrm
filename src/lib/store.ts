@@ -997,6 +997,57 @@ export const actions = {
   },
 
   // deleteAuditEntry intentionally removed — audit log is append-only
+
+  // ───────── Fotos del lead ─────────
+  async addLeadFoto(leadId: string, file: File, pie = ""): Promise<LeadFoto | null> {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `${leadId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("lead-fotos").upload(path, file, {
+      contentType: file.type || `image/${ext}`,
+      cacheControl: "3600",
+    });
+    if (upErr) { toast.error("Error subiendo la foto."); return null; }
+    // Signed URL (bucket privado) — 7 días
+    const { data: signed } = await supabase.storage.from("lead-fotos").createSignedUrl(path, 60 * 60 * 24 * 7);
+    const url = signed?.signedUrl ?? "";
+    const { data, error } = await supabase.from("lead_fotos").insert({
+      lead_id: leadId,
+      storage_path: path,
+      url,
+      pie,
+    }).select().single();
+    if (error || !data) {
+      await supabase.storage.from("lead-fotos").remove([path]);
+      toast.error("Error al registrar la foto.");
+      return null;
+    }
+    const foto = mapLeadFoto(data as unknown as Record<string, unknown>);
+    state = { ...state, leadFotos: [foto, ...state.leadFotos] };
+    emit();
+    return foto;
+  },
+
+  async deleteLeadFoto(id: string) {
+    const foto = state.leadFotos.find((f) => f.id === id);
+    if (!foto) return;
+    const prevState = state;
+    state = { ...state, leadFotos: state.leadFotos.filter((f) => f.id !== id) };
+    emit();
+    const { error } = await supabase.from("lead_fotos").delete().eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al borrar la foto."); return; }
+    await supabase.storage.from("lead-fotos").remove([foto.storagePath]);
+  },
+
+  async refreshLeadFotoUrl(id: string): Promise<string | null> {
+    const foto = state.leadFotos.find((f) => f.id === id);
+    if (!foto) return null;
+    const { data } = await supabase.storage.from("lead-fotos").createSignedUrl(foto.storagePath, 60 * 60 * 24 * 7);
+    if (!data?.signedUrl) return null;
+    await supabase.from("lead_fotos").update({ url: data.signedUrl }).eq("id", id);
+    state = { ...state, leadFotos: state.leadFotos.map((f) => f.id === id ? { ...f, url: data.signedUrl } : f) };
+    emit();
+    return data.signedUrl;
+  },
 };
 
 
