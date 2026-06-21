@@ -1,10 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-// Contraseña leída desde variable de entorno — nunca hardcodeada en código
-// Configura BOOTSTRAP_USER_PASSWORD en Lovable > Project Settings > Environment Variables
-const USER_PASSWORD = process.env.BOOTSTRAP_USER_PASSWORD ?? "Tiroriro2026";
-
 const USERS = [
   { email: "isangradortorres@gmail.com", name: "Iñaki" },
   { email: "rocionavarreteurdiales98@gmail.com", name: "Rocío" },
@@ -26,7 +22,7 @@ const TAREAS = [
   { lead: "Alicia Mascort", descripcion: "Mandar muestras a Valencia", vendedor: "rocionavarreteurdiales98@gmail.com" },
 ];
 
-async function run() {
+async function run(userPassword: string) {
   const created: string[] = [];
   for (const u of USERS) {
     const { data: existing } = await supabaseAdmin.auth.admin.listUsers();
@@ -34,7 +30,7 @@ async function run() {
     if (!exists) {
       const { error } = await supabaseAdmin.auth.admin.createUser({
         email: u.email,
-        password: USER_PASSWORD,
+        password: userPassword,
         email_confirm: true,
         user_metadata: { name: u.name },
       });
@@ -66,13 +62,21 @@ export const Route = createFileRoute("/api/public/bootstrap")({
         const json = (body: unknown, status = 200) =>
           new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-        // Require secret token if BOOTSTRAP_SECRET env var is configured
+        // Secret is MANDATORY. If missing in the environment, the endpoint is closed.
         const configuredSecret = process.env.BOOTSTRAP_SECRET;
-        if (configuredSecret) {
-          const provided = new URL(request.url).searchParams.get("secret");
-          if (provided !== configuredSecret) {
-            return json({ error: "Unauthorized" }, 401);
-          }
+        if (!configuredSecret) {
+          return json({ error: "Endpoint not configured" }, 503);
+        }
+        // Read the secret from a header, not the URL (URLs leak via logs / Referer / history).
+        const provided = request.headers.get("x-bootstrap-secret");
+        if (provided !== configuredSecret) {
+          return json({ error: "Unauthorized" }, 401);
+        }
+
+        // User password is also mandatory — never fall back to a hardcoded value.
+        const userPassword = process.env.BOOTSTRAP_USER_PASSWORD;
+        if (!userPassword) {
+          return json({ error: "Endpoint not configured" }, 503);
         }
 
         if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -80,10 +84,11 @@ export const Route = createFileRoute("/api/public/bootstrap")({
         }
 
         try {
-          const result = await run();
+          const result = await run(userPassword);
           return json(result);
         } catch (e) {
-          return json({ error: (e as Error).message }, 500);
+          console.error("[bootstrap] unhandled error:", e);
+          return json({ error: "Internal server error" }, 500);
         }
       },
     },

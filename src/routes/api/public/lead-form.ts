@@ -149,7 +149,8 @@ export const Route = createFileRoute("/api/public/lead-form")({
 
           return json({ ok: true, leadId: lead.id }, 201);
         } catch (e) {
-          return json({ error: (e as Error).message }, 500);
+          console.error("[lead-form] unhandled error:", e);
+          return json({ error: "Internal server error" }, 500);
         }
       },
 
