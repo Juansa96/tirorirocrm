@@ -85,6 +85,16 @@ export interface Lead {
   fechaEntradaEtapa: string;
   razonUrgencia: string;
   clienteTipo: string;        // 'normal' | 'partner_ab'
+  etiquetas: string[];
+}
+
+export interface LeadFoto {
+  id: string;
+  leadId: string;
+  storagePath: string;
+  url: string;
+  pie: string;
+  createdAt: string;
 }
 
 export interface Tarea {
