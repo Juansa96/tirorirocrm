@@ -913,3 +913,82 @@ function CrearPedidoButton({
     </button>
   );
 }
+
+function FotosSection({ leadId }: { leadId: string }) {
+  const { leadFotos } = useStore();
+  const fotos = leadFotos.filter((f) => f.leadId === leadId);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    for (const f of Array.from(files)) {
+      if (!f.type.startsWith("image/")) continue;
+      await actions.addLeadFoto(leadId, f);
+    }
+    setUploading(false);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function onDelete(id: string) {
+    if (!window.confirm("¿Borrar esta foto?")) return;
+    await actions.deleteLeadFoto(id);
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Camera className="h-4 w-4 text-slate-500" />
+          <h2 className="text-base font-semibold">Fotos</h2>
+          {fotos.length > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{fotos.length}</span>}
+        </div>
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-400 disabled:opacity-50"
+        >
+          <ImagePlus className="h-3.5 w-3.5" />
+          {uploading ? "Subiendo..." : "Añadir foto"}
+        </button>
+        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
+      </div>
+      {fotos.length === 0 ? (
+        <div className="py-6 text-center text-sm text-slate-400">Sin fotos. Sube capturas de DMs, referencias o medidas.</div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+          {fotos.map((f) => (
+            <div key={f.id} className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+              <img
+                src={f.url}
+                alt={f.pie || "Foto"}
+                loading="lazy"
+                onClick={() => setPreview(f.url)}
+                onError={async () => { const u = await actions.refreshLeadFotoUrl(f.id); if (u && f.url !== u) {/* re-render via state */} }}
+                className="h-full w-full cursor-zoom-in object-cover transition-transform group-hover:scale-105"
+              />
+              <button
+                onClick={() => onDelete(f.id)}
+                className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+                aria-label="Borrar foto"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {preview && (
+        <div
+          onClick={() => setPreview(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+        >
+          <img src={preview} alt="" className="max-h-full max-w-full rounded-lg shadow-2xl" />
+        </div>
+      )}
+    </div>
+  );
+}
