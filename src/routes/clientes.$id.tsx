@@ -194,15 +194,8 @@ function ClienteDetalle() {
   }
 
   function closeEditing() {
-    if (lead && draft) {
-      const patch: Partial<Lead> = {};
-      if (draft.nombre !== lead.nombre) patch.nombre = draft.nombre;
-      if (draft.email !== lead.email) patch.email = draft.email;
-      if (draft.telefono !== lead.telefono) patch.telefono = draft.telefono;
-      if (draft.ciudad !== lead.ciudad) patch.ciudad = draft.ciudad;
-      if (draft.redSocial !== lead.redSocial) patch.redSocial = draft.redSocial;
-      if (Object.keys(patch).length > 0) void actions.updateLead(lead.id, patch);
-    }
+    // Los campos ya se guardan onBlur en saveDraftField; aquí solo cerramos el modo edición.
+    // No re-aplicamos un patch global para evitar guardados duplicados que generan dos entradas en el histórico.
     setDraft(null);
     setEditing(false);
   }
@@ -412,7 +405,28 @@ function ClienteDetalle() {
               {editing && draft ? <input value={draft.ciudad} onChange={(e) => setDraft({ ...draft, ciudad: e.target.value })} onBlur={(e) => saveDraftField("ciudad", e.target.value)} className={inp} /> : (lead.ciudad || <span className="text-slate-400">—</span>)}
             </InfoRow>
             <InfoRow icon={Radio} label="Red social">
-              {editing && draft ? <input value={draft.redSocial} onChange={(e) => setDraft({ ...draft, redSocial: e.target.value })} onBlur={(e) => saveDraftField("redSocial", e.target.value)} className={inp} placeholder="@usuario..." /> : (lead.redSocial || <span className="text-slate-400">—</span>)}
+              {editing && draft ? (
+                <input value={draft.redSocial} onChange={(e) => setDraft({ ...draft, redSocial: e.target.value })} onBlur={(e) => saveDraftField("redSocial", e.target.value)} className={inp} placeholder="@usuario..." />
+              ) : lead.redSocial ? (
+                <div className="flex items-center gap-2">
+                  <span>{lead.redSocial}</span>
+                  {(() => {
+                    const handle = lead.redSocial.trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/$/, "");
+                    if (!handle || handle.includes(" ") || handle.includes("/")) return null;
+                    return (
+                      <a
+                        href={`https://instagram.com/${handle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center rounded-full border border-pink-200 bg-gradient-to-br from-pink-50 to-orange-50 px-2 py-0.5 text-[11px] font-medium text-pink-700 hover:from-pink-100 hover:to-orange-100"
+                        title="Abrir en Instagram"
+                      >
+                        Abrir IG ↗
+                      </a>
+                    );
+                  })()}
+                </div>
+              ) : <span className="text-slate-400">—</span>}
             </InfoRow>
             <div>
               <div className="mb-1.5 text-xs text-slate-500">Edad aprox.</div>

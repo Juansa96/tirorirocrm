@@ -6,6 +6,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { useStore } from "@/lib/store";
+import type { Etapa } from "@/lib/types";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, RANGOS_EDAD, vendorName } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 
@@ -90,7 +91,7 @@ function Empty() {
 }
 
 function DatosPage() {
-  const { leads, notas, productos } = useStore();
+  const { leads, notas, productos, audit } = useStore();
 
   // ── Filtros ──────────────────────────────────────────────────────
   const now = new Date();
@@ -255,6 +256,36 @@ function DatosPage() {
     .filter(([, v]) => v.total >= 2)
     .map(([canal, v]) => ({ canal, tasa: Math.round(v.won / v.total * 100), total: v.total }))
     .sort((a, b) => b.tasa - a.tasa);
+
+  // ── Funnel de conversión por etapa ────────────────────────────────
+  // Para cada lead, calculamos la "etapa máxima alcanzada" mirando su etapa actual
+  // y el histórico de la auditoría (campo='etapa'). Así un Closed Lost cuenta como
+  // "alcanzó" Discovery / Primer Contacto / Negotiation si pasó por ellas.
+  const FUNNEL_ORDER: Etapa[] = ["Discovery", "Primer Contacto", "Negotiation", "Closed Won"];
+  const etapaRank: Record<string, number> = {
+    "Discovery": 0, "Primer Contacto": 1, "Negotiation": 2, "Closed Won": 3,
+    "On Hold": -1, "Closed Lost": -1,
+  };
+  const filteredIdSet = filteredIds;
+  const maxRankByLead = new Map<string, number>();
+  filtered.forEach(l => {
+    const r = etapaRank[l.etapa] ?? -1;
+    maxRankByLead.set(l.id, r);
+  });
+  audit.forEach(a => {
+    if (a.campo !== "etapa" || !a.leadId || !filteredIdSet.has(a.leadId)) return;
+    [a.valorAnterior, a.valorNuevo].forEach(v => {
+      if (!v) return;
+      const r = etapaRank[v] ?? -1;
+      const cur = maxRankByLead.get(a.leadId!) ?? -1;
+      if (r > cur) maxRankByLead.set(a.leadId!, r);
+    });
+  });
+  const totalFunnel = filtered.length;
+  const funnelData = FUNNEL_ORDER.map((etapa, i) => {
+    const reached = Array.from(maxRankByLead.values()).filter(r => r >= i).length;
+    return { etapa, count: reached, pct: totalFunnel > 0 ? Math.round(reached / totalFunnel * 100) : 0 };
+  });
 
   // ── Edad ──────────────────────────────────────────────────────────
   const edadData = RANGOS_EDAD.map(r => ({
@@ -602,6 +633,38 @@ function DatosPage() {
             {sinEdad > 0 && (
               <p className="text-center text-xs text-slate-400">{sinEdad} lead{sinEdad !== 1 ? "s" : ""} sin edad registrada</p>
             )}
+          </div>
+        )}
+      </Card>
+
+      {/* Funnel de conversión por etapa */}
+      <Card title="Funnel de conversión por etapa">
+        {totalFunnel === 0 ? <Empty /> : (
+          <div className="space-y-2">
+            {funnelData.map((d, i) => {
+              const prev = i > 0 ? funnelData[i - 1].count : d.count;
+              const dropPct = prev > 0 ? Math.round(((prev - d.count) / prev) * 100) : 0;
+              const widthPct = funnelData[0].count > 0 ? Math.round((d.count / funnelData[0].count) * 100) : 0;
+              const color = i === funnelData.length - 1 ? "#10b981" : PALETTE[i % PALETTE.length];
+              return (
+                <div key={d.etapa} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-slate-700">{d.etapa}</span>
+                    <span className="text-slate-500">
+                      <span className="font-semibold text-slate-900">{d.count}</span> leads · {d.pct}%
+                      {i > 0 && dropPct > 0 && <span className="ml-2 text-rose-500">↓ {dropPct}% de la etapa anterior</span>}
+                    </span>
+                  </div>
+                  <div className="h-6 overflow-hidden rounded bg-slate-100">
+                    <div className="h-6 rounded transition-all" style={{ width: `${widthPct}%`, backgroundColor: color }} />
+                  </div>
+                </div>
+              );
+            })}
+            <p className="pt-2 text-[11px] text-slate-400">
+              Se considera que un lead "alcanzó" una etapa si está actualmente en ella o pasó por ella según el histórico.
+              Se excluyen On Hold y Closed Lost (no son fases del funnel).
+            </p>
           </div>
         )}
       </Card>

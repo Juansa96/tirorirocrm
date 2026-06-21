@@ -581,11 +581,58 @@ export const actions = {
   },
 
   async deleteLead(id: string) {
-    const prevState = state;
-    state = { ...state, leads: state.leads.filter((l) => l.id !== id) };
+    // Borrado con UNDO: ocultamos del UI inmediatamente y diferimos el delete real 5s
+    const lead = state.leads.find((l) => l.id === id);
+    if (!lead) return;
+    const relProductos = state.productos.filter((p) => p.leadId === id);
+    const relTareas = state.tareas.filter((t) => t.leadId === id);
+    const relNotas = state.notas.filter((n) => n.leadId === id);
+    state = {
+      ...state,
+      leads: state.leads.filter((l) => l.id !== id),
+      productos: state.productos.filter((p) => p.leadId !== id),
+      tareas: state.tareas.filter((t) => t.leadId !== id),
+      notas: state.notas.filter((n) => n.leadId !== id),
+    };
     emit();
-    const { error } = await supabase.from("leads").delete().eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al eliminar el cliente."); }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      const { error } = await supabase.from("leads").delete().eq("id", id);
+      if (error) {
+        // Restauramos si falla
+        state = {
+          ...state,
+          leads: [lead, ...state.leads],
+          productos: [...relProductos, ...state.productos],
+          tareas: [...relTareas, ...state.tareas],
+          notas: [...relNotas, ...state.notas],
+        };
+        emit();
+        toast.error("Error al eliminar el cliente.");
+      }
+    }, 5000);
+
+    toast(`Cliente "${lead.nombre}" eliminado`, {
+      duration: 5000,
+      action: {
+        label: "Deshacer",
+        onClick: () => {
+          cancelled = true;
+          clearTimeout(timer);
+          state = {
+            ...state,
+            leads: [lead, ...state.leads.filter((l) => l.id !== id)],
+            productos: [...relProductos, ...state.productos],
+            tareas: [...relTareas, ...state.tareas],
+            notas: [...relNotas, ...state.notas],
+          };
+          emit();
+          toast.success("Cliente restaurado");
+        },
+      },
+    });
   },
 
   async addTarea(input: Omit<Tarea, "id" | "completada">) {
