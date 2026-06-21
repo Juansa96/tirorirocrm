@@ -91,7 +91,7 @@ function Empty() {
 }
 
 function DatosPage() {
-  const { leads, notas, productos } = useStore();
+  const { leads, notas, productos, audit } = useStore();
 
   // ── Filtros ──────────────────────────────────────────────────────
   const now = new Date();
