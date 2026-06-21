@@ -438,20 +438,21 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const selectedLead = leads.find((l) => l.id === leadId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="my-8 w-full max-w-xl rounded-xl bg-white p-5 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 md:items-start md:p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-t-2xl bg-white p-5 pb-8 shadow-2xl md:my-8 md:rounded-xl md:pb-5">
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 md:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">Nuevo pedido</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 active:bg-slate-100 md:h-8 md:w-8"><X className="h-5 w-5 md:h-4 md:w-4" /></button>
         </div>
 
         <div className="space-y-4">
           {/* Cliente */}
           <div>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</div>
-            <div className="mb-2 inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
-              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente existente</button>
-              <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>No está en el CRM</button>
+            <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-sm md:inline-flex md:text-xs">
+              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente existente</button>
+              <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>No está en el CRM</button>
             </div>
             {mode === "lead" ? (
               <div className="space-y-1.5">
@@ -459,14 +460,14 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                   value={selectedLead ? selectedLead.nombre : leadSearch}
                   onChange={(e) => { setLeadSearch(e.target.value); setLeadId(""); }}
                   placeholder="Buscar lead por nombre…"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-slate-500 focus:outline-none md:py-1.5 md:text-sm"
                 />
                 {!selectedLead && leadSearch && (
-                  <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
                     {leadFiltered.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-slate-400">Sin coincidencias</div>
                     ) : leadFiltered.map((l) => (
-                      <button key={l.id} onClick={() => { setLeadId(l.id); setLeadSearch(""); }} className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50">
+                      <button key={l.id} onClick={() => { setLeadId(l.id); setLeadSearch(""); }} className="block w-full px-3 py-3 text-left text-base active:bg-slate-100 md:py-1.5 md:text-sm md:hover:bg-slate-50">
                         {l.nombre}
                       </button>
                     ))}
@@ -478,7 +479,7 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                 value={nombreLibre}
                 onChange={(e) => setNombreLibre(e.target.value)}
                 placeholder="Nombre del cliente"
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-slate-500 focus:outline-none md:py-1.5 md:text-sm"
               />
             )}
           </div>
@@ -487,13 +488,13 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
           <div>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</div>
             {productosDelLead.length > 0 && (
-              <div className="mb-2 inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
-                <button onClick={() => setProdMode("existente")} className={`rounded-md px-2 py-1 ${prodMode === "existente" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Existente del lead</button>
-                <button onClick={() => setProdMode("nuevo")} className={`rounded-md px-2 py-1 ${prodMode === "nuevo" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Nuevo producto</button>
+              <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-sm md:inline-flex md:text-xs">
+                <button onClick={() => setProdMode("existente")} className={`rounded-md px-2 py-2 md:py-1 ${prodMode === "existente" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Existente del lead</button>
+                <button onClick={() => setProdMode("nuevo")} className={`rounded-md px-2 py-2 md:py-1 ${prodMode === "nuevo" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Nuevo producto</button>
               </div>
             )}
             {prodMode === "existente" && productosDelLead.length > 0 ? (
-              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
+              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base md:py-1.5 md:text-sm">
                 <option value="">— Selecciona producto —</option>
                 {productosDelLead.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -502,30 +503,30 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                 ))}
               </select>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-3 text-base md:py-1.5 md:text-sm">
                   {TIPOS_PRODUCTO.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
-                <input value={modelo} onChange={(e) => setModelo(e.target.value)} placeholder="Modelo" className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+                <input value={modelo} onChange={(e) => setModelo(e.target.value)} placeholder="Modelo" className="rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" />
               </div>
             )}
           </div>
 
           {/* Datos pedido */}
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Días de plazo"><input type="number" min={1} value={diasPlazo} onChange={(e) => setDiasPlazo(parseInt(e.target.value) || 20)} className="w-full rounded border border-slate-200 px-2 py-1 text-sm" /></Field>
-            <Field label="Precio (€)"><input type="number" step="0.01" value={precio} onChange={(e) => setPrecio(parseFloat(e.target.value) || 0)} className="w-full rounded border border-slate-200 px-2 py-1 text-sm" /></Field>
-            <Field label="Reserva (€)"><input type="number" step="0.01" value={reserva} onChange={(e) => setReserva(parseFloat(e.target.value) || 0)} className="w-full rounded border border-slate-200 px-2 py-1 text-sm" /></Field>
-            <Field label="Coste envío (€)"><input type="number" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded border border-slate-200 px-2 py-1 text-sm" /></Field>
+            <Field label="Días de plazo"><input type="number" inputMode="numeric" min={1} value={diasPlazo} onChange={(e) => setDiasPlazo(parseInt(e.target.value) || 20)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
+            <Field label="Precio (€)"><input type="number" inputMode="decimal" step="0.01" value={precio} onChange={(e) => setPrecio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
+            <Field label="Reserva (€)"><input type="number" inputMode="decimal" step="0.01" value={reserva} onChange={(e) => setReserva(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
+            <Field label="Coste envío (€)"><input type="number" inputMode="decimal" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
           </div>
 
-          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
             Total a cobrar: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-            <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">Cancelar</button>
-            <button onClick={submit} disabled={saving} className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-50">
+          <div className="flex gap-2 border-t border-slate-100 pt-3">
+            <button onClick={onClose} className="flex-1 rounded-lg border border-slate-300 py-3 text-base font-medium text-slate-700 active:bg-slate-100 md:flex-none md:py-1.5 md:text-sm">Cancelar</button>
+            <button onClick={submit} disabled={saving} className="flex-1 rounded-lg bg-[#1a1f36] py-3 text-base font-semibold text-white hover:bg-[#2a2f46] disabled:opacity-50 md:flex-none md:px-3 md:py-1.5 md:text-sm">
               {saving ? "Creando…" : "Crear pedido"}
             </button>
           </div>
