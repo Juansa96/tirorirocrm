@@ -395,15 +395,15 @@ async function refetchProductos() {
   if (!error && data) { state = { ...state, productos: data.map(mapProducto) }; emit(); }
 }
 async function refetchPedidos() {
-  const { data, error } = await supabase.from("pedidos" as never).select("*").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("pedidos").select("*").order("created_at", { ascending: false });
   if (!error && data) { state = { ...state, pedidos: (data as unknown as Record<string, unknown>[]).map(mapPedido) }; emit(); }
 }
 async function refetchPedidoTelas() {
-  const { data, error } = await supabase.from("pedido_telas" as never).select("*").order("orden", { ascending: true });
+  const { data, error } = await supabase.from("pedido_telas").select("*").order("orden", { ascending: true });
   if (!error && data) { state = { ...state, pedidoTelas: (data as unknown as Record<string, unknown>[]).map(mapPedidoTela) }; emit(); }
 }
 async function refetchCatalogo() {
-  const { data, error } = await supabase.from("catalogo_productos" as never).select("*").order("tipo", { ascending: true }).order("orden", { ascending: true });
+  const { data, error } = await supabase.from("catalogo_productos").select("*").order("tipo", { ascending: true }).order("orden", { ascending: true });
   if (!error && data) {
     const rows = (data as unknown as Record<string, unknown>[]).map((r): CatalogoProducto => ({
       id: r.id as string,
@@ -474,7 +474,7 @@ async function syncLeadValorFromProductos(leadId: string) {
   };
   emit();
   suppressLead(leadId);
-  await supabase.from("leads").update({ valor_producto: valorProducto, valor } as never).eq("id", leadId);
+  await supabase.from("leads").update({ valor_producto: valorProducto, valor }).eq("id", leadId);
 }
 
 export const actions = {
@@ -560,7 +560,7 @@ export const actions = {
 
     // Guardado principal (sin edad)
     if (Object.keys(dbPatch).length > 0) {
-      const { error } = await supabase.from("leads").update(dbPatch as never).eq("id", id);
+      const { error } = await supabase.from("leads").update(dbPatch).eq("id", id);
       if (error) {
         state = prevState;
         emit();
@@ -571,7 +571,7 @@ export const actions = {
 
     // Guardado de edad por separado — falla silenciosamente si la columna no existe aún
     if (edadValue !== undefined) {
-      await supabase.from("leads").update({ edad: edadValue } as never).eq("id", id).then(({ error }) => {
+      await supabase.from("leads").update({ edad: edadValue }).eq("id", id).then(({ error }) => {
         if (error) console.warn("[updateLead] edad column not available yet:", error.message);
       });
     }
@@ -590,7 +590,7 @@ export const actions = {
           });
         }
       }
-      if (entries.length > 0) await supabase.from("audit_log").insert(entries as never);
+      if (entries.length > 0) await supabase.from("audit_log").insert(entries);
     }
   },
 
@@ -674,7 +674,7 @@ export const actions = {
     if (patch.fecha !== undefined) dbPatch.fecha = patch.fecha;
     if (patch.hora !== undefined) dbPatch.hora = patch.hora;
     if (patch.completada !== undefined) dbPatch.completada = patch.completada;
-    const { error } = await supabase.from("tareas").update(dbPatch as never).eq("id", id);
+    const { error } = await supabase.from("tareas").update(dbPatch).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar la tarea."); }
   },
 
@@ -802,7 +802,7 @@ export const actions = {
     const dbPatch: Record<string, unknown> = {};
     if (patch.caracteristicasConfirmadas !== undefined) dbPatch.caracteristicas_confirmadas = patch.caracteristicasConfirmadas;
     if (patch.pagado50 !== undefined) dbPatch.pagado_50 = patch.pagado50;
-    const { error } = await supabase.from("productos_lead").update(dbPatch as never).eq("id", id);
+    const { error } = await supabase.from("productos_lead").update(dbPatch).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); }
   },
 
@@ -821,7 +821,7 @@ export const actions = {
       return null;
     }
     const precio = (prod.precioUnitario || 0) * (prod.cantidad || 1);
-    const { data, error } = await supabase.from("pedidos" as never).insert({
+    const { data, error } = await supabase.from("pedidos").insert({
       producto_lead_id: prod.id,
       lead_id: prod.leadId,
       dias_plazo: opts.diasPlazo ?? 20,
@@ -829,7 +829,7 @@ export const actions = {
       pago_todo_al_final: opts.pagoTodoAlFinal,
       creado_manualmente: opts.creadoManualmente,
       precio,
-    } as never).select().single();
+    }).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
     const pedido = mapPedido(data as Record<string, unknown>);
     if (!state.pedidos.find((p) => p.id === pedido.id)) {
@@ -846,7 +846,7 @@ export const actions = {
         estado: "Pedida",
         orden: i,
       }));
-      await supabase.from("pedido_telas" as never).insert(rows as never);
+      await supabase.from("pedido_telas").insert(rows);
     }
     toast.success("Pedido creado.");
     return pedido;
@@ -877,7 +877,7 @@ export const actions = {
         precio_unitario: opts.precio,
         caracteristicas_confirmadas: true,
         created_by: currentUser ?? "manual",
-      } as never).select().single();
+      }).select().single();
       if (pe || !pd) { toast.error("Error al crear el producto."); return null; }
       productoId = (pd as Record<string, unknown>).id as string;
       tipoProd = opts.nuevoProducto.tipo;
@@ -900,7 +900,7 @@ export const actions = {
     };
     if (opts.fechaCreacion) insertPedido.fecha_creacion_pedido = opts.fechaCreacion;
 
-    const { data, error } = await supabase.from("pedidos" as never).insert(insertPedido as never).select().single();
+    const { data, error } = await supabase.from("pedidos").insert(insertPedido).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
     const pedido = mapPedido(data as Record<string, unknown>);
     if (!state.pedidos.find((p) => p.id === pedido.id)) {
@@ -916,7 +916,7 @@ export const actions = {
         estado: "Pedida",
         orden: i,
       }));
-      await supabase.from("pedido_telas" as never).insert(rows as never);
+      await supabase.from("pedido_telas").insert(rows);
     }
     toast.success("Pedido creado.");
     return pedido;
@@ -955,7 +955,7 @@ export const actions = {
       const col = map[k];
       if (col) dbPatch[col] = v === "" ? null : v;
     }
-    const { error } = await supabase.from("pedidos" as never).update(dbPatch as never).eq("id", id);
+    const { error } = await supabase.from("pedidos").update(dbPatch).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); }
   },
 
@@ -963,15 +963,15 @@ export const actions = {
     const prevState = state;
     state = { ...state, pedidos: state.pedidos.filter((p) => p.id !== id) };
     emit();
-    const { error } = await supabase.from("pedidos" as never).delete().eq("id", id);
+    const { error } = await supabase.from("pedidos").delete().eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al eliminar el pedido."); }
   },
 
   async addPedidoTela(pedidoId: string, tipoTela: string) {
     const orden = state.pedidoTelas.filter((t) => t.pedidoId === pedidoId).length;
-    const { error } = await supabase.from("pedido_telas" as never).insert({
+    const { error } = await supabase.from("pedido_telas").insert({
       pedido_id: pedidoId, tipo_tela: tipoTela, estado: "Pedida", orden,
-    } as never);
+    });
     if (error) toast.error("Error al añadir la tela.");
   },
 
@@ -984,7 +984,7 @@ export const actions = {
     if (patch.nombreTela !== undefined) dbPatch.nombre_tela = patch.nombreTela;
     if (patch.estado !== undefined) dbPatch.estado = patch.estado;
     if (patch.fechaRecibo !== undefined) dbPatch.fecha_recibo = patch.fechaRecibo || null;
-    const { error } = await supabase.from("pedido_telas" as never).update(dbPatch as never).eq("id", id);
+    const { error } = await supabase.from("pedido_telas").update(dbPatch).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); }
   },
 
@@ -992,7 +992,7 @@ export const actions = {
     const prevState = state;
     state = { ...state, pedidoTelas: state.pedidoTelas.filter((t) => t.id !== id) };
     emit();
-    const { error } = await supabase.from("pedido_telas" as never).delete().eq("id", id);
+    const { error } = await supabase.from("pedido_telas").delete().eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al eliminar la tela."); }
   },
 
