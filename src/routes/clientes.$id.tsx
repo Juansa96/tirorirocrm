@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
-  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap,
+  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap, Camera, ImagePlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Lead, type Tarea } from "@/lib/types";
