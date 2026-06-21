@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check } from "lucide-react";
+import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { semaforoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { formatShortDate, formatCurrency } from "@/lib/format";
