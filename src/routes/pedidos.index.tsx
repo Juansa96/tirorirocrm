@@ -1,10 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil } from "lucide-react";
+import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { semaforoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
+
+function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
+  const headers = Object.keys(rows[0] ?? {});
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers.join(";"), ...rows.map((r) => headers.map((h) => esc(r[h])).join(";"))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
 export const Route = createFileRoute("/pedidos/")({
   head: () => ({ meta: [{ title: "Pedidos — TiroCRM" }] }),
