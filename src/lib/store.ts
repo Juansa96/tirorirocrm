@@ -560,7 +560,7 @@ export const actions = {
 
     // Guardado principal (sin edad)
     if (Object.keys(dbPatch).length > 0) {
-      const { error } = await supabase.from("leads").update(dbPatch).eq("id", id);
+      const { error } = await supabase.from("leads").update(dbPatch as never).eq("id", id);
       if (error) {
         state = prevState;
         emit();
@@ -571,7 +571,7 @@ export const actions = {
 
     // Guardado de edad por separado — falla silenciosamente si la columna no existe aún
     if (edadValue !== undefined) {
-      await supabase.from("leads").update({ edad: edadValue }).eq("id", id).then(({ error }) => {
+      await supabase.from("leads").update({ edad: edadValue } as never).eq("id", id).then(({ error }) => {
         if (error) console.warn("[updateLead] edad column not available yet:", error.message);
       });
     }
@@ -590,7 +590,7 @@ export const actions = {
           });
         }
       }
-      if (entries.length > 0) await supabase.from("audit_log").insert(entries);
+      if (entries.length > 0) await supabase.from("audit_log").insert(entries as never);
     }
   },
 
@@ -674,7 +674,7 @@ export const actions = {
     if (patch.fecha !== undefined) dbPatch.fecha = patch.fecha;
     if (patch.hora !== undefined) dbPatch.hora = patch.hora;
     if (patch.completada !== undefined) dbPatch.completada = patch.completada;
-    const { error } = await supabase.from("tareas").update(dbPatch).eq("id", id);
+    const { error } = await supabase.from("tareas").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar la tarea."); }
   },
 
@@ -802,7 +802,7 @@ export const actions = {
     const dbPatch: Record<string, unknown> = {};
     if (patch.caracteristicasConfirmadas !== undefined) dbPatch.caracteristicas_confirmadas = patch.caracteristicasConfirmadas;
     if (patch.pagado50 !== undefined) dbPatch.pagado_50 = patch.pagado50;
-    const { error } = await supabase.from("productos_lead").update(dbPatch).eq("id", id);
+    const { error } = await supabase.from("productos_lead").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); }
   },
 
@@ -955,7 +955,7 @@ export const actions = {
       const col = map[k];
       if (col) dbPatch[col] = v === "" ? null : v;
     }
-    const { error } = await supabase.from("pedidos").update(dbPatch).eq("id", id);
+    const { error } = await supabase.from("pedidos").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); }
   },
 
@@ -984,7 +984,7 @@ export const actions = {
     if (patch.nombreTela !== undefined) dbPatch.nombre_tela = patch.nombreTela;
     if (patch.estado !== undefined) dbPatch.estado = patch.estado;
     if (patch.fechaRecibo !== undefined) dbPatch.fecha_recibo = patch.fechaRecibo || null;
-    const { error } = await supabase.from("pedido_telas").update(dbPatch).eq("id", id);
+    const { error } = await supabase.from("pedido_telas").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); }
   },
 
