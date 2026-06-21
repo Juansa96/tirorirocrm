@@ -18,6 +18,34 @@ const PALETTE = ["#1a1f36","#38bdf8","#8b5cf6","#f59e0b","#10b981","#ef4444","#f
 const MESES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const DIAS = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 
+// Municipios de la Comunidad de Madrid que agrupamos bajo "Madrid"
+const MADRID_CAM = new Set([
+  "madrid","alcala de henares","mostoles","fuenlabrada","leganes","getafe","alcorcon",
+  "torrejon de ardoz","parla","alcobendas","las rozas","las rozas de madrid",
+  "san sebastian de los reyes","pozuelo de alarcon","coslada","rivas vaciamadrid",
+  "rivas-vaciamadrid","valdemoro","majadahonda","collado villalba","aranjuez",
+  "arganda del rey","boadilla del monte","tres cantos","pinto","colmenar viejo",
+  "san fernando de henares","villaviciosa de odon","galapagar","mejorada del campo",
+  "navalcarnero","torrelodones","ciempozuelos","algete","villanueva de la canada",
+  "villanueva del pardillo","paracuellos de jarama","el escorial",
+  "san lorenzo de el escorial","soto del real","guadarrama","moralzarzal",
+  "hoyo de manzanares","manzanares el real","cercedilla","navacerrada",
+  "becerril de la sierra","el molar","daganzo","daganzo de arriba","velilla de san antonio",
+  "humanes de madrid","griñon","grinon","brunete","sevilla la nueva","villalbilla",
+  "loeches","camarma de esteruelas","meco","ajalvir","fuente el saz",
+  "valdetorres de jarama","torres de la alameda","chinchon","morata de tajuna",
+  "ciempozuelos","san martin de la vega","valdeolmos","cobeña","cobena",
+  "miraflores de la sierra","bustarviejo","el boalo","cerceda","mataelpino",
+  "robledo de chavela","villa del prado","cadalso de los vidrios","aldea del fresno",
+]);
+function normalizeCiudad(c: string): string {
+  if (!c) return c;
+  const key = c.trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (MADRID_CAM.has(key)) return "Madrid";
+  return c;
+}
+
 function count<T extends string | number>(arr: T[]): { key: T; n: number }[] {
   const m = new Map<T, number>();
   arr.forEach(v => m.set(v, (m.get(v) ?? 0) + 1));
