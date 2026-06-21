@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package } from "lucide-react";
+import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package, Download, Tag } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
 import { VENDEDORES, vendorName, ETAPAS } from "@/lib/types";
@@ -7,6 +7,20 @@ import { formatCurrency, dateLabel, formatShortDate } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { StageBadge } from "@/components/StageBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
+
+function exportLeadsCSV(rows: Array<Record<string, string | number>>, filename: string) {
+  const headers = Object.keys(rows[0] ?? {});
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers.join(";"), ...rows.map((r) => headers.map((h) => esc(r[h])).join(";"))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
 export const Route = createFileRoute("/clientes/")({
   head: () => ({ meta: [{ title: "Clientes — TiroCRM" }] }),
@@ -19,11 +33,13 @@ function ClientesList() {
   const [vendedor, setVendedor] = useState("");
   const [producto, setProducto] = useState("");
   const [ciudad, setCiudad] = useState("");
+  const [etiqueta, setEtiqueta] = useState("");
   type SortKey = "fechaCreacion" | "nombre" | "vendedor" | "etapa" | "valor" | "ciudad" | "proximaAccion";
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
   const productos = useMemo(() => Array.from(new Set(leads.map((l) => l.producto).filter(Boolean))), [leads]);
   const ciudades = useMemo(() => Array.from(new Set(leads.map((l) => l.ciudad).filter(Boolean))), [leads]);
+  const etiquetasAll = useMemo(() => Array.from(new Set(leads.flatMap((l) => l.etiquetas ?? []))).sort(), [leads]);
 
   const filtered = leads.filter((l) => {
     const ql = q.toLowerCase();
@@ -35,8 +51,28 @@ function ClientesList() {
     }
     if (producto && l.producto !== producto) return false;
     if (ciudad && l.ciudad !== ciudad) return false;
+    if (etiqueta && !(l.etiquetas ?? []).includes(etiqueta)) return false;
     return true;
   });
+
+  function handleExport() {
+    const rows = sorted.map((l) => ({
+      Fecha: formatShortDate(l.fechaCreacion),
+      Nombre: l.nombre,
+      Email: l.email,
+      Telefono: l.telefono,
+      Ciudad: l.ciudad,
+      Vendedor: vendorName(l.vendedor) || "",
+      Etapa: l.etapa,
+      Producto: l.producto,
+      Valor: l.valor || 0,
+      Origen: l.origen,
+      Etiquetas: (l.etiquetas ?? []).join(", "),
+      Pedidos: pedidos.filter((p) => p.leadId === l.id).length,
+    }));
+    if (rows.length === 0) return;
+    exportLeadsCSV(rows, `clientes-${new Date().toISOString().slice(0, 10)}.csv`);
+  }
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
