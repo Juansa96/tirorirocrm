@@ -27,6 +27,12 @@ function PedidosIndex() {
   const [estadoF, setEstadoF] = useState<EstadoFiltro>("Todos");
   const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
   const [newOpen, setNewOpen] = useState(false);
+  // Tick every minute so semáforos (días restantes) se refrescan sin recargar
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setNowTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const enriched = useMemo(() => pedidos.map((p) => {
     const lead = leads.find((l) => l.id === p.leadId);
