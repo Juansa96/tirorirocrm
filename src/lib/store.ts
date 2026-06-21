@@ -209,12 +209,11 @@ async function init() {
       if (state.leads.find((l) => l.id === newLead.id)) return;
       state = { ...state, leads: [newLead, ...state.leads] };
       emit();
-      // Notify team about externally-created leads (formulario web / configurador)
+      // Notify team about externally-created leads (formulario web)
       const createdBy = (payload.new as Record<string, unknown>).created_by as string | null | undefined;
       const isExternal =
         createdBy === "formulario-web" ||
-        newLead.origen === "Formulario web" ||
-        newLead.origen === "Configurador";
+        newLead.origen === "Formulario web";
       if (isExternal) {
         toast.info(`Nuevo lead del formulario web: ${newLead.nombre}`, {
           duration: 12000,
