@@ -637,6 +637,38 @@ function DatosPage() {
         )}
       </Card>
 
+      {/* Funnel de conversión por etapa */}
+      <Card title="Funnel de conversión por etapa">
+        {totalFunnel === 0 ? <Empty /> : (
+          <div className="space-y-2">
+            {funnelData.map((d, i) => {
+              const prev = i > 0 ? funnelData[i - 1].count : d.count;
+              const dropPct = prev > 0 ? Math.round(((prev - d.count) / prev) * 100) : 0;
+              const widthPct = funnelData[0].count > 0 ? Math.round((d.count / funnelData[0].count) * 100) : 0;
+              const color = i === funnelData.length - 1 ? "#10b981" : PALETTE[i % PALETTE.length];
+              return (
+                <div key={d.etapa} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-slate-700">{d.etapa}</span>
+                    <span className="text-slate-500">
+                      <span className="font-semibold text-slate-900">{d.count}</span> leads · {d.pct}%
+                      {i > 0 && dropPct > 0 && <span className="ml-2 text-rose-500">↓ {dropPct}% de la etapa anterior</span>}
+                    </span>
+                  </div>
+                  <div className="h-6 overflow-hidden rounded bg-slate-100">
+                    <div className="h-6 rounded transition-all" style={{ width: `${widthPct}%`, backgroundColor: color }} />
+                  </div>
+                </div>
+              );
+            })}
+            <p className="pt-2 text-[11px] text-slate-400">
+              Se considera que un lead "alcanzó" una etapa si está actualmente en ella o pasó por ella según el histórico.
+              Se excluyen On Hold y Closed Lost (no son fases del funnel).
+            </p>
+          </div>
+        )}
+      </Card>
+
       {/* Motivos de cierre */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card title="Motivos — Closed Won">
