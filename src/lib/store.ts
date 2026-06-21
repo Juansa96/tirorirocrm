@@ -417,8 +417,12 @@ async function refetchCatalogo() {
     state = { ...state, catalogo: rows }; emit();
   }
 }
+async function refetchLeadFotos() {
+  const { data, error } = await supabase.from("lead_fotos").select("*").order("created_at", { ascending: false });
+  if (!error && data) { state = { ...state, leadFotos: (data as unknown as Record<string, unknown>[]).map(mapLeadFoto) }; emit(); }
+}
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo(), refetchLeadFotos()]);
   state = { ...state, loaded: true };
   emit();
 }
