@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto } from "./types";
 import { VENDEDORES, telasPorTipo } from "./types";
 
 
@@ -15,6 +15,7 @@ interface State {
   pedidos: Pedido[];
   pedidoTelas: PedidoTela[];
   catalogo: CatalogoProducto[];
+  leadFotos: LeadFoto[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
   remoteUpdateTimestamps: Record<string, number>;
@@ -22,7 +23,7 @@ interface State {
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], leadFotos: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -60,6 +61,18 @@ function mapLead(r: Record<string, unknown>): Lead {
     fechaEntradaEtapa: (r.fecha_entrada_etapa as string) ?? (r.created_at as string) ?? "",
     razonUrgencia: (r.razon_urgencia as string) ?? "",
     clienteTipo: (r.cliente_tipo as string) ?? "normal",
+    etiquetas: Array.isArray(r.etiquetas) ? (r.etiquetas as string[]) : [],
+  };
+}
+
+function mapLeadFoto(r: Record<string, unknown>): LeadFoto {
+  return {
+    id: r.id as string,
+    leadId: r.lead_id as string,
+    storagePath: r.storage_path as string,
+    url: r.url as string,
+    pie: (r.pie as string) ?? "",
+    createdAt: (r.created_at as string) ?? "",
   };
 }
 
@@ -404,8 +417,12 @@ async function refetchCatalogo() {
     state = { ...state, catalogo: rows }; emit();
   }
 }
+async function refetchLeadFotos() {
+  const { data, error } = await supabase.from("lead_fotos").select("*").order("created_at", { ascending: false });
+  if (!error && data) { state = { ...state, leadFotos: (data as unknown as Record<string, unknown>[]).map(mapLeadFoto) }; emit(); }
+}
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo(), refetchLeadFotos()]);
   state = { ...state, loaded: true };
   emit();
 }
@@ -418,7 +435,7 @@ function subscribe(cb: () => void) {
 }
 
 const SERVER: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], leadFotos: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
@@ -437,7 +454,7 @@ export async function teardownStore() {
   } catch { /* ignore */ }
   initStarted = false;
   state = {
-    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [],
+    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], leadFotos: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
   };
   emit();
@@ -524,6 +541,7 @@ export const actions = {
     if (patch.fechaHold !== undefined) dbPatch.fecha_hold = patch.fechaHold || null;
     if (patch.razonUrgencia !== undefined) dbPatch.razon_urgencia = patch.razonUrgencia;
     if (patch.clienteTipo !== undefined) dbPatch.cliente_tipo = patch.clienteTipo;
+    if (patch.etiquetas !== undefined) dbPatch.etiquetas = patch.etiquetas;
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos
     const edadValue = patch.edad;
@@ -979,6 +997,57 @@ export const actions = {
   },
 
   // deleteAuditEntry intentionally removed — audit log is append-only
+
+  // ───────── Fotos del lead ─────────
+  async addLeadFoto(leadId: string, file: File, pie = ""): Promise<LeadFoto | null> {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `${leadId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("lead-fotos").upload(path, file, {
+      contentType: file.type || `image/${ext}`,
+      cacheControl: "3600",
+    });
+    if (upErr) { toast.error("Error subiendo la foto."); return null; }
+    // Signed URL (bucket privado) — 7 días
+    const { data: signed } = await supabase.storage.from("lead-fotos").createSignedUrl(path, 60 * 60 * 24 * 7);
+    const url = signed?.signedUrl ?? "";
+    const { data, error } = await supabase.from("lead_fotos").insert({
+      lead_id: leadId,
+      storage_path: path,
+      url,
+      pie,
+    }).select().single();
+    if (error || !data) {
+      await supabase.storage.from("lead-fotos").remove([path]);
+      toast.error("Error al registrar la foto.");
+      return null;
+    }
+    const foto = mapLeadFoto(data as unknown as Record<string, unknown>);
+    state = { ...state, leadFotos: [foto, ...state.leadFotos] };
+    emit();
+    return foto;
+  },
+
+  async deleteLeadFoto(id: string) {
+    const foto = state.leadFotos.find((f) => f.id === id);
+    if (!foto) return;
+    const prevState = state;
+    state = { ...state, leadFotos: state.leadFotos.filter((f) => f.id !== id) };
+    emit();
+    const { error } = await supabase.from("lead_fotos").delete().eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al borrar la foto."); return; }
+    await supabase.storage.from("lead-fotos").remove([foto.storagePath]);
+  },
+
+  async refreshLeadFotoUrl(id: string): Promise<string | null> {
+    const foto = state.leadFotos.find((f) => f.id === id);
+    if (!foto) return null;
+    const { data } = await supabase.storage.from("lead-fotos").createSignedUrl(foto.storagePath, 60 * 60 * 24 * 7);
+    if (!data?.signedUrl) return null;
+    await supabase.from("lead_fotos").update({ url: data.signedUrl }).eq("id", id);
+    state = { ...state, leadFotos: state.leadFotos.map((f) => f.id === id ? { ...f, url: data.signedUrl } : f) };
+    emit();
+    return data.signedUrl;
+  },
 };
 
 

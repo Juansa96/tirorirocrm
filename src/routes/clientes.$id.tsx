@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
-  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap,
+  Edit2, Check, X, Calendar, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap, Camera, ImagePlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Lead, type Tarea } from "@/lib/types";
@@ -443,6 +443,10 @@ function ClienteDetalle() {
                 {!lead.edad && <span className="self-center text-xs text-slate-300">Sin especificar</span>}
               </div>
             </div>
+
+            {/* Etiquetas libres */}
+            <EtiquetasEditor lead={lead} />
+
             {lead.origen && (
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500">Origen:</span>
@@ -689,6 +693,9 @@ function ClienteDetalle() {
         </div>
       </div>
 
+      {/* Fotos */}
+      <FotosSection leadId={lead.id} />
+
       {/* Notas */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
@@ -782,6 +789,56 @@ function InfoRow({ icon: Icon, label, children }: { icon: React.ComponentType<{ 
   );
 }
 
+const ETIQUETAS_SUGERIDAS = ["Mayorista", "Problemático", "Recurrente", "VIP", "Prioritario", "Urgente"];
+
+function EtiquetasEditor({ lead }: { lead: Lead }) {
+  const [input, setInput] = useState("");
+  const tags = lead.etiquetas ?? [];
+  function add(t: string) {
+    const v = t.trim();
+    if (!v || tags.includes(v)) { setInput(""); return; }
+    void actions.updateLead(lead.id, { etiquetas: [...tags, v] });
+    setInput("");
+  }
+  function remove(t: string) {
+    void actions.updateLead(lead.id, { etiquetas: tags.filter((x) => x !== t) });
+  }
+  const sugerencias = ETIQUETAS_SUGERIDAS.filter((s) => !tags.includes(s));
+  return (
+    <div>
+      <div className="mb-1.5 text-xs text-slate-500">Etiquetas</div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tags.map((t) => (
+          <span key={t} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">
+            {t}
+            <button onClick={() => remove(t)} className="rounded-full hover:bg-slate-200" aria-label={`Quitar ${t}`}>
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(input); } }}
+          onBlur={() => input.trim() && add(input)}
+          placeholder="+ etiqueta"
+          className="min-w-[90px] flex-1 rounded-full border border-dashed border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
+        />
+      </div>
+      {sugerencias.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {sugerencias.map((s) => (
+            <button key={s} onClick={() => add(s)} className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-400 hover:text-slate-700">
+              + {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function CrearPedidoButton({
   producto, pedidos, navigate,
 }: {
@@ -854,5 +911,84 @@ function CrearPedidoButton({
     >
       <Package className="h-3.5 w-3.5" /> Crear pedido (sin pago)
     </button>
+  );
+}
+
+function FotosSection({ leadId }: { leadId: string }) {
+  const { leadFotos } = useStore();
+  const fotos = leadFotos.filter((f) => f.leadId === leadId);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    for (const f of Array.from(files)) {
+      if (!f.type.startsWith("image/")) continue;
+      await actions.addLeadFoto(leadId, f);
+    }
+    setUploading(false);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function onDelete(id: string) {
+    if (!window.confirm("¿Borrar esta foto?")) return;
+    await actions.deleteLeadFoto(id);
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Camera className="h-4 w-4 text-slate-500" />
+          <h2 className="text-base font-semibold">Fotos</h2>
+          {fotos.length > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{fotos.length}</span>}
+        </div>
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-400 disabled:opacity-50"
+        >
+          <ImagePlus className="h-3.5 w-3.5" />
+          {uploading ? "Subiendo..." : "Añadir foto"}
+        </button>
+        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
+      </div>
+      {fotos.length === 0 ? (
+        <div className="py-6 text-center text-sm text-slate-400">Sin fotos. Sube capturas de DMs, referencias o medidas.</div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+          {fotos.map((f) => (
+            <div key={f.id} className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+              <img
+                src={f.url}
+                alt={f.pie || "Foto"}
+                loading="lazy"
+                onClick={() => setPreview(f.url)}
+                onError={async () => { const u = await actions.refreshLeadFotoUrl(f.id); if (u && f.url !== u) {/* re-render via state */} }}
+                className="h-full w-full cursor-zoom-in object-cover transition-transform group-hover:scale-105"
+              />
+              <button
+                onClick={() => onDelete(f.id)}
+                className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+                aria-label="Borrar foto"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {preview && (
+        <div
+          onClick={() => setPreview(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+        >
+          <img src={preview} alt="" className="max-h-full max-w-full rounded-lg shadow-2xl" />
+        </div>
+      )}
+    </div>
   );
 }

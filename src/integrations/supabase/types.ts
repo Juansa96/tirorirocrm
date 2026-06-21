@@ -167,6 +167,41 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_fotos: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          pie: string | null
+          storage_path: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id: string
+          pie?: string | null
+          storage_path: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          pie?: string | null
+          storage_path?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_fotos_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           ciudad: string | null
@@ -175,6 +210,7 @@ export type Database = {
           edad: string
           email: string | null
           etapa: string
+          etiquetas: string[]
           fecha_creacion: string
           fecha_entrada_etapa: string
           fecha_hold: string | null
@@ -198,6 +234,7 @@ export type Database = {
           edad?: string
           email?: string | null
           etapa?: string
+          etiquetas?: string[]
           fecha_creacion?: string
           fecha_entrada_etapa?: string
           fecha_hold?: string | null
@@ -221,6 +258,7 @@ export type Database = {
           edad?: string
           email?: string | null
           etapa?: string
+          etiquetas?: string[]
           fecha_creacion?: string
           fecha_entrada_etapa?: string
           fecha_hold?: string | null
