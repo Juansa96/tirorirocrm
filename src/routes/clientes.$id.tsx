@@ -443,6 +443,10 @@ function ClienteDetalle() {
                 {!lead.edad && <span className="self-center text-xs text-slate-300">Sin especificar</span>}
               </div>
             </div>
+
+            {/* Etiquetas libres */}
+            <EtiquetasEditor lead={lead} />
+
             {lead.origen && (
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500">Origen:</span>
