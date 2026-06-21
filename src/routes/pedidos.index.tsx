@@ -1,10 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil } from "lucide-react";
+import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { semaforoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
+
+function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
+  const headers = Object.keys(rows[0] ?? {});
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers.join(";"), ...rows.map((r) => headers.map((h) => esc(r[h])).join(";"))].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
 export const Route = createFileRoute("/pedidos/")({
   head: () => ({ meta: [{ title: "Pedidos — TiroCRM" }] }),
@@ -74,12 +88,38 @@ function PedidosIndex() {
           </h1>
           <p className="text-sm text-slate-500">{visible.length} pedidos {tab === "ab" ? "de Alejandra Blanc" : "normales"}</p>
         </div>
-        <button
-          onClick={() => setNewOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3 py-2 text-sm font-medium text-white hover:bg-[#2a2f46]"
-        >
-          <Plus className="h-4 w-4" /> Nuevo pedido
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const rows = visible.map(({ pedido, lead, producto, sem }) => ({
+                Cliente: lead?.nombre || pedido.clienteNombreLibre || "",
+                Producto: [producto?.tipo, producto?.modelo].filter(Boolean).join(" "),
+                Estado: pedido.estadoPedido,
+                Semaforo: sem.estado,
+                FechaCreacion: formatShortDate(pedido.fechaCreacionPedido),
+                FechaLimite: formatShortDate(pedido.fechaLimite),
+                FechaEntrega: formatShortDate(pedido.fechaEntregaReal),
+                Precio: pedido.precio || 0,
+                CosteEnvio: pedido.costeEnvio || 0,
+                Pagado50: pedido.pagado50 ? "Sí" : "No",
+                PagadoCompleto: pedido.pagadoCompleto ? "Sí" : "No",
+                Factura: pedido.factura || "",
+              }));
+              if (rows.length === 0) return;
+              exportPedidosCSV(rows, `pedidos-${new Date().toISOString().slice(0, 10)}.csv`);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            title="Exportar CSV"
+          >
+            <Download className="h-4 w-4" /> <span className="hidden sm:inline">Exportar</span>
+          </button>
+          <button
+            onClick={() => setNewOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3 py-2 text-sm font-medium text-white hover:bg-[#2a2f46]"
+          >
+            <Plus className="h-4 w-4" /> Nuevo pedido
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
