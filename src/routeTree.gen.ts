@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TareasRouteImport } from './routes/tareas'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as PerfilRouteImport } from './routes/perfil'
@@ -27,11 +26,6 @@ import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/e
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 
-const TareasRoute = TareasRouteImport.update({
-  id: '/tareas',
-  path: '/tareas',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -121,7 +115,6 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
@@ -140,7 +133,6 @@ export interface FileRoutesByTo {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
@@ -160,7 +152,6 @@ export interface FileRoutesById {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/tareas': typeof TareasRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
@@ -181,7 +172,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/reset-password'
-    | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
@@ -200,7 +190,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/reset-password'
-    | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
@@ -219,7 +208,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/reset-password'
-    | '/tareas'
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
@@ -239,7 +227,6 @@ export interface RootRouteChildren {
   PerfilRoute: typeof PerfilRoute
   PipelineRoute: typeof PipelineRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  TareasRoute: typeof TareasRoute
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNuevoRoute: typeof ClientesNuevoRoute
   PedidosIdRoute: typeof PedidosIdRoute
@@ -254,13 +241,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tareas': {
-      id: '/tareas'
-      path: '/tareas'
-      fullPath: '/tareas'
-      preLoaderRoute: typeof TareasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -383,7 +363,6 @@ const rootRouteChildren: RootRouteChildren = {
   PerfilRoute: PerfilRoute,
   PipelineRoute: PipelineRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  TareasRoute: TareasRoute,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNuevoRoute: ClientesNuevoRoute,
   PedidosIdRoute: PedidosIdRoute,
@@ -398,13 +377,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

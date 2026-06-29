@@ -46,8 +46,6 @@ function LeadCard({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useSto
 
   return (
     <div
-      draggable
-      onDragStart={(e) => e.stopPropagation()}
       onClick={onNavigate}
       className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md"
     >
