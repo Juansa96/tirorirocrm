@@ -654,16 +654,51 @@ export const actions = {
   },
 
   async addTarea(input: Omit<Tarea, "id" | "completada">) {
-    const { error } = await supabase.from("tareas").insert({
+    // Idempotencia: si ya existe una tarea idéntica creada en <10s, no insertar
+    const recentDup = state.tareas.find((t) =>
+      t.leadId === input.leadId &&
+      t.descripcion.trim() === input.descripcion.trim() &&
+      t.fecha === input.fecha &&
+      (t.hora ?? "") === (input.hora ?? "")
+    );
+    if (recentDup) return;
+    const tempId = crypto.randomUUID();
+    const optimistic: Tarea = {
+      id: tempId, leadId: input.leadId, descripcion: input.descripcion,
+      fecha: input.fecha, hora: input.hora ?? "", vendedor: input.vendedor, completada: false,
+    };
+    state = { ...state, tareas: [...state.tareas, optimistic].sort((a, b) => a.fecha.localeCompare(b.fecha)) };
+    emit();
+    const { data, error } = await supabase.from("tareas").insert({
       lead_id: input.leadId,
       descripcion: input.descripcion,
       fecha: input.fecha,
       hora: input.hora ?? "",
       vendedor: input.vendedor,
       completada: false,
-    });
-    if (error) toast.error("Error al crear la tarea.");
+    }).select().single();
+    if (error || !data) {
+      state = { ...state, tareas: state.tareas.filter((t) => t.id !== tempId) };
+      emit();
+      toast.error("Error al crear la tarea.");
+      return;
+    }
+    const real = mapTarea(data as Record<string, unknown>);
+    state = { ...state, tareas: state.tareas.map((t) => t.id === tempId ? real : t) };
+    emit();
   },
+
+  async reconnectRealtime() {
+    try {
+      if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
+      if (presenceChannel) { await supabase.removeChannel(presenceChannel); presenceChannel = null; }
+    } catch { /* ignore */ }
+    initStarted = false;
+    state = { ...state, realtimeStatus: "connecting" };
+    emit();
+    await init();
+  },
+
 
   async updateTarea(id: string, patch: Partial<Pick<Tarea, "descripcion" | "fecha" | "hora" | "completada">>) {
     const prevState = state;
