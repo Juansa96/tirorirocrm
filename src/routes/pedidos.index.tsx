@@ -37,11 +37,10 @@ type EstadoFiltro = typeof ESTADO_OPTS[number];
 function PedidosIndex() {
   const { pedidos, leads, productos, pedidoTelas } = useStore();
   const [tab, setTab] = useState<"normal" | "ab">("normal");
+  const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
-  const [estadoF, setEstadoF] = useState<EstadoFiltro>("Todos");
   const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
   const [newOpen, setNewOpen] = useState(false);
-  // Tick every minute so semáforos (días restantes) se refrescan sin recargar
   const [, setNowTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setNowTick((n) => n + 1), 60_000);
@@ -65,17 +64,52 @@ function PedidosIndex() {
     tab === "ab" ? lead?.clienteTipo === "partner_ab" : lead?.clienteTipo !== "partner_ab"
   );
 
-  const visible = baseTab.filter(({ pedido, lead, producto, sem }) => {
-    if (estadoF !== "Todos" && pedido.estadoPedido !== estadoF) return false;
-    if (semF !== "todos" && sem.estado !== semF) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const nombre = (lead?.nombre || pedido.clienteNombreLibre || "").toLowerCase();
-      const prodTxt = ((producto?.modelo || "") + " " + (producto?.tipo || "")).toLowerCase();
-      if (!nombre.includes(q) && !prodTxt.includes(q)) return false;
+  // Group by person (leadId || clienteNombreLibre)
+  type Group = { key: string; nombre: string; lead: Lead | undefined; items: typeof baseTab; allEntregados: boolean; oldest: string; total: number };
+  const groupsAll: Group[] = useMemo(() => {
+    const map = new Map<string, Group>();
+    for (const it of baseTab) {
+      const key = it.lead?.id || it.pedido.clienteNombreLibre || it.pedido.id;
+      const nombre = it.lead?.nombre || it.pedido.clienteNombreLibre || "—";
+      const g = map.get(key) ?? { key, nombre, lead: it.lead, items: [], allEntregados: true, oldest: it.pedido.fechaCreacionPedido, total: 0 };
+      g.items.push(it);
+      if (!it.pedido.entregado) g.allEntregados = false;
+      if (it.pedido.fechaCreacionPedido && (!g.oldest || it.pedido.fechaCreacionPedido < g.oldest)) g.oldest = it.pedido.fechaCreacionPedido;
+      g.total += (it.pedido.precio || 0) + (it.pedido.costeEnvio || 0);
+      map.set(key, g);
     }
-    return true;
-  });
+    for (const g of map.values()) {
+      g.items.sort((a, b) => (a.pedido.fechaCreacionPedido || "").localeCompare(b.pedido.fechaCreacionPedido || ""));
+    }
+    return Array.from(map.values());
+  }, [baseTab]);
+
+  const groups = useMemo(() => {
+    const filtered = groupsAll.filter((g) => view === "archivo" ? g.allEntregados : !g.allEntregados);
+    // Filtros texto/semáforo
+    const q = search.trim().toLowerCase();
+    return filtered
+      .map((g) => {
+        const items = g.items.filter(({ pedido, producto, sem }) => {
+          if (view === "activos" && pedido.entregado) return false;
+          if (semF !== "todos" && sem.estado !== semF) return false;
+          if (q) {
+            const nombre = g.nombre.toLowerCase();
+            const prodTxt = ((producto?.modelo || "") + " " + (producto?.tipo || "")).toLowerCase();
+            if (!nombre.includes(q) && !prodTxt.includes(q)) return false;
+          }
+          return true;
+        });
+        return { ...g, items };
+      })
+      .filter((g) => g.items.length > 0)
+      .sort((a, b) => view === "archivo"
+        ? (b.oldest || "").localeCompare(a.oldest || "")
+        : (a.oldest || "").localeCompare(b.oldest || ""));
+  }, [groupsAll, view, search, semF]);
+
+  const totalPedidos = groups.reduce((s, g) => s + g.items.length, 0);
+  const archivoCount = groupsAll.filter((g) => g.allEntregados).length;
 
   const atrasados = baseTab.filter(({ pedido, sem }) => !pedido.entregado && sem.estado === "rojo");
 
@@ -86,13 +120,13 @@ function PedidosIndex() {
           <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
             <Package className="h-6 w-6 text-[#1a1f36]" /> Pedidos
           </h1>
-          <p className="text-sm text-slate-500">{visible.length} pedidos {tab === "ab" ? "de Alejandra Blanc" : "normales"}</p>
+          <p className="text-sm text-slate-500">{groups.length} cliente{groups.length === 1 ? "" : "s"} · {totalPedidos} pedido{totalPedidos === 1 ? "" : "s"}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              const rows = visible.map(({ pedido, lead, producto, sem }) => ({
-                Cliente: lead?.nombre || pedido.clienteNombreLibre || "",
+              const rows = groups.flatMap((g) => g.items.map(({ pedido, producto, sem }) => ({
+                Cliente: g.nombre,
                 Producto: [producto?.tipo, producto?.modelo].filter(Boolean).join(" "),
                 Estado: pedido.estadoPedido,
                 Semaforo: sem.estado,
@@ -104,7 +138,7 @@ function PedidosIndex() {
                 Pagado50: pedido.pagado50 ? "Sí" : "No",
                 PagadoCompleto: pedido.pagadoCompleto ? "Sí" : "No",
                 Factura: pedido.factura || "",
-              }));
+              })));
               if (rows.length === 0) return;
               exportPedidosCSV(rows, `pedidos-${new Date().toISOString().slice(0, 10)}.csv`);
             }}
@@ -122,7 +156,7 @@ function PedidosIndex() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs partner */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200">
         <button onClick={() => setTab("normal")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "normal" ? "border-[#1a1f36] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
           <Package className="h-4 w-4" /> Pedidos
@@ -134,8 +168,18 @@ function PedidosIndex() {
         </button>
       </div>
 
+      {/* Sub-tabs Activos / Archivo */}
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
+        <button onClick={() => setView("activos")} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium ${view === "activos" ? "bg-slate-900 text-white" : "text-slate-600"}`}>
+          <Package className="h-3.5 w-3.5" /> Activos
+        </button>
+        <button onClick={() => setView("archivo")} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium ${view === "archivo" ? "bg-slate-900 text-white" : "text-slate-600"}`}>
+          <Archive className="h-3.5 w-3.5" /> Archivo {archivoCount > 0 && <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">{archivoCount}</span>}
+        </button>
+      </div>
+
       {/* Atrasados banner */}
-      {atrasados.length > 0 && (
+      {view === "activos" && atrasados.length > 0 && (
         <div className="rounded-xl border-2 border-rose-200 bg-rose-50/60 p-4">
           <div className="mb-3 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-rose-600" />
@@ -172,9 +216,6 @@ function PedidosIndex() {
             className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-2 text-sm focus:border-slate-400 focus:bg-white focus:outline-none"
           />
         </div>
-        <select value={estadoF} onChange={(e) => setEstadoF(e.target.value as EstadoFiltro)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
-          {ESTADO_OPTS.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
           {(["todos", "verde", "ambar", "rojo"] as const).map((s) => (
             <button
@@ -188,42 +229,15 @@ function PedidosIndex() {
         </div>
       </div>
 
-      {/* Tabla editable — solo desktop */}
-      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm md:block">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-3 py-2.5">Cliente</th>
-              <th className="px-3 py-2.5">Producto</th>
-              <th className="px-3 py-2.5">Telas</th>
-              <th className="px-3 py-2.5 text-center">Estr.</th>
-              <th className="px-3 py-2.5 text-center">Tapi.</th>
-              <th className="px-3 py-2.5">Deadline</th>
-              <th className="px-3 py-2.5">Días</th>
-              <th className="px-3 py-2.5 text-right">Precio</th>
-              <th className="px-3 py-2.5 text-right">Reserva</th>
-              <th className="px-3 py-2.5 text-right">Envío</th>
-              <th className="px-3 py-2.5 text-center">Pagado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map(({ pedido, lead, producto, sem, totalT, okT }) => (
-              <PedidoRow key={pedido.id} pedido={pedido} lead={lead} producto={producto} sem={sem} totalT={totalT} okT={okT} />
-            ))}
-            {visible.length === 0 && (
-              <tr><td colSpan={11} className="px-4 py-8 text-center text-sm text-slate-400">Sin pedidos</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Cards — solo móvil */}
-      <div className="space-y-2.5 md:hidden">
-        {visible.map(({ pedido, lead, producto, sem, totalT, okT }) => (
-          <PedidoCard key={pedido.id} pedido={pedido} lead={lead} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+      {/* Grupos por persona */}
+      <div className="space-y-4">
+        {groups.map((g) => (
+          <PersonaGroup key={g.key} nombre={g.nombre} lead={g.lead} total={g.total} items={g.items} />
         ))}
-        {visible.length === 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-400">Sin pedidos</div>
+        {groups.length === 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-400">
+            {view === "archivo" ? "Sin pedidos en el archivo" : "Sin pedidos activos"}
+          </div>
         )}
       </div>
 
@@ -231,6 +245,63 @@ function PedidosIndex() {
     </div>
   );
 }
+
+function PersonaGroup({ nombre, lead, total, items }: {
+  nombre: string; lead: Lead | undefined; total: number;
+  items: Array<{ pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number }>;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+        <div className="min-w-0">
+          {lead ? (
+            <Link to="/clientes/$id" params={{ id: lead.id }} className="truncate text-sm font-bold text-slate-900 hover:text-[#1a4b5b] hover:underline">
+              {nombre}
+            </Link>
+          ) : (
+            <span className="truncate text-sm font-bold text-slate-900">{nombre}</span>
+          )}
+          <span className="ml-2 text-xs text-slate-500">{items.length} producto{items.length === 1 ? "" : "s"}</span>
+          {!lead && <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</span>}
+        </div>
+        <div className="text-sm font-bold text-slate-900">{formatCurrency(total)}</div>
+      </div>
+
+      {/* Desktop: tabla compacta */}
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full text-sm">
+          <thead className="bg-white text-left text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Producto</th>
+              <th className="px-3 py-2">Telas</th>
+              <th className="px-3 py-2 text-center" title="Estructura hecha">Estr.</th>
+              <th className="px-3 py-2 text-center" title="Tapizado hecho">Tapi.</th>
+              <th className="px-3 py-2">Deadline</th>
+              <th className="px-3 py-2">Días</th>
+              <th className="px-3 py-2 text-right">Precio</th>
+              <th className="px-3 py-2 text-right">Envío</th>
+              <th className="px-3 py-2 text-center">Pagado</th>
+              <th className="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map(({ pedido, producto, sem, totalT, okT }) => (
+              <PedidoRow key={pedido.id} pedido={pedido} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Móvil: tarjetas */}
+      <div className="space-y-2 p-3 md:hidden">
+        {items.map(({ pedido, producto, sem, totalT, okT }) => (
+          <PedidoCard key={pedido.id} pedido={pedido} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 
 // ──────────────────────────────────────────────────────────────────────────
 // Card móvil + bottom sheet de edición
