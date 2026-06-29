@@ -434,9 +434,8 @@ function subscribe(cb: () => void) {
   return () => { listeners.delete(cb); };
 }
 
-if (typeof window !== "undefined") {
-  window.addEventListener("online", () => { void actions.reconnectRealtime(); });
-}
+
+
 
 
 const SERVER: State = {
