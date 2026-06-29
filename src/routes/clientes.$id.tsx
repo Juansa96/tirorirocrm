@@ -88,16 +88,6 @@ function TareaRow({ tarea, clienteNombre }: { tarea: Tarea; clienteNombre: strin
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <a
-          href={googleCalendarUrl(tarea, clienteNombre)}
-          target="_blank"
-          rel="noreferrer"
-          title="Añadir a Google Calendar"
-          className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-        >
-          <Calendar className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Calendar</span>
-        </a>
         <button onClick={() => setEditing(true)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
           <Edit2 className="h-4 w-4" />
         </button>
