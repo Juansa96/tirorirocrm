@@ -434,6 +434,11 @@ function subscribe(cb: () => void) {
   return () => { listeners.delete(cb); };
 }
 
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => { void actions.reconnectRealtime(); });
+}
+
+
 const SERVER: State = {
   leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], leadFotos: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
