@@ -1107,3 +1107,7 @@ export function vendedorTotals(leads: Lead[]) {
   });
   return map;
 }
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => { void actions.reconnectRealtime(); });
+}
