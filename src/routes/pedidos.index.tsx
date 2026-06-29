@@ -417,24 +417,18 @@ function SheetField({ label, children }: { label: string; children: React.ReactN
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-function PedidoRow({ pedido, lead, producto, sem, totalT, okT }: {
-  pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined;
+function PedidoRow({ pedido, producto, sem, totalT, okT }: {
+  pedido: Pedido; producto: Producto | undefined;
   sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number;
 }) {
   const c = SEM_COLOR[sem.estado];
   const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
   return (
     <tr className="border-t border-slate-100 hover:bg-slate-50/60">
-      <td className="px-3 py-2">
-        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-semibold text-slate-900 hover:text-[#1a4b5b] hover:underline">
-          {lead?.nombre ?? pedido.clienteNombreLibre ?? "—"}
+      <td className="px-3 py-2 text-xs text-slate-700">
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-medium hover:text-[#1a4b5b] hover:underline">
+          {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "—"}
         </Link>
-        {!lead && pedido.clienteNombreLibre && (
-          <div className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</div>
-        )}
-      </td>
-      <td className="px-3 py-2 text-xs text-slate-600">
-        {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "—"}
         {producto?.ancho && producto?.alto && (
           <div className="text-[11px] text-slate-400">{producto.ancho}×{producto.alto}</div>
         )}
@@ -463,13 +457,19 @@ function PedidoRow({ pedido, lead, producto, sem, totalT, okT }: {
         <NumberCell value={pedido.precio} onSave={(v) => actions.updatePedido(pedido.id, { precio: v })} />
       </td>
       <td className="px-3 py-2 text-right">
-        <NumberCell value={pedido.reserva} onSave={(v) => actions.updatePedido(pedido.id, { reserva: v })} />
-      </td>
-      <td className="px-3 py-2 text-right">
         <NumberCell value={pedido.costeEnvio} onSave={(v) => actions.updatePedido(pedido.id, { costeEnvio: v })} />
       </td>
       <td className="px-3 py-2 text-center">
         <CheckCell value={pedido.pagadoCompleto} onChange={(v) => actions.updatePedido(pedido.id, { pagadoCompleto: v })} />
+      </td>
+      <td className="px-3 py-2 text-right">
+        <button
+          onClick={() => { if (confirm("¿Eliminar este pedido?")) actions.deletePedido(pedido.id); }}
+          className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+          title="Eliminar pedido"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </td>
     </tr>
   );
