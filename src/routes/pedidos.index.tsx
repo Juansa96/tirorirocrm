@@ -305,14 +305,13 @@ function PersonaGroup({ nombre, lead, total, items }: {
 
 // ──────────────────────────────────────────────────────────────────────────
 // Card móvil + bottom sheet de edición
-function PedidoCard({ pedido, lead, producto, sem, totalT, okT }: {
-  pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined;
+function PedidoCard({ pedido, producto, sem, totalT, okT }: {
+  pedido: Pedido; producto: Producto | undefined;
   sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number;
 }) {
   const [editing, setEditing] = useState(false);
   const c = SEM_COLOR[sem.estado];
   const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
-  const nombre = lead?.nombre ?? pedido.clienteNombreLibre ?? "—";
   const diasLabel = pedido.entregado ? "Entregado" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d restantes` : `${Math.abs(sem.diasRestantes)}d de retraso`;
   const borderLeft = sem.estado === "verde" ? "border-l-emerald-500" : sem.estado === "ambar" ? "border-l-amber-500" : "border-l-rose-500";
 
@@ -323,35 +322,30 @@ function PedidoCard({ pedido, lead, producto, sem, totalT, okT }: {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
-              <h3 className="truncate text-base font-semibold text-slate-900">{nombre}</h3>
+              <h3 className="truncate text-sm font-semibold text-slate-900">
+                {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "Pedido"}
+              </h3>
             </div>
-            <div className="mt-0.5 truncate text-sm text-slate-600">
-              {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "—"}
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
               <span className={`font-medium ${sem.estado === "rojo" && !pedido.entregado ? "text-rose-700" : "text-slate-600"}`}>{diasLabel}</span>
               <span className="text-slate-400">·</span>
               <span className="text-slate-500">{formatShortDate(pedido.fechaLimite)}</span>
-              {totalT > 0 && (
-                <>
-                  <span className="text-slate-400">·</span>
-                  <span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span>
-                </>
-              )}
+              {totalT > 0 && (<><span className="text-slate-400">·</span><span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span></>)}
+              <span className="text-slate-400">·</span>
+              <span className="font-semibold text-slate-700">{formatCurrency((pedido.precio || 0) + (pedido.costeEnvio || 0))}</span>
             </div>
-            {!lead && pedido.clienteNombreLibre && (
-              <div className="mt-1.5 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</div>
-            )}
           </div>
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-300" />
         </Link>
 
-        {/* Hitos rápidos táctiles */}
-        <div className="grid grid-cols-3 border-t border-slate-100">
-          <ToggleHito label="Estructura" active={pedido.estructuraHecha} onToggle={() => actions.updatePedido(pedido.id, { estructuraHecha: !pedido.estructuraHecha, estructuraHechaFecha: !pedido.estructuraHecha && !pedido.estructuraHechaFecha ? new Date().toISOString().slice(0, 10) : pedido.estructuraHechaFecha })} />
-          <ToggleHito label="Tapizado" active={pedido.tapizadoHecho} onToggle={() => actions.updatePedido(pedido.id, { tapizadoHecho: !pedido.tapizadoHecho, tapizadoHechoFecha: !pedido.tapizadoHecho && !pedido.tapizadoHechoFecha ? new Date().toISOString().slice(0, 10) : pedido.tapizadoHechoFecha })} />
+        <div className="grid grid-cols-4 border-t border-slate-100">
+          <ToggleHito label="Estr." active={pedido.estructuraHecha} onToggle={() => actions.updatePedido(pedido.id, { estructuraHecha: !pedido.estructuraHecha, estructuraHechaFecha: !pedido.estructuraHecha && !pedido.estructuraHechaFecha ? new Date().toISOString().slice(0, 10) : pedido.estructuraHechaFecha })} />
+          <ToggleHito label="Tapi." active={pedido.tapizadoHecho} onToggle={() => actions.updatePedido(pedido.id, { tapizadoHecho: !pedido.tapizadoHecho, tapizadoHechoFecha: !pedido.tapizadoHecho && !pedido.tapizadoHechoFecha ? new Date().toISOString().slice(0, 10) : pedido.tapizadoHechoFecha })} />
           <button onClick={() => setEditing(true)} className="flex h-12 items-center justify-center gap-1.5 border-l border-slate-100 text-xs font-medium text-slate-600 active:bg-slate-100">
             <Pencil className="h-3.5 w-3.5" /> Editar
+          </button>
+          <button onClick={() => { if (confirm("¿Eliminar este pedido?")) actions.deletePedido(pedido.id); }} className="flex h-12 items-center justify-center border-l border-slate-100 text-rose-500 active:bg-rose-50">
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
