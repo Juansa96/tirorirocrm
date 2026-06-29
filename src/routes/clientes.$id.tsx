@@ -542,9 +542,37 @@ function ClienteDetalle() {
             {leadProductos.length > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{leadProductos.length}</span>}
           </div>
           {!showProdForm && (
-            <button onClick={() => setShowProdForm(true)} className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2a2f46]">
-              <Plus className="h-3.5 w-3.5" /> Añadir producto
-            </button>
+            <div className="flex items-center gap-2">
+              {(() => {
+                const pendientes = leadProductos.filter((p) =>
+                  p.caracteristicasConfirmadas &&
+                  !pedidos.some((pd) => pd.productoLeadId === p.id) &&
+                  !(p.notasProducto || "").toLowerCase().includes("posible-duplicado")
+                );
+                if (pendientes.length === 0) return null;
+                return (
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`¿Crear ${pendientes.length} pedido(s) pendiente(s)?`)) return;
+                      for (const p of pendientes) {
+                        await actions.crearPedido({
+                          productoId: p.id,
+                          pagado50: p.pagado50,
+                          pagoTodoAlFinal: !p.pagado50,
+                          creadoManualmente: !p.pagado50,
+                        });
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    <Package className="h-3.5 w-3.5" /> Crear pedidos pendientes ({pendientes.length})
+                  </button>
+                );
+              })()}
+              <button onClick={() => setShowProdForm(true)} className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2a2f46]">
+                <Plus className="h-3.5 w-3.5" /> Añadir producto
+              </button>
+            </div>
           )}
         </div>
 
@@ -579,6 +607,11 @@ function ClienteDetalle() {
                         {p.tipo && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">{TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}</span>}
                         <span className="font-medium text-slate-900">{p.modelo || "Producto"}</span>
                         <FormaBadge modelo={p.modelo} />
+                        {(p.notasProducto || "").toLowerCase().includes("posible-duplicado") && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800" title="Detectado como posible duplicado. Revísalo y bórralo si procede.">
+                            ⚠ Posible duplicado
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
                         {p.ancho && <span>Ancho: <strong>{p.ancho} cm</strong></span>}
