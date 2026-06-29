@@ -39,22 +39,8 @@ function formatDateTime(iso: string): string {
   return `${d.getDate()} ${MESES[d.getMonth()]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 }
 
-function googleCalendarUrl(t: Tarea, clienteNombre: string): string {
-  const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
-  const title = encodeURIComponent(`${t.descripcion} — ${clienteNombre}`);
-  let dates = "";
-  if (t.hora) {
-    const [h, m] = t.hora.split(":").map(Number);
-    const start = t.fecha.replace(/-/g, "") + "T" + String(h).padStart(2,"0") + String(m).padStart(2,"0") + "00";
-    const endH = h + 1 < 24 ? h + 1 : h;
-    const end = t.fecha.replace(/-/g, "") + "T" + String(endH).padStart(2,"0") + String(m).padStart(2,"0") + "00";
-    dates = `${start}/${end}`;
-  } else {
-    const day = t.fecha.replace(/-/g, "");
-    dates = `${day}/${day}`;
-  }
-  return `${base}&text=${title}&dates=${dates}&details=${encodeURIComponent("Lead: " + clienteNombre)}`;
-}
+
+
 
 // ProductoForm, constantes y helpers importados desde @/components/ProductoForm
 
