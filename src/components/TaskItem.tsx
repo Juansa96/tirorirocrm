@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Clock, AlertTriangle, Calendar } from "lucide-react";
+import { Clock, AlertTriangle } from "lucide-react";
 import { dateLabel, dateStatus } from "@/lib/format";
 import { SellerBadge } from "./SellerBadge";
 import type { Tarea } from "@/lib/types";
@@ -9,23 +9,6 @@ interface Props {
   clienteNombre: string;
   showCheckbox?: boolean;
   onToggle?: () => void;
-}
-
-function googleCalUrl(t: Tarea, nombre: string): string {
-  const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
-  const title = encodeURIComponent(`${t.descripcion} — ${nombre}`);
-  let dates = "";
-  if (t.hora) {
-    const [h, m] = t.hora.split(":").map(Number);
-    const start = t.fecha.replace(/-/g, "") + "T" + String(h).padStart(2, "0") + String(m).padStart(2, "0") + "00";
-    const endH = h + 1 < 24 ? h + 1 : h;
-    const end = t.fecha.replace(/-/g, "") + "T" + String(endH).padStart(2, "0") + String(m).padStart(2, "0") + "00";
-    dates = `${start}/${end}`;
-  } else {
-    const day = t.fecha.replace(/-/g, "");
-    dates = `${day}/${day}`;
-  }
-  return `${base}&text=${title}&dates=${dates}&details=${encodeURIComponent("Lead: " + nombre)}`;
 }
 
 export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props) {
@@ -66,20 +49,7 @@ export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props
           {dateLabel(tarea.fecha)}
           {tarea.hora && <span className="text-slate-400">· {tarea.hora}</span>}
         </div>
-        <div className="flex items-center gap-1.5">
-          <SellerBadge vendedor={tarea.vendedor} />
-          <a
-            href={googleCalUrl(tarea, clienteNombre)}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            title="Añadir a Google Calendar"
-            className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-100"
-          >
-            <Calendar className="h-3 w-3" />
-            Cal
-          </a>
-        </div>
+        <SellerBadge vendedor={tarea.vendedor} />
       </div>
     </div>
   );
@@ -97,3 +67,4 @@ export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props
     </div>
   );
 }
+
