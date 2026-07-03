@@ -47,6 +47,7 @@ function mapLead(r: Record<string, unknown>): Lead {
     email: (r.email as string) ?? "",
     telefono: (r.telefono as string) ?? "",
     ciudad: (r.ciudad as string) ?? "",
+    provincia: (r.provincia as string) ?? "",
     producto: (r.producto as string) ?? "",
     vendedor: r.vendedor as string,
     etapa: r.etapa as Etapa,
