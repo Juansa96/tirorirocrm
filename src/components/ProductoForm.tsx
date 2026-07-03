@@ -8,12 +8,26 @@ import { FormaBadge } from "@/components/FormaBadge";
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
   { id: "cabecero",  label: "Cabecero" },
+  { id: "banco",     label: "Banco" },
   { id: "puf",       label: "Puf" },
   { id: "mesa",      label: "Mesa de centro" },
   { id: "pantalla",  label: "Pantalla de lámpara" },
   { id: "almohadon", label: "Almohadón" },
   { id: "otro",      label: "Otro" },
 ] as const;
+
+// Banco Oyambre — precios fijos por medida (idénticos al configurador web)
+export const BANCO_OYAMBRE = [
+  { id: "60",        label: "60 cm",         precio: 200 },
+  { id: "60-doble",  label: "60 cm doble",   precio: 370 },
+  { id: "90",        label: "90 cm",         precio: 250 },
+  { id: "120",       label: "120 cm",        precio: 300 },
+  { id: "150",       label: "150 cm",        precio: 350 },
+  { id: "custom",    label: "Mis medidas",   precio: 0 }, // A consultar
+] as const;
+export const BANCO_ALTO_FIJO = 45;
+export const BANCO_FONDO_FIJO = 33;
+
 
 export const CABECERO_FORMAS = [
   { id: "recto",         name: "Calobra" },
