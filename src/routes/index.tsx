@@ -16,9 +16,10 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-function KpiCard({ icon: Icon, label, value, badgeBg, iconColor, empty }: {
+function KpiCard({ icon: Icon, label, value, sub, badgeBg, iconColor, empty }: {
   icon: React.ComponentType<{ className?: string }>;
-  label: string; value: React.ReactNode; badgeBg: string; iconColor: string; empty?: boolean;
+  label: string; value: React.ReactNode; sub?: React.ReactNode;
+  badgeBg: string; iconColor: string; empty?: boolean;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow duration-150 hover:shadow-md">
@@ -28,11 +29,15 @@ function KpiCard({ icon: Icon, label, value, badgeBg, iconColor, empty }: {
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
       </div>
-      <div className={`mt-3 text-2xl font-bold ${empty ? "text-slate-400" : "text-slate-900"}`}>{value}</div>
+      <div className="mt-3 flex items-baseline gap-2">
+        <div className={`text-2xl font-bold ${empty ? "text-slate-400" : "text-slate-900"}`}>{value}</div>
+        {sub && <div className="text-xs text-slate-400">{sub}</div>}
+      </div>
       {empty && <div className="mt-1 text-xs text-slate-400">Sin datos aún</div>}
     </div>
   );
 }
+
 
 function Dashboard() {
   const { leads, tareas, pedidos } = useStore();
