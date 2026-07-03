@@ -359,11 +359,11 @@ function PipelineB2BView() {
     const prov = (l.provincia || "").trim();
     if (filterMunicipio) {
       if (filterMunicipio === SIN_MUNI) { if (muni) return false; }
-      else if (muni !== filterMunicipio) return false;
+      else if (normalize(muni) !== normalize(filterMunicipio)) return false;
     }
     if (filterProvincia) {
       if (filterProvincia === SIN_PROV) { if (prov) return false; }
-      else if (prov !== filterProvincia) return false;
+      else if (normalize(prov) !== normalize(filterProvincia)) return false;
     }
     if (nq) {
       const hay = normalize(b2bTitle(l)) + " " + normalize(muni);
