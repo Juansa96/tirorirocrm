@@ -107,7 +107,7 @@ function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<t
 }
 
 /* ============================ B2B card ============================ */
-function LeadCardB2B({ lead, onNavigate }: { lead: Lead; onNavigate: () => void }) {
+function LeadCardB2B({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void }) {
   const titulo = lead.razonSocial || lead.contactoNombre || lead.nombre;
   return (
     <div
@@ -124,6 +124,7 @@ function LeadCardB2B({ lead, onNavigate }: { lead: Lead; onNavigate: () => void 
       {lead.valor > 0 && (
         <p className="mt-1.5 text-base font-bold text-slate-900">{formatCurrency(lead.valor)}</p>
       )}
+      <div className="mt-1.5"><PaidBadge leadId={lead.id} pedidos={pedidos} /></div>
       {(lead.asignados ?? []).length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1">
           {lead.asignados.map((a) => (
