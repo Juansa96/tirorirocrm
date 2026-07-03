@@ -371,8 +371,12 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     if (f.tipo === "mesa") {
       return modelosTipo.find(x => x.modelo === "Cabo de Palos")?.id ?? "";
     }
+    if (f.tipo === "banco") {
+      return modelosTipo.find(x => x.modelo === "Oyambre")?.id ?? modelosTipo[0]?.id ?? "";
+    }
     return "";
   }, [modelosTipo, f.tipo, f.forma, f.formaPantalla]);
+
 
   function setTipo(label: string) {
     const internal = (CATALOG_TO_INTERNAL[label] ?? "") as ProdTipo;
