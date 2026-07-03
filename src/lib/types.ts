@@ -23,7 +23,7 @@ export function vendorName(v: string): string {
   return NAMES[v] ?? v;
 }
 
-export type Etapa =
+export type EtapaB2C =
   | "Discovery"
   | "Primer Contacto"
   | "Negotiation"
@@ -31,13 +31,28 @@ export type Etapa =
   | "Closed Won"
   | "Closed Lost";
 
-export const ETAPAS: Etapa[] = [
+export type EtapaB2B =
+  | "Cliente potencial"
+  | "Propuesta"
+  | "Ganado"
+  | "Perdido";
+
+export type Etapa = EtapaB2C | EtapaB2B;
+
+export const ETAPAS: EtapaB2C[] = [
   "Discovery",
   "Primer Contacto",
   "Negotiation",
   "On Hold",
   "Closed Won",
   "Closed Lost",
+];
+
+export const ETAPAS_B2B: EtapaB2B[] = [
+  "Cliente potencial",
+  "Propuesta",
+  "Ganado",
+  "Perdido",
 ];
 
 export const ETAPA_COLORS: Record<Etapa, string> = {
@@ -47,7 +62,16 @@ export const ETAPA_COLORS: Record<Etapa, string> = {
   "On Hold": "#94a3b8",
   "Closed Won": "#10b981",
   "Closed Lost": "#ef4444",
+  "Cliente potencial": "#38bdf8",
+  Propuesta: "#8b5cf6",
+  Ganado: "#10b981",
+  Perdido: "#ef4444",
 };
+
+export type TipoLead = "B2C" | "B2B";
+export const ASIGNADOS_B2B = ["Iñaki", "Juan", "Rocío", "Bea"] as const;
+export type AsignadoB2B = (typeof ASIGNADOS_B2B)[number];
+
 
 export const ORIGENES = [
   "Formulario web",
