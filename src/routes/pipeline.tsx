@@ -327,12 +327,19 @@ function PipelineB2BView() {
   const b2b = leads.filter((l) => l.tipo === "B2B");
   const visibleEtapas = filterEtapa ? ETAPAS_B2B.filter((e) => e === filterEtapa) : ETAPAS_B2B;
 
-  // Opciones dinámicas de municipio / provincia
-  const municipios = Array.from(new Set(b2b.map((l) => municipioOf(l)).filter(Boolean)))
-    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  // Opciones dinámicas de municipio / provincia (dedupe insensible a mayúsculas y acentos)
+  function dedupe(values: string[]): string[] {
+    const seen = new Map<string, string>();
+    for (const v of values) {
+      const k = normalize(v);
+      if (!k) continue;
+      if (!seen.has(k)) seen.set(k, v.trim());
+    }
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  }
+  const municipios = dedupe(b2b.map((l) => municipioOf(l)));
   const hasSinMuni = b2b.some((l) => !municipioOf(l));
-  const provincias = Array.from(new Set(b2b.map((l) => (l.provincia || "").trim()).filter(Boolean)))
-    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  const provincias = dedupe(b2b.map((l) => l.provincia || ""));
   const hasSinProv = b2b.some((l) => !(l.provincia || "").trim());
 
   function setParam(key: keyof Search, value: string | undefined) {
@@ -352,11 +359,11 @@ function PipelineB2BView() {
     const prov = (l.provincia || "").trim();
     if (filterMunicipio) {
       if (filterMunicipio === SIN_MUNI) { if (muni) return false; }
-      else if (muni !== filterMunicipio) return false;
+      else if (normalize(muni) !== normalize(filterMunicipio)) return false;
     }
     if (filterProvincia) {
       if (filterProvincia === SIN_PROV) { if (prov) return false; }
-      else if (prov !== filterProvincia) return false;
+      else if (normalize(prov) !== normalize(filterProvincia)) return false;
     }
     if (nq) {
       const hay = normalize(b2bTitle(l)) + " " + normalize(muni);
