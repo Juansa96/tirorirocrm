@@ -247,7 +247,7 @@ function PipelineB2C() {
                           setDragOver(null);
                         }}
                       >
-                        <LeadCardB2C lead={lead} tareas={tareas} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
+                        <LeadCardB2C lead={lead} tareas={tareas} pedidos={pedidos} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
                       </div>
                     ))
                   )}
