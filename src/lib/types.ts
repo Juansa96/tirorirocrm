@@ -112,7 +112,20 @@ export interface Lead {
   etiquetas: string[];
   cobrado: boolean;
   fechaCobro: string;         // YYYY-MM-DD o ""
+  // ── B2B ──
+  tipo: TipoLead;             // 'B2C' (default) | 'B2B'
+  razonSocial: string;
+  nif: string;
+  contactoNombre: string;
+  contactoApellidos: string;
+  contactoCargo: string;
+  direccion: string;
+  web: string;
+  instagram: string;
+  notasB2b: string;
+  asignados: string[];        // subconjunto de ASIGNADOS_B2B
 }
+
 
 
 export interface LeadFoto {
