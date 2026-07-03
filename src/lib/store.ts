@@ -979,6 +979,7 @@ export const actions = {
       creado_manualmente: true,
     };
     if (opts.fechaCreacion) insertPedido.fecha_creacion_pedido = opts.fechaCreacion;
+    if (opts.empresaId) insertPedido.empresa_id = opts.empresaId;
 
     const { data, error } = await supabase.from("pedidos").insert(insertPedido).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
