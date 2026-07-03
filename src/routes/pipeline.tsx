@@ -118,7 +118,9 @@ function LeadCard({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useSto
 }
 
 function Pipeline() {
-  const { leads, tareas } = useStore();
+  const store = useStore();
+  const leads = store.leads.filter((l) => l.tipo !== "B2B");
+  const tareas = store.tareas;
   const navigate = useNavigate();
   const { etapa: filterEtapa, vendedor: filterVendedor } = Route.useSearch();
   const [draggingId, setDraggingId] = useState<string | null>(null);
