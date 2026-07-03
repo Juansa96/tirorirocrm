@@ -503,6 +503,66 @@ export function ProductoForm({
         </>
       )}
 
+      {/* ── BANCO OYAMBRE ── */}
+      {f.tipo === "banco" && (
+        <>
+          <div>
+            <div className={section}>Medida (Oyambre)</div>
+            <div className="flex flex-wrap gap-2">
+              {BANCO_OYAMBRE.map(x => (
+                <button
+                  key={x.id}
+                  type="button"
+                  onClick={() => s({
+                    bancoMedida: x.id,
+                    precioUnitario: x.precio,
+                  })}
+                  className={btn(f.bancoMedida === x.id)}
+                >
+                  {x.label}{x.precio > 0 ? ` · ${x.precio}€` : " · A consultar"}
+                </button>
+              ))}
+            </div>
+            {f.bancoMedida === "custom" && (
+              <div className="mt-2 space-y-2">
+                <input
+                  type="number"
+                  min={40}
+                  max={400}
+                  className="w-32 rounded border border-slate-200 px-2 py-1.5 text-sm"
+                  placeholder="Largo (cm)"
+                  value={f.bancoLargoCustom}
+                  onChange={e => s({ bancoLargoCustom: e.target.value })}
+                />
+                <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Precio a consultar — introdúcelo manualmente abajo cuando lo negocies.
+                </div>
+              </div>
+            )}
+            <div className="mt-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+              Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
+            </div>
+          </div>
+          <TelaSection
+            tela={f.tela}
+            onTela={v => s({ tela: v })}
+            coleccionTela={f.coleccionTela}
+            onColeccion={v => s({ coleccionTela: v })}
+            telaLateral={f.telaLateral}
+            onTelaLateral={v => s({ telaLateral: v })}
+            showLateral
+          />
+          <div>
+            <div className={section}>Extras</div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" />
+              Tapetes protectores (+5€)
+            </label>
+          </div>
+        </>
+      )}
+
+
       {/* ── PUF ── */}
       {f.tipo === "puf" && (
         <>
