@@ -568,11 +568,12 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
           {/* Cliente */}
           <div>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</div>
-            <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-sm md:inline-flex md:text-xs">
-              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente existente</button>
-              <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>No está en el CRM</button>
+            <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente B2C</button>
+              <button onClick={() => setMode("b2b")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "b2b" ? "bg-[#1a4b5b] text-white" : "text-slate-600"}`}>Empresa B2B</button>
+              <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Sin CRM</button>
             </div>
-            {mode === "lead" ? (
+            {mode === "lead" && (
               <div className="space-y-1.5">
                 <input
                   value={selectedLead ? selectedLead.nombre : leadSearch}
@@ -592,7 +593,22 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                   </div>
                 )}
               </div>
-            ) : (
+            )}
+            {mode === "b2b" && (
+              empresasB2B.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+                  Aún no hay empresas B2B. Créalas en la pestaña B2B.
+                </div>
+              ) : (
+                <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base focus:border-slate-500 focus:outline-none md:py-1.5 md:text-sm">
+                  <option value="">— Selecciona empresa —</option>
+                  {empresasB2B.map((l) => (
+                    <option key={l.id} value={l.id}>{l.razonSocial || l.contactoNombre || l.nombre}</option>
+                  ))}
+                </select>
+              )
+            )}
+            {mode === "libre" && (
               <input
                 value={nombreLibre}
                 onChange={(e) => setNombreLibre(e.target.value)}
