@@ -78,7 +78,7 @@ export const TELAS_SUGERIDAS = [
 ];
 
 // ── Tipos ─────────────────────────────────────────────────────────
-export type ProdTipo = "cabecero" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
+export type ProdTipo = "cabecero" | "banco" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
 export const FORMA_POR_DECIDIR = "tbd";
 
 export interface ProdState {
@@ -94,6 +94,7 @@ export interface ProdState {
   tapetes: boolean;
   almohadonMedidas: string; almohadonTela: string; almohadonRibete: string; almohadonSinRibete: boolean;
   otroDescripcion: string;
+  bancoMedida: string; bancoLargoCustom: string;
   cantidad: number; precioUnitario: number; notasProducto: string;
 }
 
@@ -107,8 +108,10 @@ export const EMPTY_PROD_STATE: ProdState = {
   tapetes: false,
   almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
   otroDescripcion: "",
+  bancoMedida: "90", bancoLargoCustom: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
+
 
 // ── Conversiones ──────────────────────────────────────────────────
 export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50"> {
