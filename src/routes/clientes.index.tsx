@@ -1,9 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
-import { VENDEDORES, vendorName, ETAPAS, ETAPA_COLORS, type Etapa } from "@/lib/types";
+import { VENDEDORES, vendorName, ETAPAS, ETAPAS_B2B, ETAPA_COLORS, type Etapa, type EtapaB2B } from "@/lib/types";
 import { formatCurrency, dateLabel, formatShortDate } from "@/lib/format";
+
 import { SellerBadge } from "@/components/SellerBadge";
 import { StageBadge } from "@/components/StageBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -23,10 +24,161 @@ function exportLeadsCSV(rows: Array<Record<string, string | number>>, filename: 
   URL.revokeObjectURL(url);
 }
 
+type ClientTab = "b2c" | "b2b";
+interface CSearch { tab?: ClientTab }
+
 export const Route = createFileRoute("/clientes/")({
   head: () => ({ meta: [{ title: "Clientes — TiroCRM" }] }),
-  component: ClientesList,
+  validateSearch: (s: Record<string, unknown>): CSearch => {
+    const tab = s.tab === "b2b" ? "b2b" : s.tab === "b2c" ? "b2c" : undefined;
+    return tab ? { tab } : {};
+  },
+  component: ClientesPage,
 });
+
+function ClientesPage() {
+  const { tab: tabParam } = Route.useSearch();
+  const tab: ClientTab = tabParam === "b2b" ? "b2b" : "b2c";
+  return (
+    <div className="space-y-4">
+      <TabsHeader tab={tab} />
+      {tab === "b2c" ? <ClientesList /> : <ClientesB2BList />}
+    </div>
+  );
+}
+
+function TabsHeader({ tab }: { tab: ClientTab }) {
+  const navigate = useNavigate();
+  const setTab = (t: ClientTab) => navigate({ to: "/clientes", search: t === "b2c" ? {} : { tab: "b2b" } });
+  const base = "px-4 py-2 text-sm font-semibold border-b-2 transition-colors";
+  return (
+    <div className="flex items-center gap-1 border-b border-slate-200">
+      <button onClick={() => setTab("b2c")} className={`${base} ${tab === "b2c" ? "border-[#1a1f36] text-[#1a1f36]" : "border-transparent text-slate-500 hover:text-slate-700"}`}>B2C</button>
+      <button onClick={() => setTab("b2b")} className={`${base} ${tab === "b2b" ? "border-[#1a4b5b] text-[#1a4b5b]" : "border-transparent text-slate-500 hover:text-slate-700"}`}>B2B</button>
+    </div>
+  );
+}
+
+function ClientesB2BList() {
+  const store = useStore();
+  const leads = store.leads.filter((l) => l.tipo === "B2B");
+  const [q, setQ] = useState("");
+  const [etapaFiltro, setEtapaFiltro] = useState<EtapaB2B | "">("");
+  const filtered = leads.filter((l) => {
+    const ql = q.toLowerCase();
+    if (q) {
+      const hay = `${l.razonSocial} ${l.nombre} ${l.contactoNombre} ${l.email} ${l.telefono} ${l.web}`.toLowerCase();
+      if (!hay.includes(ql)) return false;
+    }
+    if (etapaFiltro && l.etapa !== etapaFiltro) return false;
+    return true;
+  });
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Clientes B2B</h1>
+          <p className="text-sm text-slate-500">{filtered.length} de {leads.length} empresas</p>
+        </div>
+        <Link to="/b2b/nuevo" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a4b5b] px-4 py-2 text-sm font-medium text-white hover:bg-[#245e73]">
+          <Plus className="h-4 w-4" /> Nueva empresa
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por razón social, contacto, teléfono, email o web" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-slate-400 focus:outline-none" />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-500">Etapa:</span>
+        <button type="button" onClick={() => setEtapaFiltro("")} className={`rounded-full px-2.5 py-1 text-xs font-medium ${etapaFiltro === "" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Todas</button>
+        {ETAPAS_B2B.map((e) => {
+          const active = etapaFiltro === e;
+          return (
+            <button key={e} type="button" onClick={() => setEtapaFiltro(active ? "" : e)} className="rounded-full px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: active ? ETAPA_COLORS[e] : "#f1f5f9", color: active ? "#fff" : "#475569" }}>{e}</button>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center">
+          <p className="text-sm font-medium text-slate-500">Aún no hay empresas B2B</p>
+          <p className="mt-1 text-xs text-slate-400">Crea la primera desde “Nueva empresa”.</p>
+        </div>
+      ) : (
+        <>
+          <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:block">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Empresa</th>
+                  <th className="px-4 py-3">Contacto</th>
+                  <th className="px-4 py-3">Teléfono</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Web</th>
+                  <th className="px-4 py-3">Etapa</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((l) => {
+                  const titulo = l.razonSocial || l.nombre;
+                  const contacto = [l.contactoNombre, l.contactoApellidos].filter(Boolean).join(" ");
+                  return (
+                    <tr key={l.id} className="group border-t border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <Link to="/clientes/$id" params={{ id: l.id }} className="font-semibold text-slate-900 hover:text-[#1a4b5b] hover:underline">{titulo}</Link>
+                        {l.direccion && <div className="text-xs text-slate-500 truncate max-w-xs">{l.direccion}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{contacto || <span className="text-slate-300">—</span>}</td>
+                      <td className="px-4 py-3 text-slate-600">{l.telefono || <span className="text-slate-300">—</span>}</td>
+                      <td className="px-4 py-3 text-slate-600">{l.email || <span className="text-slate-300">—</span>}</td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {l.web ? <a href={l.web} target="_blank" rel="noreferrer" className="text-[#1a4b5b] hover:underline truncate inline-block max-w-[16ch]">{l.web.replace(/^https?:\/\//, "")}</a> : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3"><StageBadge etapa={l.etapa} /></td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <Link to="/clientes/$id" params={{ id: l.id }} aria-label={`Abrir ficha de ${titulo}`} className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-[#1a4b5b] hover:text-white">
+                            <ChevronRight className="h-5 w-5" />
+                          </Link>
+                          <DeleteLeadButton id={l.id} variant="menu" />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-2 lg:hidden">
+            {filtered.map((l) => {
+              const titulo = l.razonSocial || l.nombre;
+              const contacto = [l.contactoNombre, l.contactoApellidos].filter(Boolean).join(" ");
+              return (
+                <Link key={l.id} to="/clientes/$id" params={{ id: l.id }} className="block rounded-xl border border-slate-200 bg-white p-3 shadow-sm active:bg-slate-50">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold text-slate-900">{titulo}</div>
+                      {contacto && <div className="text-xs text-slate-500 truncate">{contacto}</div>}
+                    </div>
+                    <StageBadge etapa={l.etapa} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+                    {l.telefono && <span>{l.telefono}</span>}
+                    {l.email && <span className="truncate">{l.email}</span>}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 
 function ClientesList() {
   const store = useStore();

@@ -306,74 +306,66 @@ function PipelineB2BView() {
         </div>
       </div>
 
-      {b2b.length === 0 && (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center">
-          <p className="text-sm font-medium text-slate-500">Aún no hay empresas B2B</p>
-          <p className="mt-1 text-xs text-slate-400">Crea la primera desde “Nueva empresa”.</p>
-        </div>
-      )}
-
-      {b2b.length > 0 && (
-        <div className="-mx-4 overflow-x-auto px-4 pb-6 md:mx-0 md:px-0">
-          <div className={`flex snap-x snap-mandatory gap-3 md:snap-none ${filterEtapa ? "md:max-w-sm" : "md:grid md:grid-cols-4"}`}>
-            {visibleEtapas.map((etapa) => {
-              const colLeads = b2b.filter((l) => l.etapa === etapa && (!filterAsignado || (l.asignados ?? []).includes(filterAsignado)));
-              const total = colLeads.reduce((s, l) => s + (l.valor || 0), 0);
-              const isOver = dragOver === etapa;
-              const color = ETAPA_COLORS[etapa];
-              return (
-                <div
-                  key={etapa}
-                  data-etapa={etapa}
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
-                  onDragLeave={() => setDragOver(null)}
-                  onDrop={() => { if (draggingId) actions.setLeadEtapa(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
-                  className={`w-[78vw] shrink-0 snap-center rounded-xl border md:w-auto md:min-w-0 md:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
-                >
-                  <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
-                  <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-                    <span className="min-w-0 truncate text-xs font-semibold text-slate-700">{etapa}</span>
-                    <span className="ml-auto shrink-0 flex h-4.5 min-w-[1.25rem] items-center justify-center rounded-full bg-white border border-slate-200 px-1.5 text-[10px] font-bold text-slate-500">{colLeads.length}</span>
-                  </div>
-                  <div className="px-3 pb-2.5">
-                    {total > 0 ? (<span className="text-[11px] font-semibold text-slate-500">{formatCurrency(total)}</span>) : (<span className="text-[11px] text-slate-300">—</span>)}
-                  </div>
-                  <div className="space-y-2 px-2 pb-3">
-                    {colLeads.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">Sin empresas</div>
-                    ) : (
-                      colLeads.map((lead) => (
-                        <div
-                          key={lead.id}
-                          draggable
-                          onDragStart={() => setDraggingId(lead.id)}
-                          onDragEnd={() => setDraggingId(null)}
-                          onTouchStart={() => { touchDragId.current = lead.id; }}
-                          onTouchMove={(e) => {
-                            if (!touchDragId.current) return;
-                            const touch = e.touches[0];
-                            const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                            const col = el?.closest("[data-etapa]");
-                            const over = col?.getAttribute("data-etapa") as EtapaB2B | null;
-                            setDragOver(over ?? null);
-                          }}
-                          onTouchEnd={() => {
-                            if (touchDragId.current && dragOver) actions.setLeadEtapa(touchDragId.current, dragOver);
-                            touchDragId.current = null;
-                            setDragOver(null);
-                          }}
-                        >
-                          <LeadCardB2B lead={lead} pedidos={pedidos} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
-                        </div>
-                      ))
-                    )}
-                  </div>
+      <div className="-mx-4 overflow-x-auto px-4 pb-6 md:mx-0 md:px-0">
+        <div className={`flex snap-x snap-mandatory gap-3 md:snap-none ${filterEtapa ? "md:max-w-sm" : "md:grid md:grid-cols-4"}`}>
+          {visibleEtapas.map((etapa) => {
+            const colLeads = b2b.filter((l) => l.etapa === etapa && (!filterAsignado || (l.asignados ?? []).includes(filterAsignado)));
+            const total = colLeads.reduce((s, l) => s + (l.valor || 0), 0);
+            const isOver = dragOver === etapa;
+            const color = ETAPA_COLORS[etapa];
+            return (
+              <div
+                key={etapa}
+                data-etapa={etapa}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={() => { if (draggingId) actions.setLeadEtapa(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
+                className={`w-[78vw] shrink-0 snap-center rounded-xl border md:w-auto md:min-w-0 md:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
+              >
+                <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
+                <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+                  <span className="min-w-0 truncate text-xs font-semibold text-slate-700">{etapa}</span>
+                  <span className="ml-auto shrink-0 flex h-4.5 min-w-[1.25rem] items-center justify-center rounded-full bg-white border border-slate-200 px-1.5 text-[10px] font-bold text-slate-500">{colLeads.length}</span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="px-3 pb-2.5">
+                  {total > 0 ? (<span className="text-[11px] font-semibold text-slate-500">{formatCurrency(total)}</span>) : (<span className="text-[11px] text-slate-300">—</span>)}
+                </div>
+                <div className="space-y-2 px-2 pb-3">
+                  {colLeads.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">Sin empresas</div>
+                  ) : (
+                    colLeads.map((lead) => (
+                      <div
+                        key={lead.id}
+                        draggable
+                        onDragStart={() => setDraggingId(lead.id)}
+                        onDragEnd={() => setDraggingId(null)}
+                        onTouchStart={() => { touchDragId.current = lead.id; }}
+                        onTouchMove={(e) => {
+                          if (!touchDragId.current) return;
+                          const touch = e.touches[0];
+                          const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                          const col = el?.closest("[data-etapa]");
+                          const over = col?.getAttribute("data-etapa") as EtapaB2B | null;
+                          setDragOver(over ?? null);
+                        }}
+                        onTouchEnd={() => {
+                          if (touchDragId.current && dragOver) actions.setLeadEtapa(touchDragId.current, dragOver);
+                          touchDragId.current = null;
+                          setDragOver(null);
+                        }}
+                      >
+                        <LeadCardB2B lead={lead} pedidos={pedidos} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
+
     </div>
   );
 }
