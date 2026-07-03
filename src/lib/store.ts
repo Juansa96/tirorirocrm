@@ -517,7 +517,18 @@ export const actions = {
         valor_producto: input.valorProducto ?? 0,
         valor_envio: input.valorEnvio ?? 0,
         edad: input.edad ?? "",
-      })
+        tipo: input.tipo ?? "B2C",
+        razon_social: input.razonSocial ?? null,
+        nif: input.nif ?? null,
+        contacto_nombre: input.contactoNombre ?? null,
+        contacto_apellidos: input.contactoApellidos ?? null,
+        contacto_cargo: input.contactoCargo ?? null,
+        direccion: input.direccion ?? null,
+        web: input.web ?? null,
+        instagram: input.instagram ?? null,
+        notas_b2b: input.notasB2b ?? null,
+        asignados: input.asignados ?? [],
+      } as never)
       .select()
       .single();
     if (error || !data) { toast.error("Error al crear el lead."); return null; }
