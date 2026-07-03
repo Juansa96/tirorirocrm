@@ -80,6 +80,7 @@ function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<t
         <p className="mt-1.5 text-base font-bold tracking-tight text-slate-900">{formatCurrency(lead.valor)}</p>
       ) : (
         <p className="mt-1.5 text-sm font-medium text-slate-300">—</p>
+      )}
       <div className="mt-1.5">
         <PaidBadge leadId={lead.id} pedidos={pedidos} />
       </div>
