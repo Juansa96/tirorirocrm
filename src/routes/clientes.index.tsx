@@ -29,7 +29,10 @@ export const Route = createFileRoute("/clientes/")({
 });
 
 function ClientesList() {
-  const { leads, tareas, pedidos } = useStore();
+  const store = useStore();
+  const leads = store.leads.filter((l) => l.tipo !== "B2B");
+  const tareas = store.tareas;
+  const pedidos = store.pedidos;
   const [q, setQ] = useState("");
   const [vendedor, setVendedor] = useState("");
   const [producto, setProducto] = useState("");
