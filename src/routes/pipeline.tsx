@@ -18,7 +18,7 @@ export const Route = createFileRoute("/pipeline")({
     const e = s.etapa as Etapa | undefined;
     const v = s.vendedor as string | undefined;
     return {
-      ...(e && ETAPAS.includes(e) ? { etapa: e } : {}),
+      ...(e && (ETAPAS as readonly string[]).includes(e) ? { etapa: e } : {}),
       ...(v && VENDEDORES.includes(v as never) ? { vendedor: v } : {}),
     };
   },
