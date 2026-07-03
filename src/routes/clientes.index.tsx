@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package, Download, Tag } from "lucide-react";
+import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
-import { VENDEDORES, vendorName, ETAPAS } from "@/lib/types";
+import { VENDEDORES, vendorName, ETAPAS, ETAPA_COLORS, type Etapa } from "@/lib/types";
 import { formatCurrency, dateLabel, formatShortDate } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { StageBadge } from "@/components/StageBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
+
 
 function exportLeadsCSV(rows: Array<Record<string, string | number>>, filename: string) {
   const headers = Object.keys(rows[0] ?? {});
