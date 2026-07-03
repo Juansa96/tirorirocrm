@@ -86,7 +86,10 @@ export interface Lead {
   razonUrgencia: string;
   clienteTipo: string;        // 'normal' | 'partner_ab'
   etiquetas: string[];
+  cobrado: boolean;
+  fechaCobro: string;         // YYYY-MM-DD o ""
 }
+
 
 export interface LeadFoto {
   id: string;
