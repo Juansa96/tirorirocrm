@@ -242,7 +242,17 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   } else if (p.tipo === "otro") {
     s.otroDescripcion = p.modelo;
     s.cantidad = p.cantidad;
+  } else if (p.tipo === "banco") {
+    const a = p.ancho ? String(p.ancho) : "";
+    const std = ["60","90","120","150"];
+    // "60 doble" no se puede distinguir solo por ancho — buscar en modelo
+    const isDoble = /doble/i.test(p.modelo);
+    s.bancoMedida = isDoble ? "60-doble" : (std.includes(a) ? a : (a ? "custom" : "90"));
+    s.bancoLargoCustom = s.bancoMedida === "custom" ? a : "";
+    s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
+    s.cantidad = p.cantidad;
   }
+
   return s;
 }
 
