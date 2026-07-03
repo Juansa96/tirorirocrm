@@ -506,10 +506,11 @@ function NumberCell({ value, onSave }: { value: number; onSave: (v: number) => v
 // ──────────────────────────────────────────────────────────────────────────
 function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const { leads, productos } = useStore();
-  const [mode, setMode] = useState<"lead" | "libre">("lead");
+  const [mode, setMode] = useState<"lead" | "libre" | "b2b">("lead");
   const [leadId, setLeadId] = useState<string>("");
   const [leadSearch, setLeadSearch] = useState("");
   const [nombreLibre, setNombreLibre] = useState("");
+  const [empresaId, setEmpresaId] = useState<string>("");
   const [prodMode, setProdMode] = useState<"existente" | "nuevo">("nuevo");
   const [productoId, setProductoId] = useState<string>("");
   const [tipo, setTipo] = useState<string>("cabecero");
@@ -519,6 +520,8 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const [reserva, setReserva] = useState(0);
   const [costeEnvio, setCosteEnvio] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  const empresasB2B = useMemo(() => leads.filter((l) => l.tipo === "B2B"), [leads]);
 
   const leadFiltered = useMemo(() => {
     const q = leadSearch.toLowerCase();
