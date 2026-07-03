@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Users, TrendingUp, Trophy, Percent, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
+import { Users, TrendingUp, Trophy, Wallet, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
+
 import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
