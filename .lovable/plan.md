@@ -1,104 +1,97 @@
-Voy a agrupar los cambios por área. Antes de tocar datos (punto 3) te mostraré exactamente qué filas voy a borrar/actualizar.
+Amplío el CRM con B2B reutilizando el motor actual. Nada se borra ni se rehace.
 
-## 1. Vendedor por defecto = Rocío
-- `src/routes/api/public/lead-form.ts`: eliminar `randomVendedor()` y forzar `vendedor = "rocionavarreteurdiales98@gmail.com"`.
-- El selector de vendedor en la ficha del lead sigue igual → editable manualmente.
+## 1. Migración (una sola, idempotente)
 
-## 2. Dashboard
+```sql
+ALTER TABLE leads
+  ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'B2C',
+  ADD COLUMN IF NOT EXISTS razon_social TEXT,
+  ADD COLUMN IF NOT EXISTS nif TEXT,
+  ADD COLUMN IF NOT EXISTS contacto_nombre TEXT,
+  ADD COLUMN IF NOT EXISTS contacto_apellidos TEXT,
+  ADD COLUMN IF NOT EXISTS contacto_cargo TEXT,
+  ADD COLUMN IF NOT EXISTS direccion TEXT,
+  ADD COLUMN IF NOT EXISTS web TEXT,
+  ADD COLUMN IF NOT EXISTS instagram TEXT,
+  ADD COLUMN IF NOT EXISTS notas_b2b TEXT,
+  ADD COLUMN IF NOT EXISTS asignados TEXT[] NOT NULL DEFAULT '{}',
+  ADD CONSTRAINT leads_tipo_check CHECK (tipo IN ('B2C','B2B'));
 
-### 2.1 Nuevo campo "cobrado" en leads
-Migración: añadir a `leads`:
-- `cobrado boolean not null default false`
-- `fecha_cobro date null`
+-- Back-fill idempotente: la columna nace con DEFAULT 'B2C' y NOT NULL, así que
+-- los registros existentes ya quedan como B2C sin UPDATE adicional.
+-- Índices únicos parciales para evitar duplicados B2B:
+CREATE UNIQUE INDEX IF NOT EXISTS leads_b2b_nif_uniq
+  ON leads (LOWER(nif)) WHERE tipo='B2B' AND nif IS NOT NULL AND nif <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS leads_b2b_razon_social_uniq
+  ON leads (LOWER(razon_social))
+  WHERE tipo='B2B' AND (nif IS NULL OR nif='') AND razon_social IS NOT NULL AND razon_social <> '';
 
-Se rellena solo cuando `etapa = 'Closed Won'`. Se ignora en el resto de etapas.
-Tras la migración, todos los Closed Won existentes quedarán como "pendiente de cobro" hasta que los marques.
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS empresa_id UUID REFERENCES leads(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS pedidos_empresa_id_idx ON pedidos(empresa_id);
+```
 
-### 2.2 KPIs superiores (rediseño)
-Reemplazar las 4 tarjetas por:
+Los `vendedor`, `email`, `telefono` ya existen en `leads` — se reutilizan para B2B (email/telefono de contacto). No se duplican.
 
-1. **Total Leads (activos)** — grande: leads que no están en `Closed Lost` ni en `Closed Won cobrado`. Pequeño a la derecha: total histórico (todos los estados, incluido Closed Lost).
-2. **Valor Pipeline** (se queda).
-3. **Ganado — Pendiente de cobro** — suma de `valor` de Closed Won con `cobrado = false`.
-4. **Ganado — Ya cobrado** — suma de `valor` de Closed Won con `cobrado = true`.
+Las etapas B2B ("Cliente potencial", "Propuesta", "Ganado", "Perdido") se guardan en la MISMA columna `etapa`. No hay CHECK constraint sobre etapa hoy, así que conviven sin migración de datos. La validación por tipo se hace en el frontend.
 
-Quito "Tasa de conversión" para dejar sitio (ya está en 4 columnas). Si prefieres mantenerla en una 5ª, dímelo.
+## 2. Formulario web (`/api/public/lead-form.ts`)
+Fuerzo `tipo='B2C'` en el insert. Sin más cambios.
 
-### 2.3 Pipeline visual (gráfico + columna Closed Won)
-- Gráfico de barras se queda como está (una barra por etapa).
-- En la vista de columna Closed Won del pipeline (`src/routes/pipeline.tsx`), cada tarjeta de lead muestra un badge:
-  - `Pagado` (verde) si `cobrado = true`
-  - `Pendiente de cobro` (ámbar) si `cobrado = false`
-- Toggle "Cobrado" + fecha en la ficha del lead (`clientes.$id.tsx`), solo visible cuando `etapa = Closed Won`.
+## 3. Navegación
+Renombro label "Clientes" → "B2C" en `AppLayout`. Añado ruta y label "B2B".
 
-### 2.4 Widget "Tareas Pendientes"
-Filtrar `tareasPendientes` para excluir tareas cuyo lead esté en `Closed Won` u `On Hold`. Las tareas siguen intactas en la ficha del lead.
+Rutas nuevas (reutilizando componentes existentes con parámetro `tipo`):
+- `/b2b` → listado (clona `clientes.index` filtrando tipo)
+- `/b2b/nuevo` → alta manual con campos B2B
+- `/b2b/:id` → ficha (mismo `clientes.$id.tsx`, ya sirve para ambos)
+- `/pipeline-b2b` → pipeline con las 4 etapas B2B
 
-### 2.5 Rendimiento por vendedor
-Recalcular sumando solo leads con `etapa = 'Closed Won'` (cobrados y no cobrados). Hoy suma todo → lo cambio.
+En lugar de duplicar ficheros, refactorizo mínimo:
+- `clientes.index.tsx` y `pipeline.tsx` aceptan un prop/loader `tipo` y filtran.
+- Rutas B2B son wrappers finos que pasan `tipo='B2B'`.
+- La ficha detecta `tipo` del lead y muestra bloques distintos (datos empresa vs particular, etapas correspondientes, multiselección de asignados).
 
-## 3. Limpieza de duplicados (con confirmación previa)
+## 4. Pipeline
+- B2C: etapas actuales intactas.
+- B2B: `ETAPAS_B2B = ["Cliente potencial","Propuesta","Ganado","Perdido"]`. Colores propios.
+- El componente pipeline recibe la lista de etapas según `tipo`.
 
-He verificado en BD y estos son los productos a **borrar** (todos ya marcados `[posible-duplicado]` o son claros duplicados de importación Excel):
+## 5. Alta B2B (`/b2b/nuevo`)
+Campos: razón social, NIF, contacto (nombre/apellidos/cargo), dirección, teléfono, email, web, instagram, notas, asignados (multi: Iñaki/Juan/Rocío/Bea).
+Validación: al menos uno de {razón social, contacto_nombre, instagram}. Chequeo previo de duplicado por NIF / razón social (además del índice único que actúa de red).
+Título de ficha: `razon_social || contacto_nombre`.
 
-**Diego** (vendedora Rocío) — 1 borrar:
-- `de2a1387` Conta 190×120, 445€, sin tela, `[mig-excel-v1] [posible-duplicado]` → borrar. Se queda `3eedfd01` (Conta 190×120 445€ "Rayas Espiga verde").
+## 6. Asignados (solo B2B)
+Multiselect cerrado con las 4 personas. Sin default. Chip "Sin asignar" cuando vacío. Filtro por persona en `/b2b`.
 
-**Cris Sanz** — 4 borrar:
-- `a25c67f3` Pregonda 140×80 346€ mig-dup → borrar (queda `d06f9661` real con tela).
-- `6553fdbd` Almohadón 30×50 40€ mig-dup → borrar.
-- `a1acc058` Almohadón 40×60 50€ mig-dup → borrar.
-- `51c71562` Almohadón 30×50 40€ mig → borrar (equivalente a los reales `4985dc45` 50x30cm cant=2 y `2e24d952` 60x40cm cant=2).
-- `c5d83cf7` Almohadón 40×60 50€ mig → borrar.
-- Queda: Pregonda cabecero, Mesa personalizada (0€), Almohadón 50x30 x2 (40€), Almohadón 60x40 x2 (50€).
+## 7. Pedidos
+- En `pedidos.index.tsx` renombro la sub-pestaña "Alejandra Blanc" → "B2B".
+- El filtro actual (probablemente por `lead_id` o `cliente_nombre_libre` de Alejandra) se mantiene: los pedidos existentes de Alejandra siguen apareciendo tal cual porque cumplen ese filtro. **Nuevo criterio de la pestaña B2B**: `empresa_id IS NOT NULL` OR (filtro actual de Alejandra).
+- Botón "Nuevo pedido B2B" con desplegable de empresas (`leads WHERE tipo='B2B'`). Guarda `empresa_id`.
+- Resto de pestañas y esquema de pedidos intactos.
 
-**Alicia Mascort** — 4 borrar:
-- `cd3ae1b9` Macarella 100×100 242,5€ mig-dup → borrar.
-- `fbb0d477` Macarella 100×100 242,5€ mig-dup → borrar.
-- `c014987c` Cubrecanapé liso 90×190 50€ mig-dup → borrar.
-- `e82e9595` Cubrecanapé liso 90×190 50€ mig → borrar.
-- Queda: Macarella 100×100 cant=2 (242,5€), Cubrecanapés cant=2 (50€).
+## 8. UX
+- Confirmación antes de borrar (ya existe en DeleteLeadButton, se reutiliza).
+- Estados vacíos: "Aún no hay empresas B2B" con CTA a `/b2b/nuevo`.
+- Colores/badges consistentes con el resto.
 
-Antes de borrar comprobaré para cada fila que **no tenga `pedidos` enlazados**; si los tuviera, re-apunto el pedido a la fila que se queda (política ya usada en la limpieza anterior).
+## Ficheros a tocar
+Migración + estos ficheros de código:
+- `src/lib/types.ts` — añadir `TipoLead`, `ETAPAS_B2B`, `ASIGNADOS_B2B`, campos B2B en interface Lead.
+- `src/lib/store.ts` — mapear nuevas columnas en `leadFromRow`/`leadToRow`.
+- `src/integrations/supabase/types.ts` — se regenera solo tras la migración.
+- `src/components/AppLayout.tsx` — labels y nav B2B.
+- `src/routes/clientes.index.tsx` — filtro por tipo (default B2C).
+- `src/routes/clientes.$id.tsx` — bloques condicionales B2B (empresa, asignados).
+- `src/routes/pipeline.tsx` — etapas según tipo.
+- `src/routes/api/public/lead-form.ts` — forzar `tipo='B2C'`.
+- Nuevos: `src/routes/b2b.index.tsx`, `src/routes/b2b.nuevo.tsx`, `src/routes/pipeline-b2b.tsx` (wrappers finos).
+- `src/routes/pedidos.index.tsx` — renombrar pestaña, añadir criterio empresa_id, alta con desplegable.
 
-Revisión general: escanearé el resto de leads con productos marcados `[posible-duplicado]` y te enseñaré la lista antes de tocar nada más.
+## Qué NO cambia
+- Datos existentes: todos los leads actuales quedan como B2C automáticamente.
+- Pedidos de Alejandra: intactos, siguen apareciendo en la pestaña (ahora llamada B2B).
+- Formulario web público: mismo flujo, solo se marca tipo='B2C'.
+- Etapas B2C, pipeline B2C, ficha, notas, buscador: sin cambios funcionales.
 
-Los totales del lead (`valor_producto`, `valor`) se recalculan automáticamente por el trigger `tg_productos_lead_recalc` — no hay que tocarlos a mano.
-
-## 4. Filtro por etapa en Clientes
-En `src/routes/clientes.index.tsx`: añadir chips (Todas / Discovery / Primer Contacto / Negotiation / On Hold / Closed Won / Closed Lost) que filtran el listado. Combinable con el filtro de vendedor existente.
-
-## 5. Banco Oyambre
-
-Insertar en `catalogo_productos`:
-- Tipo: `Banco`, modelo: `Oyambre`, activo, precio_desde: 200.
-
-Añadir mapping en `src/lib/types.ts`:
-- `CATALOG_TO_INTERNAL["Banco"] = "banco"`, `INTERNAL_TO_CATALOG["banco"] = "Banco"`.
-
-En `src/components/ProductoForm.tsx`, añadir bloque `f.tipo === "banco"` con:
-- Selector de medida (radio/select):
-  - 60 cm → 200€
-  - 60 cm doble → 370€
-  - 90 cm → 250€
-  - 120 cm → 300€
-  - 150 cm → 350€
-  - Mis medidas → 0€ + nota "A consultar"
-- Alto 45 y fondo 33 fijos (guardados en `notas_producto`, no editables).
-- Selector de tela (reutiliza el patrón de cabecero) para asiento/lateral/vivo.
-- `precio_unitario` se autorellena con la tabla de arriba.
-
-En `src/lib/product-schema.ts` (formulario web público): actualizar `BANCO_VARIANTES` para reflejar Oyambre con las 6 opciones y el precio fijo. No aplicar fórmulas por cm.
-
-## Orden de ejecución
-
-1. Migración: campo `cobrado` + fila catálogo `Banco Oyambre` (una sola migración).
-2. Código: puntos 1, 2, 4, 5 en paralelo.
-3. Punto 3: te enseño la lista final de duplicados detectados en toda la base y **espero tu OK explícito** antes de ejecutar los DELETE.
-
-## Notas
-- No toco la estructura de leads más allá de las dos columnas nuevas.
-- Todos los Closed Won existentes tendrán `cobrado = false` inicialmente → tendrás que marcar manualmente los que ya cobraste.
-- La lógica de "Total Leads activos" excluye Closed Won cobrado; los pendientes de cobro sí cuentan como activos (tienes trabajo pendiente con ellos).
-
-¿Le doy caña?
+¿Le doy caña con la migración primero? Cuando la apruebes ejecuto el código.

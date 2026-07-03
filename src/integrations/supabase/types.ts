@@ -204,10 +204,15 @@ export type Database = {
       }
       leads: {
         Row: {
+          asignados: string[]
           ciudad: string | null
           cliente_tipo: string
           cobrado: boolean
+          contacto_apellidos: string | null
+          contacto_cargo: string | null
+          contacto_nombre: string | null
           created_at: string
+          direccion: string | null
           edad: string
           email: string | null
           etapa: string
@@ -217,23 +222,34 @@ export type Database = {
           fecha_entrada_etapa: string
           fecha_hold: string | null
           id: string
+          instagram: string | null
+          nif: string | null
           nombre: string
+          notas_b2b: string | null
           origen: string | null
           producto: string | null
+          razon_social: string | null
           razon_urgencia: string | null
           red_social: string | null
           telefono: string | null
+          tipo: string
           updated_at: string
           valor: number
           valor_envio: number
           valor_producto: number
           vendedor: string
+          web: string | null
         }
         Insert: {
+          asignados?: string[]
           ciudad?: string | null
           cliente_tipo?: string
           cobrado?: boolean
+          contacto_apellidos?: string | null
+          contacto_cargo?: string | null
+          contacto_nombre?: string | null
           created_at?: string
+          direccion?: string | null
           edad?: string
           email?: string | null
           etapa?: string
@@ -243,23 +259,34 @@ export type Database = {
           fecha_entrada_etapa?: string
           fecha_hold?: string | null
           id?: string
+          instagram?: string | null
+          nif?: string | null
           nombre: string
+          notas_b2b?: string | null
           origen?: string | null
           producto?: string | null
+          razon_social?: string | null
           razon_urgencia?: string | null
           red_social?: string | null
           telefono?: string | null
+          tipo?: string
           updated_at?: string
           valor?: number
           valor_envio?: number
           valor_producto?: number
           vendedor: string
+          web?: string | null
         }
         Update: {
+          asignados?: string[]
           ciudad?: string | null
           cliente_tipo?: string
           cobrado?: boolean
+          contacto_apellidos?: string | null
+          contacto_cargo?: string | null
+          contacto_nombre?: string | null
           created_at?: string
+          direccion?: string | null
           edad?: string
           email?: string | null
           etapa?: string
@@ -269,17 +296,23 @@ export type Database = {
           fecha_entrada_etapa?: string
           fecha_hold?: string | null
           id?: string
+          instagram?: string | null
+          nif?: string | null
           nombre?: string
+          notas_b2b?: string | null
           origen?: string | null
           producto?: string | null
+          razon_social?: string | null
           razon_urgencia?: string | null
           red_social?: string | null
           telefono?: string | null
+          tipo?: string
           updated_at?: string
           valor?: number
           valor_envio?: number
           valor_producto?: number
           vendedor?: string
+          web?: string | null
         }
         Relationships: []
       }
@@ -363,6 +396,7 @@ export type Database = {
           creado_manualmente: boolean
           created_at: string
           dias_plazo: number
+          empresa_id: string | null
           entregado: boolean
           entregado_fecha: string | null
           estado_pedido: string
@@ -396,6 +430,7 @@ export type Database = {
           creado_manualmente?: boolean
           created_at?: string
           dias_plazo?: number
+          empresa_id?: string | null
           entregado?: boolean
           entregado_fecha?: string | null
           estado_pedido?: string
@@ -429,6 +464,7 @@ export type Database = {
           creado_manualmente?: boolean
           created_at?: string
           dias_plazo?: number
+          empresa_id?: string | null
           entregado?: boolean
           entregado_fecha?: string | null
           estado_pedido?: string
@@ -457,6 +493,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pedidos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pedidos_lead_id_fkey"
             columns: ["lead_id"]
