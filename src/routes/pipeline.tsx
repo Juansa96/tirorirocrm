@@ -68,6 +68,22 @@ function LeadCard({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useSto
         <p className="mt-1.5 text-sm font-medium text-slate-300">—</p>
       )}
 
+      {/* Estado de cobro (solo en Closed Won) */}
+      {lead.etapa === "Closed Won" && (
+        <div className="mt-1.5">
+          {lead.cobrado ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+              ✓ Pagado
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+              ● Pendiente de cobro
+            </span>
+          )}
+        </div>
+      )}
+
+
       {/* Seller + product — compact, single line */}
       <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-500">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
