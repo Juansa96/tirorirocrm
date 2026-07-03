@@ -47,7 +47,21 @@ function daysInStage(lead: ReturnType<typeof useStore>["leads"][0]): number {
 }
 
 /* ============================ B2C card ============================ */
-function LeadCardB2C({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; onNavigate: () => void }) {
+/* ============================ Paid badge (from pedidos) ============================ */
+function PaidBadge({ leadId, pedidos }: { leadId: string; pedidos: ReturnType<typeof useStore>["pedidos"] }) {
+  const related = pedidos.filter((p) => p.leadId === leadId);
+  if (related.length === 0) return null;
+  const paid = related.filter((p) => p.pagadoCompleto).length;
+  if (paid === 0) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+      ✓ Pagado{related.length > 1 ? ` ${paid}/${related.length}` : ""}
+    </span>
+  );
+}
+
+/* ============================ B2C card ============================ */
+function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void }) {
   const next = nextPendingTaskFor(lead.id, tareas);
   const dot = sellerStyle(lead.vendedor).dot;
   const closed = lead.etapa === "Closed Won" || lead.etapa === "Closed Lost";
