@@ -64,9 +64,20 @@ function mapLead(r: Record<string, unknown>): Lead {
     etiquetas: Array.isArray(r.etiquetas) ? (r.etiquetas as string[]) : [],
     cobrado: Boolean(r.cobrado),
     fechaCobro: (r.fecha_cobro as string) ?? "",
+    tipo: ((r.tipo as string) === "B2B" ? "B2B" : "B2C"),
+    razonSocial: (r.razon_social as string) ?? "",
+    nif: (r.nif as string) ?? "",
+    contactoNombre: (r.contacto_nombre as string) ?? "",
+    contactoApellidos: (r.contacto_apellidos as string) ?? "",
+    contactoCargo: (r.contacto_cargo as string) ?? "",
+    direccion: (r.direccion as string) ?? "",
+    web: (r.web as string) ?? "",
+    instagram: (r.instagram as string) ?? "",
+    notasB2b: (r.notas_b2b as string) ?? "",
+    asignados: Array.isArray(r.asignados) ? (r.asignados as string[]) : [],
   };
-
 }
+
 
 function mapLeadFoto(r: Record<string, unknown>): LeadFoto {
   return {
