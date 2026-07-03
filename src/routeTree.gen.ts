@@ -17,6 +17,7 @@ import { Route as DatosRouteImport } from './routes/datos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidosIndexRouteImport } from './routes/pedidos.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
+import { Route as B2bIndexRouteImport } from './routes/b2b.index'
 import { Route as PedidosIdRouteImport } from './routes/pedidos.$id'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
@@ -64,6 +65,11 @@ const PedidosIndexRoute = PedidosIndexRouteImport.update({
 const ClientesIndexRoute = ClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const B2bIndexRoute = B2bIndexRouteImport.update({
+  id: '/b2b/',
+  path: '/b2b/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PedidosIdRoute = PedidosIdRouteImport.update({
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
+  '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
+  '/b2b': typeof B2bIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/pedidos': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
+  '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
+    | '/b2b/'
     | '/clientes/'
     | '/pedidos/'
     | '/api/public/bootstrap'
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
+    | '/b2b'
     | '/clientes'
     | '/pedidos'
     | '/api/public/bootstrap'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
+    | '/b2b/'
     | '/clientes/'
     | '/pedidos/'
     | '/api/public/bootstrap'
@@ -230,6 +242,7 @@ export interface RootRouteChildren {
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNuevoRoute: typeof ClientesNuevoRoute
   PedidosIdRoute: typeof PedidosIdRoute
+  B2bIndexRoute: typeof B2bIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   PedidosIndexRoute: typeof PedidosIndexRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
@@ -295,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: '/clientes'
       fullPath: '/clientes/'
       preLoaderRoute: typeof ClientesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/b2b/': {
+      id: '/b2b/'
+      path: '/b2b'
+      fullPath: '/b2b/'
+      preLoaderRoute: typeof B2bIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pedidos/$id': {
@@ -366,6 +386,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientesIdRoute: ClientesIdRoute,
   ClientesNuevoRoute: ClientesNuevoRoute,
   PedidosIdRoute: PedidosIdRoute,
+  B2bIndexRoute: B2bIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   PedidosIndexRoute: PedidosIndexRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
