@@ -55,8 +55,10 @@ function ClientesList() {
     if (producto && l.producto !== producto) return false;
     if (ciudad && l.ciudad !== ciudad) return false;
     if (etiqueta && !(l.etiquetas ?? []).includes(etiqueta)) return false;
+    if (etapaFiltro && l.etapa !== etapaFiltro) return false;
     return true;
   });
+
 
   function handleExport() {
     const rows = sorted.map((l) => ({
