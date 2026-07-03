@@ -35,7 +35,9 @@ function ClientesList() {
   const [producto, setProducto] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [etiqueta, setEtiqueta] = useState("");
+  const [etapaFiltro, setEtapaFiltro] = useState<Etapa | "">("");
   type SortKey = "fechaCreacion" | "nombre" | "vendedor" | "etapa" | "valor" | "ciudad" | "proximaAccion";
+
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
   const productos = useMemo(() => Array.from(new Set(leads.map((l) => l.producto).filter(Boolean))), [leads]);
