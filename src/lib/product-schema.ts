@@ -17,11 +17,26 @@ export const CABECERO_FORMAS: Record<string, string> = {
   ondas: "Barbaria",
 };
 
-export const BANCO_VARIANTES: Record<string, string> = {
-  madera: "Patas de madera",
-  enteladas: "Patas enteladas",
-  baul: "Estilo baúl",
+// Banco Oyambre — precios fijos por medida (coinciden con el configurador web).
+// Alto 45 cm y fondo 33 cm son fijos en las medidas estándar.
+export const BANCO_OYAMBRE_PRECIOS: Record<string, number> = {
+  "60": 200,
+  "60-doble": 370,
+  "90": 250,
+  "120": 300,
+  "150": 350,
+  "custom": 0, // "Mis medidas" — a consultar
 };
+
+export const BANCO_VARIANTES: Record<string, string> = {
+  "60": "Oyambre 60 cm",
+  "60-doble": "Oyambre 60 cm doble",
+  "90": "Oyambre 90 cm",
+  "120": "Oyambre 120 cm",
+  "150": "Oyambre 150 cm",
+  "custom": "Oyambre a medida",
+};
+
 
 export const PANTALLA_FORMAS: Record<string, string> = {
   cilindro: "Almanzor",
