@@ -183,6 +183,7 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     notasPedido: (r.notas_pedido as string) ?? "",
     createdAt: (r.created_at as string) ?? "",
     updatedAt: (r.updated_at as string) ?? "",
+    empresaId: (r.empresa_id as string) ?? "",
   };
 }
 
