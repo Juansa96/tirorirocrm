@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { VENDEDORES } from "@/lib/types";
+
 import { buildProducto } from "@/lib/product-schema";
 
 // Todos los leads del formulario web se asignan a Rocío por defecto.
