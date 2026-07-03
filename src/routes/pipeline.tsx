@@ -61,6 +61,28 @@ function b2bTitle(l: Lead): string {
 const SIN_MUNI = "__sin__";
 const SIN_PROV = "__sin__";
 
+// Extrae el municipio de una dirección estilo español:
+// "Calle X 12, 28001 Madrid" → "Madrid"
+// "Av. Y, Madrid" → "Madrid"
+// "Calle Z, 28080" → ""
+function municipioFromDireccion(direccion: string): string {
+  const d = (direccion || "").trim();
+  if (!d) return "";
+  const parts = d.split(",").map((p) => p.trim()).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    // Quita códigos postales de 5 dígitos al principio del tramo
+    const cleaned = parts[i].replace(/^\d{5}\s*/, "").trim();
+    // Si el tramo no es solo dígitos, lo damos por bueno
+    if (cleaned && !/^\d+$/.test(cleaned)) return cleaned;
+  }
+  return "";
+}
+function municipioOf(l: Lead): string {
+  const c = (l.ciudad || "").trim();
+  if (c) return c;
+  return municipioFromDireccion(l.direccion || "");
+}
+
 function vendorFirst(v: string) {
   return vendorName(v).split(" ")[0];
 }
