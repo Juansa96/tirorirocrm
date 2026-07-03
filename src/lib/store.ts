@@ -549,6 +549,9 @@ export const actions = {
     if (patch.razonUrgencia !== undefined) dbPatch.razon_urgencia = patch.razonUrgencia;
     if (patch.clienteTipo !== undefined) dbPatch.cliente_tipo = patch.clienteTipo;
     if (patch.etiquetas !== undefined) dbPatch.etiquetas = patch.etiquetas;
+    if (patch.cobrado !== undefined) dbPatch.cobrado = patch.cobrado;
+    if (patch.fechaCobro !== undefined) dbPatch.fecha_cobro = patch.fechaCobro || null;
+
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos
     const edadValue = patch.edad;
