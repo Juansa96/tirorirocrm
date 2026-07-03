@@ -573,6 +573,17 @@ export const actions = {
     if (patch.etiquetas !== undefined) dbPatch.etiquetas = patch.etiquetas;
     if (patch.cobrado !== undefined) dbPatch.cobrado = patch.cobrado;
     if (patch.fechaCobro !== undefined) dbPatch.fecha_cobro = patch.fechaCobro || null;
+    if (patch.tipo !== undefined) dbPatch.tipo = patch.tipo;
+    if (patch.razonSocial !== undefined) dbPatch.razon_social = patch.razonSocial || null;
+    if (patch.nif !== undefined) dbPatch.nif = patch.nif || null;
+    if (patch.contactoNombre !== undefined) dbPatch.contacto_nombre = patch.contactoNombre || null;
+    if (patch.contactoApellidos !== undefined) dbPatch.contacto_apellidos = patch.contactoApellidos || null;
+    if (patch.contactoCargo !== undefined) dbPatch.contacto_cargo = patch.contactoCargo || null;
+    if (patch.direccion !== undefined) dbPatch.direccion = patch.direccion || null;
+    if (patch.web !== undefined) dbPatch.web = patch.web || null;
+    if (patch.instagram !== undefined) dbPatch.instagram = patch.instagram || null;
+    if (patch.notasB2b !== undefined) dbPatch.notas_b2b = patch.notasB2b || null;
+    if (patch.asignados !== undefined) dbPatch.asignados = patch.asignados;
 
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos
