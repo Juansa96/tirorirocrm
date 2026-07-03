@@ -316,6 +316,34 @@ function ClienteDetalle() {
             );
           })}
         </div>
+        {lead.etapa === "Closed Won" && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={lead.cobrado}
+                onChange={(e) => void actions.updateLead(lead.id, {
+                  cobrado: e.target.checked,
+                  fechaCobro: e.target.checked ? (lead.fechaCobro || new Date().toISOString().slice(0, 10)) : "",
+                })}
+                className="h-4 w-4 accent-emerald-600"
+              />
+              {lead.cobrado ? "✓ Cobrado" : "Marcar como cobrado"}
+            </label>
+            {lead.cobrado && (
+              <label className="flex items-center gap-2 text-xs text-slate-600">
+                <span>Fecha de cobro:</span>
+                <input
+                  type="date"
+                  value={lead.fechaCobro}
+                  onChange={(e) => void actions.updateLead(lead.id, { fechaCobro: e.target.value })}
+                  className="rounded border border-slate-200 px-2 py-1 text-xs"
+                />
+              </label>
+            )}
+          </div>
+        )}
+
         {lead.etapa !== "Closed Won" && lead.etapa !== "Closed Lost" && (
           <div className="mt-3">
             <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
