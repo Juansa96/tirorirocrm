@@ -66,7 +66,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
           const nombreClean = sanitize(nombre);
           const emailClean = sanitize(email, 254);
 
-          const vendedor = randomVendedor();
+          const vendedor = DEFAULT_VENDEDOR;
 
           // Build the list of product configs to insert.
           // Accept either `productos: [...]` (new, supports multiple) or legacy `configurador: {...}` (single).
