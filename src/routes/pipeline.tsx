@@ -294,6 +294,10 @@ function PipelineB2BView() {
   const search = Route.useSearch();
   const filterEtapa = search.etapa && (ETAPAS_B2B as readonly string[]).includes(search.etapa) ? (search.etapa as EtapaB2B) : undefined;
   const filterAsignado = search.asignado;
+  const filterMunicipio = search.municipio;
+  const filterProvincia = search.provincia;
+  const filterQ = search.q ?? "";
+  const sort: SortB2B = search.sort ?? "fecha_desc";
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<EtapaB2B | null>(null);
   const touchDragId = useRef<string | null>(null);
@@ -301,40 +305,133 @@ function PipelineB2BView() {
   const b2b = leads.filter((l) => l.tipo === "B2B");
   const visibleEtapas = filterEtapa ? ETAPAS_B2B.filter((e) => e === filterEtapa) : ETAPAS_B2B;
 
-  function setAsignado(v: string) {
-    navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, tab: "b2b", asignado: v || undefined }) });
+  // Opciones dinámicas de municipio / provincia
+  const municipios = Array.from(new Set(b2b.map((l) => (l.ciudad || "").trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  const hasSinMuni = b2b.some((l) => !(l.ciudad || "").trim());
+  const provincias = Array.from(new Set(b2b.map((l) => (l.provincia || "").trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  const hasSinProv = b2b.some((l) => !(l.provincia || "").trim());
+
+  function setParam(key: keyof Search, value: string | undefined) {
+    navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, tab: "b2b", [key]: value || undefined }) });
   }
   function clearFilters() {
     navigate({ to: "/pipeline", search: { tab: "b2b" } });
   }
 
+  const hasFilter = !!(filterEtapa || filterAsignado || filterMunicipio || filterProvincia || filterQ || (search.sort && search.sort !== "fecha_desc"));
+
+  // Filtrado
+  const nq = normalize(filterQ);
+  const filtered = b2b.filter((l) => {
+    if (filterAsignado && !(l.asignados ?? []).includes(filterAsignado)) return false;
+    const muni = (l.ciudad || "").trim();
+    const prov = (l.provincia || "").trim();
+    if (filterMunicipio) {
+      if (filterMunicipio === SIN_MUNI) { if (muni) return false; }
+      else if (muni !== filterMunicipio) return false;
+    }
+    if (filterProvincia) {
+      if (filterProvincia === SIN_PROV) { if (prov) return false; }
+      else if (prov !== filterProvincia) return false;
+    }
+    if (nq) {
+      const hay = normalize(b2bTitle(l)) + " " + normalize(muni);
+      if (!hay.includes(nq)) return false;
+    }
+    return true;
+  });
+
+  // Ordenación (los sin municipio/nombre siempre al final)
+  const cmp = (a: string, b: string) => a.localeCompare(b, "es", { sensitivity: "base" });
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sort) {
+      case "fecha_asc": return (a.fechaCreacion || "").localeCompare(b.fechaCreacion || "");
+      case "fecha_desc": return (b.fechaCreacion || "").localeCompare(a.fechaCreacion || "");
+      case "municipio_asc": {
+        const ac = (a.ciudad || "").trim(), bc = (b.ciudad || "").trim();
+        if (!ac && bc) return 1; if (ac && !bc) return -1; if (!ac && !bc) return 0;
+        return cmp(ac, bc);
+      }
+      case "municipio_desc": {
+        const ac = (a.ciudad || "").trim(), bc = (b.ciudad || "").trim();
+        if (!ac && bc) return 1; if (ac && !bc) return -1; if (!ac && !bc) return 0;
+        return cmp(bc, ac);
+      }
+      case "nombre_asc": return cmp(b2bTitle(a), b2bTitle(b));
+      case "nombre_desc": return cmp(b2bTitle(b), b2bTitle(a));
+      default: return 0;
+    }
+  });
+
+  const selectCls = "w-full appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none";
+
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-slate-400">Arrastra las tarjetas para mover etapas</p>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <div className="relative min-w-0 flex-1 sm:flex-initial">
-            <select value={filterAsignado ?? ""} onChange={(e) => setAsignado(e.target.value)} className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none">
-              <option value="">Todos los asignados</option>
-              {ASIGNADOS_B2B.map((a) => (<option key={a} value={a}>{a}</option>))}
+        <Link to="/b2b/nuevo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#1a4b5b] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#245e73]">
+          <Plus className="h-3.5 w-3.5" /> Nueva empresa
+        </Link>
+      </div>
+
+      {/* Barra de filtros */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6">
+        <input
+          type="text"
+          value={filterQ}
+          onChange={(e) => setParam("q", e.target.value)}
+          placeholder="Buscar estudio o municipio…"
+          className="lg:col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-slate-400 focus:outline-none"
+        />
+        <div className="relative">
+          <select value={filterMunicipio ?? ""} onChange={(e) => setParam("municipio", e.target.value)} className={selectCls}>
+            <option value="">Todos los municipios</option>
+            {municipios.map((m) => (<option key={m} value={m}>{m}</option>))}
+            {hasSinMuni && <option value={SIN_MUNI}>— Sin municipio —</option>}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        </div>
+        <div className="relative">
+          <select value={filterProvincia ?? ""} onChange={(e) => setParam("provincia", e.target.value)} className={selectCls}>
+            <option value="">Todas las provincias</option>
+            {provincias.map((p) => (<option key={p} value={p}>{p}</option>))}
+            {hasSinProv && <option value={SIN_PROV}>— Sin provincia —</option>}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        </div>
+        <div className="relative">
+          <select value={filterAsignado ?? ""} onChange={(e) => setParam("asignado", e.target.value)} className={selectCls}>
+            <option value="">Todos los asignados</option>
+            {ASIGNADOS_B2B.map((a) => (<option key={a} value={a}>{a}</option>))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        </div>
+        <div className="relative flex items-center gap-2">
+          <div className="relative flex-1">
+            <select value={sort} onChange={(e) => setParam("sort", e.target.value)} className={selectCls}>
+              <option value="fecha_desc">Fecha (más reciente)</option>
+              <option value="fecha_asc">Fecha (más antigua)</option>
+              <option value="municipio_asc">Municipio (A-Z)</option>
+              <option value="municipio_desc">Municipio (Z-A)</option>
+              <option value="nombre_asc">Nombre (A-Z)</option>
+              <option value="nombre_desc">Nombre (Z-A)</option>
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           </div>
-          {(filterEtapa || filterAsignado) && (
-            <button onClick={clearFilters} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
-              <X className="h-3 w-3" /> Quitar
+          {hasFilter && (
+            <button onClick={clearFilters} title="Limpiar filtros" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
+              <X className="h-3 w-3" /> Limpiar
             </button>
           )}
-          <Link to="/b2b/nuevo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#1a4b5b] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#245e73]">
-            <Plus className="h-3.5 w-3.5" /> Nueva empresa
-          </Link>
         </div>
       </div>
 
       <div className="-mx-4 overflow-x-auto px-4 pb-6 md:mx-0 md:px-0">
         <div className={`flex snap-x snap-mandatory gap-3 md:snap-none ${filterEtapa ? "md:max-w-sm" : "md:grid md:grid-cols-4"}`}>
           {visibleEtapas.map((etapa) => {
-            const colLeads = b2b.filter((l) => l.etapa === etapa && (!filterAsignado || (l.asignados ?? []).includes(filterAsignado)));
+            const colLeads = sorted.filter((l) => l.etapa === etapa);
             const total = colLeads.reduce((s, l) => s + (l.valor || 0), 0);
             const isOver = dragOver === etapa;
             const color = ETAPA_COLORS[etapa];
