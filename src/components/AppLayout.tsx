@@ -19,8 +19,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/pipeline", label: "Pipeline", icon: Columns3 },
-  { to: "/clientes", label: "B2C", icon: List },
-  { to: "/b2b", label: "B2B", icon: List },
+  { to: "/clientes", label: "Clientes", icon: List },
   { to: "/datos", label: "Datos", icon: BarChart2 },
   { to: "/pedidos", label: "Pedidos", icon: Package },
 ];
