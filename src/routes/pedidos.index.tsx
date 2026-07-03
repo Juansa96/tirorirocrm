@@ -57,12 +57,13 @@ function PedidosIndex() {
     return { pedido: p, lead, producto: prod, sem, totalT, okT };
   }), [pedidos, leads, productos, pedidoTelas]);
 
-  const abCount = enriched.filter(({ lead }) => lead?.clienteTipo === "partner_ab").length;
+  // "B2B" tab: pedidos vinculados a empresa B2B O al partner Alejandra Blanc (legacy clienteTipo).
+  const isB2B = ({ pedido, lead }: (typeof enriched)[number]) =>
+    !!pedido.empresaId || lead?.clienteTipo === "partner_ab" || lead?.tipo === "B2B";
+  const abCount = enriched.filter(isB2B).length;
   const normalCount = enriched.length - abCount;
 
-  const baseTab = enriched.filter(({ lead }) =>
-    tab === "ab" ? lead?.clienteTipo === "partner_ab" : lead?.clienteTipo !== "partner_ab"
-  );
+  const baseTab = enriched.filter((it) => tab === "ab" ? isB2B(it) : !isB2B(it));
 
   // Group by person (leadId || clienteNombreLibre)
   type Group = { key: string; nombre: string; lead: Lead | undefined; items: typeof baseTab; allEntregados: boolean; oldest: string; total: number };
