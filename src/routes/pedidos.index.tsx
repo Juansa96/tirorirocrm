@@ -164,7 +164,7 @@ function PedidosIndex() {
           <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{normalCount}</span>
         </button>
         <button onClick={() => setTab("ab")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "ab" ? "border-[#1a4b5b] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-          <Sparkles className="h-4 w-4 text-[#1a4b5b]" /> Alejandra Blanc
+          <Sparkles className="h-4 w-4 text-[#1a4b5b]" /> B2B
           <span className="rounded-full bg-[#e6f1f4] px-1.5 py-0.5 text-[10px] font-bold text-[#1a4b5b]">{abCount}</span>
         </button>
       </div>
