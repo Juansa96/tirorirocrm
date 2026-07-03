@@ -47,7 +47,21 @@ function daysInStage(lead: ReturnType<typeof useStore>["leads"][0]): number {
 }
 
 /* ============================ B2C card ============================ */
-function LeadCardB2C({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; onNavigate: () => void }) {
+/* ============================ Paid badge (from pedidos) ============================ */
+function PaidBadge({ leadId, pedidos }: { leadId: string; pedidos: ReturnType<typeof useStore>["pedidos"] }) {
+  const related = pedidos.filter((p) => p.leadId === leadId);
+  if (related.length === 0) return null;
+  const paid = related.filter((p) => p.pagadoCompleto).length;
+  if (paid === 0) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+      ✓ Pagado{related.length > 1 ? ` ${paid}/${related.length}` : ""}
+    </span>
+  );
+}
+
+/* ============================ B2C card ============================ */
+function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void }) {
   const next = nextPendingTaskFor(lead.id, tareas);
   const dot = sellerStyle(lead.vendedor).dot;
   const closed = lead.etapa === "Closed Won" || lead.etapa === "Closed Lost";
@@ -67,15 +81,9 @@ function LeadCardB2C({ lead, tareas, onNavigate }: { lead: ReturnType<typeof use
       ) : (
         <p className="mt-1.5 text-sm font-medium text-slate-300">—</p>
       )}
-      {lead.etapa === "Closed Won" && (
-        <div className="mt-1.5">
-          {lead.cobrado ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">✓ Pagado</span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">● Pendiente de cobro</span>
-          )}
-        </div>
-      )}
+      <div className="mt-1.5">
+        <PaidBadge leadId={lead.id} pedidos={pedidos} />
+      </div>
       <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-500">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
         <span className="font-medium text-slate-600">{vendorFirst(lead.vendedor)}</span>
@@ -99,7 +107,7 @@ function LeadCardB2C({ lead, tareas, onNavigate }: { lead: ReturnType<typeof use
 }
 
 /* ============================ B2B card ============================ */
-function LeadCardB2B({ lead, onNavigate }: { lead: Lead; onNavigate: () => void }) {
+function LeadCardB2B({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void }) {
   const titulo = lead.razonSocial || lead.contactoNombre || lead.nombre;
   return (
     <div
@@ -116,6 +124,7 @@ function LeadCardB2B({ lead, onNavigate }: { lead: Lead; onNavigate: () => void 
       {lead.valor > 0 && (
         <p className="mt-1.5 text-base font-bold text-slate-900">{formatCurrency(lead.valor)}</p>
       )}
+      <div className="mt-1.5"><PaidBadge leadId={lead.id} pedidos={pedidos} /></div>
       {(lead.asignados ?? []).length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1">
           {lead.asignados.map((a) => (
@@ -148,6 +157,7 @@ function PipelineB2C() {
   const store = useStore();
   const leads = store.leads.filter((l) => l.tipo !== "B2B");
   const tareas = store.tareas;
+  const pedidos = store.pedidos;
   const navigate = useNavigate();
   const search = Route.useSearch();
   const filterEtapa = search.etapa && (ETAPAS as readonly string[]).includes(search.etapa) ? (search.etapa as Etapa) : undefined;
@@ -238,7 +248,7 @@ function PipelineB2C() {
                           setDragOver(null);
                         }}
                       >
-                        <LeadCardB2C lead={lead} tareas={tareas} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
+                        <LeadCardB2C lead={lead} tareas={tareas} pedidos={pedidos} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
                       </div>
                     ))
                   )}
@@ -254,7 +264,7 @@ function PipelineB2C() {
 
 /* ============================ B2B view ============================ */
 function PipelineB2BView() {
-  const { leads } = useStore();
+  const { leads, pedidos } = useStore();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const filterEtapa = search.etapa && (ETAPAS_B2B as readonly string[]).includes(search.etapa) ? (search.etapa as EtapaB2B) : undefined;
@@ -353,7 +363,7 @@ function PipelineB2BView() {
                             setDragOver(null);
                           }}
                         >
-                          <LeadCardB2B lead={lead} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
+                          <LeadCardB2B lead={lead} pedidos={pedidos} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
                         </div>
                       ))
                     )}
