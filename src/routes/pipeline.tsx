@@ -264,7 +264,7 @@ function PipelineB2C() {
 
 /* ============================ B2B view ============================ */
 function PipelineB2BView() {
-  const { leads } = useStore();
+  const { leads, pedidos } = useStore();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const filterEtapa = search.etapa && (ETAPAS_B2B as readonly string[]).includes(search.etapa) ? (search.etapa as EtapaB2B) : undefined;
