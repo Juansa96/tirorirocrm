@@ -301,11 +301,14 @@ function ClienteDetalle() {
         </div>
       </div>
 
+      {/* Bloque B2B (razón social, contacto, asignados) */}
+      {lead.tipo === "B2B" && <B2BInfoPanel lead={lead} />}
+
       {/* Etapa + razón de urgencia */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Etapa</div>
         <div className="flex flex-wrap gap-2">
-          {ETAPAS.map((e) => {
+          {(lead.tipo === "B2B" ? (ETAPAS_B2B as readonly Etapa[]) : (ETAPAS as readonly Etapa[])).map((e) => {
             const active = lead.etapa === e;
             return (
               <button key={e} onClick={() => handleEtapaClick(e)}
