@@ -156,6 +156,7 @@ function PipelineB2C() {
   const store = useStore();
   const leads = store.leads.filter((l) => l.tipo !== "B2B");
   const tareas = store.tareas;
+  const pedidos = store.pedidos;
   const navigate = useNavigate();
   const search = Route.useSearch();
   const filterEtapa = search.etapa && (ETAPAS as readonly string[]).includes(search.etapa) ? (search.etapa as Etapa) : undefined;
