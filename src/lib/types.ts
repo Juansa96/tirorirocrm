@@ -283,6 +283,7 @@ export const CATALOG_TO_INTERNAL: Record<string, string> = {
   "Pantalla de lámpara": "pantalla",
   "Almohadón": "almohadon",
   "Cubrecanapé": "otro",
+  "Banco": "banco",
 };
 
 export const INTERNAL_TO_CATALOG: Record<string, string> = {
@@ -292,5 +293,7 @@ export const INTERNAL_TO_CATALOG: Record<string, string> = {
   pantalla: "Pantalla de lámpara",
   almohadon: "Almohadón",
   otro: "Cubrecanapé",
+  banco: "Banco",
 };
+
 
