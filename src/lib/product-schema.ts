@@ -70,9 +70,18 @@ export function buildProducto(config: Record<string, string>, createdBy = "formu
     color = sanitize(config.telaLateral);
     patas = config.colgador === "true" ? "Con colgador" : "";
   } else if (tipo === "banco") {
-    modelo = BANCO_VARIANTES[config.varianteBanco] ?? sanitize(config.varianteBanco, 50);
-    ancho = config.largoBanco ? Math.min(Number(config.largoBanco), 400) : null;
-    alto = config.altoBanco ? Math.min(Number(config.altoBanco), 300) : null;
+    const variante = String(config.varianteBanco ?? "");
+    modelo = BANCO_VARIANTES[variante] ?? sanitize(variante, 50) ?? "Oyambre";
+    // Ancho según variante estándar; alto/fondo fijos (45/33) salvo custom
+    const anchoPorVariante: Record<string, number | null> = {
+      "60": 60, "60-doble": 60, "90": 90, "120": 120, "150": 150,
+    };
+    ancho = variante === "custom"
+      ? (config.largoBanco ? Math.min(Number(config.largoBanco), 400) : null)
+      : (anchoPorVariante[variante] ?? null);
+    alto = 45; // fijo
+    patas = "Fondo 33 cm · Alto 45 cm";
+
   } else if (tipo === "cojin") {
     modelo = sanitize(config.opcionAlmohadon?.replace(/-/g, " — "), 100);
     const dims = config.opcionAlmohadon?.split("-")[1]?.replace(" cm", "").split("×");
