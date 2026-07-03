@@ -21,6 +21,7 @@ import { Route as B2bIndexRouteImport } from './routes/b2b.index'
 import { Route as PedidosIdRouteImport } from './routes/pedidos.$id'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
+import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -87,6 +88,11 @@ const ClientesIdRoute = ClientesIdRouteImport.update({
   path: '/clientes/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const B2bNuevoRoute = B2bNuevoRouteImport.update({
+  id: '/b2b/nuevo',
+  path: '/b2b/nuevo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicLeadFormRoute = ApiPublicLeadFormRouteImport.update({
   id: '/api/public/lead-form',
   path: '/api/public/lead-form',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/pedidos/$id': typeof PedidosIdRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/reset-password'
+    | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/reset-password'
+    | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/reset-password'
+    | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/pedidos/$id'
@@ -239,6 +251,7 @@ export interface RootRouteChildren {
   PerfilRoute: typeof PerfilRoute
   PipelineRoute: typeof PipelineRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  B2bNuevoRoute: typeof B2bNuevoRoute
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNuevoRoute: typeof ClientesNuevoRoute
   PedidosIdRoute: typeof PedidosIdRoute
@@ -338,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/b2b/nuevo': {
+      id: '/b2b/nuevo'
+      path: '/b2b/nuevo'
+      fullPath: '/b2b/nuevo'
+      preLoaderRoute: typeof B2bNuevoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/lead-form': {
       id: '/api/public/lead-form'
       path: '/api/public/lead-form'
@@ -383,6 +403,7 @@ const rootRouteChildren: RootRouteChildren = {
   PerfilRoute: PerfilRoute,
   PipelineRoute: PipelineRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  B2bNuevoRoute: B2bNuevoRoute,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNuevoRoute: ClientesNuevoRoute,
   PedidosIdRoute: PedidosIdRoute,
