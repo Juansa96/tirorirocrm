@@ -536,15 +536,18 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   async function submit() {
     if (mode === "lead" && !leadId) return;
     if (mode === "libre" && !nombreLibre.trim()) return;
+    if (mode === "b2b" && !empresaId) return;
     if (prodMode === "existente" && !productoId) return;
     if (prodMode === "nuevo" && !tipo) return;
     setSaving(true);
+    const finalLeadId = mode === "lead" ? leadId : mode === "b2b" ? empresaId : null;
     const created = await actions.crearPedidoManual({
-      leadId: mode === "lead" ? leadId : null,
+      leadId: finalLeadId,
       clienteNombreLibre: mode === "libre" ? nombreLibre.trim() : "",
       productoId: prodMode === "existente" ? productoId : null,
       nuevoProducto: prodMode === "nuevo" ? { tipo, modelo: modelo.trim() } : undefined,
       diasPlazo, precio, reserva, costeEnvio,
+      empresaId: mode === "b2b" ? empresaId : undefined,
     });
     setSaving(false);
     if (created) onClose();
