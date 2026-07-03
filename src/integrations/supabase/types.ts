@@ -228,6 +228,7 @@ export type Database = {
           notas_b2b: string | null
           origen: string | null
           producto: string | null
+          provincia: string | null
           razon_social: string | null
           razon_urgencia: string | null
           red_social: string | null
@@ -265,6 +266,7 @@ export type Database = {
           notas_b2b?: string | null
           origen?: string | null
           producto?: string | null
+          provincia?: string | null
           razon_social?: string | null
           razon_urgencia?: string | null
           red_social?: string | null
@@ -302,6 +304,7 @@ export type Database = {
           notas_b2b?: string | null
           origen?: string | null
           producto?: string | null
+          provincia?: string | null
           razon_social?: string | null
           razon_urgencia?: string | null
           red_social?: string | null
