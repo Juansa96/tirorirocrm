@@ -178,6 +178,46 @@ function ClientesList() {
         </select>
       </div>
 
+      {/* Chips de filtro por etapa */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-500">Etapa:</span>
+        <button
+          type="button"
+          onClick={() => setEtapaFiltro("")}
+          className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${etapaFiltro === "" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+        >
+          Todas
+        </button>
+        {ETAPAS.map((e) => {
+          const active = etapaFiltro === e;
+          return (
+            <button
+              key={e}
+              type="button"
+              onClick={() => setEtapaFiltro(active ? "" : e)}
+              className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+              style={{
+                backgroundColor: active ? ETAPA_COLORS[e] : "#f1f5f9",
+                color: active ? "#fff" : "#475569",
+              }}
+            >
+              {e}
+            </button>
+          );
+        })}
+        {etiquetasAll.length > 0 && (
+          <select
+            value={etiqueta}
+            onChange={(e) => setEtiqueta(e.target.value)}
+            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+          >
+            <option value="">Todas las etiquetas</option>
+            {etiquetasAll.map((et) => <option key={et} value={et}>{et}</option>)}
+          </select>
+        )}
+      </div>
+
+
       <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
