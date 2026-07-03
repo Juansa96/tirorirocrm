@@ -47,6 +47,7 @@ function mapLead(r: Record<string, unknown>): Lead {
     email: (r.email as string) ?? "",
     telefono: (r.telefono as string) ?? "",
     ciudad: (r.ciudad as string) ?? "",
+    provincia: (r.provincia as string) ?? "",
     producto: (r.producto as string) ?? "",
     vendedor: r.vendedor as string,
     etapa: r.etapa as Etapa,
@@ -508,6 +509,7 @@ export const actions = {
         email: input.email,
         telefono: input.telefono,
         ciudad: input.ciudad,
+        provincia: input.provincia ?? null,
         producto: input.producto,
         vendedor: input.vendedor,
         etapa: input.etapa,
@@ -562,6 +564,7 @@ export const actions = {
     if (patch.email !== undefined) dbPatch.email = patch.email;
     if (patch.telefono !== undefined) dbPatch.telefono = patch.telefono;
     if (patch.ciudad !== undefined) dbPatch.ciudad = patch.ciudad;
+    if (patch.provincia !== undefined) dbPatch.provincia = patch.provincia || null;
     if (patch.producto !== undefined) dbPatch.producto = patch.producto;
     if (patch.vendedor !== undefined) dbPatch.vendedor = patch.vendedor;
     if (patch.etapa !== undefined) dbPatch.etapa = patch.etapa;

@@ -59,7 +59,7 @@ function NuevoLead() {
         ...form, producto: tipoLabel, valor: form.valorProducto + form.valorEnvio,
         clienteTipo: "normal", etiquetas: [], cobrado: false, fechaCobro: "",
         tipo: "B2C", razonSocial: "", nif: "", contactoNombre: "", contactoApellidos: "",
-        contactoCargo: "", direccion: "", web: "", instagram: "", notasB2b: "", asignados: [],
+        contactoCargo: "", direccion: "", web: "", instagram: "", notasB2b: "", asignados: [], provincia: "",
       },
       tarea.descripcion.trim() ? tarea : undefined,
     );

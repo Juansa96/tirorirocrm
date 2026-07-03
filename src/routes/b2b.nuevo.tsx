@@ -70,6 +70,7 @@ function NuevaEmpresaB2B() {
       email: form.email.trim(),
       telefono: form.telefono.trim(),
       ciudad: "",
+      provincia: "",
       producto: "",
       vendedor: form.vendedor,
       etapa: form.etapa,

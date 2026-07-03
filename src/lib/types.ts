@@ -95,6 +95,7 @@ export interface Lead {
   email: string;
   telefono: string;
   ciudad: string;
+  provincia: string;
   producto: string;
   vendedor: string;
   etapa: Etapa;
