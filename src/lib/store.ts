@@ -943,6 +943,7 @@ export const actions = {
     reserva: number;
     costeEnvio: number;
     fechaCreacion?: string;
+    empresaId?: string | null;
   }): Promise<Pedido | null> {
     let productoId = opts.productoId ?? null;
     let tipoProd = "";
