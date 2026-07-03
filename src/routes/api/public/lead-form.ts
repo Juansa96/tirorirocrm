@@ -4,9 +4,10 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { VENDEDORES } from "@/lib/types";
 import { buildProducto } from "@/lib/product-schema";
 
-function randomVendedor(): string {
-  return VENDEDORES[Math.floor(Math.random() * VENDEDORES.length)];
-}
+// Todos los leads del formulario web se asignan a Rocío por defecto.
+// El vendedor se puede reasignar manualmente desde la ficha del lead.
+const DEFAULT_VENDEDOR = "rocionavarreteurdiales98@gmail.com";
+
 
 function sanitize(val: unknown, maxLen = 200): string {
   if (val === null || val === undefined) return "";
