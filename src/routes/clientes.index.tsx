@@ -98,7 +98,7 @@ function ClientesList() {
           cmp = (a.vendedor || "").localeCompare(b.vendedor || "", "es");
           break;
         case "etapa":
-          cmp = ETAPAS.indexOf(a.etapa) - ETAPAS.indexOf(b.etapa);
+          cmp = (ETAPAS as readonly string[]).indexOf(a.etapa) - (ETAPAS as readonly string[]).indexOf(b.etapa);
           break;
         case "valor":
           cmp = (a.valor || 0) - (b.valor || 0);
