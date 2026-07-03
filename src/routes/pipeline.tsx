@@ -12,12 +12,20 @@ import { DeleteLeadButton } from "@/components/DeleteLeadButton";
 
 type Tab = "b2c" | "b2b";
 
+type SortB2B = "fecha_desc" | "fecha_asc" | "municipio_asc" | "municipio_desc" | "nombre_asc" | "nombre_desc";
+
 interface Search {
   tab?: Tab;
   etapa?: string;
   vendedor?: string;
   asignado?: string;
+  municipio?: string;
+  provincia?: string;
+  q?: string;
+  sort?: SortB2B;
 }
+
+const SORTS_B2B: SortB2B[] = ["fecha_desc", "fecha_asc", "municipio_asc", "municipio_desc", "nombre_asc", "nombre_desc"];
 
 export const Route = createFileRoute("/pipeline")({
   head: () => ({ meta: [{ title: "Pipeline — TiroCRM" }] }),
@@ -26,15 +34,32 @@ export const Route = createFileRoute("/pipeline")({
     const e = typeof s.etapa === "string" ? s.etapa : undefined;
     const v = typeof s.vendedor === "string" ? s.vendedor : undefined;
     const a = typeof s.asignado === "string" ? s.asignado : undefined;
+    const m = typeof s.municipio === "string" ? s.municipio : undefined;
+    const p = typeof s.provincia === "string" ? s.provincia : undefined;
+    const q = typeof s.q === "string" ? s.q : undefined;
+    const so = typeof s.sort === "string" && (SORTS_B2B as string[]).includes(s.sort) ? (s.sort as SortB2B) : undefined;
     return {
       ...(tab ? { tab } : {}),
       ...(e ? { etapa: e } : {}),
       ...(v && VENDEDORES.includes(v as never) ? { vendedor: v } : {}),
       ...(a ? { asignado: a } : {}),
+      ...(m ? { municipio: m } : {}),
+      ...(p ? { provincia: p } : {}),
+      ...(q ? { q } : {}),
+      ...(so ? { sort: so } : {}),
     };
   },
   component: PipelinePage,
 });
+
+function normalize(s: string): string {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+function b2bTitle(l: Lead): string {
+  return l.razonSocial || l.contactoNombre || l.nombre || "";
+}
+const SIN_MUNI = "__sin__";
+const SIN_PROV = "__sin__";
 
 function vendorFirst(v: string) {
   return vendorName(v).split(" ")[0];
