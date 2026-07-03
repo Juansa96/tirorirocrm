@@ -509,6 +509,7 @@ export const actions = {
         email: input.email,
         telefono: input.telefono,
         ciudad: input.ciudad,
+        provincia: input.provincia ?? null,
         producto: input.producto,
         vendedor: input.vendedor,
         etapa: input.etapa,
