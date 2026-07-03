@@ -64,9 +64,20 @@ function mapLead(r: Record<string, unknown>): Lead {
     etiquetas: Array.isArray(r.etiquetas) ? (r.etiquetas as string[]) : [],
     cobrado: Boolean(r.cobrado),
     fechaCobro: (r.fecha_cobro as string) ?? "",
+    tipo: ((r.tipo as string) === "B2B" ? "B2B" : "B2C"),
+    razonSocial: (r.razon_social as string) ?? "",
+    nif: (r.nif as string) ?? "",
+    contactoNombre: (r.contacto_nombre as string) ?? "",
+    contactoApellidos: (r.contacto_apellidos as string) ?? "",
+    contactoCargo: (r.contacto_cargo as string) ?? "",
+    direccion: (r.direccion as string) ?? "",
+    web: (r.web as string) ?? "",
+    instagram: (r.instagram as string) ?? "",
+    notasB2b: (r.notas_b2b as string) ?? "",
+    asignados: Array.isArray(r.asignados) ? (r.asignados as string[]) : [],
   };
-
 }
+
 
 function mapLeadFoto(r: Record<string, unknown>): LeadFoto {
   return {
@@ -172,6 +183,7 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     notasPedido: (r.notas_pedido as string) ?? "",
     createdAt: (r.created_at as string) ?? "",
     updatedAt: (r.updated_at as string) ?? "",
+    empresaId: (r.empresa_id as string) ?? "",
   };
 }
 
@@ -506,7 +518,18 @@ export const actions = {
         valor_producto: input.valorProducto ?? 0,
         valor_envio: input.valorEnvio ?? 0,
         edad: input.edad ?? "",
-      })
+        tipo: input.tipo ?? "B2C",
+        razon_social: input.razonSocial ?? null,
+        nif: input.nif ?? null,
+        contacto_nombre: input.contactoNombre ?? null,
+        contacto_apellidos: input.contactoApellidos ?? null,
+        contacto_cargo: input.contactoCargo ?? null,
+        direccion: input.direccion ?? null,
+        web: input.web ?? null,
+        instagram: input.instagram ?? null,
+        notas_b2b: input.notasB2b ?? null,
+        asignados: input.asignados ?? [],
+      } as never)
       .select()
       .single();
     if (error || !data) { toast.error("Error al crear el lead."); return null; }
@@ -551,6 +574,17 @@ export const actions = {
     if (patch.etiquetas !== undefined) dbPatch.etiquetas = patch.etiquetas;
     if (patch.cobrado !== undefined) dbPatch.cobrado = patch.cobrado;
     if (patch.fechaCobro !== undefined) dbPatch.fecha_cobro = patch.fechaCobro || null;
+    if (patch.tipo !== undefined) dbPatch.tipo = patch.tipo;
+    if (patch.razonSocial !== undefined) dbPatch.razon_social = patch.razonSocial || null;
+    if (patch.nif !== undefined) dbPatch.nif = patch.nif || null;
+    if (patch.contactoNombre !== undefined) dbPatch.contacto_nombre = patch.contactoNombre || null;
+    if (patch.contactoApellidos !== undefined) dbPatch.contacto_apellidos = patch.contactoApellidos || null;
+    if (patch.contactoCargo !== undefined) dbPatch.contacto_cargo = patch.contactoCargo || null;
+    if (patch.direccion !== undefined) dbPatch.direccion = patch.direccion || null;
+    if (patch.web !== undefined) dbPatch.web = patch.web || null;
+    if (patch.instagram !== undefined) dbPatch.instagram = patch.instagram || null;
+    if (patch.notasB2b !== undefined) dbPatch.notas_b2b = patch.notasB2b || null;
+    if (patch.asignados !== undefined) dbPatch.asignados = patch.asignados;
 
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos
@@ -909,6 +943,7 @@ export const actions = {
     reserva: number;
     costeEnvio: number;
     fechaCreacion?: string;
+    empresaId?: string | null;
   }): Promise<Pedido | null> {
     let productoId = opts.productoId ?? null;
     let tipoProd = "";
@@ -944,6 +979,7 @@ export const actions = {
       creado_manualmente: true,
     };
     if (opts.fechaCreacion) insertPedido.fecha_creacion_pedido = opts.fechaCreacion;
+    if (opts.empresaId) insertPedido.empresa_id = opts.empresaId;
 
     const { data, error } = await supabase.from("pedidos").insert(insertPedido).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }

@@ -18,7 +18,7 @@ export const Route = createFileRoute("/pipeline")({
     const e = s.etapa as Etapa | undefined;
     const v = s.vendedor as string | undefined;
     return {
-      ...(e && ETAPAS.includes(e) ? { etapa: e } : {}),
+      ...(e && (ETAPAS as readonly string[]).includes(e) ? { etapa: e } : {}),
       ...(v && VENDEDORES.includes(v as never) ? { vendedor: v } : {}),
     };
   },
@@ -118,7 +118,9 @@ function LeadCard({ lead, tareas, onNavigate }: { lead: ReturnType<typeof useSto
 }
 
 function Pipeline() {
-  const { leads, tareas } = useStore();
+  const store = useStore();
+  const leads = store.leads.filter((l) => l.tipo !== "B2B");
+  const tareas = store.tareas;
   const navigate = useNavigate();
   const { etapa: filterEtapa, vendedor: filterVendedor } = Route.useSearch();
   const [draggingId, setDraggingId] = useState<string | null>(null);

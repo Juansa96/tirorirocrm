@@ -7,6 +7,10 @@ const STYLES: Record<Etapa, string> = {
   "On Hold": "bg-slate-100 text-slate-700",
   "Closed Won": "bg-emerald-100 text-emerald-700",
   "Closed Lost": "bg-red-100 text-red-700",
+  "Cliente potencial": "bg-sky-100 text-sky-700",
+  Propuesta: "bg-violet-100 text-violet-700",
+  Ganado: "bg-emerald-100 text-emerald-700",
+  Perdido: "bg-red-100 text-red-700",
 };
 
 export function StageBadge({ etapa }: { etapa: Etapa }) {

@@ -114,6 +114,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
             origen: sanitize(origen, 50) || "Formulario web",
             red_social: "",
             fecha_hold: null,
+            tipo: "B2C",
           }).select().single();
 
           if (leadErr || !lead) return json({ error: leadErr?.message ?? "Error creando lead" }, 500);

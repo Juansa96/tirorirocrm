@@ -57,12 +57,13 @@ function PedidosIndex() {
     return { pedido: p, lead, producto: prod, sem, totalT, okT };
   }), [pedidos, leads, productos, pedidoTelas]);
 
-  const abCount = enriched.filter(({ lead }) => lead?.clienteTipo === "partner_ab").length;
+  // "B2B" tab: pedidos vinculados a empresa B2B O al partner Alejandra Blanc (legacy clienteTipo).
+  const isB2B = ({ pedido, lead }: (typeof enriched)[number]) =>
+    !!pedido.empresaId || lead?.clienteTipo === "partner_ab" || lead?.tipo === "B2B";
+  const abCount = enriched.filter(isB2B).length;
   const normalCount = enriched.length - abCount;
 
-  const baseTab = enriched.filter(({ lead }) =>
-    tab === "ab" ? lead?.clienteTipo === "partner_ab" : lead?.clienteTipo !== "partner_ab"
-  );
+  const baseTab = enriched.filter((it) => tab === "ab" ? isB2B(it) : !isB2B(it));
 
   // Group by person (leadId || clienteNombreLibre)
   type Group = { key: string; nombre: string; lead: Lead | undefined; items: typeof baseTab; allEntregados: boolean; oldest: string; total: number };
@@ -163,7 +164,7 @@ function PedidosIndex() {
           <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{normalCount}</span>
         </button>
         <button onClick={() => setTab("ab")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "ab" ? "border-[#1a4b5b] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-          <Sparkles className="h-4 w-4 text-[#1a4b5b]" /> Alejandra Blanc
+          <Sparkles className="h-4 w-4 text-[#1a4b5b]" /> B2B
           <span className="rounded-full bg-[#e6f1f4] px-1.5 py-0.5 text-[10px] font-bold text-[#1a4b5b]">{abCount}</span>
         </button>
       </div>
@@ -505,10 +506,11 @@ function NumberCell({ value, onSave }: { value: number; onSave: (v: number) => v
 // ──────────────────────────────────────────────────────────────────────────
 function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const { leads, productos } = useStore();
-  const [mode, setMode] = useState<"lead" | "libre">("lead");
+  const [mode, setMode] = useState<"lead" | "libre" | "b2b">("lead");
   const [leadId, setLeadId] = useState<string>("");
   const [leadSearch, setLeadSearch] = useState("");
   const [nombreLibre, setNombreLibre] = useState("");
+  const [empresaId, setEmpresaId] = useState<string>("");
   const [prodMode, setProdMode] = useState<"existente" | "nuevo">("nuevo");
   const [productoId, setProductoId] = useState<string>("");
   const [tipo, setTipo] = useState<string>("cabecero");
@@ -518,6 +520,8 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const [reserva, setReserva] = useState(0);
   const [costeEnvio, setCosteEnvio] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  const empresasB2B = useMemo(() => leads.filter((l) => l.tipo === "B2B"), [leads]);
 
   const leadFiltered = useMemo(() => {
     const q = leadSearch.toLowerCase();
@@ -532,15 +536,18 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   async function submit() {
     if (mode === "lead" && !leadId) return;
     if (mode === "libre" && !nombreLibre.trim()) return;
+    if (mode === "b2b" && !empresaId) return;
     if (prodMode === "existente" && !productoId) return;
     if (prodMode === "nuevo" && !tipo) return;
     setSaving(true);
+    const finalLeadId = mode === "lead" ? leadId : mode === "b2b" ? empresaId : null;
     const created = await actions.crearPedidoManual({
-      leadId: mode === "lead" ? leadId : null,
+      leadId: finalLeadId,
       clienteNombreLibre: mode === "libre" ? nombreLibre.trim() : "",
       productoId: prodMode === "existente" ? productoId : null,
       nuevoProducto: prodMode === "nuevo" ? { tipo, modelo: modelo.trim() } : undefined,
       diasPlazo, precio, reserva, costeEnvio,
+      empresaId: mode === "b2b" ? empresaId : undefined,
     });
     setSaving(false);
     if (created) onClose();
@@ -561,11 +568,12 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
           {/* Cliente */}
           <div>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</div>
-            <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-sm md:inline-flex md:text-xs">
-              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente existente</button>
-              <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>No está en el CRM</button>
+            <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente B2C</button>
+              <button onClick={() => setMode("b2b")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "b2b" ? "bg-[#1a4b5b] text-white" : "text-slate-600"}`}>Empresa B2B</button>
+              <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Sin CRM</button>
             </div>
-            {mode === "lead" ? (
+            {mode === "lead" && (
               <div className="space-y-1.5">
                 <input
                   value={selectedLead ? selectedLead.nombre : leadSearch}
@@ -585,7 +593,22 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                   </div>
                 )}
               </div>
-            ) : (
+            )}
+            {mode === "b2b" && (
+              empresasB2B.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+                  Aún no hay empresas B2B. Créalas en la pestaña B2B.
+                </div>
+              ) : (
+                <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base focus:border-slate-500 focus:outline-none md:py-1.5 md:text-sm">
+                  <option value="">— Selecciona empresa —</option>
+                  {empresasB2B.map((l) => (
+                    <option key={l.id} value={l.id}>{l.razonSocial || l.contactoNombre || l.nombre}</option>
+                  ))}
+                </select>
+              )
+            )}
+            {mode === "libre" && (
               <input
                 value={nombreLibre}
                 onChange={(e) => setNombreLibre(e.target.value)}

@@ -5,7 +5,7 @@ import {
   Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap, Camera, ImagePlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, vendorName, type Etapa, type Lead, type Tarea } from "@/lib/types";
+import { ETAPAS, ETAPAS_B2B, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -301,11 +301,14 @@ function ClienteDetalle() {
         </div>
       </div>
 
+      {/* Bloque B2B (razón social, contacto, asignados) */}
+      {lead.tipo === "B2B" && <B2BInfoPanel lead={lead} />}
+
       {/* Etapa + razón de urgencia */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Etapa</div>
         <div className="flex flex-wrap gap-2">
-          {ETAPAS.map((e) => {
+          {(lead.tipo === "B2B" ? (ETAPAS_B2B as readonly Etapa[]) : (ETAPAS as readonly Etapa[])).map((e) => {
             const active = lead.etapa === e;
             return (
               <button key={e} onClick={() => handleEtapaClick(e)}
@@ -1026,6 +1029,76 @@ function FotosSection({ leadId }: { leadId: string }) {
           <img src={preview} alt="" className="max-h-full max-w-full rounded-lg shadow-2xl" />
         </div>
       )}
+    </div>
+  );
+}
+
+function B2BInfoPanel({ lead }: { lead: Lead }) {
+  const inp = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none";
+  function upd(patch: Partial<Lead>) { void actions.updateLead(lead.id, patch); }
+  function toggleAsignado(a: AsignadoB2B) {
+    const cur = lead.asignados ?? [];
+    upd({ asignados: cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a] });
+  }
+  return (
+    <div className="rounded-xl border border-[#1a4b5b]/20 bg-[#f5fafb] p-4 shadow-sm md:p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="rounded-full bg-[#1a4b5b] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">B2B</span>
+        <span className="text-sm font-semibold text-slate-800">Datos de empresa</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Razón social</label>
+          <input defaultValue={lead.razonSocial} key={"rs" + lead.razonSocial} onBlur={(e) => { if (e.target.value !== lead.razonSocial) upd({ razonSocial: e.target.value }); }} className={inp} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">NIF / CIF</label>
+          <input defaultValue={lead.nif} key={"nif" + lead.nif} onBlur={(e) => { if (e.target.value !== lead.nif) upd({ nif: e.target.value }); }} className={inp} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Contacto (nombre)</label>
+          <input defaultValue={lead.contactoNombre} key={"cn" + lead.contactoNombre} onBlur={(e) => { if (e.target.value !== lead.contactoNombre) upd({ contactoNombre: e.target.value }); }} className={inp} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Apellidos</label>
+          <input defaultValue={lead.contactoApellidos} key={"ca" + lead.contactoApellidos} onBlur={(e) => { if (e.target.value !== lead.contactoApellidos) upd({ contactoApellidos: e.target.value }); }} className={inp} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Cargo</label>
+          <input defaultValue={lead.contactoCargo} key={"cc" + lead.contactoCargo} onBlur={(e) => { if (e.target.value !== lead.contactoCargo) upd({ contactoCargo: e.target.value }); }} className={inp} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Web</label>
+          <input defaultValue={lead.web} key={"w" + lead.web} onBlur={(e) => { if (e.target.value !== lead.web) upd({ web: e.target.value }); }} className={inp} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Instagram</label>
+          <input defaultValue={lead.instagram} key={"ig" + lead.instagram} onBlur={(e) => { if (e.target.value !== lead.instagram) upd({ instagram: e.target.value }); }} className={inp} />
+        </div>
+        <div className="md:col-span-2">
+          <label className="mb-1 block text-xs font-medium text-slate-600">Dirección</label>
+          <input defaultValue={lead.direccion} key={"d" + lead.direccion} onBlur={(e) => { if (e.target.value !== lead.direccion) upd({ direccion: e.target.value }); }} className={inp} />
+        </div>
+        <div className="md:col-span-2">
+          <label className="mb-1 block text-xs font-medium text-slate-600">Notas B2B</label>
+          <textarea defaultValue={lead.notasB2b} key={"n" + lead.notasB2b} rows={2} onBlur={(e) => { if (e.target.value !== lead.notasB2b) upd({ notasB2b: e.target.value }); }} className={inp} />
+        </div>
+      </div>
+      <div className="mt-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Asignados</div>
+        <div className="flex flex-wrap gap-2">
+          {ASIGNADOS_B2B.map((a) => {
+            const on = (lead.asignados ?? []).includes(a);
+            return (
+              <button key={a} type="button" onClick={() => toggleAsignado(a)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${on ? "border-[#1a4b5b] bg-[#1a4b5b] text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"}`}>
+                {a}
+              </button>
+            );
+          })}
+          {(lead.asignados ?? []).length === 0 && <span className="self-center text-xs text-slate-400">Sin asignar</span>}
+        </div>
+      </div>
     </div>
   );
 }
