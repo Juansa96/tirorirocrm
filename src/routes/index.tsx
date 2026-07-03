@@ -40,7 +40,11 @@ function KpiCard({ icon: Icon, label, value, sub, badgeBg, iconColor, empty }: {
 
 
 function Dashboard() {
-  const { leads, tareas, pedidos } = useStore();
+  const store = useStore();
+  // Dashboard sólo muestra métricas del canal B2C.
+  const leads = store.leads.filter((l) => l.tipo !== "B2B");
+  const tareas = store.tareas;
+  const pedidos = store.pedidos;
   const navigate = useNavigate();
   const [filterVendedor, setFilterVendedor] = useState("");
 
