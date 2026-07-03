@@ -62,7 +62,10 @@ function mapLead(r: Record<string, unknown>): Lead {
     razonUrgencia: (r.razon_urgencia as string) ?? "",
     clienteTipo: (r.cliente_tipo as string) ?? "normal",
     etiquetas: Array.isArray(r.etiquetas) ? (r.etiquetas as string[]) : [],
+    cobrado: Boolean(r.cobrado),
+    fechaCobro: (r.fecha_cobro as string) ?? "",
   };
+
 }
 
 function mapLeadFoto(r: Record<string, unknown>): LeadFoto {
