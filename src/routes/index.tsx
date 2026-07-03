@@ -129,11 +129,19 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard icon={Users} label="TOTAL LEADS" value={totalLeads} badgeBg="bg-sky-100" iconColor="text-sky-600" />
+        <KpiCard
+          icon={Users}
+          label="TOTAL LEADS"
+          value={totalLeadsActivos}
+          sub={<>de {totalLeadsHistorico} en total</>}
+          badgeBg="bg-sky-100"
+          iconColor="text-sky-600"
+        />
         <KpiCard icon={TrendingUp} label="VALOR PIPELINE" value={formatCurrency(valorPipeline)} badgeBg="bg-amber-100" iconColor="text-amber-600" />
-        <KpiCard icon={Trophy} label="CERRADO GANADO" value={formatCurrency(cerradoGanado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
-        <KpiCard icon={Percent} label="TASA DE CONVERSIÓN" value={tasaConv !== null ? `${tasaConv.toFixed(1)}%` : "—"} badgeBg="bg-violet-100" iconColor="text-violet-600" empty={tasaConv === null} />
+        <KpiCard icon={Wallet} label="GANADO · PENDIENTE DE COBRO" value={formatCurrency(ganadoPendiente)} badgeBg="bg-amber-100" iconColor="text-amber-700" />
+        <KpiCard icon={Trophy} label="GANADO · YA COBRADO" value={formatCurrency(ganadoCobrado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
       </div>
+
 
       {pedidosRiesgo.length > 0 && (
         <Link
