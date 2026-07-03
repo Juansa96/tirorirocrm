@@ -1079,6 +1079,14 @@ function B2BInfoPanel({ lead }: { lead: Lead }) {
           <label className="mb-1 block text-xs font-medium text-slate-600">Dirección</label>
           <input defaultValue={lead.direccion} key={"d" + lead.direccion} onBlur={(e) => { if (e.target.value !== lead.direccion) upd({ direccion: e.target.value }); }} className={inp} />
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Municipio</label>
+          <input defaultValue={lead.ciudad} key={"mun" + lead.ciudad} onBlur={(e) => { if (e.target.value !== lead.ciudad) upd({ ciudad: e.target.value }); }} className={inp} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600">Provincia</label>
+          <input defaultValue={lead.provincia} key={"prov" + lead.provincia} onBlur={(e) => { if (e.target.value !== lead.provincia) upd({ provincia: e.target.value }); }} className={inp} />
+        </div>
         <div className="md:col-span-2">
           <label className="mb-1 block text-xs font-medium text-slate-600">Notas B2B</label>
           <textarea defaultValue={lead.notasB2b} key={"n" + lead.notasB2b} rows={2} onBlur={(e) => { if (e.target.value !== lead.notasB2b) upd({ notasB2b: e.target.value }); }} className={inp} />
