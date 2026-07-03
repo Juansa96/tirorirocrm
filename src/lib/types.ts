@@ -222,6 +222,7 @@ export interface Pedido {
   notasPedido: string;
   createdAt: string;
   updatedAt: string;
+  empresaId: string;   // uuid del lead B2B vinculado, o "" si no aplica
 }
 
 export interface PedidoTela {
