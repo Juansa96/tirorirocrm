@@ -8,12 +8,26 @@ import { FormaBadge } from "@/components/FormaBadge";
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
   { id: "cabecero",  label: "Cabecero" },
+  { id: "banco",     label: "Banco" },
   { id: "puf",       label: "Puf" },
   { id: "mesa",      label: "Mesa de centro" },
   { id: "pantalla",  label: "Pantalla de lámpara" },
   { id: "almohadon", label: "Almohadón" },
   { id: "otro",      label: "Otro" },
 ] as const;
+
+// Banco Oyambre — precios fijos por medida (idénticos al configurador web)
+export const BANCO_OYAMBRE = [
+  { id: "60",        label: "60 cm",         precio: 200 },
+  { id: "60-doble",  label: "60 cm doble",   precio: 370 },
+  { id: "90",        label: "90 cm",         precio: 250 },
+  { id: "120",       label: "120 cm",        precio: 300 },
+  { id: "150",       label: "150 cm",        precio: 350 },
+  { id: "custom",    label: "Mis medidas",   precio: 0 }, // A consultar
+] as const;
+export const BANCO_ALTO_FIJO = 45;
+export const BANCO_FONDO_FIJO = 33;
+
 
 export const CABECERO_FORMAS = [
   { id: "recto",         name: "Calobra" },
@@ -64,7 +78,7 @@ export const TELAS_SUGERIDAS = [
 ];
 
 // ── Tipos ─────────────────────────────────────────────────────────
-export type ProdTipo = "cabecero" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
+export type ProdTipo = "cabecero" | "banco" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
 export const FORMA_POR_DECIDIR = "tbd";
 
 export interface ProdState {
@@ -80,6 +94,7 @@ export interface ProdState {
   tapetes: boolean;
   almohadonMedidas: string; almohadonTela: string; almohadonRibete: string; almohadonSinRibete: boolean;
   otroDescripcion: string;
+  bancoMedida: string; bancoLargoCustom: string;
   cantidad: number; precioUnitario: number; notasProducto: string;
 }
 
@@ -93,8 +108,10 @@ export const EMPTY_PROD_STATE: ProdState = {
   tapetes: false,
   almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
   otroDescripcion: "",
+  bancoMedida: "90", bancoLargoCustom: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
+
 
 // ── Conversiones ──────────────────────────────────────────────────
 export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50"> {
@@ -143,6 +160,21 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     modelo = tbd ? `${fn} (medida por decidir)` : `${fn} ${f.tamanoPantalla}`.trim();
     relleno = f.formaPantalla;
     patas = extras([!tbd && f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)", tbd && "Medida por decidir"]);
+  } else if (f.tipo === "banco") {
+    const opt = BANCO_OYAMBRE.find(x => x.id === f.bancoMedida);
+    const anchoCustom = f.bancoMedida === "custom" ? (Number(f.bancoLargoCustom) || null) : null;
+    modelo = `Oyambre — ${opt?.label ?? f.bancoMedida}`;
+    ancho = f.bancoMedida === "custom"
+      ? anchoCustom
+      : (Number(f.bancoMedida) || null);
+    alto = f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO;
+    // Fondo/alto fijos + "a consultar" para custom
+    patas = extras([
+      f.bancoMedida !== "custom" && `Alto ${BANCO_ALTO_FIJO} cm · Fondo ${BANCO_FONDO_FIJO} cm`,
+      f.bancoMedida === "custom" && "A consultar (medidas personalizadas)",
+      f.tapetes && "Tapetes protectores (+5€)",
+    ]);
+    color = f.telaLateral; relleno = f.telaVivo;
   }
 
   if (f.tipo === "almohadon") {
@@ -152,6 +184,8 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
   } else if (f.tipo === "otro") {
     modelo = f.otroDescripcion;
   }
+
+
 
   return {
     tipo: f.tipo, modelo, ancho, alto,
@@ -208,7 +242,17 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   } else if (p.tipo === "otro") {
     s.otroDescripcion = p.modelo;
     s.cantidad = p.cantidad;
+  } else if (p.tipo === "banco") {
+    const a = p.ancho ? String(p.ancho) : "";
+    const std = ["60","90","120","150"];
+    // "60 doble" no se puede distinguir solo por ancho — buscar en modelo
+    const isDoble = /doble/i.test(p.modelo);
+    s.bancoMedida = isDoble ? "60-doble" : (std.includes(a) ? a : (a ? "custom" : "90"));
+    s.bancoLargoCustom = s.bancoMedida === "custom" ? a : "";
+    s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
+    s.cantidad = p.cantidad;
   }
+
   return s;
 }
 
@@ -290,6 +334,7 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
   const internalToLabel: Record<string, string> = {
     cabecero: "Cabecero", puf: "Puf", mesa: "Mesa de centro",
     pantalla: "Pantalla de lámpara", almohadon: "Almohadón", otro: "Cubrecanapé",
+    banco: "Banco",
   };
 
   const tipos = useMemo(() => {
@@ -297,8 +342,9 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     // Fallback al hardcoded si el catálogo aún no ha cargado
     return fromCat.length > 0
       ? fromCat
-      : ["Cabecero", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón", "Cubrecanapé"];
+      : ["Cabecero", "Banco", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón", "Cubrecanapé"];
   }, [catalogo]);
+
 
   const tipoLabel = f.tipo ? internalToLabel[f.tipo] ?? "" : "";
   const modelosTipo = useMemo(
@@ -325,8 +371,12 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     if (f.tipo === "mesa") {
       return modelosTipo.find(x => x.modelo === "Cabo de Palos")?.id ?? "";
     }
+    if (f.tipo === "banco") {
+      return modelosTipo.find(x => x.modelo === "Oyambre")?.id ?? modelosTipo[0]?.id ?? "";
+    }
     return "";
   }, [modelosTipo, f.tipo, f.forma, f.formaPantalla]);
+
 
   function setTipo(label: string) {
     const internal = (CATALOG_TO_INTERNAL[label] ?? "") as ProdTipo;
@@ -452,6 +502,66 @@ export function ProductoForm({
           </div>
         </>
       )}
+
+      {/* ── BANCO OYAMBRE ── */}
+      {f.tipo === "banco" && (
+        <>
+          <div>
+            <div className={section}>Medida (Oyambre)</div>
+            <div className="flex flex-wrap gap-2">
+              {BANCO_OYAMBRE.map(x => (
+                <button
+                  key={x.id}
+                  type="button"
+                  onClick={() => s({
+                    bancoMedida: x.id,
+                    precioUnitario: x.precio,
+                  })}
+                  className={btn(f.bancoMedida === x.id)}
+                >
+                  {x.label}{x.precio > 0 ? ` · ${x.precio}€` : " · A consultar"}
+                </button>
+              ))}
+            </div>
+            {f.bancoMedida === "custom" && (
+              <div className="mt-2 space-y-2">
+                <input
+                  type="number"
+                  min={40}
+                  max={400}
+                  className="w-32 rounded border border-slate-200 px-2 py-1.5 text-sm"
+                  placeholder="Largo (cm)"
+                  value={f.bancoLargoCustom}
+                  onChange={e => s({ bancoLargoCustom: e.target.value })}
+                />
+                <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Precio a consultar — introdúcelo manualmente abajo cuando lo negocies.
+                </div>
+              </div>
+            )}
+            <div className="mt-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+              Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
+            </div>
+          </div>
+          <TelaSection
+            tela={f.tela}
+            onTela={v => s({ tela: v })}
+            coleccionTela={f.coleccionTela}
+            onColeccion={v => s({ coleccionTela: v })}
+            telaLateral={f.telaLateral}
+            onTelaLateral={v => s({ telaLateral: v })}
+            showLateral
+          />
+          <div>
+            <div className={section}>Extras</div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" />
+              Tapetes protectores (+5€)
+            </label>
+          </div>
+        </>
+      )}
+
 
       {/* ── PUF ── */}
       {f.tipo === "puf" && (

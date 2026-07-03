@@ -206,11 +206,13 @@ export type Database = {
         Row: {
           ciudad: string | null
           cliente_tipo: string
+          cobrado: boolean
           created_at: string
           edad: string
           email: string | null
           etapa: string
           etiquetas: string[]
+          fecha_cobro: string | null
           fecha_creacion: string
           fecha_entrada_etapa: string
           fecha_hold: string | null
@@ -230,11 +232,13 @@ export type Database = {
         Insert: {
           ciudad?: string | null
           cliente_tipo?: string
+          cobrado?: boolean
           created_at?: string
           edad?: string
           email?: string | null
           etapa?: string
           etiquetas?: string[]
+          fecha_cobro?: string | null
           fecha_creacion?: string
           fecha_entrada_etapa?: string
           fecha_hold?: string | null
@@ -254,11 +258,13 @@ export type Database = {
         Update: {
           ciudad?: string | null
           cliente_tipo?: string
+          cobrado?: boolean
           created_at?: string
           edad?: string
           email?: string | null
           etapa?: string
           etiquetas?: string[]
+          fecha_cobro?: string | null
           fecha_creacion?: string
           fecha_entrada_etapa?: string
           fecha_hold?: string | null

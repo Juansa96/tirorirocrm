@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Users, TrendingUp, Trophy, Percent, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
+import { Users, TrendingUp, Trophy, Wallet, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
+
 import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -15,9 +16,10 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-function KpiCard({ icon: Icon, label, value, badgeBg, iconColor, empty }: {
+function KpiCard({ icon: Icon, label, value, sub, badgeBg, iconColor, empty }: {
   icon: React.ComponentType<{ className?: string }>;
-  label: string; value: React.ReactNode; badgeBg: string; iconColor: string; empty?: boolean;
+  label: string; value: React.ReactNode; sub?: React.ReactNode;
+  badgeBg: string; iconColor: string; empty?: boolean;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow duration-150 hover:shadow-md">
@@ -27,11 +29,15 @@ function KpiCard({ icon: Icon, label, value, badgeBg, iconColor, empty }: {
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
       </div>
-      <div className={`mt-3 text-2xl font-bold ${empty ? "text-slate-400" : "text-slate-900"}`}>{value}</div>
+      <div className="mt-3 flex items-baseline gap-2">
+        <div className={`text-2xl font-bold ${empty ? "text-slate-400" : "text-slate-900"}`}>{value}</div>
+        {sub && <div className="text-xs text-slate-400">{sub}</div>}
+      </div>
       {empty && <div className="mt-1 text-xs text-slate-400">Sin datos aún</div>}
     </div>
   );
 }
+
 
 function Dashboard() {
   const { leads, tareas, pedidos } = useStore();
@@ -42,13 +48,19 @@ function Dashboard() {
     ? leads.filter((l) => !l.vendedor || l.vendedor === filterVendedor)
     : leads;
 
-  const totalLeads = filteredLeads.length;
+  // Total leads: activos = todos menos Closed Lost y Closed Won ya cobrado.
+  const totalLeadsActivos = filteredLeads.filter(
+    (l) => l.etapa !== "Closed Lost" && !(l.etapa === "Closed Won" && l.cobrado)
+  ).length;
+  const totalLeadsHistorico = filteredLeads.length;
+
   const valorPipeline = filteredLeads
     .filter((l) => l.etapa !== "Closed Won" && l.etapa !== "Closed Lost")
     .reduce((s, l) => s + l.valor, 0);
-  const cerradoGanado = filteredLeads.filter((l) => l.etapa === "Closed Won").reduce((s, l) => s + l.valor, 0);
-  const wonCount = filteredLeads.filter((l) => l.etapa === "Closed Won").length;
-  const tasaConv = totalLeads > 0 && wonCount > 0 ? (wonCount / totalLeads) * 100 : null;
+
+  const wonLeads = filteredLeads.filter((l) => l.etapa === "Closed Won");
+  const ganadoPendiente = wonLeads.filter((l) => !l.cobrado).reduce((s, l) => s + l.valor, 0);
+  const ganadoCobrado = wonLeads.filter((l) => l.cobrado).reduce((s, l) => s + l.valor, 0);
 
   const chartData = ETAPAS.map((etapa) => {
     const leadsEtapa = filteredLeads.filter((l) => l.etapa === etapa);
@@ -56,12 +68,23 @@ function Dashboard() {
     return { etapa, valor, displayValor: valor === 0 ? 0.0001 : valor, count: leadsEtapa.length, color: ETAPA_COLORS[etapa] };
   });
 
+  // Tareas del dashboard: ocultar las de leads en Closed Won / On Hold (siguen en la ficha).
+  const leadsById = new Map(leads.map((l) => [l.id, l] as const));
   const tareasPendientes = tareas
-    .filter((t) => !t.completada && (!filterVendedor || t.vendedor === filterVendedor))
+    .filter((t) => {
+      if (t.completada) return false;
+      if (filterVendedor && t.vendedor !== filterVendedor) return false;
+      const lead = leadsById.get(t.leadId);
+      if (lead && (lead.etapa === "Closed Won" || lead.etapa === "On Hold")) return false;
+      return true;
+    })
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
-  const vendTotals = vendedorTotals(leads);
+  // Rendimiento por vendedor: solo Closed Won (cobrado o no).
+  const wonLeadsGlobal = leads.filter((l) => l.etapa === "Closed Won");
+  const vendTotals = vendedorTotals(wonLeadsGlobal);
   const maxVendValor = Math.max(1, ...VENDEDORES.map((v) => vendTotals.get(v)!.valor));
+
 
   // Pedidos en riesgo (ámbar) o atrasados (rojo), no entregados
   const pedidosRiesgo = pedidos.filter((p) => {
@@ -106,11 +129,19 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard icon={Users} label="TOTAL LEADS" value={totalLeads} badgeBg="bg-sky-100" iconColor="text-sky-600" />
+        <KpiCard
+          icon={Users}
+          label="TOTAL LEADS"
+          value={totalLeadsActivos}
+          sub={<>de {totalLeadsHistorico} en total</>}
+          badgeBg="bg-sky-100"
+          iconColor="text-sky-600"
+        />
         <KpiCard icon={TrendingUp} label="VALOR PIPELINE" value={formatCurrency(valorPipeline)} badgeBg="bg-amber-100" iconColor="text-amber-600" />
-        <KpiCard icon={Trophy} label="CERRADO GANADO" value={formatCurrency(cerradoGanado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
-        <KpiCard icon={Percent} label="TASA DE CONVERSIÓN" value={tasaConv !== null ? `${tasaConv.toFixed(1)}%` : "—"} badgeBg="bg-violet-100" iconColor="text-violet-600" empty={tasaConv === null} />
+        <KpiCard icon={Wallet} label="GANADO · PENDIENTE DE COBRO" value={formatCurrency(ganadoPendiente)} badgeBg="bg-amber-100" iconColor="text-amber-700" />
+        <KpiCard icon={Trophy} label="GANADO · YA COBRADO" value={formatCurrency(ganadoCobrado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
       </div>
+
 
       {pedidosRiesgo.length > 0 && (
         <Link

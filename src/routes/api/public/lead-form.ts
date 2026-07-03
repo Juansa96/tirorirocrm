@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { VENDEDORES } from "@/lib/types";
+
 import { buildProducto } from "@/lib/product-schema";
 
-function randomVendedor(): string {
-  return VENDEDORES[Math.floor(Math.random() * VENDEDORES.length)];
-}
+// Todos los leads del formulario web se asignan a Rocío por defecto.
+// El vendedor se puede reasignar manualmente desde la ficha del lead.
+const DEFAULT_VENDEDOR = "rocionavarreteurdiales98@gmail.com";
+
 
 function sanitize(val: unknown, maxLen = 200): string {
   if (val === null || val === undefined) return "";
@@ -65,7 +66,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
           const nombreClean = sanitize(nombre);
           const emailClean = sanitize(email, 254);
 
-          const vendedor = randomVendedor();
+          const vendedor = DEFAULT_VENDEDOR;
 
           // Build the list of product configs to insert.
           // Accept either `productos: [...]` (new, supports multiple) or legacy `configurador: {...}` (single).

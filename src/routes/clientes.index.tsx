@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package, Download, Tag } from "lucide-react";
+import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
-import { VENDEDORES, vendorName, ETAPAS } from "@/lib/types";
+import { VENDEDORES, vendorName, ETAPAS, ETAPA_COLORS, type Etapa } from "@/lib/types";
 import { formatCurrency, dateLabel, formatShortDate } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { StageBadge } from "@/components/StageBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
+
 
 function exportLeadsCSV(rows: Array<Record<string, string | number>>, filename: string) {
   const headers = Object.keys(rows[0] ?? {});
@@ -34,7 +35,9 @@ function ClientesList() {
   const [producto, setProducto] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [etiqueta, setEtiqueta] = useState("");
+  const [etapaFiltro, setEtapaFiltro] = useState<Etapa | "">("");
   type SortKey = "fechaCreacion" | "nombre" | "vendedor" | "etapa" | "valor" | "ciudad" | "proximaAccion";
+
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
   const productos = useMemo(() => Array.from(new Set(leads.map((l) => l.producto).filter(Boolean))), [leads]);
@@ -52,8 +55,10 @@ function ClientesList() {
     if (producto && l.producto !== producto) return false;
     if (ciudad && l.ciudad !== ciudad) return false;
     if (etiqueta && !(l.etiquetas ?? []).includes(etiqueta)) return false;
+    if (etapaFiltro && l.etapa !== etapaFiltro) return false;
     return true;
   });
+
 
   function handleExport() {
     const rows = sorted.map((l) => ({
@@ -172,6 +177,46 @@ function ClientesList() {
           {ciudades.map((c) => (<option key={c} value={c}>{c}</option>))}
         </select>
       </div>
+
+      {/* Chips de filtro por etapa */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-500">Etapa:</span>
+        <button
+          type="button"
+          onClick={() => setEtapaFiltro("")}
+          className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${etapaFiltro === "" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+        >
+          Todas
+        </button>
+        {ETAPAS.map((e) => {
+          const active = etapaFiltro === e;
+          return (
+            <button
+              key={e}
+              type="button"
+              onClick={() => setEtapaFiltro(active ? "" : e)}
+              className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+              style={{
+                backgroundColor: active ? ETAPA_COLORS[e] : "#f1f5f9",
+                color: active ? "#fff" : "#475569",
+              }}
+            >
+              {e}
+            </button>
+          );
+        })}
+        {etiquetasAll.length > 0 && (
+          <select
+            value={etiqueta}
+            onChange={(e) => setEtiqueta(e.target.value)}
+            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+          >
+            <option value="">Todas las etiquetas</option>
+            {etiquetasAll.map((et) => <option key={et} value={et}>{et}</option>)}
+          </select>
+        )}
+      </div>
+
 
       <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:block">
         <table className="w-full text-sm">
