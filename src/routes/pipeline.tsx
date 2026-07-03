@@ -80,16 +80,9 @@ function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<t
         <p className="mt-1.5 text-base font-bold tracking-tight text-slate-900">{formatCurrency(lead.valor)}</p>
       ) : (
         <p className="mt-1.5 text-sm font-medium text-slate-300">—</p>
-      )}
-      {lead.etapa === "Closed Won" && (
-        <div className="mt-1.5">
-          {lead.cobrado ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">✓ Pagado</span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">● Pendiente de cobro</span>
-          )}
-        </div>
-      )}
+      <div className="mt-1.5">
+        <PaidBadge leadId={lead.id} pedidos={pedidos} />
+      </div>
       <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-500">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
         <span className="font-medium text-slate-600">{vendorFirst(lead.vendedor)}</span>
