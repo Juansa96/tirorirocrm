@@ -334,6 +334,7 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
   const internalToLabel: Record<string, string> = {
     cabecero: "Cabecero", puf: "Puf", mesa: "Mesa de centro",
     pantalla: "Pantalla de lámpara", almohadon: "Almohadón", otro: "Cubrecanapé",
+    banco: "Banco",
   };
 
   const tipos = useMemo(() => {
@@ -341,8 +342,9 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     // Fallback al hardcoded si el catálogo aún no ha cargado
     return fromCat.length > 0
       ? fromCat
-      : ["Cabecero", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón", "Cubrecanapé"];
+      : ["Cabecero", "Banco", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón", "Cubrecanapé"];
   }, [catalogo]);
+
 
   const tipoLabel = f.tipo ? internalToLabel[f.tipo] ?? "" : "";
   const modelosTipo = useMemo(
