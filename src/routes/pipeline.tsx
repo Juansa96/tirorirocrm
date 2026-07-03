@@ -328,9 +328,9 @@ function PipelineB2BView() {
   const visibleEtapas = filterEtapa ? ETAPAS_B2B.filter((e) => e === filterEtapa) : ETAPAS_B2B;
 
   // Opciones dinámicas de municipio / provincia
-  const municipios = Array.from(new Set(b2b.map((l) => (l.ciudad || "").trim()).filter(Boolean)))
+  const municipios = Array.from(new Set(b2b.map((l) => municipioOf(l)).filter(Boolean)))
     .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-  const hasSinMuni = b2b.some((l) => !(l.ciudad || "").trim());
+  const hasSinMuni = b2b.some((l) => !municipioOf(l));
   const provincias = Array.from(new Set(b2b.map((l) => (l.provincia || "").trim()).filter(Boolean)))
     .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
   const hasSinProv = b2b.some((l) => !(l.provincia || "").trim());
@@ -348,7 +348,7 @@ function PipelineB2BView() {
   const nq = normalize(filterQ);
   const filtered = b2b.filter((l) => {
     if (filterAsignado && !(l.asignados ?? []).includes(filterAsignado)) return false;
-    const muni = (l.ciudad || "").trim();
+    const muni = municipioOf(l);
     const prov = (l.provincia || "").trim();
     if (filterMunicipio) {
       if (filterMunicipio === SIN_MUNI) { if (muni) return false; }
@@ -372,12 +372,12 @@ function PipelineB2BView() {
       case "fecha_asc": return (a.fechaCreacion || "").localeCompare(b.fechaCreacion || "");
       case "fecha_desc": return (b.fechaCreacion || "").localeCompare(a.fechaCreacion || "");
       case "municipio_asc": {
-        const ac = (a.ciudad || "").trim(), bc = (b.ciudad || "").trim();
+        const ac = municipioOf(a), bc = municipioOf(b);
         if (!ac && bc) return 1; if (ac && !bc) return -1; if (!ac && !bc) return 0;
         return cmp(ac, bc);
       }
       case "municipio_desc": {
-        const ac = (a.ciudad || "").trim(), bc = (b.ciudad || "").trim();
+        const ac = municipioOf(a), bc = municipioOf(b);
         if (!ac && bc) return 1; if (ac && !bc) return -1; if (!ac && !bc) return 0;
         return cmp(bc, ac);
       }
