@@ -14,8 +14,8 @@ import { Route as PipelineB2bRouteImport } from './routes/pipeline-b2b'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as DatosRouteImport } from './routes/datos'
 import { Route as DuplicadosRouteImport } from './routes/duplicados'
+import { Route as DatosRouteImport } from './routes/datos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidosIndexRouteImport } from './routes/pedidos.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
@@ -55,14 +55,14 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DatosRoute = DatosRouteImport.update({
-  id: '/datos',
-  path: '/datos',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DuplicadosRoute = DuplicadosRouteImport.update({
   id: '/duplicados',
   path: '/duplicados',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatosRoute = DatosRouteImport.update({
+  id: '/datos',
+  path: '/datos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -328,18 +328,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/datos': {
-      id: '/datos'
-      path: '/datos'
-      fullPath: '/datos'
-      preLoaderRoute: typeof DatosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/duplicados': {
       id: '/duplicados'
       path: '/duplicados'
       fullPath: '/duplicados'
       preLoaderRoute: typeof DuplicadosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/datos': {
+      id: '/datos'
+      path: '/datos'
+      fullPath: '/datos'
+      preLoaderRoute: typeof DatosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -461,3 +461,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
