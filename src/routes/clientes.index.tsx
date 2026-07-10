@@ -321,7 +321,7 @@ function ClientesList() {
           Clientes B2C
         </button>
         <button onClick={() => setTab("influ")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "influ" ? "border-pink-600 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-          Influencers
+          Colaboraciones
           {influCount > 0 && <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-bold text-pink-700">{influCount}</span>}
         </button>
       </div>

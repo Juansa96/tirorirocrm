@@ -591,9 +591,10 @@ function ClienteDetalle() {
                       for (const p of pendientes) {
                         await actions.crearPedido({
                           productoId: p.id,
-                          pagado50: p.pagado50,
-                          pagoTodoAlFinal: !p.pagado50,
+                          pagado50: lead.tipo === "INFLUENCER" ? false : p.pagado50,
+                          pagoTodoAlFinal: lead.tipo !== "INFLUENCER" && !p.pagado50,
                           creadoManualmente: !p.pagado50,
+                          esCanje: lead.tipo === "INFLUENCER",
                         });
                       }
                     }}
@@ -682,7 +683,7 @@ function ClienteDetalle() {
                           />
                           <span>Pagado 50%</span>
                         </label>
-                        <CrearPedidoButton producto={p} pedidos={pedidos.filter((pd) => pd.productoLeadId === p.id)} navigate={navigate} />
+                        <CrearPedidoButton producto={p} pedidos={pedidos.filter((pd) => pd.productoLeadId === p.id)} navigate={navigate} esCanje={lead.tipo === "INFLUENCER"} />
                       </div>
                     </div>
                     <div className="flex shrink-0 gap-1">
@@ -883,11 +884,12 @@ function EtiquetasEditor({ lead }: { lead: Lead }) {
 
 
 function CrearPedidoButton({
-  producto, pedidos, navigate,
+  producto, pedidos, navigate, esCanje = false,
 }: {
   producto: { id: string; caracteristicasConfirmadas: boolean; pagado50: boolean };
   pedidos: { id: string }[];
   navigate: ReturnType<typeof useNavigate>;
+  esCanje?: boolean;
 }) {
   // Si ya hay pedido(s), muestra chips clicables
   if (pedidos.length > 0) {
@@ -899,7 +901,7 @@ function CrearPedidoButton({
             onClick={() => navigate({ to: "/pedidos/$id", params: { id: pd.id } })}
             className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-200"
           >
-            <Package className="h-3 w-3" /> Pedido #{i + 1}
+            <Package className="h-3 w-3" /> {esCanje ? "Colaboración" : "Pedido"} #{i + 1}
           </button>
         ))}
       </div>
@@ -909,8 +911,29 @@ function CrearPedidoButton({
   if (!producto.caracteristicasConfirmadas) {
     return (
       <span className="ml-auto text-[11px] italic text-slate-400">
-        Confirma características para crear pedido
+        Confirma características para {esCanje ? "generar la colaboración" : "crear pedido"}
       </span>
+    );
+  }
+
+  // Influencer → pedido de canje (sin pago). Confirmadas las características, se genera directo.
+  if (esCanje) {
+    return (
+      <button
+        onClick={async () => {
+          const ped = await actions.crearPedido({
+            productoId: producto.id,
+            pagado50: false,
+            pagoTodoAlFinal: false,
+            creadoManualmente: true,
+            esCanje: true,
+          });
+          if (ped) navigate({ to: "/pedidos/$id", params: { id: ped.id } });
+        }}
+        className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-pink-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pink-700"
+      >
+        <Package className="h-3.5 w-3.5" /> Generar pedido (canje)
+      </button>
     );
   }
 

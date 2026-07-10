@@ -37,7 +37,25 @@ export type EtapaB2B =
   | "Ganado"
   | "Perdido";
 
-export type Etapa = EtapaB2C | EtapaB2B;
+export type EtapaColab =
+  | "Contactado"
+  | "Negociando"
+  | "Ganado"
+  | "Perdido";
+
+export type Etapa = EtapaB2C | EtapaB2B | EtapaColab;
+
+// Motivos por los que una colaboración se marca como "Perdido".
+// Se pregunta siempre al mover a Perdido; "Otro" permite texto libre.
+export const RAZONES_PERDIDA_COLAB = [
+  "No responde",
+  "Pide pago (no acepta canje)",
+  "No encaja con la marca",
+  "Fechas no compatibles",
+  "Colabora con la competencia",
+  "Pocos seguidores / bajo alcance",
+  "Otro",
+] as const;
 
 export const ETAPAS: EtapaB2C[] = [
   "Discovery",
@@ -55,6 +73,13 @@ export const ETAPAS_B2B: EtapaB2B[] = [
   "Perdido",
 ];
 
+export const ETAPAS_COLAB: EtapaColab[] = [
+  "Contactado",
+  "Negociando",
+  "Ganado",
+  "Perdido",
+];
+
 export const ETAPA_COLORS: Record<Etapa, string> = {
   Discovery: "#38bdf8",
   "Primer Contacto": "#f59e0b",
@@ -66,6 +91,8 @@ export const ETAPA_COLORS: Record<Etapa, string> = {
   Propuesta: "#8b5cf6",
   Ganado: "#10b981",
   Perdido: "#ef4444",
+  Contactado: "#ec4899",
+  Negociando: "#f59e0b",
 };
 
 export type TipoLead = "B2C" | "B2B" | "INFLUENCER";
