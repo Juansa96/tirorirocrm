@@ -247,8 +247,8 @@ function PipelineB2C() {
         </div>
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-6 md:mx-0 md:px-0">
-        <div className={`flex snap-x snap-mandatory gap-3 md:snap-none ${filterEtapa ? "md:max-w-sm" : "md:grid md:grid-cols-6"}`}>
+      <div className="-mx-4 overflow-x-auto px-4 pb-6 lg:mx-0 lg:px-0">
+        <div className={`flex snap-x snap-mandatory gap-3 lg:snap-none ${filterEtapa ? "md:max-w-sm" : "lg:grid lg:grid-cols-6"}`}>
           {visibleEtapas.map((etapa) => {
             const colLeads = leads.filter((l) => l.etapa === etapa && (!filterVendedor || !l.vendedor || l.vendedor === filterVendedor));
             const total = colLeads.reduce((s, l) => s + l.valor, 0);
@@ -261,7 +261,7 @@ function PipelineB2C() {
                 onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={() => { if (draggingId) actions.setLeadEtapa(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
-                className={`w-[78vw] shrink-0 snap-center rounded-xl border md:w-auto md:min-w-0 md:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
+                className={`w-[78vw] shrink-0 snap-center rounded-xl border sm:w-[46vw] lg:w-auto lg:min-w-0 lg:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
               >
                 <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2">

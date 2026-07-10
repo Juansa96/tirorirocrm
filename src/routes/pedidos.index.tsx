@@ -463,9 +463,9 @@ function EditPedidoSheet({ pedido, onClose }: { pedido: Pedido; onClose: () => v
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-900/50" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full rounded-t-2xl bg-white p-5 pb-8 shadow-2xl">
-        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 md:items-center md:p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full rounded-t-2xl bg-white p-5 pb-8 shadow-2xl md:max-w-md md:rounded-2xl md:pb-5">
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 md:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">Editar pedido</h2>
           <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 active:bg-slate-100"><X className="h-5 w-5" /></button>

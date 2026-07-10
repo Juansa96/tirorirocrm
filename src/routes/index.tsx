@@ -163,7 +163,7 @@ function DashboardInfluencers() {
         <Sparkles className="h-4 w-4 text-pink-600" />
         <h2 className="text-base font-semibold text-slate-900">Influencers · Colaboraciones</h2>
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard icon={Users} label="ALCANCE TOTAL" value={data.alcance.toLocaleString("es-ES")} sub="seguidores" badgeBg="bg-pink-100" iconColor="text-pink-600" />
         <KpiCard icon={Sparkles} label="COLABORACIONES" value={data.n} badgeBg="bg-pink-100" iconColor="text-pink-600" />
         <KpiCard icon={Wallet} label="VALOR EN CANJE" value={formatCurrency(data.valorCanje)} badgeBg="bg-slate-100" iconColor="text-slate-700" />
@@ -292,7 +292,7 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard
           icon={Users}
           label="TOTAL LEADS"
