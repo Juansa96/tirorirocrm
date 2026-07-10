@@ -68,9 +68,29 @@ export const ETAPA_COLORS: Record<Etapa, string> = {
   Perdido: "#ef4444",
 };
 
-export type TipoLead = "B2C" | "B2B";
+export type TipoLead = "B2C" | "B2B" | "INFLUENCER";
 export const ASIGNADOS_B2B = ["Iñaki", "Juan", "Rocío", "Bea"] as const;
 export type AsignadoB2B = (typeof ASIGNADOS_B2B)[number];
+
+// ── Influencers / colaboraciones (canje) ─────────────────────────────
+export const REDES_SOCIALES = ["Instagram", "TikTok", "YouTube", "Otra"] as const;
+export type RedSocialPrincipal = (typeof REDES_SOCIALES)[number] | "";
+
+// Formato de la publicación (varios por colaboración)
+export const FORMATOS_COLAB = ["Publicación", "Reel", "Story"] as const;
+export type FormatoColab = (typeof FORMATOS_COLAB)[number];
+
+// Tipo de colaboración
+export const TIPOS_COLAB = [
+  "Sorteo",
+  "Mención conjunta con otras marcas",
+  "Reseña/valoración",
+  "Unboxing",
+  "Código descuento/afiliado",
+  "Cesión de contenido",
+  "Otros",
+] as const;
+export type TipoColab = (typeof TIPOS_COLAB)[number] | "";
 
 
 export const ORIGENES = [
@@ -125,6 +145,10 @@ export interface Lead {
   instagram: string;
   notasB2b: string;
   asignados: string[];        // subconjunto de ASIGNADOS_B2B
+  // ── Influencer (solo si tipo === 'INFLUENCER') ──
+  seguidores: number;         // nº de seguidores en la red principal
+  redPrincipal: string;       // 'Instagram' | 'TikTok' | 'YouTube' | 'Otra'
+  usuario: string;            // @usuario
 }
 
 
@@ -214,6 +238,20 @@ export interface Pedido {
   tapizadoHechoFecha: string;
   entregado: boolean;
   entregadoFecha: string;
+  // ── Flujo "Daniel" (todos los productos salvo pantalla de lámpara) ──
+  solicitadoDaniel: boolean;
+  solicitadoDanielFecha: string;
+  enviarTelaDaniel: boolean;
+  enviarTelaDanielFecha: string;
+  recibirDaniel: boolean;
+  recibirDanielFecha: string;
+  terminadoDaniel: boolean;
+  terminadoDanielFecha: string;
+  enviadoDaniel: boolean;
+  enviadoDanielFecha: string;
+  // ── Flujo corto de pantallas de lámpara ──
+  pantallaHecha: boolean;
+  pantallaHechaFecha: string;
   precio: number;
   precioConIva: number | null;
   costeEnvio: number;
@@ -224,6 +262,10 @@ export interface Pedido {
   createdAt: string;
   updatedAt: string;
   empresaId: string;   // uuid del lead B2B vinculado, o "" si no aplica
+  // ── Colaboración con influencer (canje) ──
+  esCanje: boolean;            // true = colaboración: se ve el precio pero NO cuenta como ingreso/venta
+  formatos: string[];         // subconjunto de FORMATOS_COLAB
+  tipoColaboracion: string;   // uno de TIPOS_COLAB (o texto libre si "Otros")
 }
 
 export interface PedidoTela {
@@ -249,31 +291,67 @@ export function telasPorTipo(tipo: string): string[] {
   return ["Principal"];
 }
 
+// ───────────── Flujo de producción (hitos) ─────────────
+// Los pedidos siguen el flujo "Daniel" salvo las pantallas de lámpara, que
+// llevan un flujo corto. Un único sitio define el orden de hitos y de ahí
+// beben el detalle del pedido, la lista y el semáforo.
+export interface HitoDef {
+  key: keyof Pedido;        // campo booleano del hito
+  fechaKey: keyof Pedido;   // campo fecha del hito
+  label: string;
+}
+
+export function esPantalla(tipoProducto: string): boolean {
+  return (tipoProducto || "").toLowerCase() === "pantalla";
+}
+
+const FLUJO_PANTALLA: HitoDef[] = [
+  { key: "telaPedida", fechaKey: "telaPedidaFecha", label: "Tela pedida" },
+  { key: "telaRecibida", fechaKey: "telaRecibidaFecha", label: "Tela recibida" },
+  { key: "pantallaHecha", fechaKey: "pantallaHechaFecha", label: "Pantalla hecha" },
+  { key: "entregado", fechaKey: "entregadoFecha", label: "Entregado" },
+];
+
+const FLUJO_DANIEL: HitoDef[] = [
+  { key: "solicitadoDaniel", fechaKey: "solicitadoDanielFecha", label: "Solicitado a Daniel" },
+  { key: "telaPedida", fechaKey: "telaPedidaFecha", label: "Pedir tela" },
+  { key: "telaRecibida", fechaKey: "telaRecibidaFecha", label: "Recibir tela" },
+  { key: "enviarTelaDaniel", fechaKey: "enviarTelaDanielFecha", label: "Enviar tela a Daniel" },
+  { key: "recibirDaniel", fechaKey: "recibirDanielFecha", label: "Recibir de Daniel" },
+  { key: "terminadoDaniel", fechaKey: "terminadoDanielFecha", label: "Terminado Daniel" },
+  { key: "enviadoDaniel", fechaKey: "enviadoDanielFecha", label: "Enviado Daniel" },
+  { key: "entregado", fechaKey: "entregadoFecha", label: "Entregado" },
+];
+
+export function flujoPedido(tipoProducto: string): HitoDef[] {
+  return esPantalla(tipoProducto) ? FLUJO_PANTALLA : FLUJO_DANIEL;
+}
+
+/** Nº de hitos completados y el hito "actual" (siguiente pendiente). */
+export function progresoPedido(p: Pedido, tipoProducto: string): { hechos: number; total: number; actualLabel: string } {
+  const hitos = flujoPedido(tipoProducto);
+  const hechos = hitos.filter((h) => p[h.key]).length;
+  const siguiente = hitos.find((h) => !p[h.key]);
+  const actualLabel = p.entregado ? "Entregado" : siguiente ? siguiente.label : hitos[hitos.length - 1].label;
+  return { hechos, total: hitos.length, actualLabel };
+}
+
 // ───────────── Semáforo de ruta ideal ─────────────
 export type RutaEstado = "verde" | "ambar" | "rojo";
 
 /**
- * Reparte dias_plazo en 4 tramos (25/50/75/100) → tela_pedida, tela_recibida,
- * estructura+tapizado, entregado. Compara hito real con hito esperado para hoy.
+ * Reparte dias_plazo entre los hitos del flujo del pedido (según el tipo de
+ * producto) y compara el hito real con el esperado para hoy.
  */
-export function semaforoPedido(p: Pedido, hoyMs?: number): { estado: RutaEstado; hitoActual: number; hitoEsperado: number; diasRestantes: number } {
+export function semaforoPedido(p: Pedido, tipoProducto = "", hoyMs?: number): { estado: RutaEstado; hitoActual: number; hitoEsperado: number; diasRestantes: number } {
+  const hitos = flujoPedido(tipoProducto);
+  const total = hitos.length;
   const ahora = hoyMs ?? Date.now();
   const creado = new Date(p.fechaCreacionPedido).getTime();
   const transcurridos = Math.max(0, (ahora - creado) / 86400000);
   const ratio = p.diasPlazo > 0 ? transcurridos / p.diasPlazo : 0;
-  // hitoEsperado: 0..4
-  let hitoEsperado = 0;
-  if (ratio >= 0.25) hitoEsperado = 1;
-  if (ratio >= 0.5) hitoEsperado = 2;
-  if (ratio >= 0.75) hitoEsperado = 3;
-  if (ratio >= 1) hitoEsperado = 4;
-
-  // hitoActual real
-  let hitoActual = 0;
-  if (p.telaPedida) hitoActual = 1;
-  if (p.telaRecibida) hitoActual = 2;
-  if (p.estructuraHecha && p.tapizadoHecho) hitoActual = 3;
-  if (p.entregado) hitoActual = 4;
+  const hitoEsperado = Math.min(total, Math.round(ratio * total));
+  const hitoActual = hitos.filter((h) => p[h.key]).length;
 
   const fechaLim = p.fechaLimite ? new Date(p.fechaLimite + "T23:59:59").getTime() : creado + p.diasPlazo * 86400000;
   const diasRestantes = Math.ceil((fechaLim - ahora) / 86400000);
@@ -292,16 +370,6 @@ export function semaforoPedido(p: Pedido, hoyMs?: number): { estado: RutaEstado;
 
   return { estado, hitoActual, hitoEsperado, diasRestantes };
 }
-
-export function estadoColumna(p: Pedido): "Tela pedida" | "Tela recibida" | "En producción" | "Terminado" | "Entregado" {
-  if (p.entregado) return "Entregado";
-  if (p.estructuraHecha && p.tapizadoHecho) return "Terminado";
-  if (p.estructuraHecha || p.tapizadoHecho) return "En producción";
-  if (p.telaRecibida) return "Tela recibida";
-  return "Tela pedida";
-}
-
-export const ESTADOS_PEDIDO_COL = ["Tela pedida", "Tela recibida", "En producción", "Terminado", "Entregado"] as const;
 
 // ───────────── Catálogo de productos ─────────────
 export interface CatalogoProducto {

@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto } from "./types";
 import { VENDEDORES, telasPorTipo } from "./types";
+import { pedidoPendiente } from "./money";
+import { todayISO } from "./format";
 
 
 
@@ -65,7 +67,10 @@ function mapLead(r: Record<string, unknown>): Lead {
     etiquetas: Array.isArray(r.etiquetas) ? (r.etiquetas as string[]) : [],
     cobrado: Boolean(r.cobrado),
     fechaCobro: (r.fecha_cobro as string) ?? "",
-    tipo: ((r.tipo as string) === "B2B" ? "B2B" : "B2C"),
+    tipo: ((r.tipo as string) === "B2B" ? "B2B" : (r.tipo as string) === "INFLUENCER" ? "INFLUENCER" : "B2C"),
+    seguidores: Number(r.seguidores) || 0,
+    redPrincipal: (r.red_principal as string) ?? "",
+    usuario: (r.usuario as string) ?? "",
     razonSocial: (r.razon_social as string) ?? "",
     nif: (r.nif as string) ?? "",
     contactoNombre: (r.contacto_nombre as string) ?? "",
@@ -175,6 +180,18 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     tapizadoHechoFecha: (r.tapizado_hecho_fecha as string) ?? "",
     entregado: !!r.entregado,
     entregadoFecha: (r.entregado_fecha as string) ?? "",
+    solicitadoDaniel: !!r.solicitado_daniel,
+    solicitadoDanielFecha: (r.solicitado_daniel_fecha as string) ?? "",
+    enviarTelaDaniel: !!r.enviar_tela_daniel,
+    enviarTelaDanielFecha: (r.enviar_tela_daniel_fecha as string) ?? "",
+    recibirDaniel: !!r.recibir_daniel,
+    recibirDanielFecha: (r.recibir_daniel_fecha as string) ?? "",
+    terminadoDaniel: !!r.terminado_daniel,
+    terminadoDanielFecha: (r.terminado_daniel_fecha as string) ?? "",
+    enviadoDaniel: !!r.enviado_daniel,
+    enviadoDanielFecha: (r.enviado_daniel_fecha as string) ?? "",
+    pantallaHecha: !!r.pantalla_hecha,
+    pantallaHechaFecha: (r.pantalla_hecha_fecha as string) ?? "",
     precio: Number(r.precio) || 0,
     precioConIva: r.precio_con_iva != null ? Number(r.precio_con_iva) : null,
     costeEnvio: Number(r.coste_envio) || 0,
@@ -185,6 +202,9 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     createdAt: (r.created_at as string) ?? "",
     updatedAt: (r.updated_at as string) ?? "",
     empresaId: (r.empresa_id as string) ?? "",
+    esCanje: !!r.es_canje,
+    formatos: Array.isArray(r.formatos) ? (r.formatos as string[]) : [],
+    tipoColaboracion: (r.tipo_colaboracion as string) ?? "",
   };
 }
 
@@ -483,6 +503,10 @@ export async function teardownStore() {
 async function syncLeadValorFromProductos(leadId: string) {
   const lead = state.leads.find((l) => l.id === leadId);
   if (!lead) return;
+  // Regla de dinero: los leads mandan HASTA que existe un pedido. En cuanto hay
+  // un pedido para este lead, manda `pedidos` (ver syncLeadFromPedidos) y este
+  // sync por productos no debe pisar los valores.
+  if (state.pedidos.some((p) => p.leadId === leadId)) return;
   const productos = state.productos.filter((p) => p.leadId === leadId);
   if (productos.length === 0) return;
   const valorProducto = productos.reduce((acc, p) => acc + (p.precioUnitario || 0) * (p.cantidad || 1), 0);
@@ -495,6 +519,39 @@ async function syncLeadValorFromProductos(leadId: string) {
   emit();
   suppressLead(leadId);
   await supabase.from("leads").update({ valor_producto: valorProducto, valor }).eq("id", leadId);
+}
+
+// Fuente de verdad del dinero: en cuanto hay pedidos, el lead refleja lo que
+// dicen los pedidos (venta = producto+envío, y si todo está cobrado marca el
+// lead como cobrado). Se llama tras cualquier alta/edición/borrado de pedido.
+async function syncLeadFromPedidos(leadId: string | null | undefined) {
+  if (!leadId) return;
+  const lead = state.leads.find((l) => l.id === leadId);
+  if (!lead) return;
+  // Los pedidos de canje (colaboraciones de influencer) NO cuentan como venta.
+  const peds = state.pedidos.filter((p) => p.leadId === leadId && !p.esCanje);
+  if (peds.length === 0) return; // sin pedidos de venta, manda el lead
+  const valorProducto = peds.reduce((s, p) => s + (p.precio || 0), 0);
+  const valorEnvio = peds.reduce((s, p) => s + (p.costeEnvio || 0), 0);
+  const valor = valorProducto + valorEnvio;
+  const pendiente = peds.reduce((s, p) => s + pedidoPendiente(p), 0);
+  const cobrado = valor > 0 && pendiente <= 0;
+  const fechaCobro = cobrado ? (lead.fechaCobro || todayISO()) : "";
+
+  const dbPatch: Record<string, unknown> = {};
+  if (valorProducto !== lead.valorProducto) dbPatch.valor_producto = valorProducto;
+  if (valorEnvio !== lead.valorEnvio) dbPatch.valor_envio = valorEnvio;
+  if (valor !== lead.valor) dbPatch.valor = valor;
+  if (cobrado !== lead.cobrado) { dbPatch.cobrado = cobrado; dbPatch.fecha_cobro = fechaCobro || null; }
+  if (Object.keys(dbPatch).length === 0) return;
+
+  state = {
+    ...state,
+    leads: state.leads.map((l) => l.id === leadId ? { ...l, valorProducto, valorEnvio, valor, cobrado, fechaCobro } : l),
+  };
+  emit();
+  suppressLead(leadId);
+  await supabase.from("leads").update(dbPatch as never).eq("id", leadId);
 }
 
 export const actions = {
@@ -531,6 +588,9 @@ export const actions = {
         instagram: input.instagram ?? null,
         notas_b2b: input.notasB2b ?? null,
         asignados: input.asignados ?? [],
+        seguidores: input.seguidores ?? 0,
+        red_principal: input.redPrincipal ?? null,
+        usuario: input.usuario ?? null,
       } as never)
       .select()
       .single();
@@ -588,6 +648,9 @@ export const actions = {
     if (patch.instagram !== undefined) dbPatch.instagram = patch.instagram || null;
     if (patch.notasB2b !== undefined) dbPatch.notas_b2b = patch.notasB2b || null;
     if (patch.asignados !== undefined) dbPatch.asignados = patch.asignados;
+    if (patch.seguidores !== undefined) dbPatch.seguidores = patch.seguidores;
+    if (patch.redPrincipal !== undefined) dbPatch.red_principal = patch.redPrincipal || null;
+    if (patch.usuario !== undefined) dbPatch.usuario = patch.usuario || null;
 
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos
@@ -857,6 +920,23 @@ export const actions = {
     if (prev) await syncLeadValorFromProductos(prev.leadId);
   },
 
+  // Quita el tag "[posible-duplicado]" de las notas de un producto (falso
+  // positivo tras revisarlo en la vista de duplicados).
+  async desmarcarDuplicado(id: string) {
+    const prod = state.productos.find((p) => p.id === id);
+    if (!prod) return;
+    const nuevasNotas = (prod.notasProducto || "")
+      .replace(/\s*\[posible-duplicado\]\s*/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const prevState = state;
+    state = { ...state, productos: state.productos.map((p) => p.id === id ? { ...p, notasProducto: nuevasNotas } : p) };
+    emit();
+    const { error } = await supabase.from("productos_lead").update({ notas_producto: nuevasNotas } as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); return; }
+    toast.success("Marcado como no duplicado.");
+  },
+
   async deleteProducto(id: string) {
     const prev = state.productos.find((p) => p.id === id);
     const prevState = state;
@@ -885,7 +965,36 @@ export const actions = {
     if (patch.caracteristicasConfirmadas !== undefined) dbPatch.caracteristicas_confirmadas = patch.caracteristicasConfirmadas;
     if (patch.pagado50 !== undefined) dbPatch.pagado_50 = patch.pagado50;
     const { error } = await supabase.from("productos_lead").update(dbPatch as never).eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); }
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); return; }
+    // Auto-crear el pedido cuando quedan marcadas AMBAS casillas
+    // (características confirmadas + pagado 50%), si aún no existe pedido para
+    // este producto y no está marcado como posible duplicado.
+    await actions.autoCrearPedidoSiProcede(id);
+  },
+
+  // Crea el pedido automáticamente si el producto tiene las 2 casillas marcadas
+  // y todavía no tiene pedido. Muestra un pop-up "Pedido creado → Ver pedido".
+  async autoCrearPedidoSiProcede(productoId: string) {
+    const prod = state.productos.find((p) => p.id === productoId);
+    if (!prod) return;
+    if (!prod.caracteristicasConfirmadas || !prod.pagado50) return;
+    if ((prod.notasProducto || "").toLowerCase().includes("posible-duplicado")) return;
+    if (state.pedidos.some((pd) => pd.productoLeadId === productoId)) return;
+    const pedido = await actions.crearPedido({
+      productoId,
+      pagado50: true,
+      pagoTodoAlFinal: false,
+      creadoManualmente: false,
+      silent: true,
+    });
+    if (!pedido) return;
+    toast.success("Pedido creado", {
+      duration: 10000,
+      action: {
+        label: "Ver pedido",
+        onClick: () => { window.location.assign(`/pedidos/${pedido.id}`); },
+      },
+    });
   },
 
   // ── PEDIDOS ──────────────────────────────────────────────────────
@@ -895,6 +1004,7 @@ export const actions = {
     pagado50: boolean;
     pagoTodoAlFinal: boolean;
     creadoManualmente: boolean;
+    silent?: boolean;   // no mostrar el toast por defecto (el caller pondrá el suyo)
   }): Promise<Pedido | null> {
     const prod = state.productos.find((p) => p.id === opts.productoId);
     if (!prod) { toast.error("Producto no encontrado."); return null; }
@@ -903,6 +1013,9 @@ export const actions = {
       return null;
     }
     const precio = (prod.precioUnitario || 0) * (prod.cantidad || 1);
+    // "Pagado 50%" pre-rellena la reserva con la mitad del precio de PRODUCTO
+    // (envío aparte). La reserva es editable después en el pedido.
+    const reserva = opts.pagado50 ? Math.round((precio / 2) * 100) / 100 : 0;
     const { data, error } = await supabase.from("pedidos").insert({
       producto_lead_id: prod.id,
       lead_id: prod.leadId,
@@ -911,6 +1024,7 @@ export const actions = {
       pago_todo_al_final: opts.pagoTodoAlFinal,
       creado_manualmente: opts.creadoManualmente,
       precio,
+      reserva,
     }).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
     const pedido = mapPedido(data as Record<string, unknown>);
@@ -930,7 +1044,8 @@ export const actions = {
       }));
       await supabase.from("pedido_telas").insert(rows);
     }
-    toast.success("Pedido creado.");
+    await syncLeadFromPedidos(prod.leadId);
+    if (!opts.silent) toast.success("Pedido creado.");
     return pedido;
   },
 
@@ -947,6 +1062,9 @@ export const actions = {
     costeEnvio: number;
     fechaCreacion?: string;
     empresaId?: string | null;
+    esCanje?: boolean;
+    formatos?: string[];
+    tipoColaboracion?: string;
   }): Promise<Pedido | null> {
     let productoId = opts.productoId ?? null;
     let tipoProd = "";
@@ -983,6 +1101,9 @@ export const actions = {
     };
     if (opts.fechaCreacion) insertPedido.fecha_creacion_pedido = opts.fechaCreacion;
     if (opts.empresaId) insertPedido.empresa_id = opts.empresaId;
+    if (opts.esCanje) insertPedido.es_canje = true;
+    if (opts.formatos && opts.formatos.length > 0) insertPedido.formatos = opts.formatos;
+    if (opts.tipoColaboracion) insertPedido.tipo_colaboracion = opts.tipoColaboracion;
 
     const { data, error } = await supabase.from("pedidos").insert(insertPedido).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
@@ -1002,12 +1123,14 @@ export const actions = {
       }));
       await supabase.from("pedido_telas").insert(rows);
     }
+    await syncLeadFromPedidos(opts.leadId);
     toast.success("Pedido creado.");
     return pedido;
   },
 
   async updatePedido(id: string, patch: Partial<Pedido>) {
     const prevState = state;
+    const leadId = state.pedidos.find((p) => p.id === id)?.leadId;
     state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, ...patch } : p) };
     emit();
     const dbPatch: Record<string, unknown> = {};
@@ -1026,6 +1149,18 @@ export const actions = {
       tapizadoHechoFecha: "tapizado_hecho_fecha",
       entregado: "entregado",
       entregadoFecha: "entregado_fecha",
+      solicitadoDaniel: "solicitado_daniel",
+      solicitadoDanielFecha: "solicitado_daniel_fecha",
+      enviarTelaDaniel: "enviar_tela_daniel",
+      enviarTelaDanielFecha: "enviar_tela_daniel_fecha",
+      recibirDaniel: "recibir_daniel",
+      recibirDanielFecha: "recibir_daniel_fecha",
+      terminadoDaniel: "terminado_daniel",
+      terminadoDanielFecha: "terminado_daniel_fecha",
+      enviadoDaniel: "enviado_daniel",
+      enviadoDanielFecha: "enviado_daniel_fecha",
+      pantallaHecha: "pantalla_hecha",
+      pantallaHechaFecha: "pantalla_hecha_fecha",
       precio: "precio",
       precioConIva: "precio_con_iva",
       costeEnvio: "coste_envio",
@@ -1034,21 +1169,78 @@ export const actions = {
       factura: "factura",
       notasPedido: "notas_pedido",
       clienteNombreLibre: "cliente_nombre_libre",
+      esCanje: "es_canje",
+      formatos: "formatos",
+      tipoColaboracion: "tipo_colaboracion",
     };
     for (const [k, v] of Object.entries(patch)) {
       const col = map[k];
       if (col) dbPatch[col] = v === "" ? null : v;
     }
     const { error } = await supabase.from("pedidos").update(dbPatch as never).eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); }
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); return; }
+    await syncLeadFromPedidos(leadId);
+  },
+
+  // "Media pagada (todos)": marca el 50% en los pedidos ACTUALES indicados.
+  // Pre-rellena la reserva con la mitad del precio de PRODUCTO (envío aparte)
+  // y activa pagado50. No toca pedidos ya cobrados por completo, ni baja una
+  // reserva que ya sea >= media. No afecta a pedidos creados después.
+  async marcarMediaPagadaGrupo(pedidoIds: string[]) {
+    const objetivo = state.pedidos.filter((p) => {
+      if (!pedidoIds.includes(p.id)) return false;
+      if (p.pagadoCompleto) return false;
+      const media = Math.round(((p.precio || 0) / 2) * 100) / 100;
+      if (media <= 0) return false;
+      return (p.reserva || 0) < media;
+    });
+    if (objetivo.length === 0) {
+      toast.info("No hay pedidos a los que aplicar la media.");
+      return;
+    }
+    const prevState = state;
+    const updates = new Map<string, number>();
+    for (const p of objetivo) {
+      updates.set(p.id, Math.round(((p.precio || 0) / 2) * 100) / 100);
+    }
+    // Optimistic
+    state = {
+      ...state,
+      pedidos: state.pedidos.map((p) =>
+        updates.has(p.id) ? { ...p, reserva: updates.get(p.id)!, pagado50: true } : p,
+      ),
+    };
+    emit();
+    const results = await Promise.all(
+      Array.from(updates.entries()).map(([id, reserva]) =>
+        supabase.from("pedidos").update({ reserva, pagado_50: true } as never).eq("id", id),
+      ),
+    );
+    if (results.some((r) => r.error)) {
+      state = prevState;
+      emit();
+      toast.error("Error al marcar la media pagada.");
+      return;
+    }
+    // Refleja el nuevo cobro en cada lead afectado.
+    const leadIds = new Set(objetivo.map((p) => p.leadId).filter(Boolean));
+    for (const lid of leadIds) await syncLeadFromPedidos(lid);
+    toast.success(`Media pagada marcada en ${objetivo.length} pedido${objetivo.length === 1 ? "" : "s"}.`);
   },
 
   async deletePedido(id: string) {
     const prevState = state;
+    const leadId = state.pedidos.find((p) => p.id === id)?.leadId;
     state = { ...state, pedidos: state.pedidos.filter((p) => p.id !== id) };
     emit();
     const { error } = await supabase.from("pedidos").delete().eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al eliminar el pedido."); }
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar el pedido."); return; }
+    // Si aún quedan pedidos del lead, mandan ellos; si no, vuelve a mandar el
+    // lead (valor recalculado desde sus productos).
+    if (leadId) {
+      if (state.pedidos.some((p) => p.leadId === leadId)) await syncLeadFromPedidos(leadId);
+      else await syncLeadValorFromProductos(leadId);
+    }
   },
 
   async addPedidoTela(pedidoId: string, tipoTela: string) {

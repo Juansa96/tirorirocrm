@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Trash2, Plus, Package, ExternalLink } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { semaforoPedido } from "@/lib/types";
+import { semaforoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
 
@@ -34,16 +34,10 @@ function PedidoDetalle() {
   const lead = leads.find((l) => l.id === pedido.leadId);
   const producto = productos.find((pr) => pr.id === pedido.productoLeadId);
   const telas = pedidoTelas.filter((t) => t.pedidoId === pedido.id).sort((a, b) => a.orden - b.orden);
-  const sem = semaforoPedido(pedido);
+  const sem = semaforoPedido(pedido, producto?.tipo ?? "");
   const c = SEM_COLOR[sem.estado];
 
-  const hitos: { key: keyof typeof pedido; fechaKey: keyof typeof pedido; label: string }[] = [
-    { key: "telaPedida", fechaKey: "telaPedidaFecha", label: "Tela pedida" },
-    { key: "telaRecibida", fechaKey: "telaRecibidaFecha", label: "Tela recibida" },
-    { key: "estructuraHecha", fechaKey: "estructuraHechaFecha", label: "Estructura hecha" },
-    { key: "tapizadoHecho", fechaKey: "tapizadoHechoFecha", label: "Tapizado hecho" },
-    { key: "entregado", fechaKey: "entregadoFecha", label: "Entregado" },
-  ];
+  const hitos = flujoPedido(producto?.tipo ?? "");
 
   return (
     <div className="space-y-4">
@@ -299,6 +293,9 @@ function PedidoDetalle() {
         )}
       </div>
 
+      {/* Colaboración (canje) */}
+      <ColaboracionPanel pedido={pedido} lead={lead} />
+
       {/* Notas */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Notas del pedido</div>
@@ -311,6 +308,67 @@ function PedidoDetalle() {
           className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
         />
       </div>
+    </div>
+  );
+}
+
+function ColaboracionPanel({ pedido, lead }: { pedido: Pedido; lead: Lead | undefined }) {
+  const esInflu = lead?.tipo === "INFLUENCER";
+  // Se muestra si ya es canje, o si el cliente es influencer (para poder marcarlo).
+  if (!pedido.esCanje && !esInflu) return null;
+  const tipoConocido = (TIPOS_COLAB as readonly string[]).includes(pedido.tipoColaboracion);
+  const selectValue = pedido.tipoColaboracion === "" ? "" : tipoConocido ? pedido.tipoColaboracion : "Otros";
+  return (
+    <div className="rounded-xl border border-pink-200 bg-pink-50/40 p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-pink-600">Colaboración (canje)</div>
+        <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700">
+          <input type="checkbox" checked={pedido.esCanje} onChange={(e) => actions.updatePedido(pedido.id, { esCanje: e.target.checked })} className="h-4 w-4 rounded border-slate-300 text-pink-600 focus:ring-pink-500" />
+          Es canje (no cuenta como ingreso)
+        </label>
+      </div>
+      {pedido.esCanje && (
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1 text-xs text-slate-500">Formato (varios)</div>
+            <div className="flex flex-wrap gap-1.5">
+              {FORMATOS_COLAB.map((f) => {
+                const on = (pedido.formatos || []).includes(f);
+                return (
+                  <button key={f} type="button"
+                    onClick={() => {
+                      const next = on ? pedido.formatos.filter((x) => x !== f) : [...(pedido.formatos || []), f];
+                      actions.updatePedido(pedido.id, { formatos: next });
+                    }}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium ${on ? "border-pink-500 bg-pink-500 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+                    {f}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-slate-500">Tipo de colaboración</div>
+            <select
+              value={selectValue}
+              onChange={(e) => actions.updatePedido(pedido.id, { tipoColaboracion: e.target.value === "Otros" ? "" : e.target.value })}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">— Selecciona —</option>
+              {TIPOS_COLAB.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {selectValue === "Otros" && (
+              <input
+                defaultValue={tipoConocido ? "" : pedido.tipoColaboracion}
+                key={"otros-" + pedido.id}
+                onBlur={(e) => actions.updatePedido(pedido.id, { tipoColaboracion: e.target.value })}
+                placeholder="Describe la colaboración"
+                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { Download } from "lucide-react";
+import { Download, CopyCheck } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -92,6 +92,12 @@ function Empty() {
 
 function DatosPage() {
   const { leads, notas, productos, audit } = useStore();
+
+  // Nº de productos marcados como posible duplicado (para el acceso a /duplicados)
+  const dupCount = useMemo(
+    () => productos.filter((p) => (p.notasProducto || "").toLowerCase().includes("[posible-duplicado]")).length,
+    [productos],
+  );
 
   // ── Filtros ──────────────────────────────────────────────────────
   const now = new Date();
@@ -330,13 +336,25 @@ function DatosPage() {
               : `${leads.length} leads en total · ${filteredProductos.length} productos`}
           </p>
         </div>
-        <button
-          onClick={exportCSV}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
-        >
-          <Download className="h-4 w-4" />
-          Exportar Excel
-        </button>
+        <div className="flex items-center gap-2">
+          {dupCount > 0 && (
+            <Link
+              to="/duplicados"
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 shadow-sm hover:bg-amber-100 transition-colors"
+            >
+              <CopyCheck className="h-4 w-4" />
+              Revisar duplicados
+              <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">{dupCount}</span>
+            </Link>
+          )}
+          <button
+            onClick={exportCSV}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Exportar Excel
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}

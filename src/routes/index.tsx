@@ -1,12 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Users, TrendingUp, Trophy, Wallet, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
+import { Users, TrendingUp, Trophy, Wallet, Plus, ChevronDown, AlertTriangle, Package, Sparkles } from "lucide-react";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { useStore, vendedorTotals } from "@/lib/store";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName, semaforoPedido, type Etapa } from "@/lib/types";
+import { resumenCobro } from "@/lib/money";
 import { formatCurrency, formatAxisCurrency } from "@/lib/format";
 import { TaskItem } from "@/components/TaskItem";
 import { sellerStyle } from "@/components/SellerBadge";
@@ -39,10 +40,168 @@ function KpiCard({ icon: Icon, label, value, sub, badgeBg, iconColor, empty }: {
 }
 
 
+// ── Dinero (pedidos como fuente de verdad) con filtro por fechas ──────────
+type RangoPreset = "mes" | "mesPasado" | "anio" | "todo";
+
+function rangoFechas(preset: RangoPreset): { desde: string; hasta: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (preset === "mes") return { desde: iso(new Date(y, m, 1)), hasta: iso(new Date(y, m + 1, 0)) };
+  if (preset === "mesPasado") return { desde: iso(new Date(y, m - 1, 1)), hasta: iso(new Date(y, m, 0)) };
+  if (preset === "anio") return { desde: `${y}-01-01`, hasta: `${y}-12-31` };
+  return { desde: "", hasta: "" };
+}
+
+const PRESET_LABEL: Record<RangoPreset, string> = {
+  mes: "Este mes", mesPasado: "Mes pasado", anio: "Este año", todo: "Todo",
+};
+
+function DineroPedidos() {
+  const { pedidos } = useStore();
+  const [preset, setPreset] = useState<RangoPreset>("mes");
+  const [desde, setDesde] = useState(() => rangoFechas("mes").desde);
+  const [hasta, setHasta] = useState(() => rangoFechas("mes").hasta);
+
+  function aplicarPreset(p: RangoPreset) {
+    setPreset(p);
+    const r = rangoFechas(p);
+    setDesde(r.desde);
+    setHasta(r.hasta);
+  }
+
+  const filtrados = useMemo(() => {
+    return pedidos.filter((p) => {
+      // Fecha del pedido (solo parte YYYY-MM-DD). Sin fecha → se incluye sólo si el rango es "todo".
+      const f = (p.fechaCreacionPedido || "").slice(0, 10);
+      if (!desde && !hasta) return true;
+      if (!f) return false;
+      if (desde && f < desde) return false;
+      if (hasta && f > hasta) return false;
+      return true;
+    });
+  }, [pedidos, desde, hasta]);
+
+  // Las colaboraciones de influencers (canje) no cuentan como venta/ingreso.
+  const resumen = useMemo(() => resumenCobro(filtrados, (p) => p.esCanje), [filtrados]);
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">Dinero · Pedidos</h2>
+          <p className="text-xs text-slate-500">{resumen.count} pedido{resumen.count === 1 ? "" : "s"} en el periodo</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+            {(["mes", "mesPasado", "anio", "todo"] as RangoPreset[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => aplicarPreset(p)}
+                className={`rounded-md px-2 py-1 font-medium ${preset === p ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                {PRESET_LABEL[p]}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 text-xs text-slate-500">
+            <input
+              type="date"
+              value={desde}
+              max={hasta || undefined}
+              onChange={(e) => { setDesde(e.target.value); setPreset("todo"); }}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 focus:border-slate-400 focus:outline-none"
+            />
+            <span>–</span>
+            <input
+              type="date"
+              value={hasta}
+              min={desde || undefined}
+              onChange={(e) => { setHasta(e.target.value); setPreset("todo"); }}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 focus:border-slate-400 focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiCard icon={TrendingUp} label="VENTAS (PRODUCTO + ENVÍO)" value={formatCurrency(resumen.venta)} badgeBg="bg-slate-100" iconColor="text-slate-700" />
+        <KpiCard icon={Trophy} label="COBRADO" value={formatCurrency(resumen.cobrado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
+        <KpiCard icon={Wallet} label="PENDIENTE DE COBRO" value={formatCurrency(resumen.pendiente)} badgeBg="bg-amber-100" iconColor="text-amber-700" />
+      </div>
+    </div>
+  );
+}
+
+// ── Influencers / colaboraciones (canje) ──────────────────────────────────
+function DashboardInfluencers() {
+  const { pedidos, leads } = useStore();
+  const data = useMemo(() => {
+    const leadById = new Map(leads.map((l) => [l.id, l] as const));
+    const colabs = pedidos.filter((p) => p.esCanje || (p.leadId && leadById.get(p.leadId)?.tipo === "INFLUENCER"));
+    let alcance = 0;
+    let valorCanje = 0;
+    const porFormato = new Map<string, number>();
+    const porTipo = new Map<string, number>();
+    for (const p of colabs) {
+      const lead = p.leadId ? leadById.get(p.leadId) : undefined;
+      alcance += lead?.seguidores || 0;
+      valorCanje += (p.precio || 0) + (p.costeEnvio || 0);
+      for (const f of p.formatos || []) porFormato.set(f, (porFormato.get(f) || 0) + 1);
+      const t = p.tipoColaboracion || "Sin especificar";
+      porTipo.set(t, (porTipo.get(t) || 0) + 1);
+    }
+    const costePorMil = alcance > 0 ? valorCanje / (alcance / 1000) : 0;
+    return { n: colabs.length, alcance, valorCanje, costePorMil, porFormato, porTipo };
+  }, [pedidos, leads]);
+
+  if (data.n === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-pink-200 bg-white p-4 shadow-sm md:p-6">
+      <div className="mb-4 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-pink-600" />
+        <h2 className="text-base font-semibold text-slate-900">Influencers · Colaboraciones</h2>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCard icon={Users} label="ALCANCE TOTAL" value={data.alcance.toLocaleString("es-ES")} sub="seguidores" badgeBg="bg-pink-100" iconColor="text-pink-600" />
+        <KpiCard icon={Sparkles} label="COLABORACIONES" value={data.n} badgeBg="bg-pink-100" iconColor="text-pink-600" />
+        <KpiCard icon={Wallet} label="VALOR EN CANJE" value={formatCurrency(data.valorCanje)} badgeBg="bg-slate-100" iconColor="text-slate-700" />
+        <KpiCard icon={TrendingUp} label="COSTE-CANJE / 1.000 SEG." value={formatCurrency(data.costePorMil)} badgeBg="bg-amber-100" iconColor="text-amber-700" />
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <BreakdownList title="Por formato" entries={data.porFormato} />
+        <BreakdownList title="Por tipo" entries={data.porTipo} />
+      </div>
+    </div>
+  );
+}
+
+function BreakdownList({ title, entries }: { title: string; entries: Map<string, number> }) {
+  const rows = Array.from(entries.entries()).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>
+      {rows.length === 0 ? (
+        <div className="text-xs text-slate-400">Sin datos</div>
+      ) : (
+        <div className="space-y-1.5">
+          {rows.map(([k, n]) => (
+            <div key={k} className="flex items-center justify-between text-sm">
+              <span className="truncate text-slate-700">{k}</span>
+              <span className="ml-2 shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-bold text-slate-600">{n}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Dashboard() {
   const store = useStore();
-  // Dashboard sólo muestra métricas del canal B2C.
-  const leads = store.leads.filter((l) => l.tipo !== "B2B");
+  // Dashboard sólo muestra métricas del canal B2C (excluye B2B e influencers).
+  const leads = store.leads.filter((l) => l.tipo !== "B2B" && l.tipo !== "INFLUENCER");
   const tareas = store.tareas;
   const pedidos = store.pedidos;
   const navigate = useNavigate();
@@ -90,13 +249,14 @@ function Dashboard() {
   const maxVendValor = Math.max(1, ...VENDEDORES.map((v) => vendTotals.get(v)!.valor));
 
 
-  // Pedidos en riesgo (ámbar) o atrasados (rojo), no entregados
+  // Pedidos en riesgo (ámbar) o atrasados (rojo), no entregados.
+  // El flujo depende del tipo de producto, así que lo resolvemos por pedido.
+  const tipoProdDe = (p: (typeof pedidos)[number]) => store.productos.find((pr) => pr.id === p.productoLeadId)?.tipo ?? "";
   const pedidosRiesgo = pedidos.filter((p) => {
     if (p.entregado) return false;
-    const s = semaforoPedido(p);
-    return s.estado !== "verde";
+    return semaforoPedido(p, tipoProdDe(p)).estado !== "verde";
   });
-  const pedidosAtrasados = pedidosRiesgo.filter((p) => semaforoPedido(p).estado === "rojo");
+  const pedidosAtrasados = pedidosRiesgo.filter((p) => semaforoPedido(p, tipoProdDe(p)).estado === "rojo");
 
   function goEtapa(etapa: Etapa) {
     navigate({
@@ -132,7 +292,7 @@ function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard
           icon={Users}
           label="TOTAL LEADS"
@@ -146,6 +306,10 @@ function Dashboard() {
         <KpiCard icon={Trophy} label="GANADO · YA COBRADO" value={formatCurrency(ganadoCobrado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
       </div>
 
+
+      <DineroPedidos />
+
+      <DashboardInfluencers />
 
       {pedidosRiesgo.length > 0 && (
         <Link

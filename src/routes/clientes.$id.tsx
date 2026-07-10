@@ -5,7 +5,7 @@ import {
   Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap, Camera, ImagePlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPAS_B2B, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
+import { ETAPAS, ETAPAS_B2B, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -303,6 +303,9 @@ function ClienteDetalle() {
 
       {/* Bloque B2B (razón social, contacto, asignados) */}
       {lead.tipo === "B2B" && <B2BInfoPanel lead={lead} />}
+
+      {/* Bloque Influencer (seguidores, red, usuario) */}
+      {lead.tipo === "INFLUENCER" && <InfluencerPanel lead={lead} />}
 
       {/* Etapa + razón de urgencia */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1029,6 +1032,36 @@ function FotosSection({ leadId }: { leadId: string }) {
           <img src={preview} alt="" className="max-h-full max-w-full rounded-lg shadow-2xl" />
         </div>
       )}
+    </div>
+  );
+}
+
+function InfluencerPanel({ lead }: { lead: Lead }) {
+  const inp = "w-full rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none";
+  return (
+    <div className="rounded-xl border border-pink-200 bg-pink-50/40 p-4 shadow-sm">
+      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-pink-600">Ficha de influencer</div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Nº de seguidores</label>
+          <input type="number" min={0} defaultValue={lead.seguidores} key={lead.seguidores}
+            onBlur={(e) => { const v = parseInt(e.target.value) || 0; if (v !== lead.seguidores) actions.updateLead(lead.id, { seguidores: v }); }}
+            className={inp} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Red principal</label>
+          <select value={lead.redPrincipal || "Instagram"} onChange={(e) => actions.updateLead(lead.id, { redPrincipal: e.target.value })} className={inp}>
+            {REDES_SOCIALES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700">@usuario</label>
+          <input defaultValue={lead.usuario} key={lead.usuario}
+            onBlur={(e) => { if (e.target.value !== lead.usuario) actions.updateLead(lead.id, { usuario: e.target.value }); }}
+            className={inp} placeholder="@usuario" />
+        </div>
+      </div>
+      <div className="mt-2 text-xs text-slate-500">Los pedidos de este influencer se registran como <strong>canje</strong> (no cuentan como ingreso).</div>
     </div>
   );
 }

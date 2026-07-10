@@ -1,12 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Plus, Clock, X, ChevronDown } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useStore, actions, nextPendingTaskFor } from "@/lib/store";
 import {
   ETAPAS, ETAPAS_B2B, ETAPA_COLORS, VENDEDORES, ASIGNADOS_B2B, vendorName,
   type Etapa, type EtapaB2B, type Lead,
 } from "@/lib/types";
 import { formatCurrency, dateLabel } from "@/lib/format";
+import { useTouchStageDrag } from "@/lib/stage-drag";
 import { sellerStyle } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
 
@@ -211,7 +212,7 @@ function PipelineB2C() {
   const filterVendedor = search.vendedor;
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<Etapa | null>(null);
-  const touchDragId = useRef<string | null>(null);
+  const touchHandlers = useTouchStageDrag<Etapa>(setDragOver, setDraggingId, actions.setLeadEtapa);
 
   const visibleEtapas = filterEtapa ? ETAPAS.filter((e) => e === filterEtapa) : ETAPAS;
   const hasFilter = !!(filterEtapa || filterVendedor);
@@ -226,7 +227,7 @@ function PipelineB2C() {
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-400">Arrastra las tarjetas para mover etapas</p>
+        <p className="text-xs text-slate-400">Arrastra (o mantén pulsado en móvil) para mover de etapa</p>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <div className="relative min-w-0 flex-1 sm:flex-initial">
             <select value={filterVendedor ?? ""} onChange={(e) => setVendedor(e.target.value)} className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none">
@@ -246,8 +247,8 @@ function PipelineB2C() {
         </div>
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-6 md:mx-0 md:px-0">
-        <div className={`flex snap-x snap-mandatory gap-3 md:snap-none ${filterEtapa ? "md:max-w-sm" : "md:grid md:grid-cols-6"}`}>
+      <div className="-mx-4 overflow-x-auto px-4 pb-6 lg:mx-0 lg:px-0">
+        <div className={`flex snap-x snap-mandatory gap-3 lg:snap-none ${filterEtapa ? "md:max-w-sm" : "lg:grid lg:grid-cols-6"}`}>
           {visibleEtapas.map((etapa) => {
             const colLeads = leads.filter((l) => l.etapa === etapa && (!filterVendedor || !l.vendedor || l.vendedor === filterVendedor));
             const total = colLeads.reduce((s, l) => s + l.valor, 0);
@@ -260,7 +261,7 @@ function PipelineB2C() {
                 onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={() => { if (draggingId) actions.setLeadEtapa(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
-                className={`w-[78vw] shrink-0 snap-center rounded-xl border md:w-auto md:min-w-0 md:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
+                className={`w-[78vw] shrink-0 snap-center rounded-xl border sm:w-[46vw] lg:w-auto lg:min-w-0 lg:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
               >
                 <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2">
@@ -280,20 +281,7 @@ function PipelineB2C() {
                         draggable
                         onDragStart={() => setDraggingId(lead.id)}
                         onDragEnd={() => setDraggingId(null)}
-                        onTouchStart={() => { touchDragId.current = lead.id; }}
-                        onTouchMove={(e) => {
-                          if (!touchDragId.current) return;
-                          const touch = e.touches[0];
-                          const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                          const col = el?.closest("[data-etapa]");
-                          const over = col?.getAttribute("data-etapa") as Etapa | null;
-                          setDragOver(over ?? null);
-                        }}
-                        onTouchEnd={() => {
-                          if (touchDragId.current && dragOver) actions.setLeadEtapa(touchDragId.current, dragOver);
-                          touchDragId.current = null;
-                          setDragOver(null);
-                        }}
+                        {...touchHandlers(lead.id, lead.etapa as Etapa)}
                       >
                         <LeadCardB2C lead={lead} tareas={tareas} pedidos={pedidos} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
                       </div>
@@ -322,7 +310,7 @@ function PipelineB2BView() {
   const sort: SortB2B = search.sort ?? "fecha_desc";
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<EtapaB2B | null>(null);
-  const touchDragId = useRef<string | null>(null);
+  const touchHandlers = useTouchStageDrag<EtapaB2B>(setDragOver, setDraggingId, actions.setLeadEtapa);
 
   const b2b = leads.filter((l) => l.tipo === "B2B");
   const visibleEtapas = filterEtapa ? ETAPAS_B2B.filter((e) => e === filterEtapa) : ETAPAS_B2B;
@@ -399,7 +387,7 @@ function PipelineB2BView() {
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-400">Arrastra las tarjetas para mover etapas</p>
+        <p className="text-xs text-slate-400">Arrastra (o mantén pulsado en móvil) para mover de etapa</p>
         <Link to="/b2b/nuevo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#1a4b5b] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#245e73]">
           <Plus className="h-3.5 w-3.5" /> Nueva empresa
         </Link>
@@ -491,20 +479,7 @@ function PipelineB2BView() {
                         draggable
                         onDragStart={() => setDraggingId(lead.id)}
                         onDragEnd={() => setDraggingId(null)}
-                        onTouchStart={() => { touchDragId.current = lead.id; }}
-                        onTouchMove={(e) => {
-                          if (!touchDragId.current) return;
-                          const touch = e.touches[0];
-                          const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                          const col = el?.closest("[data-etapa]");
-                          const over = col?.getAttribute("data-etapa") as EtapaB2B | null;
-                          setDragOver(over ?? null);
-                        }}
-                        onTouchEnd={() => {
-                          if (touchDragId.current && dragOver) actions.setLeadEtapa(touchDragId.current, dragOver);
-                          touchDragId.current = null;
-                          setDragOver(null);
-                        }}
+                        {...touchHandlers(lead.id, lead.etapa as EtapaB2B)}
                       >
                         <LeadCardB2B lead={lead} pedidos={pedidos} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
                       </div>

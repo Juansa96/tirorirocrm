@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Plus, Clock, X, ChevronDown, List } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS_B2B, ETAPA_COLORS, ASIGNADOS_B2B, type EtapaB2B, type Lead } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
+import { useTouchStageDrag } from "@/lib/stage-drag";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
 
 interface Search {
@@ -61,7 +62,7 @@ function PipelineB2B() {
   const { etapa: filterEtapa, asignado: filterAsignado } = Route.useSearch();
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<EtapaB2B | null>(null);
-  const touchDragId = useRef<string | null>(null);
+  const touchHandlers = useTouchStageDrag<EtapaB2B>(setDragOver, setDraggingId, actions.setLeadEtapa);
 
   const b2b = leads.filter((l) => l.tipo === "B2B");
   const visibleEtapas = filterEtapa ? ETAPAS_B2B.filter((e) => e === filterEtapa) : ETAPAS_B2B;
@@ -78,7 +79,7 @@ function PipelineB2B() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-900">Pipeline B2B</h1>
-          <p className="text-xs text-slate-400">Arrastra las tarjetas para mover etapas</p>
+          <p className="text-xs text-slate-400">Arrastra (o mantén pulsado en móvil) para mover de etapa</p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <div className="relative min-w-0 flex-1 sm:flex-initial">
@@ -157,22 +158,7 @@ function PipelineB2B() {
                         draggable
                         onDragStart={() => setDraggingId(lead.id)}
                         onDragEnd={() => setDraggingId(null)}
-                        onTouchStart={() => { touchDragId.current = lead.id; }}
-                        onTouchMove={(e) => {
-                          if (!touchDragId.current) return;
-                          const touch = e.touches[0];
-                          const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                          const col = el?.closest("[data-etapa]");
-                          const over = col?.getAttribute("data-etapa") as EtapaB2B | null;
-                          setDragOver(over ?? null);
-                        }}
-                        onTouchEnd={() => {
-                          if (touchDragId.current && dragOver) {
-                            actions.setLeadEtapa(touchDragId.current, dragOver);
-                          }
-                          touchDragId.current = null;
-                          setDragOver(null);
-                        }}
+                        {...touchHandlers(lead.id, lead.etapa as EtapaB2B)}
                       >
                         <LeadCard lead={lead} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
                       </div>

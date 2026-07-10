@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive } from "lucide-react";
+import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { semaforoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { semaforoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
 
@@ -36,7 +37,7 @@ type EstadoFiltro = typeof ESTADO_OPTS[number];
 
 function PedidosIndex() {
   const { pedidos, leads, productos, pedidoTelas } = useStore();
-  const [tab, setTab] = useState<"normal" | "ab">("normal");
+  const [tab, setTab] = useState<"normal" | "ab" | "influ">("normal");
   const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
   const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
@@ -50,40 +51,63 @@ function PedidosIndex() {
   const enriched = useMemo(() => pedidos.map((p) => {
     const lead = leads.find((l) => l.id === p.leadId);
     const prod = productos.find((pr) => pr.id === p.productoLeadId);
-    const sem = semaforoPedido(p);
+    const sem = semaforoPedido(p, prod?.tipo ?? "");
+    const prog = progresoPedido(p, prod?.tipo ?? "");
     const tls = pedidoTelas.filter((t) => t.pedidoId === p.id);
     const totalT = tls.length;
     const okT = tls.filter((t) => t.estado === "Recibida").length;
-    return { pedido: p, lead, producto: prod, sem, totalT, okT };
+    return { pedido: p, lead, producto: prod, sem, prog, totalT, okT };
   }), [pedidos, leads, productos, pedidoTelas]);
 
+  // Colaboraciones (canje) — pedidos de influencer, van a su propia pestaña.
+  const isCanje = ({ pedido, lead }: (typeof enriched)[number]) => pedido.esCanje || lead?.tipo === "INFLUENCER";
   // "B2B" tab: pedidos vinculados a empresa B2B O al partner Alejandra Blanc (legacy clienteTipo).
-  const isB2B = ({ pedido, lead }: (typeof enriched)[number]) =>
-    !!pedido.empresaId || lead?.clienteTipo === "partner_ab" || lead?.tipo === "B2B";
+  const isB2B = (it: (typeof enriched)[number]) =>
+    !isCanje(it) && (!!it.pedido.empresaId || it.lead?.clienteTipo === "partner_ab" || it.lead?.tipo === "B2B");
+  const canjeCount = enriched.filter(isCanje).length;
   const abCount = enriched.filter(isB2B).length;
-  const normalCount = enriched.length - abCount;
+  const normalCount = enriched.length - abCount - canjeCount;
 
-  const baseTab = enriched.filter((it) => tab === "ab" ? isB2B(it) : !isB2B(it));
+  const baseTab = enriched.filter((it) =>
+    tab === "influ" ? isCanje(it) : tab === "ab" ? isB2B(it) : (!isB2B(it) && !isCanje(it)));
 
   // Group by person (leadId || clienteNombreLibre)
-  type Group = { key: string; nombre: string; lead: Lead | undefined; items: typeof baseTab; allEntregados: boolean; oldest: string; total: number };
+  // Índice nombre normalizado → lead, para agrupar pedidos de "nombre libre"
+  // junto a su cliente real cuando el nombre coincide (todos los pedidos de una
+  // misma persona en un solo sitio).
+  const normNombre = (s: string) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const leadPorNombre = useMemo(() => {
+    const m = new Map<string, Lead>();
+    for (const l of leads) {
+      const k = normNombre(l.nombre);
+      if (k && !m.has(k)) m.set(k, l);
+    }
+    return m;
+  }, [leads]);
+
+  type Group = { key: string; nombre: string; lead: Lead | undefined; items: typeof baseTab; allEntregados: boolean; oldest: string };
   const groupsAll: Group[] = useMemo(() => {
     const map = new Map<string, Group>();
     for (const it of baseTab) {
-      const key = it.lead?.id || it.pedido.clienteNombreLibre || it.pedido.id;
-      const nombre = it.lead?.nombre || it.pedido.clienteNombreLibre || "—";
-      const g = map.get(key) ?? { key, nombre, lead: it.lead, items: [], allEntregados: true, oldest: it.pedido.fechaCreacionPedido, total: 0 };
+      // Resuelve el lead: por vínculo directo o, si es nombre libre, por nombre.
+      const leadPorLibre = !it.lead && it.pedido.clienteNombreLibre
+        ? leadPorNombre.get(normNombre(it.pedido.clienteNombreLibre))
+        : undefined;
+      const lead = it.lead ?? leadPorLibre;
+      const key = lead?.id || normNombre(it.pedido.clienteNombreLibre) || it.pedido.id;
+      const nombre = lead?.nombre || it.pedido.clienteNombreLibre || "—";
+      const g = map.get(key) ?? { key, nombre, lead, items: [], allEntregados: true, oldest: it.pedido.fechaCreacionPedido };
+      if (!g.lead && lead) g.lead = lead;
       g.items.push(it);
       if (!it.pedido.entregado) g.allEntregados = false;
       if (it.pedido.fechaCreacionPedido && (!g.oldest || it.pedido.fechaCreacionPedido < g.oldest)) g.oldest = it.pedido.fechaCreacionPedido;
-      g.total += (it.pedido.precio || 0) + (it.pedido.costeEnvio || 0);
       map.set(key, g);
     }
     for (const g of map.values()) {
       g.items.sort((a, b) => (a.pedido.fechaCreacionPedido || "").localeCompare(b.pedido.fechaCreacionPedido || ""));
     }
     return Array.from(map.values());
-  }, [baseTab]);
+  }, [baseTab, leadPorNombre]);
 
   const groups = useMemo(() => {
     const filtered = groupsAll.filter((g) => view === "archivo" ? g.allEntregados : !g.allEntregados);
@@ -167,6 +191,10 @@ function PedidosIndex() {
           <Sparkles className="h-4 w-4 text-[#1a4b5b]" /> B2B
           <span className="rounded-full bg-[#e6f1f4] px-1.5 py-0.5 text-[10px] font-bold text-[#1a4b5b]">{abCount}</span>
         </button>
+        <button onClick={() => setTab("influ")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "influ" ? "border-pink-600 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+          <Sparkles className="h-4 w-4 text-pink-600" /> Colaboraciones
+          <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-bold text-pink-700">{canjeCount}</span>
+        </button>
       </div>
 
       {/* Sub-tabs Activos / Archivo */}
@@ -233,7 +261,7 @@ function PedidosIndex() {
       {/* Grupos por persona */}
       <div className="space-y-4">
         {groups.map((g) => (
-          <PersonaGroup key={g.key} nombre={g.nombre} lead={g.lead} total={g.total} items={g.items} />
+          <PersonaGroup key={g.key} nombre={g.nombre} lead={g.lead} items={g.items} />
         ))}
         {groups.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-400">
@@ -247,13 +275,22 @@ function PedidosIndex() {
   );
 }
 
-function PersonaGroup({ nombre, lead, total, items }: {
-  nombre: string; lead: Lead | undefined; total: number;
-  items: Array<{ pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number }>;
+type EnrichedItem = { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number };
+
+function PersonaGroup({ nombre, lead, items }: {
+  nombre: string; lead: Lead | undefined;
+  items: EnrichedItem[];
 }) {
+  const resumen: ResumenCobro = useMemo(
+    () => resumenCobro(items.map((it) => it.pedido)),
+    [items],
+  );
+  // Pedidos a los que aún se les puede aplicar la media (no cobrados del todo)
+  const pendientesMedia = items.filter((it) => estadoCobro(it.pedido) !== "Cobrado");
+
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
         <div className="min-w-0">
           {lead ? (
             <Link to="/clientes/$id" params={{ id: lead.id }} className="truncate text-sm font-bold text-slate-900 hover:text-[#1a4b5b] hover:underline">
@@ -265,7 +302,24 @@ function PersonaGroup({ nombre, lead, total, items }: {
           <span className="ml-2 text-xs text-slate-500">{items.length} producto{items.length === 1 ? "" : "s"}</span>
           {!lead && <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</span>}
         </div>
-        <div className="text-sm font-bold text-slate-900">{formatCurrency(total)}</div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <MoneyStat label="Venta" value={resumen.venta} className="text-slate-900" />
+          <MoneyStat label="Cobrado" value={resumen.cobrado} className="text-emerald-700" />
+          <MoneyStat label="Pendiente" value={resumen.pendiente} className={resumen.pendiente > 0 ? "text-amber-700" : "text-slate-400"} />
+          {pendientesMedia.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm(`Marcar el 50% (mitad del producto) como cobrado en ${pendientesMedia.length} pedido${pendientesMedia.length === 1 ? "" : "s"} de ${nombre}?`)) {
+                  actions.marcarMediaPagadaGrupo(pendientesMedia.map((it) => it.pedido.id));
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+              title="Marca el 50% del producto como reserva en todos los pedidos actuales de este cliente"
+            >
+              <Wallet className="h-3.5 w-3.5" /> Media pagada (todos)
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Desktop: tabla compacta */}
@@ -275,19 +329,18 @@ function PersonaGroup({ nombre, lead, total, items }: {
             <tr>
               <th className="px-3 py-2">Producto</th>
               <th className="px-3 py-2">Telas</th>
-              <th className="px-3 py-2 text-center" title="Estructura hecha">Estr.</th>
-              <th className="px-3 py-2 text-center" title="Tapizado hecho">Tapi.</th>
+              <th className="px-3 py-2">Producción</th>
               <th className="px-3 py-2">Deadline</th>
               <th className="px-3 py-2">Días</th>
               <th className="px-3 py-2 text-right">Precio</th>
               <th className="px-3 py-2 text-right">Envío</th>
-              <th className="px-3 py-2 text-center">Pagado</th>
+              <th className="px-3 py-2 text-center">Cobro</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
-            {items.map(({ pedido, producto, sem, totalT, okT }) => (
-              <PedidoRow key={pedido.id} pedido={pedido} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+            {items.map((it) => (
+              <PedidoRow key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} />
             ))}
           </tbody>
         </table>
@@ -295,8 +348,8 @@ function PersonaGroup({ nombre, lead, total, items }: {
 
       {/* Móvil: tarjetas */}
       <div className="space-y-2 p-3 md:hidden">
-        {items.map(({ pedido, producto, sem, totalT, okT }) => (
-          <PedidoCard key={pedido.id} pedido={pedido} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+        {items.map((it) => (
+          <PedidoCard key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} />
         ))}
       </div>
     </div>
@@ -304,17 +357,45 @@ function PersonaGroup({ nombre, lead, total, items }: {
 }
 
 
+function MoneyStat({ label, value, className }: { label: string; value: number; className?: string }) {
+  return (
+    <div className="text-right leading-tight">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</div>
+      <div className={`text-sm font-bold ${className ?? "text-slate-900"}`}>{formatCurrency(value)}</div>
+    </div>
+  );
+}
+
+const COBRO_BADGE: Record<string, string> = {
+  Cobrado: "bg-emerald-50 text-emerald-700",
+  Parcial: "bg-amber-50 text-amber-700",
+  Pendiente: "bg-slate-100 text-slate-600",
+};
+
 // ──────────────────────────────────────────────────────────────────────────
 // Card móvil + bottom sheet de edición
-function PedidoCard({ pedido, producto, sem, totalT, okT }: {
+function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
   pedido: Pedido; producto: Producto | undefined;
-  sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number;
+  sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number;
 }) {
   const [editing, setEditing] = useState(false);
   const c = SEM_COLOR[sem.estado];
   const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
   const diasLabel = pedido.entregado ? "Entregado" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d restantes` : `${Math.abs(sem.diasRestantes)}d de retraso`;
   const borderLeft = sem.estado === "verde" ? "border-l-emerald-500" : sem.estado === "ambar" ? "border-l-amber-500" : "border-l-rose-500";
+  const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
+
+  // Marca el siguiente hito pendiente del flujo (según el tipo de producto).
+  function avanzarHito() {
+    const hitos = flujoPedido(producto?.tipo ?? "");
+    const next = hitos.find((h) => !pedido[h.key]);
+    if (!next) return;
+    actions.updatePedido(pedido.id, {
+      [next.key]: true,
+      [next.fechaKey]: new Date().toISOString().slice(0, 10),
+    } as Partial<Pedido>);
+  }
+  const completo = prog.hechos >= prog.total;
 
   return (
     <>
@@ -334,14 +415,29 @@ function PedidoCard({ pedido, producto, sem, totalT, okT }: {
               {totalT > 0 && (<><span className="text-slate-400">·</span><span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span></>)}
               <span className="text-slate-400">·</span>
               <span className="font-semibold text-slate-700">{formatCurrency((pedido.precio || 0) + (pedido.costeEnvio || 0))}</span>
+              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${COBRO_BADGE[estadoCobro(pedido)]}`}>
+                {estadoCobro(pedido)}{pedidoPendiente(pedido) > 0 ? ` · falta ${formatCurrency(pedidoPendiente(pedido))}` : ""}
+              </span>
             </div>
           </div>
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-300" />
         </Link>
 
-        <div className="grid grid-cols-4 border-t border-slate-100">
-          <ToggleHito label="Estr." active={pedido.estructuraHecha} onToggle={() => actions.updatePedido(pedido.id, { estructuraHecha: !pedido.estructuraHecha, estructuraHechaFecha: !pedido.estructuraHecha && !pedido.estructuraHechaFecha ? new Date().toISOString().slice(0, 10) : pedido.estructuraHechaFecha })} />
-          <ToggleHito label="Tapi." active={pedido.tapizadoHecho} onToggle={() => actions.updatePedido(pedido.id, { tapizadoHecho: !pedido.tapizadoHecho, tapizadoHechoFecha: !pedido.tapizadoHecho && !pedido.tapizadoHechoFecha ? new Date().toISOString().slice(0, 10) : pedido.tapizadoHechoFecha })} />
+        {/* Progreso de producción */}
+        <div className="border-t border-slate-100 px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <span className="truncate font-medium">{pedido.entregado ? "Entregado" : prog.actualLabel}</span>
+            <span className="ml-2 shrink-0 font-semibold">{prog.hechos}/{prog.total}</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${pedido.entregado ? "bg-emerald-500" : "bg-[#1a4b5b]"}`} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 border-t border-slate-100">
+          <button onClick={avanzarHito} disabled={completo} className="flex h-12 items-center justify-center gap-1.5 text-xs font-medium text-emerald-700 active:bg-emerald-50 disabled:text-slate-300 disabled:active:bg-transparent">
+            <Check className="h-3.5 w-3.5" /> {completo ? "Completo" : "Avanzar"}
+          </button>
           <button onClick={() => setEditing(true)} className="flex h-12 items-center justify-center gap-1.5 border-l border-slate-100 text-xs font-medium text-slate-600 active:bg-slate-100">
             <Pencil className="h-3.5 w-3.5" /> Editar
           </button>
@@ -352,17 +448,6 @@ function PedidoCard({ pedido, producto, sem, totalT, okT }: {
       </div>
       {editing && <EditPedidoSheet pedido={pedido} onClose={() => setEditing(false)} />}
     </>
-  );
-}
-
-function ToggleHito({ label, active, onToggle }: { label: string; active: boolean; onToggle: () => void }) {
-  return (
-    <button onClick={onToggle} className={`flex h-12 items-center justify-center gap-1.5 border-r border-slate-100 text-xs font-medium active:bg-slate-100 ${active ? "text-emerald-700" : "text-slate-500"}`}>
-      <span className={`flex h-4 w-4 items-center justify-center rounded border ${active ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white"}`}>
-        {active && <Check className="h-3 w-3" />}
-      </span>
-      {label}
-    </button>
   );
 }
 
@@ -378,9 +463,9 @@ function EditPedidoSheet({ pedido, onClose }: { pedido: Pedido; onClose: () => v
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-900/50" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full rounded-t-2xl bg-white p-5 pb-8 shadow-2xl">
-        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 md:items-center md:p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full rounded-t-2xl bg-white p-5 pb-8 shadow-2xl md:max-w-md md:rounded-2xl md:pb-5">
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 md:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">Editar pedido</h2>
           <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 active:bg-slate-100"><X className="h-5 w-5" /></button>
@@ -418,12 +503,13 @@ function SheetField({ label, children }: { label: string; children: React.ReactN
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-function PedidoRow({ pedido, producto, sem, totalT, okT }: {
+function PedidoRow({ pedido, producto, sem, prog, totalT, okT }: {
   pedido: Pedido; producto: Producto | undefined;
-  sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number;
+  sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number;
 }) {
   const c = SEM_COLOR[sem.estado];
   const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
+  const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
   return (
     <tr className="border-t border-slate-100 hover:bg-slate-50/60">
       <td className="px-3 py-2 text-xs text-slate-700">
@@ -439,11 +525,16 @@ function PedidoRow({ pedido, producto, sem, totalT, okT }: {
           {okT}/{totalT}
         </Link>
       </td>
-      <td className="px-3 py-2 text-center">
-        <CheckCell value={pedido.estructuraHecha} onChange={(v) => actions.updatePedido(pedido.id, { estructuraHecha: v, estructuraHechaFecha: v && !pedido.estructuraHechaFecha ? new Date().toISOString().slice(0, 10) : pedido.estructuraHechaFecha })} />
-      </td>
-      <td className="px-3 py-2 text-center">
-        <CheckCell value={pedido.tapizadoHecho} onChange={(v) => actions.updatePedido(pedido.id, { tapizadoHecho: v, tapizadoHechoFecha: v && !pedido.tapizadoHechoFecha ? new Date().toISOString().slice(0, 10) : pedido.tapizadoHechoFecha })} />
+      <td className="px-3 py-2">
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="block min-w-[130px]" title={prog.actualLabel}>
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <span className="truncate">{pedido.entregado ? "Entregado" : prog.actualLabel}</span>
+            <span className="ml-1 shrink-0 font-semibold">{prog.hechos}/{prog.total}</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${pedido.entregado ? "bg-emerald-500" : "bg-[#1a4b5b]"}`} style={{ width: `${pct}%` }} />
+          </div>
+        </Link>
       </td>
       <td className={`px-3 py-2 text-xs ${sem.diasRestantes < 0 && !pedido.entregado ? "font-bold text-rose-700" : "text-slate-600"}`}>
         {formatShortDate(pedido.fechaLimite)}
@@ -460,8 +551,13 @@ function PedidoRow({ pedido, producto, sem, totalT, okT }: {
       <td className="px-3 py-2 text-right">
         <NumberCell value={pedido.costeEnvio} onSave={(v) => actions.updatePedido(pedido.id, { costeEnvio: v })} />
       </td>
-      <td className="px-3 py-2 text-center">
-        <CheckCell value={pedido.pagadoCompleto} onChange={(v) => actions.updatePedido(pedido.id, { pagadoCompleto: v })} />
+      <td className="px-3 py-2">
+        <div className="flex flex-col items-center gap-1">
+          <CheckCell value={pedido.pagadoCompleto} onChange={(v) => actions.updatePedido(pedido.id, { pagadoCompleto: v })} />
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${COBRO_BADGE[estadoCobro(pedido)]}`} title={pedidoPendiente(pedido) > 0 ? `Falta ${formatCurrency(pedidoPendiente(pedido))}` : "Cobrado"}>
+            {estadoCobro(pedido)}
+          </span>
+        </div>
       </td>
       <td className="px-3 py-2 text-right">
         <button
@@ -506,7 +602,7 @@ function NumberCell({ value, onSave }: { value: number; onSave: (v: number) => v
 // ──────────────────────────────────────────────────────────────────────────
 function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const { leads, productos } = useStore();
-  const [mode, setMode] = useState<"lead" | "libre" | "b2b">("lead");
+  const [mode, setMode] = useState<"lead" | "libre" | "b2b" | "influ">("lead");
   const [leadId, setLeadId] = useState<string>("");
   const [leadSearch, setLeadSearch] = useState("");
   const [nombreLibre, setNombreLibre] = useState("");
@@ -519,14 +615,21 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const [precio, setPrecio] = useState(0);
   const [reserva, setReserva] = useState(0);
   const [costeEnvio, setCosteEnvio] = useState(0);
+  const [formatos, setFormatos] = useState<string[]>([]);
+  const [tipoColab, setTipoColab] = useState<string>("");
+  const [tipoColabOtros, setTipoColabOtros] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   const empresasB2B = useMemo(() => leads.filter((l) => l.tipo === "B2B"), [leads]);
 
   const leadFiltered = useMemo(() => {
     const q = leadSearch.toLowerCase();
-    return leads.filter((l) => l.nombre.toLowerCase().includes(q)).slice(0, 8);
-  }, [leads, leadSearch]);
+    // En modo influencer buscamos solo entre influencers; en modo B2C, el resto.
+    return leads
+      .filter((l) => mode === "influ" ? l.tipo === "INFLUENCER" : (l.tipo !== "B2B" && l.tipo !== "INFLUENCER"))
+      .filter((l) => l.nombre.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [leads, leadSearch, mode]);
 
   const productosDelLead = useMemo(
     () => productos.filter((p) => leadId && p.leadId === leadId),
@@ -534,13 +637,13 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   );
 
   async function submit() {
-    if (mode === "lead" && !leadId) return;
+    if ((mode === "lead" || mode === "influ") && !leadId) return;
     if (mode === "libre" && !nombreLibre.trim()) return;
     if (mode === "b2b" && !empresaId) return;
     if (prodMode === "existente" && !productoId) return;
     if (prodMode === "nuevo" && !tipo) return;
     setSaving(true);
-    const finalLeadId = mode === "lead" ? leadId : mode === "b2b" ? empresaId : null;
+    const finalLeadId = mode === "lead" || mode === "influ" ? leadId : mode === "b2b" ? empresaId : null;
     const created = await actions.crearPedidoManual({
       leadId: finalLeadId,
       clienteNombreLibre: mode === "libre" ? nombreLibre.trim() : "",
@@ -548,6 +651,9 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
       nuevoProducto: prodMode === "nuevo" ? { tipo, modelo: modelo.trim() } : undefined,
       diasPlazo, precio, reserva, costeEnvio,
       empresaId: mode === "b2b" ? empresaId : undefined,
+      esCanje: mode === "influ",
+      formatos: mode === "influ" ? formatos : undefined,
+      tipoColaboracion: mode === "influ" ? (tipoColab === "Otros" ? tipoColabOtros.trim() || "Otros" : tipoColab) : undefined,
     });
     setSaving(false);
     if (created) onClose();
@@ -568,19 +674,23 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
           {/* Cliente */}
           <div>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</div>
-            <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
-              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente B2C</button>
-              <button onClick={() => setMode("b2b")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "b2b" ? "bg-[#1a4b5b] text-white" : "text-slate-600"}`}>Empresa B2B</button>
+            <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-xs md:grid-cols-4">
+              <button onClick={() => { setMode("lead"); setLeadId(""); setLeadSearch(""); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente B2C</button>
+              <button onClick={() => { setMode("b2b"); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "b2b" ? "bg-[#1a4b5b] text-white" : "text-slate-600"}`}>Empresa B2B</button>
+              <button onClick={() => { setMode("influ"); setLeadId(""); setLeadSearch(""); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "influ" ? "bg-pink-600 text-white" : "text-slate-600"}`}>Influencer</button>
               <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Sin CRM</button>
             </div>
-            {mode === "lead" && (
+            {(mode === "lead" || mode === "influ") && (
               <div className="space-y-1.5">
                 <input
                   value={selectedLead ? selectedLead.nombre : leadSearch}
                   onChange={(e) => { setLeadSearch(e.target.value); setLeadId(""); }}
-                  placeholder="Buscar lead por nombre…"
+                  placeholder={mode === "influ" ? "Buscar influencer por nombre…" : "Buscar lead por nombre…"}
                   className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-slate-500 focus:outline-none md:py-1.5 md:text-sm"
                 />
+                {mode === "influ" && leadFiltered.length === 0 && !leadSearch && (
+                  <div className="text-[11px] text-slate-400">Crea influencers en Clientes → pestaña Influencers.</div>
+                )}
                 {!selectedLead && leadSearch && (
                   <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
                     {leadFiltered.length === 0 ? (
@@ -654,8 +764,44 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
             <Field label="Coste envío (€)"><input type="number" inputMode="decimal" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
           </div>
 
+          {/* Colaboración (solo influencer / canje) */}
+          {mode === "influ" && (
+            <div className="space-y-3 rounded-lg border border-pink-200 bg-pink-50/40 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-pink-600">Colaboración (canje)</div>
+              <div>
+                <div className="mb-1 text-xs text-slate-500">Formato (varios)</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {FORMATOS_COLAB.map((f) => {
+                    const on = formatos.includes(f);
+                    return (
+                      <button key={f} type="button"
+                        onClick={() => setFormatos((prev) => on ? prev.filter((x) => x !== f) : [...prev, f])}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium ${on ? "border-pink-500 bg-pink-500 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {f}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-slate-500">Tipo de colaboración</div>
+                <select value={tipoColab} onChange={(e) => setTipoColab(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base md:py-1.5 md:text-sm">
+                  <option value="">— Selecciona —</option>
+                  {TIPOS_COLAB.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                {tipoColab === "Otros" && (
+                  <input value={tipoColabOtros} onChange={(e) => setTipoColabOtros(e.target.value)} placeholder="Describe la colaboración" className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
-            Total a cobrar: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span>
+            {mode === "influ" ? (
+              <>Valor del canje: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span> <span className="text-pink-600">· no cuenta como ingreso</span></>
+            ) : (
+              <>Total a cobrar: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span></>
+            )}
           </div>
 
           <div className="flex gap-2 border-t border-slate-100 pt-3">
