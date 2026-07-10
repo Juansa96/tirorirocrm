@@ -67,13 +67,32 @@ function PedidosIndex() {
   const baseTab = enriched.filter((it) => tab === "ab" ? isB2B(it) : !isB2B(it));
 
   // Group by person (leadId || clienteNombreLibre)
+  // Índice nombre normalizado → lead, para agrupar pedidos de "nombre libre"
+  // junto a su cliente real cuando el nombre coincide (todos los pedidos de una
+  // misma persona en un solo sitio).
+  const normNombre = (s: string) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const leadPorNombre = useMemo(() => {
+    const m = new Map<string, Lead>();
+    for (const l of leads) {
+      const k = normNombre(l.nombre);
+      if (k && !m.has(k)) m.set(k, l);
+    }
+    return m;
+  }, [leads]);
+
   type Group = { key: string; nombre: string; lead: Lead | undefined; items: typeof baseTab; allEntregados: boolean; oldest: string };
   const groupsAll: Group[] = useMemo(() => {
     const map = new Map<string, Group>();
     for (const it of baseTab) {
-      const key = it.lead?.id || it.pedido.clienteNombreLibre || it.pedido.id;
-      const nombre = it.lead?.nombre || it.pedido.clienteNombreLibre || "—";
-      const g = map.get(key) ?? { key, nombre, lead: it.lead, items: [], allEntregados: true, oldest: it.pedido.fechaCreacionPedido };
+      // Resuelve el lead: por vínculo directo o, si es nombre libre, por nombre.
+      const leadPorLibre = !it.lead && it.pedido.clienteNombreLibre
+        ? leadPorNombre.get(normNombre(it.pedido.clienteNombreLibre))
+        : undefined;
+      const lead = it.lead ?? leadPorLibre;
+      const key = lead?.id || normNombre(it.pedido.clienteNombreLibre) || it.pedido.id;
+      const nombre = lead?.nombre || it.pedido.clienteNombreLibre || "—";
+      const g = map.get(key) ?? { key, nombre, lead, items: [], allEntregados: true, oldest: it.pedido.fechaCreacionPedido };
+      if (!g.lead && lead) g.lead = lead;
       g.items.push(it);
       if (!it.pedido.entregado) g.allEntregados = false;
       if (it.pedido.fechaCreacionPedido && (!g.oldest || it.pedido.fechaCreacionPedido < g.oldest)) g.oldest = it.pedido.fechaCreacionPedido;
@@ -83,7 +102,7 @@ function PedidosIndex() {
       g.items.sort((a, b) => (a.pedido.fechaCreacionPedido || "").localeCompare(b.pedido.fechaCreacionPedido || ""));
     }
     return Array.from(map.values());
-  }, [baseTab]);
+  }, [baseTab, leadPorNombre]);
 
   const groups = useMemo(() => {
     const filtered = groupsAll.filter((g) => view === "archivo" ? g.allEntregados : !g.allEntregados);

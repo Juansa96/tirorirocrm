@@ -885,7 +885,36 @@ export const actions = {
     if (patch.caracteristicasConfirmadas !== undefined) dbPatch.caracteristicas_confirmadas = patch.caracteristicasConfirmadas;
     if (patch.pagado50 !== undefined) dbPatch.pagado_50 = patch.pagado50;
     const { error } = await supabase.from("productos_lead").update(dbPatch as never).eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); }
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); return; }
+    // Auto-crear el pedido cuando quedan marcadas AMBAS casillas
+    // (características confirmadas + pagado 50%), si aún no existe pedido para
+    // este producto y no está marcado como posible duplicado.
+    await actions.autoCrearPedidoSiProcede(id);
+  },
+
+  // Crea el pedido automáticamente si el producto tiene las 2 casillas marcadas
+  // y todavía no tiene pedido. Muestra un pop-up "Pedido creado → Ver pedido".
+  async autoCrearPedidoSiProcede(productoId: string) {
+    const prod = state.productos.find((p) => p.id === productoId);
+    if (!prod) return;
+    if (!prod.caracteristicasConfirmadas || !prod.pagado50) return;
+    if ((prod.notasProducto || "").toLowerCase().includes("posible-duplicado")) return;
+    if (state.pedidos.some((pd) => pd.productoLeadId === productoId)) return;
+    const pedido = await actions.crearPedido({
+      productoId,
+      pagado50: true,
+      pagoTodoAlFinal: false,
+      creadoManualmente: false,
+      silent: true,
+    });
+    if (!pedido) return;
+    toast.success("Pedido creado", {
+      duration: 10000,
+      action: {
+        label: "Ver pedido",
+        onClick: () => { window.location.assign(`/pedidos/${pedido.id}`); },
+      },
+    });
   },
 
   // ── PEDIDOS ──────────────────────────────────────────────────────
@@ -895,6 +924,7 @@ export const actions = {
     pagado50: boolean;
     pagoTodoAlFinal: boolean;
     creadoManualmente: boolean;
+    silent?: boolean;   // no mostrar el toast por defecto (el caller pondrá el suyo)
   }): Promise<Pedido | null> {
     const prod = state.productos.find((p) => p.id === opts.productoId);
     if (!prod) { toast.error("Producto no encontrado."); return null; }
@@ -903,6 +933,9 @@ export const actions = {
       return null;
     }
     const precio = (prod.precioUnitario || 0) * (prod.cantidad || 1);
+    // "Pagado 50%" pre-rellena la reserva con la mitad del precio de PRODUCTO
+    // (envío aparte). La reserva es editable después en el pedido.
+    const reserva = opts.pagado50 ? Math.round((precio / 2) * 100) / 100 : 0;
     const { data, error } = await supabase.from("pedidos").insert({
       producto_lead_id: prod.id,
       lead_id: prod.leadId,
@@ -911,6 +944,7 @@ export const actions = {
       pago_todo_al_final: opts.pagoTodoAlFinal,
       creado_manualmente: opts.creadoManualmente,
       precio,
+      reserva,
     }).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
     const pedido = mapPedido(data as Record<string, unknown>);
@@ -930,7 +964,7 @@ export const actions = {
       }));
       await supabase.from("pedido_telas").insert(rows);
     }
-    toast.success("Pedido creado.");
+    if (!opts.silent) toast.success("Pedido creado.");
     return pedido;
   },
 
