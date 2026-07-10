@@ -895,6 +895,23 @@ export const actions = {
     if (prev) await syncLeadValorFromProductos(prev.leadId);
   },
 
+  // Quita el tag "[posible-duplicado]" de las notas de un producto (falso
+  // positivo tras revisarlo en la vista de duplicados).
+  async desmarcarDuplicado(id: string) {
+    const prod = state.productos.find((p) => p.id === id);
+    if (!prod) return;
+    const nuevasNotas = (prod.notasProducto || "")
+      .replace(/\s*\[posible-duplicado\]\s*/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const prevState = state;
+    state = { ...state, productos: state.productos.map((p) => p.id === id ? { ...p, notasProducto: nuevasNotas } : p) };
+    emit();
+    const { error } = await supabase.from("productos_lead").update({ notas_producto: nuevasNotas } as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); return; }
+    toast.success("Marcado como no duplicado.");
+  },
+
   async deleteProducto(id: string) {
     const prev = state.productos.find((p) => p.id === id);
     const prevState = state;

@@ -15,6 +15,7 @@ import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DatosRouteImport } from './routes/datos'
+import { Route as DuplicadosRouteImport } from './routes/duplicados'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidosIndexRouteImport } from './routes/pedidos.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
@@ -57,6 +58,11 @@ const LoginRoute = LoginRouteImport.update({
 const DatosRoute = DatosRouteImport.update({
   id: '/datos',
   path: '/datos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DuplicadosRoute = DuplicadosRouteImport.update({
+  id: '/duplicados',
+  path: '/duplicados',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -129,6 +135,7 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/datos': typeof DatosRoute
+  '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
@@ -150,6 +157,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/datos': typeof DatosRoute
+  '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
@@ -172,6 +180,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/datos': typeof DatosRoute
+  '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/datos'
+    | '/duplicados'
     | '/login'
     | '/perfil'
     | '/pipeline'
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/datos'
+    | '/duplicados'
     | '/login'
     | '/perfil'
     | '/pipeline'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/datos'
+    | '/duplicados'
     | '/login'
     | '/perfil'
     | '/pipeline'
@@ -259,6 +271,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DatosRoute: typeof DatosRoute
+  DuplicadosRoute: typeof DuplicadosRoute
   LoginRoute: typeof LoginRoute
   PerfilRoute: typeof PerfilRoute
   PipelineRoute: typeof PipelineRoute
@@ -320,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/datos'
       fullPath: '/datos'
       preLoaderRoute: typeof DatosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/duplicados': {
+      id: '/duplicados'
+      path: '/duplicados'
+      fullPath: '/duplicados'
+      preLoaderRoute: typeof DuplicadosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -419,6 +439,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DatosRoute: DatosRoute,
+  DuplicadosRoute: DuplicadosRoute,
   LoginRoute: LoginRoute,
   PerfilRoute: PerfilRoute,
   PipelineRoute: PipelineRoute,
