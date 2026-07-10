@@ -5,7 +5,8 @@ import {
   Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap, Camera, ImagePlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPAS_B2B, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
+import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
+import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -126,6 +127,8 @@ function ClienteDetalle() {
   // Closed Won/Lost reason dialog
   const [closingEtapa, setClosingEtapa] = useState<Etapa | null>(null);
   const [closingReason, setClosingReason] = useState("");
+  // Motivo de pérdida para colaboraciones (influencer → "Perdido")
+  const [perdidaColab, setPerdidaColab] = useState(false);
 
   const hasUnsaved = showProdForm || editingProd !== null;
 
@@ -204,6 +207,11 @@ function ClienteDetalle() {
 
   // Closed Won/Lost confirmation dialog
   function handleEtapaClick(etapa: Etapa) {
+    // Colaboraciones: al pasar a "Perdido" pedimos siempre el motivo.
+    if (lead!.tipo === "INFLUENCER" && etapa === "Perdido") {
+      setPerdidaColab(true);
+      return;
+    }
     if (etapa === "Closed Won" || etapa === "Closed Lost") {
       setClosingEtapa(etapa);
       setClosingReason("");
@@ -276,6 +284,17 @@ function ClienteDetalle() {
         </div>
       )}
 
+      {perdidaColab && (
+        <MotivoPerdidaDialog
+          onCancel={() => setPerdidaColab(false)}
+          onConfirm={(motivo) => {
+            actions.setLeadEtapa(lead.id, "Perdido");
+            if (motivo.trim()) void actions.addNota(lead.id, `[Perdido] ${motivo.trim()}`);
+            setPerdidaColab(false);
+          }}
+        />
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
         <div className="min-w-0 flex-1">
@@ -311,7 +330,7 @@ function ClienteDetalle() {
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Etapa</div>
         <div className="flex flex-wrap gap-2">
-          {(lead.tipo === "B2B" ? (ETAPAS_B2B as readonly Etapa[]) : (ETAPAS as readonly Etapa[])).map((e) => {
+          {(lead.tipo === "B2B" ? (ETAPAS_B2B as readonly Etapa[]) : lead.tipo === "INFLUENCER" ? (ETAPAS_COLAB as readonly Etapa[]) : (ETAPAS as readonly Etapa[])).map((e) => {
             const active = lead.etapa === e;
             return (
               <button key={e} onClick={() => handleEtapaClick(e)}
