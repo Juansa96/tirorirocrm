@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive } from "lucide-react";
+import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { semaforoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
 
@@ -66,17 +67,16 @@ function PedidosIndex() {
   const baseTab = enriched.filter((it) => tab === "ab" ? isB2B(it) : !isB2B(it));
 
   // Group by person (leadId || clienteNombreLibre)
-  type Group = { key: string; nombre: string; lead: Lead | undefined; items: typeof baseTab; allEntregados: boolean; oldest: string; total: number };
+  type Group = { key: string; nombre: string; lead: Lead | undefined; items: typeof baseTab; allEntregados: boolean; oldest: string };
   const groupsAll: Group[] = useMemo(() => {
     const map = new Map<string, Group>();
     for (const it of baseTab) {
       const key = it.lead?.id || it.pedido.clienteNombreLibre || it.pedido.id;
       const nombre = it.lead?.nombre || it.pedido.clienteNombreLibre || "—";
-      const g = map.get(key) ?? { key, nombre, lead: it.lead, items: [], allEntregados: true, oldest: it.pedido.fechaCreacionPedido, total: 0 };
+      const g = map.get(key) ?? { key, nombre, lead: it.lead, items: [], allEntregados: true, oldest: it.pedido.fechaCreacionPedido };
       g.items.push(it);
       if (!it.pedido.entregado) g.allEntregados = false;
       if (it.pedido.fechaCreacionPedido && (!g.oldest || it.pedido.fechaCreacionPedido < g.oldest)) g.oldest = it.pedido.fechaCreacionPedido;
-      g.total += (it.pedido.precio || 0) + (it.pedido.costeEnvio || 0);
       map.set(key, g);
     }
     for (const g of map.values()) {
@@ -233,7 +233,7 @@ function PedidosIndex() {
       {/* Grupos por persona */}
       <div className="space-y-4">
         {groups.map((g) => (
-          <PersonaGroup key={g.key} nombre={g.nombre} lead={g.lead} total={g.total} items={g.items} />
+          <PersonaGroup key={g.key} nombre={g.nombre} lead={g.lead} items={g.items} />
         ))}
         {groups.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-400">
@@ -247,13 +247,20 @@ function PedidosIndex() {
   );
 }
 
-function PersonaGroup({ nombre, lead, total, items }: {
-  nombre: string; lead: Lead | undefined; total: number;
+function PersonaGroup({ nombre, lead, items }: {
+  nombre: string; lead: Lead | undefined;
   items: Array<{ pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number }>;
 }) {
+  const resumen: ResumenCobro = useMemo(
+    () => resumenCobro(items.map((it) => it.pedido)),
+    [items],
+  );
+  // Pedidos a los que aún se les puede aplicar la media (no cobrados del todo)
+  const pendientesMedia = items.filter((it) => estadoCobro(it.pedido) !== "Cobrado");
+
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
         <div className="min-w-0">
           {lead ? (
             <Link to="/clientes/$id" params={{ id: lead.id }} className="truncate text-sm font-bold text-slate-900 hover:text-[#1a4b5b] hover:underline">
@@ -265,7 +272,24 @@ function PersonaGroup({ nombre, lead, total, items }: {
           <span className="ml-2 text-xs text-slate-500">{items.length} producto{items.length === 1 ? "" : "s"}</span>
           {!lead && <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</span>}
         </div>
-        <div className="text-sm font-bold text-slate-900">{formatCurrency(total)}</div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <MoneyStat label="Venta" value={resumen.venta} className="text-slate-900" />
+          <MoneyStat label="Cobrado" value={resumen.cobrado} className="text-emerald-700" />
+          <MoneyStat label="Pendiente" value={resumen.pendiente} className={resumen.pendiente > 0 ? "text-amber-700" : "text-slate-400"} />
+          {pendientesMedia.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm(`Marcar el 50% (mitad del producto) como cobrado en ${pendientesMedia.length} pedido${pendientesMedia.length === 1 ? "" : "s"} de ${nombre}?`)) {
+                  actions.marcarMediaPagadaGrupo(pendientesMedia.map((it) => it.pedido.id));
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+              title="Marca el 50% del producto como reserva en todos los pedidos actuales de este cliente"
+            >
+              <Wallet className="h-3.5 w-3.5" /> Media pagada (todos)
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Desktop: tabla compacta */}
@@ -281,7 +305,7 @@ function PersonaGroup({ nombre, lead, total, items }: {
               <th className="px-3 py-2">Días</th>
               <th className="px-3 py-2 text-right">Precio</th>
               <th className="px-3 py-2 text-right">Envío</th>
-              <th className="px-3 py-2 text-center">Pagado</th>
+              <th className="px-3 py-2 text-center">Cobro</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
@@ -303,6 +327,21 @@ function PersonaGroup({ nombre, lead, total, items }: {
   );
 }
 
+
+function MoneyStat({ label, value, className }: { label: string; value: number; className?: string }) {
+  return (
+    <div className="text-right leading-tight">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</div>
+      <div className={`text-sm font-bold ${className ?? "text-slate-900"}`}>{formatCurrency(value)}</div>
+    </div>
+  );
+}
+
+const COBRO_BADGE: Record<string, string> = {
+  Cobrado: "bg-emerald-50 text-emerald-700",
+  Parcial: "bg-amber-50 text-amber-700",
+  Pendiente: "bg-slate-100 text-slate-600",
+};
 
 // ──────────────────────────────────────────────────────────────────────────
 // Card móvil + bottom sheet de edición
@@ -334,6 +373,9 @@ function PedidoCard({ pedido, producto, sem, totalT, okT }: {
               {totalT > 0 && (<><span className="text-slate-400">·</span><span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span></>)}
               <span className="text-slate-400">·</span>
               <span className="font-semibold text-slate-700">{formatCurrency((pedido.precio || 0) + (pedido.costeEnvio || 0))}</span>
+              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${COBRO_BADGE[estadoCobro(pedido)]}`}>
+                {estadoCobro(pedido)}{pedidoPendiente(pedido) > 0 ? ` · falta ${formatCurrency(pedidoPendiente(pedido))}` : ""}
+              </span>
             </div>
           </div>
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-300" />
@@ -460,8 +502,13 @@ function PedidoRow({ pedido, producto, sem, totalT, okT }: {
       <td className="px-3 py-2 text-right">
         <NumberCell value={pedido.costeEnvio} onSave={(v) => actions.updatePedido(pedido.id, { costeEnvio: v })} />
       </td>
-      <td className="px-3 py-2 text-center">
-        <CheckCell value={pedido.pagadoCompleto} onChange={(v) => actions.updatePedido(pedido.id, { pagadoCompleto: v })} />
+      <td className="px-3 py-2">
+        <div className="flex flex-col items-center gap-1">
+          <CheckCell value={pedido.pagadoCompleto} onChange={(v) => actions.updatePedido(pedido.id, { pagadoCompleto: v })} />
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${COBRO_BADGE[estadoCobro(pedido)]}`} title={pedidoPendiente(pedido) > 0 ? `Falta ${formatCurrency(pedidoPendiente(pedido))}` : "Cobrado"}>
+            {estadoCobro(pedido)}
+          </span>
+        </div>
       </td>
       <td className="px-3 py-2 text-right">
         <button

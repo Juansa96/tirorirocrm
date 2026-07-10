@@ -1043,6 +1043,49 @@ export const actions = {
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); }
   },
 
+  // "Media pagada (todos)": marca el 50% en los pedidos ACTUALES indicados.
+  // Pre-rellena la reserva con la mitad del precio de PRODUCTO (envío aparte)
+  // y activa pagado50. No toca pedidos ya cobrados por completo, ni baja una
+  // reserva que ya sea >= media. No afecta a pedidos creados después.
+  async marcarMediaPagadaGrupo(pedidoIds: string[]) {
+    const objetivo = state.pedidos.filter((p) => {
+      if (!pedidoIds.includes(p.id)) return false;
+      if (p.pagadoCompleto) return false;
+      const media = Math.round(((p.precio || 0) / 2) * 100) / 100;
+      if (media <= 0) return false;
+      return (p.reserva || 0) < media;
+    });
+    if (objetivo.length === 0) {
+      toast.info("No hay pedidos a los que aplicar la media.");
+      return;
+    }
+    const prevState = state;
+    const updates = new Map<string, number>();
+    for (const p of objetivo) {
+      updates.set(p.id, Math.round(((p.precio || 0) / 2) * 100) / 100);
+    }
+    // Optimistic
+    state = {
+      ...state,
+      pedidos: state.pedidos.map((p) =>
+        updates.has(p.id) ? { ...p, reserva: updates.get(p.id)!, pagado50: true } : p,
+      ),
+    };
+    emit();
+    const results = await Promise.all(
+      Array.from(updates.entries()).map(([id, reserva]) =>
+        supabase.from("pedidos").update({ reserva, pagado_50: true } as never).eq("id", id),
+      ),
+    );
+    if (results.some((r) => r.error)) {
+      state = prevState;
+      emit();
+      toast.error("Error al marcar la media pagada.");
+      return;
+    }
+    toast.success(`Media pagada marcada en ${objetivo.length} pedido${objetivo.length === 1 ? "" : "s"}.`);
+  },
+
   async deletePedido(id: string) {
     const prevState = state;
     state = { ...state, pedidos: state.pedidos.filter((p) => p.id !== id) };

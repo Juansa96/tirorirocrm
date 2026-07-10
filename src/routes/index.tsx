@@ -1,12 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Users, TrendingUp, Trophy, Wallet, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { useStore, vendedorTotals } from "@/lib/store";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, vendorName, semaforoPedido, type Etapa } from "@/lib/types";
+import { resumenCobro } from "@/lib/money";
 import { formatCurrency, formatAxisCurrency } from "@/lib/format";
 import { TaskItem } from "@/components/TaskItem";
 import { sellerStyle } from "@/components/SellerBadge";
@@ -38,6 +39,99 @@ function KpiCard({ icon: Icon, label, value, sub, badgeBg, iconColor, empty }: {
   );
 }
 
+
+// ── Dinero (pedidos como fuente de verdad) con filtro por fechas ──────────
+type RangoPreset = "mes" | "mesPasado" | "anio" | "todo";
+
+function rangoFechas(preset: RangoPreset): { desde: string; hasta: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (preset === "mes") return { desde: iso(new Date(y, m, 1)), hasta: iso(new Date(y, m + 1, 0)) };
+  if (preset === "mesPasado") return { desde: iso(new Date(y, m - 1, 1)), hasta: iso(new Date(y, m, 0)) };
+  if (preset === "anio") return { desde: `${y}-01-01`, hasta: `${y}-12-31` };
+  return { desde: "", hasta: "" };
+}
+
+const PRESET_LABEL: Record<RangoPreset, string> = {
+  mes: "Este mes", mesPasado: "Mes pasado", anio: "Este año", todo: "Todo",
+};
+
+function DineroPedidos() {
+  const { pedidos } = useStore();
+  const [preset, setPreset] = useState<RangoPreset>("mes");
+  const [desde, setDesde] = useState(() => rangoFechas("mes").desde);
+  const [hasta, setHasta] = useState(() => rangoFechas("mes").hasta);
+
+  function aplicarPreset(p: RangoPreset) {
+    setPreset(p);
+    const r = rangoFechas(p);
+    setDesde(r.desde);
+    setHasta(r.hasta);
+  }
+
+  const filtrados = useMemo(() => {
+    return pedidos.filter((p) => {
+      // Fecha del pedido (solo parte YYYY-MM-DD). Sin fecha → se incluye sólo si el rango es "todo".
+      const f = (p.fechaCreacionPedido || "").slice(0, 10);
+      if (!desde && !hasta) return true;
+      if (!f) return false;
+      if (desde && f < desde) return false;
+      if (hasta && f > hasta) return false;
+      return true;
+    });
+  }, [pedidos, desde, hasta]);
+
+  // TODO(tarea 7): excluir colaboraciones de influencers (canje) de la venta.
+  const resumen = useMemo(() => resumenCobro(filtrados), [filtrados]);
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">Dinero · Pedidos</h2>
+          <p className="text-xs text-slate-500">{resumen.count} pedido{resumen.count === 1 ? "" : "s"} en el periodo</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+            {(["mes", "mesPasado", "anio", "todo"] as RangoPreset[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => aplicarPreset(p)}
+                className={`rounded-md px-2 py-1 font-medium ${preset === p ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                {PRESET_LABEL[p]}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 text-xs text-slate-500">
+            <input
+              type="date"
+              value={desde}
+              max={hasta || undefined}
+              onChange={(e) => { setDesde(e.target.value); setPreset("todo"); }}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 focus:border-slate-400 focus:outline-none"
+            />
+            <span>–</span>
+            <input
+              type="date"
+              value={hasta}
+              min={desde || undefined}
+              onChange={(e) => { setHasta(e.target.value); setPreset("todo"); }}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 focus:border-slate-400 focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiCard icon={TrendingUp} label="VENTAS (PRODUCTO + ENVÍO)" value={formatCurrency(resumen.venta)} badgeBg="bg-slate-100" iconColor="text-slate-700" />
+        <KpiCard icon={Trophy} label="COBRADO" value={formatCurrency(resumen.cobrado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
+        <KpiCard icon={Wallet} label="PENDIENTE DE COBRO" value={formatCurrency(resumen.pendiente)} badgeBg="bg-amber-100" iconColor="text-amber-700" />
+      </div>
+    </div>
+  );
+}
 
 function Dashboard() {
   const store = useStore();
@@ -146,6 +240,8 @@ function Dashboard() {
         <KpiCard icon={Trophy} label="GANADO · YA COBRADO" value={formatCurrency(ganadoCobrado)} badgeBg="bg-emerald-100" iconColor="text-emerald-600" />
       </div>
 
+
+      <DineroPedidos />
 
       {pedidosRiesgo.length > 0 && (
         <Link
