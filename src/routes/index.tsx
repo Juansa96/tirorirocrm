@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Users, TrendingUp, Trophy, Wallet, Plus, ChevronDown, AlertTriangle, Package } from "lucide-react";
+import { Users, TrendingUp, Trophy, Wallet, Plus, ChevronDown, AlertTriangle, Package, Sparkles } from "lucide-react";
 
 import { useState, useMemo } from "react";
 import {
@@ -83,8 +83,8 @@ function DineroPedidos() {
     });
   }, [pedidos, desde, hasta]);
 
-  // TODO(tarea 7): excluir colaboraciones de influencers (canje) de la venta.
-  const resumen = useMemo(() => resumenCobro(filtrados), [filtrados]);
+  // Las colaboraciones de influencers (canje) no cuentan como venta/ingreso.
+  const resumen = useMemo(() => resumenCobro(filtrados, (p) => p.esCanje), [filtrados]);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
@@ -133,10 +133,75 @@ function DineroPedidos() {
   );
 }
 
+// ── Influencers / colaboraciones (canje) ──────────────────────────────────
+function DashboardInfluencers() {
+  const { pedidos, leads } = useStore();
+  const data = useMemo(() => {
+    const leadById = new Map(leads.map((l) => [l.id, l] as const));
+    const colabs = pedidos.filter((p) => p.esCanje || (p.leadId && leadById.get(p.leadId)?.tipo === "INFLUENCER"));
+    let alcance = 0;
+    let valorCanje = 0;
+    const porFormato = new Map<string, number>();
+    const porTipo = new Map<string, number>();
+    for (const p of colabs) {
+      const lead = p.leadId ? leadById.get(p.leadId) : undefined;
+      alcance += lead?.seguidores || 0;
+      valorCanje += (p.precio || 0) + (p.costeEnvio || 0);
+      for (const f of p.formatos || []) porFormato.set(f, (porFormato.get(f) || 0) + 1);
+      const t = p.tipoColaboracion || "Sin especificar";
+      porTipo.set(t, (porTipo.get(t) || 0) + 1);
+    }
+    const costePorMil = alcance > 0 ? valorCanje / (alcance / 1000) : 0;
+    return { n: colabs.length, alcance, valorCanje, costePorMil, porFormato, porTipo };
+  }, [pedidos, leads]);
+
+  if (data.n === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-pink-200 bg-white p-4 shadow-sm md:p-6">
+      <div className="mb-4 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-pink-600" />
+        <h2 className="text-base font-semibold text-slate-900">Influencers · Colaboraciones</h2>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard icon={Users} label="ALCANCE TOTAL" value={data.alcance.toLocaleString("es-ES")} sub="seguidores" badgeBg="bg-pink-100" iconColor="text-pink-600" />
+        <KpiCard icon={Sparkles} label="COLABORACIONES" value={data.n} badgeBg="bg-pink-100" iconColor="text-pink-600" />
+        <KpiCard icon={Wallet} label="VALOR EN CANJE" value={formatCurrency(data.valorCanje)} badgeBg="bg-slate-100" iconColor="text-slate-700" />
+        <KpiCard icon={TrendingUp} label="COSTE-CANJE / 1.000 SEG." value={formatCurrency(data.costePorMil)} badgeBg="bg-amber-100" iconColor="text-amber-700" />
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <BreakdownList title="Por formato" entries={data.porFormato} />
+        <BreakdownList title="Por tipo" entries={data.porTipo} />
+      </div>
+    </div>
+  );
+}
+
+function BreakdownList({ title, entries }: { title: string; entries: Map<string, number> }) {
+  const rows = Array.from(entries.entries()).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>
+      {rows.length === 0 ? (
+        <div className="text-xs text-slate-400">Sin datos</div>
+      ) : (
+        <div className="space-y-1.5">
+          {rows.map(([k, n]) => (
+            <div key={k} className="flex items-center justify-between text-sm">
+              <span className="truncate text-slate-700">{k}</span>
+              <span className="ml-2 shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-bold text-slate-600">{n}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Dashboard() {
   const store = useStore();
-  // Dashboard sólo muestra métricas del canal B2C.
-  const leads = store.leads.filter((l) => l.tipo !== "B2B");
+  // Dashboard sólo muestra métricas del canal B2C (excluye B2B e influencers).
+  const leads = store.leads.filter((l) => l.tipo !== "B2B" && l.tipo !== "INFLUENCER");
   const tareas = store.tareas;
   const pedidos = store.pedidos;
   const navigate = useNavigate();
@@ -242,6 +307,8 @@ function Dashboard() {
 
 
       <DineroPedidos />
+
+      <DashboardInfluencers />
 
       {pedidosRiesgo.length > 0 && (
         <Link

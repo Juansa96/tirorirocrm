@@ -67,7 +67,10 @@ function mapLead(r: Record<string, unknown>): Lead {
     etiquetas: Array.isArray(r.etiquetas) ? (r.etiquetas as string[]) : [],
     cobrado: Boolean(r.cobrado),
     fechaCobro: (r.fecha_cobro as string) ?? "",
-    tipo: ((r.tipo as string) === "B2B" ? "B2B" : "B2C"),
+    tipo: ((r.tipo as string) === "B2B" ? "B2B" : (r.tipo as string) === "INFLUENCER" ? "INFLUENCER" : "B2C"),
+    seguidores: Number(r.seguidores) || 0,
+    redPrincipal: (r.red_principal as string) ?? "",
+    usuario: (r.usuario as string) ?? "",
     razonSocial: (r.razon_social as string) ?? "",
     nif: (r.nif as string) ?? "",
     contactoNombre: (r.contacto_nombre as string) ?? "",
@@ -187,6 +190,9 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     createdAt: (r.created_at as string) ?? "",
     updatedAt: (r.updated_at as string) ?? "",
     empresaId: (r.empresa_id as string) ?? "",
+    esCanje: !!r.es_canje,
+    formatos: Array.isArray(r.formatos) ? (r.formatos as string[]) : [],
+    tipoColaboracion: (r.tipo_colaboracion as string) ?? "",
   };
 }
 
@@ -510,8 +516,9 @@ async function syncLeadFromPedidos(leadId: string | null | undefined) {
   if (!leadId) return;
   const lead = state.leads.find((l) => l.id === leadId);
   if (!lead) return;
-  const peds = state.pedidos.filter((p) => p.leadId === leadId);
-  if (peds.length === 0) return; // sin pedidos, manda el lead
+  // Los pedidos de canje (colaboraciones de influencer) NO cuentan como venta.
+  const peds = state.pedidos.filter((p) => p.leadId === leadId && !p.esCanje);
+  if (peds.length === 0) return; // sin pedidos de venta, manda el lead
   const valorProducto = peds.reduce((s, p) => s + (p.precio || 0), 0);
   const valorEnvio = peds.reduce((s, p) => s + (p.costeEnvio || 0), 0);
   const valor = valorProducto + valorEnvio;
@@ -569,6 +576,9 @@ export const actions = {
         instagram: input.instagram ?? null,
         notas_b2b: input.notasB2b ?? null,
         asignados: input.asignados ?? [],
+        seguidores: input.seguidores ?? 0,
+        red_principal: input.redPrincipal ?? null,
+        usuario: input.usuario ?? null,
       } as never)
       .select()
       .single();
@@ -626,6 +636,9 @@ export const actions = {
     if (patch.instagram !== undefined) dbPatch.instagram = patch.instagram || null;
     if (patch.notasB2b !== undefined) dbPatch.notas_b2b = patch.notasB2b || null;
     if (patch.asignados !== undefined) dbPatch.asignados = patch.asignados;
+    if (patch.seguidores !== undefined) dbPatch.seguidores = patch.seguidores;
+    if (patch.redPrincipal !== undefined) dbPatch.red_principal = patch.redPrincipal || null;
+    if (patch.usuario !== undefined) dbPatch.usuario = patch.usuario || null;
 
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos
@@ -1037,6 +1050,9 @@ export const actions = {
     costeEnvio: number;
     fechaCreacion?: string;
     empresaId?: string | null;
+    esCanje?: boolean;
+    formatos?: string[];
+    tipoColaboracion?: string;
   }): Promise<Pedido | null> {
     let productoId = opts.productoId ?? null;
     let tipoProd = "";
@@ -1073,6 +1089,9 @@ export const actions = {
     };
     if (opts.fechaCreacion) insertPedido.fecha_creacion_pedido = opts.fechaCreacion;
     if (opts.empresaId) insertPedido.empresa_id = opts.empresaId;
+    if (opts.esCanje) insertPedido.es_canje = true;
+    if (opts.formatos && opts.formatos.length > 0) insertPedido.formatos = opts.formatos;
+    if (opts.tipoColaboracion) insertPedido.tipo_colaboracion = opts.tipoColaboracion;
 
     const { data, error } = await supabase.from("pedidos").insert(insertPedido).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
@@ -1126,6 +1145,9 @@ export const actions = {
       factura: "factura",
       notasPedido: "notas_pedido",
       clienteNombreLibre: "cliente_nombre_libre",
+      esCanje: "es_canje",
+      formatos: "formatos",
+      tipoColaboracion: "tipo_colaboracion",
     };
     for (const [k, v] of Object.entries(patch)) {
       const col = map[k];

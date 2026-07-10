@@ -68,9 +68,29 @@ export const ETAPA_COLORS: Record<Etapa, string> = {
   Perdido: "#ef4444",
 };
 
-export type TipoLead = "B2C" | "B2B";
+export type TipoLead = "B2C" | "B2B" | "INFLUENCER";
 export const ASIGNADOS_B2B = ["Iñaki", "Juan", "Rocío", "Bea"] as const;
 export type AsignadoB2B = (typeof ASIGNADOS_B2B)[number];
+
+// ── Influencers / colaboraciones (canje) ─────────────────────────────
+export const REDES_SOCIALES = ["Instagram", "TikTok", "YouTube", "Otra"] as const;
+export type RedSocialPrincipal = (typeof REDES_SOCIALES)[number] | "";
+
+// Formato de la publicación (varios por colaboración)
+export const FORMATOS_COLAB = ["Publicación", "Reel", "Story"] as const;
+export type FormatoColab = (typeof FORMATOS_COLAB)[number];
+
+// Tipo de colaboración
+export const TIPOS_COLAB = [
+  "Sorteo",
+  "Mención conjunta con otras marcas",
+  "Reseña/valoración",
+  "Unboxing",
+  "Código descuento/afiliado",
+  "Cesión de contenido",
+  "Otros",
+] as const;
+export type TipoColab = (typeof TIPOS_COLAB)[number] | "";
 
 
 export const ORIGENES = [
@@ -125,6 +145,10 @@ export interface Lead {
   instagram: string;
   notasB2b: string;
   asignados: string[];        // subconjunto de ASIGNADOS_B2B
+  // ── Influencer (solo si tipo === 'INFLUENCER') ──
+  seguidores: number;         // nº de seguidores en la red principal
+  redPrincipal: string;       // 'Instagram' | 'TikTok' | 'YouTube' | 'Otra'
+  usuario: string;            // @usuario
 }
 
 
@@ -224,6 +248,10 @@ export interface Pedido {
   createdAt: string;
   updatedAt: string;
   empresaId: string;   // uuid del lead B2B vinculado, o "" si no aplica
+  // ── Colaboración con influencer (canje) ──
+  esCanje: boolean;            // true = colaboración: se ve el precio pero NO cuenta como ingreso/venta
+  formatos: string[];         // subconjunto de FORMATOS_COLAB
+  tipoColaboracion: string;   // uno de TIPOS_COLAB (o texto libre si "Otros")
 }
 
 export interface PedidoTela {

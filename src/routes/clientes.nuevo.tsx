@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Plus, Check } from "lucide-react";
 import { actions } from "@/lib/store";
-import { VENDEDORES, ETAPAS, ORIGENES, RANGOS_EDAD, vendorName, type Etapa } from "@/lib/types";
+import { VENDEDORES, ETAPAS, ORIGENES, RANGOS_EDAD, REDES_SOCIALES, vendorName, type Etapa, type TipoLead } from "@/lib/types";
 import { todayISO, defaultEnvio, isMadrid } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE } from "@/components/ProductoForm";
 import { FormaBadge } from "@/components/FormaBadge";
@@ -15,6 +15,8 @@ export const Route = createFileRoute("/clientes/nuevo")({
 
 function NuevoLead() {
   const navigate = useNavigate();
+  const [tipo, setTipo] = useState<TipoLead>("B2C");
+  const [influ, setInflu] = useState({ seguidores: 0, redPrincipal: "Instagram" as string, usuario: "" });
   const [form, setForm] = useState({
     nombre: "",
     email: "",
@@ -58,8 +60,11 @@ function NuevoLead() {
       {
         ...form, producto: tipoLabel, valor: form.valorProducto + form.valorEnvio,
         clienteTipo: "normal", etiquetas: [], cobrado: false, fechaCobro: "",
-        tipo: "B2C", razonSocial: "", nif: "", contactoNombre: "", contactoApellidos: "",
+        tipo, razonSocial: "", nif: "", contactoNombre: "", contactoApellidos: "",
         contactoCargo: "", direccion: "", web: "", instagram: "", notasB2b: "", asignados: [], provincia: "",
+        seguidores: tipo === "INFLUENCER" ? influ.seguidores : 0,
+        redPrincipal: tipo === "INFLUENCER" ? influ.redPrincipal : "",
+        usuario: tipo === "INFLUENCER" ? influ.usuario : "",
       },
       tarea.descripcion.trim() ? tarea : undefined,
     );
@@ -83,6 +88,37 @@ function NuevoLead() {
       </div>
 
       <form onSubmit={submit} className="space-y-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+
+        {/* Tipo de contacto */}
+        <div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Tipo</div>
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
+            <button type="button" onClick={() => setTipo("B2C")} className={`rounded-md px-3 py-1.5 font-medium ${tipo === "B2C" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente B2C</button>
+            <button type="button" onClick={() => setTipo("INFLUENCER")} className={`rounded-md px-3 py-1.5 font-medium ${tipo === "INFLUENCER" ? "bg-pink-600 text-white" : "text-slate-600"}`}>Influencer</button>
+          </div>
+        </div>
+
+        {tipo === "INFLUENCER" && (
+          <div>
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-pink-500">Ficha de influencer</div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Nº de seguidores</label>
+                <input type="number" min={0} value={influ.seguidores} onChange={e => setInflu({ ...influ, seguidores: parseInt(e.target.value) || 0 })} className={cls} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Red principal</label>
+                <select value={influ.redPrincipal} onChange={e => setInflu({ ...influ, redPrincipal: e.target.value })} className={cls}>
+                  {REDES_SOCIALES.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">@usuario</label>
+                <input value={influ.usuario} onChange={e => setInflu({ ...influ, usuario: e.target.value })} className={cls} placeholder="@usuario" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Datos personales */}
         <div>

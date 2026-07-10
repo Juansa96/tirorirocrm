@@ -182,7 +182,9 @@ function ClientesB2BList() {
 
 function ClientesList() {
   const store = useStore();
-  const leads = store.leads.filter((l) => l.tipo !== "B2B");
+  const [tab, setTab] = useState<"b2c" | "influ">("b2c");
+  const influCount = store.leads.filter((l) => l.tipo === "INFLUENCER").length;
+  const leads = store.leads.filter((l) => tab === "influ" ? l.tipo === "INFLUENCER" : (l.tipo !== "B2B" && l.tipo !== "INFLUENCER"));
   const tareas = store.tareas;
   const pedidos = store.pedidos;
   const [q, setQ] = useState("");
@@ -311,6 +313,17 @@ function ClientesList() {
         <Link to="/clientes/nuevo" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a2f46]">
           <Plus className="h-4 w-4" /> Nuevo Lead
         </Link>
+      </div>
+
+      {/* Tabs B2C / Influencers */}
+      <div className="flex flex-wrap gap-2 border-b border-slate-200">
+        <button onClick={() => setTab("b2c")} className={`border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "b2c" ? "border-[#1a1f36] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+          Clientes B2C
+        </button>
+        <button onClick={() => setTab("influ")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "influ" ? "border-pink-600 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+          Influencers
+          {influCount > 0 && <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-bold text-pink-700">{influCount}</span>}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { semaforoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { semaforoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
@@ -37,7 +37,7 @@ type EstadoFiltro = typeof ESTADO_OPTS[number];
 
 function PedidosIndex() {
   const { pedidos, leads, productos, pedidoTelas } = useStore();
-  const [tab, setTab] = useState<"normal" | "ab">("normal");
+  const [tab, setTab] = useState<"normal" | "ab" | "influ">("normal");
   const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
   const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
@@ -58,13 +58,17 @@ function PedidosIndex() {
     return { pedido: p, lead, producto: prod, sem, totalT, okT };
   }), [pedidos, leads, productos, pedidoTelas]);
 
+  // Colaboraciones (canje) — pedidos de influencer, van a su propia pestaña.
+  const isCanje = ({ pedido, lead }: (typeof enriched)[number]) => pedido.esCanje || lead?.tipo === "INFLUENCER";
   // "B2B" tab: pedidos vinculados a empresa B2B O al partner Alejandra Blanc (legacy clienteTipo).
-  const isB2B = ({ pedido, lead }: (typeof enriched)[number]) =>
-    !!pedido.empresaId || lead?.clienteTipo === "partner_ab" || lead?.tipo === "B2B";
+  const isB2B = (it: (typeof enriched)[number]) =>
+    !isCanje(it) && (!!it.pedido.empresaId || it.lead?.clienteTipo === "partner_ab" || it.lead?.tipo === "B2B");
+  const canjeCount = enriched.filter(isCanje).length;
   const abCount = enriched.filter(isB2B).length;
-  const normalCount = enriched.length - abCount;
+  const normalCount = enriched.length - abCount - canjeCount;
 
-  const baseTab = enriched.filter((it) => tab === "ab" ? isB2B(it) : !isB2B(it));
+  const baseTab = enriched.filter((it) =>
+    tab === "influ" ? isCanje(it) : tab === "ab" ? isB2B(it) : (!isB2B(it) && !isCanje(it)));
 
   // Group by person (leadId || clienteNombreLibre)
   // Índice nombre normalizado → lead, para agrupar pedidos de "nombre libre"
@@ -185,6 +189,10 @@ function PedidosIndex() {
         <button onClick={() => setTab("ab")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "ab" ? "border-[#1a4b5b] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
           <Sparkles className="h-4 w-4 text-[#1a4b5b]" /> B2B
           <span className="rounded-full bg-[#e6f1f4] px-1.5 py-0.5 text-[10px] font-bold text-[#1a4b5b]">{abCount}</span>
+        </button>
+        <button onClick={() => setTab("influ")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "influ" ? "border-pink-600 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+          <Sparkles className="h-4 w-4 text-pink-600" /> Colaboraciones
+          <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-bold text-pink-700">{canjeCount}</span>
         </button>
       </div>
 
@@ -572,7 +580,7 @@ function NumberCell({ value, onSave }: { value: number; onSave: (v: number) => v
 // ──────────────────────────────────────────────────────────────────────────
 function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const { leads, productos } = useStore();
-  const [mode, setMode] = useState<"lead" | "libre" | "b2b">("lead");
+  const [mode, setMode] = useState<"lead" | "libre" | "b2b" | "influ">("lead");
   const [leadId, setLeadId] = useState<string>("");
   const [leadSearch, setLeadSearch] = useState("");
   const [nombreLibre, setNombreLibre] = useState("");
@@ -585,14 +593,21 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const [precio, setPrecio] = useState(0);
   const [reserva, setReserva] = useState(0);
   const [costeEnvio, setCosteEnvio] = useState(0);
+  const [formatos, setFormatos] = useState<string[]>([]);
+  const [tipoColab, setTipoColab] = useState<string>("");
+  const [tipoColabOtros, setTipoColabOtros] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   const empresasB2B = useMemo(() => leads.filter((l) => l.tipo === "B2B"), [leads]);
 
   const leadFiltered = useMemo(() => {
     const q = leadSearch.toLowerCase();
-    return leads.filter((l) => l.nombre.toLowerCase().includes(q)).slice(0, 8);
-  }, [leads, leadSearch]);
+    // En modo influencer buscamos solo entre influencers; en modo B2C, el resto.
+    return leads
+      .filter((l) => mode === "influ" ? l.tipo === "INFLUENCER" : (l.tipo !== "B2B" && l.tipo !== "INFLUENCER"))
+      .filter((l) => l.nombre.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [leads, leadSearch, mode]);
 
   const productosDelLead = useMemo(
     () => productos.filter((p) => leadId && p.leadId === leadId),
@@ -600,13 +615,13 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   );
 
   async function submit() {
-    if (mode === "lead" && !leadId) return;
+    if ((mode === "lead" || mode === "influ") && !leadId) return;
     if (mode === "libre" && !nombreLibre.trim()) return;
     if (mode === "b2b" && !empresaId) return;
     if (prodMode === "existente" && !productoId) return;
     if (prodMode === "nuevo" && !tipo) return;
     setSaving(true);
-    const finalLeadId = mode === "lead" ? leadId : mode === "b2b" ? empresaId : null;
+    const finalLeadId = mode === "lead" || mode === "influ" ? leadId : mode === "b2b" ? empresaId : null;
     const created = await actions.crearPedidoManual({
       leadId: finalLeadId,
       clienteNombreLibre: mode === "libre" ? nombreLibre.trim() : "",
@@ -614,6 +629,9 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
       nuevoProducto: prodMode === "nuevo" ? { tipo, modelo: modelo.trim() } : undefined,
       diasPlazo, precio, reserva, costeEnvio,
       empresaId: mode === "b2b" ? empresaId : undefined,
+      esCanje: mode === "influ",
+      formatos: mode === "influ" ? formatos : undefined,
+      tipoColaboracion: mode === "influ" ? (tipoColab === "Otros" ? tipoColabOtros.trim() || "Otros" : tipoColab) : undefined,
     });
     setSaving(false);
     if (created) onClose();
@@ -634,19 +652,23 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
           {/* Cliente */}
           <div>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</div>
-            <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
-              <button onClick={() => setMode("lead")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente B2C</button>
-              <button onClick={() => setMode("b2b")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "b2b" ? "bg-[#1a4b5b] text-white" : "text-slate-600"}`}>Empresa B2B</button>
+            <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-xs md:grid-cols-4">
+              <button onClick={() => { setMode("lead"); setLeadId(""); setLeadSearch(""); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente B2C</button>
+              <button onClick={() => { setMode("b2b"); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "b2b" ? "bg-[#1a4b5b] text-white" : "text-slate-600"}`}>Empresa B2B</button>
+              <button onClick={() => { setMode("influ"); setLeadId(""); setLeadSearch(""); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "influ" ? "bg-pink-600 text-white" : "text-slate-600"}`}>Influencer</button>
               <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Sin CRM</button>
             </div>
-            {mode === "lead" && (
+            {(mode === "lead" || mode === "influ") && (
               <div className="space-y-1.5">
                 <input
                   value={selectedLead ? selectedLead.nombre : leadSearch}
                   onChange={(e) => { setLeadSearch(e.target.value); setLeadId(""); }}
-                  placeholder="Buscar lead por nombre…"
+                  placeholder={mode === "influ" ? "Buscar influencer por nombre…" : "Buscar lead por nombre…"}
                   className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-slate-500 focus:outline-none md:py-1.5 md:text-sm"
                 />
+                {mode === "influ" && leadFiltered.length === 0 && !leadSearch && (
+                  <div className="text-[11px] text-slate-400">Crea influencers en Clientes → pestaña Influencers.</div>
+                )}
                 {!selectedLead && leadSearch && (
                   <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
                     {leadFiltered.length === 0 ? (
@@ -720,8 +742,44 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
             <Field label="Coste envío (€)"><input type="number" inputMode="decimal" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
           </div>
 
+          {/* Colaboración (solo influencer / canje) */}
+          {mode === "influ" && (
+            <div className="space-y-3 rounded-lg border border-pink-200 bg-pink-50/40 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-pink-600">Colaboración (canje)</div>
+              <div>
+                <div className="mb-1 text-xs text-slate-500">Formato (varios)</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {FORMATOS_COLAB.map((f) => {
+                    const on = formatos.includes(f);
+                    return (
+                      <button key={f} type="button"
+                        onClick={() => setFormatos((prev) => on ? prev.filter((x) => x !== f) : [...prev, f])}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium ${on ? "border-pink-500 bg-pink-500 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {f}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-slate-500">Tipo de colaboración</div>
+                <select value={tipoColab} onChange={(e) => setTipoColab(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base md:py-1.5 md:text-sm">
+                  <option value="">— Selecciona —</option>
+                  {TIPOS_COLAB.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                {tipoColab === "Otros" && (
+                  <input value={tipoColabOtros} onChange={(e) => setTipoColabOtros(e.target.value)} placeholder="Describe la colaboración" className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
-            Total a cobrar: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span>
+            {mode === "influ" ? (
+              <>Valor del canje: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span> <span className="text-pink-600">· no cuenta como ingreso</span></>
+            ) : (
+              <>Total a cobrar: <span className="font-bold text-slate-900">{formatCurrency(precio + costeEnvio)}</span></>
+            )}
           </div>
 
           <div className="flex gap-2 border-t border-slate-100 pt-3">

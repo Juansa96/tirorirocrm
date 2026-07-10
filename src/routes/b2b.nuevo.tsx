@@ -96,6 +96,9 @@ function NuevaEmpresaB2B() {
       instagram: ig,
       notasB2b: form.notas.trim(),
       asignados,
+      seguidores: 0,
+      redPrincipal: "",
+      usuario: "",
     });
     setSaving(false);
     if (lead) {
