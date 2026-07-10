@@ -37,7 +37,7 @@ type EstadoFiltro = typeof ESTADO_OPTS[number];
 
 function PedidosIndex() {
   const { pedidos, leads, productos, pedidoTelas } = useStore();
-  const [tab, setTab] = useState<"normal" | "ab" | "influ">("normal");
+  const [tab, setTab] = useState<"todos" | "normal" | "ab" | "influ">("normal");
   const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
   const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
@@ -69,7 +69,11 @@ function PedidosIndex() {
   const normalCount = enriched.length - abCount - canjeCount;
 
   const baseTab = enriched.filter((it) =>
-    tab === "influ" ? isCanje(it) : tab === "ab" ? isB2B(it) : (!isB2B(it) && !isCanje(it)));
+    tab === "todos" ? true : tab === "influ" ? isCanje(it) : tab === "ab" ? isB2B(it) : (!isB2B(it) && !isCanje(it)));
+
+  // Categoría de cada pedido (para la etiqueta en la vista "Todos").
+  const categoriaDe = (it: (typeof enriched)[number]): "B2C" | "B2B" | "Colaboración" =>
+    isCanje(it) ? "Colaboración" : isB2B(it) ? "B2B" : "B2C";
 
   // Group by person (leadId || clienteNombreLibre)
   // Índice nombre normalizado → lead, para agrupar pedidos de "nombre libre"
@@ -183,8 +187,12 @@ function PedidosIndex() {
 
       {/* Tabs partner */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200">
+        <button onClick={() => setTab("todos")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "todos" ? "border-[#1a1f36] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+          <Package className="h-4 w-4" /> Todos
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{enriched.length}</span>
+        </button>
         <button onClick={() => setTab("normal")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "normal" ? "border-[#1a1f36] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-          <Package className="h-4 w-4" /> Pedidos
+          <Package className="h-4 w-4" /> B2C
           <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{normalCount}</span>
         </button>
         <button onClick={() => setTab("ab")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "ab" ? "border-[#1a4b5b] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
@@ -261,7 +269,7 @@ function PedidosIndex() {
       {/* Grupos por persona */}
       <div className="space-y-4">
         {groups.map((g) => (
-          <PersonaGroup key={g.key} nombre={g.nombre} lead={g.lead} items={g.items} />
+          <PersonaGroup key={g.key} nombre={g.nombre} lead={g.lead} items={g.items} categoria={tab === "todos" ? categoriaDe(g.items[0]) : undefined} />
         ))}
         {groups.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-400">
@@ -277,9 +285,16 @@ function PedidosIndex() {
 
 type EnrichedItem = { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number };
 
-function PersonaGroup({ nombre, lead, items }: {
+const CAT_BADGE: Record<string, string> = {
+  "B2C": "bg-slate-100 text-slate-600",
+  "B2B": "bg-[#e6f1f4] text-[#1a4b5b]",
+  "Colaboración": "bg-pink-100 text-pink-700",
+};
+
+function PersonaGroup({ nombre, lead, items, categoria }: {
   nombre: string; lead: Lead | undefined;
   items: EnrichedItem[];
+  categoria?: "B2C" | "B2B" | "Colaboración";
 }) {
   const resumen: ResumenCobro = useMemo(
     () => resumenCobro(items.map((it) => it.pedido)),
@@ -300,6 +315,7 @@ function PersonaGroup({ nombre, lead, items }: {
             <span className="truncate text-sm font-bold text-slate-900">{nombre}</span>
           )}
           <span className="ml-2 text-xs text-slate-500">{items.length} producto{items.length === 1 ? "" : "s"}</span>
+          {categoria && <span className={`ml-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${CAT_BADGE[categoria]}`}>{categoria}</span>}
           {!lead && <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</span>}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">

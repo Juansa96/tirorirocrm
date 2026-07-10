@@ -3,15 +3,15 @@ import { Plus, Clock, X, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useStore, actions, nextPendingTaskFor } from "@/lib/store";
 import {
-  ETAPAS, ETAPAS_B2B, ETAPA_COLORS, VENDEDORES, ASIGNADOS_B2B, vendorName,
-  type Etapa, type EtapaB2B, type Lead,
+  ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, RAZONES_PERDIDA_COLAB, ETAPA_COLORS, VENDEDORES, ASIGNADOS_B2B, vendorName,
+  type Etapa, type EtapaB2B, type EtapaColab, type Lead,
 } from "@/lib/types";
 import { formatCurrency, dateLabel } from "@/lib/format";
 import { useTouchStageDrag } from "@/lib/stage-drag";
 import { sellerStyle } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
 
-type Tab = "b2c" | "b2b";
+type Tab = "b2c" | "b2b" | "colab";
 
 type SortB2B = "fecha_desc" | "fecha_asc" | "municipio_asc" | "municipio_desc" | "nombre_asc" | "nombre_desc";
 
@@ -31,7 +31,7 @@ const SORTS_B2B: SortB2B[] = ["fecha_desc", "fecha_asc", "municipio_asc", "munic
 export const Route = createFileRoute("/pipeline")({
   head: () => ({ meta: [{ title: "Pipeline — TiroCRM" }] }),
   validateSearch: (s: Record<string, unknown>): Search => {
-    const tab = s.tab === "b2b" ? "b2b" : s.tab === "b2c" ? "b2c" : undefined;
+    const tab = s.tab === "b2b" ? "b2b" : s.tab === "colab" ? "colab" : s.tab === "b2c" ? "b2c" : undefined;
     const e = typeof s.etapa === "string" ? s.etapa : undefined;
     const v = typeof s.vendedor === "string" ? s.vendedor : undefined;
     const a = typeof s.asignado === "string" ? s.asignado : undefined;
@@ -190,12 +190,13 @@ function LeadCardB2B({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: Retur
 /* ============================ Tabs ============================ */
 function TabsHeader({ tab }: { tab: Tab }) {
   const navigate = useNavigate();
-  const setTab = (t: Tab) => navigate({ to: "/pipeline", search: t === "b2c" ? {} : { tab: "b2b" } });
+  const setTab = (t: Tab) => navigate({ to: "/pipeline", search: t === "b2c" ? {} : { tab: t } });
   const base = "px-4 py-2 text-sm font-semibold border-b-2 transition-colors";
   return (
     <div className="flex items-center gap-1 border-b border-slate-200">
       <button onClick={() => setTab("b2c")} className={`${base} ${tab === "b2c" ? "border-[#1a1f36] text-[#1a1f36]" : "border-transparent text-slate-500 hover:text-slate-700"}`}>B2C</button>
       <button onClick={() => setTab("b2b")} className={`${base} ${tab === "b2b" ? "border-[#1a4b5b] text-[#1a4b5b]" : "border-transparent text-slate-500 hover:text-slate-700"}`}>B2B</button>
+      <button onClick={() => setTab("colab")} className={`${base} ${tab === "colab" ? "border-pink-600 text-pink-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}>Colaboraciones</button>
     </div>
   );
 }
@@ -203,7 +204,8 @@ function TabsHeader({ tab }: { tab: Tab }) {
 /* ============================ B2C view ============================ */
 function PipelineB2C() {
   const store = useStore();
-  const leads = store.leads.filter((l) => l.tipo !== "B2B");
+  // B2C excluye empresas (B2B) e influencers (que tienen su propio pipeline).
+  const leads = store.leads.filter((l) => l.tipo !== "B2B" && l.tipo !== "INFLUENCER");
   const tareas = store.tareas;
   const pedidos = store.pedidos;
   const navigate = useNavigate();
@@ -496,16 +498,172 @@ function PipelineB2BView() {
   );
 }
 
+/* ======================= Colaboraciones view ======================= */
+function LeadCardColab({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void }) {
+  const canje = pedidos.filter((p) => p.leadId === lead.id).length;
+  return (
+    <div
+      onClick={onNavigate}
+      className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md"
+    >
+      <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+        <DeleteLeadButton id={lead.id} variant="menu" />
+      </div>
+      <p className="truncate pr-6 text-[13px] font-semibold leading-snug text-slate-900">{lead.nombre}</p>
+      {lead.usuario && <p className="mt-0.5 truncate text-[11px] text-pink-600">{lead.usuario}</p>}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+        {lead.seguidores > 0 && <span className="rounded-full bg-pink-50 px-1.5 py-0.5 font-semibold text-pink-700">{lead.seguidores.toLocaleString("es-ES")} seg.</span>}
+        {lead.redPrincipal && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">{lead.redPrincipal}</span>}
+        {canje > 0 && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">{canje} canje{canje === 1 ? "" : "s"}</span>}
+      </div>
+    </div>
+  );
+}
+
+function PipelineColabView() {
+  const store = useStore();
+  const navigate = useNavigate();
+  const influencers = store.leads.filter((l) => l.tipo === "INFLUENCER");
+  const pedidos = store.pedidos;
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<EtapaColab | null>(null);
+  const [perdidaLead, setPerdidaLead] = useState<string | null>(null);
+
+  // Al mover a "Perdido" siempre preguntamos el motivo; el resto se mueve directo.
+  const moveColab = (leadId: string, etapa: EtapaColab) => {
+    if (etapa === "Perdido") setPerdidaLead(leadId);
+    else actions.setLeadEtapa(leadId, etapa);
+  };
+  const touchHandlers = useTouchStageDrag<EtapaColab>(setDragOver, setDraggingId, moveColab);
+
+  // Los influencers antiguos pueden tener etapas B2C; se muestran en "Contactado".
+  const etapaDe = (l: Lead): EtapaColab =>
+    (ETAPAS_COLAB as readonly string[]).includes(l.etapa) ? (l.etapa as EtapaColab) : "Contactado";
+
+  return (
+    <div className="flex h-full flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-400">Arrastra (o mantén pulsado en móvil) para mover de etapa · los pedidos de estos clientes son canje</p>
+        <Link to="/clientes/nuevo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-pink-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-pink-700">
+          <Plus className="h-3.5 w-3.5" /> Nuevo influencer
+        </Link>
+      </div>
+
+      <div className="-mx-4 overflow-x-auto px-4 pb-6 lg:mx-0 lg:px-0">
+        <div className="flex snap-x snap-mandatory gap-3 lg:grid lg:snap-none lg:grid-cols-4">
+          {ETAPAS_COLAB.map((etapa) => {
+            const colLeads = influencers.filter((l) => etapaDe(l) === etapa);
+            const isOver = dragOver === etapa;
+            const color = ETAPA_COLORS[etapa];
+            return (
+              <div
+                key={etapa}
+                data-etapa={etapa}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={() => { if (draggingId) moveColab(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
+                className={`w-[78vw] shrink-0 snap-center rounded-xl border sm:w-[46vw] lg:w-auto lg:min-w-0 lg:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
+              >
+                <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
+                <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+                  <span className="min-w-0 truncate text-xs font-semibold text-slate-700">{etapa}</span>
+                  <span className="ml-auto shrink-0 flex h-4.5 min-w-[1.25rem] items-center justify-center rounded-full bg-white border border-slate-200 px-1.5 text-[10px] font-bold text-slate-500">{colLeads.length}</span>
+                </div>
+                <div className="space-y-2 px-2 pb-3">
+                  {colLeads.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">Sin colaboraciones</div>
+                  ) : (
+                    colLeads.map((lead) => (
+                      <div
+                        key={lead.id}
+                        draggable
+                        onDragStart={() => setDraggingId(lead.id)}
+                        onDragEnd={() => setDraggingId(null)}
+                        {...touchHandlers(lead.id, etapaDe(lead))}
+                      >
+                        <LeadCardColab lead={lead} pedidos={pedidos} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {perdidaLead && (
+        <MotivoPerdidaDialog
+          onCancel={() => setPerdidaLead(null)}
+          onConfirm={(motivo) => {
+            actions.setLeadEtapa(perdidaLead, "Perdido");
+            if (motivo.trim()) void actions.addNota(perdidaLead, `[Perdido] ${motivo.trim()}`);
+            setPerdidaLead(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function MotivoPerdidaDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: (motivo: string) => void }) {
+  const [sel, setSel] = useState<string>("");
+  const [otro, setOtro] = useState<string>("");
+  const motivo = sel === "Otro" ? otro : sel;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 md:items-center md:p-4" onClick={onCancel}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full rounded-t-2xl bg-white p-5 pb-8 shadow-2xl md:max-w-md md:rounded-2xl md:pb-5">
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 md:hidden" />
+        <h2 className="mb-1 text-lg font-bold text-slate-900">¿Por qué se pierde?</h2>
+        <p className="mb-4 text-sm text-slate-500">Marca el motivo por el que esta colaboración pasa a "Perdido".</p>
+        <div className="space-y-1.5">
+          {RAZONES_PERDIDA_COLAB.map((r) => (
+            <button
+              key={r}
+              onClick={() => setSel(r)}
+              className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm ${sel === r ? "border-rose-400 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}
+            >
+              <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${sel === r ? "border-rose-500 bg-rose-500" : "border-slate-300"}`}>
+                {sel === r && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+              </span>
+              {r}
+            </button>
+          ))}
+        </div>
+        {sel === "Otro" && (
+          <input
+            autoFocus
+            value={otro}
+            onChange={(e) => setOtro(e.target.value)}
+            placeholder="Escribe el motivo…"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none"
+          />
+        )}
+        <div className="mt-4 flex gap-2">
+          <button onClick={onCancel} className="flex-1 rounded-lg border border-slate-300 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancelar</button>
+          <button
+            onClick={() => onConfirm(motivo)}
+            disabled={!sel || (sel === "Otro" && !otro.trim())}
+            className="flex-1 rounded-lg bg-rose-600 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            Marcar como perdido
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PipelinePage() {
   const { tab: tabParam } = Route.useSearch();
-  const tab: Tab = tabParam === "b2b" ? "b2b" : "b2c";
+  const tab: Tab = tabParam === "b2b" ? "b2b" : tabParam === "colab" ? "colab" : "b2c";
   return (
     <div className="flex h-full flex-col gap-4">
       <div>
         <h1 className="text-xl font-bold text-slate-900">Pipeline</h1>
       </div>
       <TabsHeader tab={tab} />
-      {tab === "b2c" ? <PipelineB2C /> : <PipelineB2BView />}
+      {tab === "b2c" ? <PipelineB2C /> : tab === "b2b" ? <PipelineB2BView /> : <PipelineColabView />}
     </div>
   );
 }

@@ -11,6 +11,8 @@ const STYLES: Record<Etapa, string> = {
   Propuesta: "bg-violet-100 text-violet-700",
   Ganado: "bg-emerald-100 text-emerald-700",
   Perdido: "bg-red-100 text-red-700",
+  Contactado: "bg-pink-100 text-pink-700",
+  Negociando: "bg-amber-100 text-amber-700",
 };
 
 export function StageBadge({ etapa }: { etapa: Etapa }) {

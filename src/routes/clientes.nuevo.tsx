@@ -59,6 +59,7 @@ function NuevoLead() {
     const lead = await actions.addLead(
       {
         ...form, producto: tipoLabel, valor: form.valorProducto + form.valorEnvio,
+        etapa: tipo === "INFLUENCER" ? "Contactado" : form.etapa,
         clienteTipo: "normal", etiquetas: [], cobrado: false, fechaCobro: "",
         tipo, razonSocial: "", nif: "", contactoNombre: "", contactoApellidos: "",
         contactoCargo: "", direccion: "", web: "", instagram: "", notasB2b: "", asignados: [], provincia: "",

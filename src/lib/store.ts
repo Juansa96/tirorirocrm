@@ -1005,6 +1005,7 @@ export const actions = {
     pagado50: boolean;
     pagoTodoAlFinal: boolean;
     creadoManualmente: boolean;
+    esCanje?: boolean;  // colaboración de influencer: se ve el precio pero no cuenta como ingreso
     silent?: boolean;   // no mostrar el toast por defecto (el caller pondrá el suyo)
   }): Promise<Pedido | null> {
     const prod = state.productos.find((p) => p.id === opts.productoId);
@@ -1026,7 +1027,8 @@ export const actions = {
       creado_manualmente: opts.creadoManualmente,
       precio,
       reserva,
-    }).select().single();
+      es_canje: !!opts.esCanje,
+    } as never).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
     const pedido = mapPedido(data as Record<string, unknown>);
     if (!state.pedidos.find((p) => p.id === pedido.id)) {
