@@ -231,10 +231,13 @@ export type Database = {
           provincia: string | null
           razon_social: string | null
           razon_urgencia: string | null
+          red_principal: string | null
           red_social: string | null
+          seguidores: number
           telefono: string | null
           tipo: string
           updated_at: string
+          usuario: string | null
           valor: number
           valor_envio: number
           valor_producto: number
@@ -269,10 +272,13 @@ export type Database = {
           provincia?: string | null
           razon_social?: string | null
           razon_urgencia?: string | null
+          red_principal?: string | null
           red_social?: string | null
+          seguidores?: number
           telefono?: string | null
           tipo?: string
           updated_at?: string
+          usuario?: string | null
           valor?: number
           valor_envio?: number
           valor_producto?: number
@@ -307,10 +313,13 @@ export type Database = {
           provincia?: string | null
           razon_social?: string | null
           razon_urgencia?: string | null
+          red_principal?: string | null
           red_social?: string | null
+          seguidores?: number
           telefono?: string | null
           tipo?: string
           updated_at?: string
+          usuario?: string | null
           valor?: number
           valor_envio?: number
           valor_producto?: number
@@ -402,6 +411,11 @@ export type Database = {
           empresa_id: string | null
           entregado: boolean
           entregado_fecha: string | null
+          enviado_daniel: boolean
+          enviado_daniel_fecha: string | null
+          enviar_tela_daniel: boolean
+          enviar_tela_daniel_fecha: string | null
+          es_canje: boolean
           estado_pedido: string
           estructura_hecha: boolean
           estructura_hecha_fecha: string | null
@@ -409,22 +423,32 @@ export type Database = {
           fecha_creacion_pedido: string
           fecha_entrega_real: string | null
           fecha_limite: string | null
+          formatos: string[]
           id: string
           lead_id: string | null
           notas_pedido: string | null
           pagado_50: boolean
           pagado_completo: boolean
           pago_todo_al_final: boolean
+          pantalla_hecha: boolean
+          pantalla_hecha_fecha: string | null
           precio: number
           precio_con_iva: number | null
           producto_lead_id: string | null
+          recibir_daniel: boolean
+          recibir_daniel_fecha: string | null
           reserva: number
+          solicitado_daniel: boolean
+          solicitado_daniel_fecha: string | null
           tapizado_hecho: boolean
           tapizado_hecho_fecha: string | null
           tela_pedida: boolean
           tela_pedida_fecha: string | null
           tela_recibida: boolean
           tela_recibida_fecha: string | null
+          terminado_daniel: boolean
+          terminado_daniel_fecha: string | null
+          tipo_colaboracion: string | null
           updated_at: string
         }
         Insert: {
@@ -436,6 +460,11 @@ export type Database = {
           empresa_id?: string | null
           entregado?: boolean
           entregado_fecha?: string | null
+          enviado_daniel?: boolean
+          enviado_daniel_fecha?: string | null
+          enviar_tela_daniel?: boolean
+          enviar_tela_daniel_fecha?: string | null
+          es_canje?: boolean
           estado_pedido?: string
           estructura_hecha?: boolean
           estructura_hecha_fecha?: string | null
@@ -443,22 +472,32 @@ export type Database = {
           fecha_creacion_pedido?: string
           fecha_entrega_real?: string | null
           fecha_limite?: string | null
+          formatos?: string[]
           id?: string
           lead_id?: string | null
           notas_pedido?: string | null
           pagado_50?: boolean
           pagado_completo?: boolean
           pago_todo_al_final?: boolean
+          pantalla_hecha?: boolean
+          pantalla_hecha_fecha?: string | null
           precio?: number
           precio_con_iva?: number | null
           producto_lead_id?: string | null
+          recibir_daniel?: boolean
+          recibir_daniel_fecha?: string | null
           reserva?: number
+          solicitado_daniel?: boolean
+          solicitado_daniel_fecha?: string | null
           tapizado_hecho?: boolean
           tapizado_hecho_fecha?: string | null
           tela_pedida?: boolean
           tela_pedida_fecha?: string | null
           tela_recibida?: boolean
           tela_recibida_fecha?: string | null
+          terminado_daniel?: boolean
+          terminado_daniel_fecha?: string | null
+          tipo_colaboracion?: string | null
           updated_at?: string
         }
         Update: {
@@ -470,6 +509,11 @@ export type Database = {
           empresa_id?: string | null
           entregado?: boolean
           entregado_fecha?: string | null
+          enviado_daniel?: boolean
+          enviado_daniel_fecha?: string | null
+          enviar_tela_daniel?: boolean
+          enviar_tela_daniel_fecha?: string | null
+          es_canje?: boolean
           estado_pedido?: string
           estructura_hecha?: boolean
           estructura_hecha_fecha?: string | null
@@ -477,22 +521,32 @@ export type Database = {
           fecha_creacion_pedido?: string
           fecha_entrega_real?: string | null
           fecha_limite?: string | null
+          formatos?: string[]
           id?: string
           lead_id?: string | null
           notas_pedido?: string | null
           pagado_50?: boolean
           pagado_completo?: boolean
           pago_todo_al_final?: boolean
+          pantalla_hecha?: boolean
+          pantalla_hecha_fecha?: string | null
           precio?: number
           precio_con_iva?: number | null
           producto_lead_id?: string | null
+          recibir_daniel?: boolean
+          recibir_daniel_fecha?: string | null
           reserva?: number
+          solicitado_daniel?: boolean
+          solicitado_daniel_fecha?: string | null
           tapizado_hecho?: boolean
           tapizado_hecho_fecha?: string | null
           tela_pedida?: boolean
           tela_pedida_fecha?: string | null
           tela_recibida?: boolean
           tela_recibida_fecha?: string | null
+          terminado_daniel?: boolean
+          terminado_daniel_fecha?: string | null
+          tipo_colaboracion?: string | null
           updated_at?: string
         }
         Relationships: [
