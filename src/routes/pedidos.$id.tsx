@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Trash2, Plus, Package, ExternalLink } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { semaforoPedido, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { semaforoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
 
@@ -34,16 +34,10 @@ function PedidoDetalle() {
   const lead = leads.find((l) => l.id === pedido.leadId);
   const producto = productos.find((pr) => pr.id === pedido.productoLeadId);
   const telas = pedidoTelas.filter((t) => t.pedidoId === pedido.id).sort((a, b) => a.orden - b.orden);
-  const sem = semaforoPedido(pedido);
+  const sem = semaforoPedido(pedido, producto?.tipo ?? "");
   const c = SEM_COLOR[sem.estado];
 
-  const hitos: { key: keyof typeof pedido; fechaKey: keyof typeof pedido; label: string }[] = [
-    { key: "telaPedida", fechaKey: "telaPedidaFecha", label: "Tela pedida" },
-    { key: "telaRecibida", fechaKey: "telaRecibidaFecha", label: "Tela recibida" },
-    { key: "estructuraHecha", fechaKey: "estructuraHechaFecha", label: "Estructura hecha" },
-    { key: "tapizadoHecho", fechaKey: "tapizadoHechoFecha", label: "Tapizado hecho" },
-    { key: "entregado", fechaKey: "entregadoFecha", label: "Entregado" },
-  ];
+  const hitos = flujoPedido(producto?.tipo ?? "");
 
   return (
     <div className="space-y-4">

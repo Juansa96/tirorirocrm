@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { semaforoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { semaforoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
@@ -51,11 +51,12 @@ function PedidosIndex() {
   const enriched = useMemo(() => pedidos.map((p) => {
     const lead = leads.find((l) => l.id === p.leadId);
     const prod = productos.find((pr) => pr.id === p.productoLeadId);
-    const sem = semaforoPedido(p);
+    const sem = semaforoPedido(p, prod?.tipo ?? "");
+    const prog = progresoPedido(p, prod?.tipo ?? "");
     const tls = pedidoTelas.filter((t) => t.pedidoId === p.id);
     const totalT = tls.length;
     const okT = tls.filter((t) => t.estado === "Recibida").length;
-    return { pedido: p, lead, producto: prod, sem, totalT, okT };
+    return { pedido: p, lead, producto: prod, sem, prog, totalT, okT };
   }), [pedidos, leads, productos, pedidoTelas]);
 
   // Colaboraciones (canje) — pedidos de influencer, van a su propia pestaña.
@@ -274,9 +275,11 @@ function PedidosIndex() {
   );
 }
 
+type EnrichedItem = { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number };
+
 function PersonaGroup({ nombre, lead, items }: {
   nombre: string; lead: Lead | undefined;
-  items: Array<{ pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number }>;
+  items: EnrichedItem[];
 }) {
   const resumen: ResumenCobro = useMemo(
     () => resumenCobro(items.map((it) => it.pedido)),
@@ -326,8 +329,7 @@ function PersonaGroup({ nombre, lead, items }: {
             <tr>
               <th className="px-3 py-2">Producto</th>
               <th className="px-3 py-2">Telas</th>
-              <th className="px-3 py-2 text-center" title="Estructura hecha">Estr.</th>
-              <th className="px-3 py-2 text-center" title="Tapizado hecho">Tapi.</th>
+              <th className="px-3 py-2">Producción</th>
               <th className="px-3 py-2">Deadline</th>
               <th className="px-3 py-2">Días</th>
               <th className="px-3 py-2 text-right">Precio</th>
@@ -337,8 +339,8 @@ function PersonaGroup({ nombre, lead, items }: {
             </tr>
           </thead>
           <tbody>
-            {items.map(({ pedido, producto, sem, totalT, okT }) => (
-              <PedidoRow key={pedido.id} pedido={pedido} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+            {items.map((it) => (
+              <PedidoRow key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} />
             ))}
           </tbody>
         </table>
@@ -346,8 +348,8 @@ function PersonaGroup({ nombre, lead, items }: {
 
       {/* Móvil: tarjetas */}
       <div className="space-y-2 p-3 md:hidden">
-        {items.map(({ pedido, producto, sem, totalT, okT }) => (
-          <PedidoCard key={pedido.id} pedido={pedido} producto={producto} sem={sem} totalT={totalT} okT={okT} />
+        {items.map((it) => (
+          <PedidoCard key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} />
         ))}
       </div>
     </div>
@@ -372,15 +374,28 @@ const COBRO_BADGE: Record<string, string> = {
 
 // ──────────────────────────────────────────────────────────────────────────
 // Card móvil + bottom sheet de edición
-function PedidoCard({ pedido, producto, sem, totalT, okT }: {
+function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
   pedido: Pedido; producto: Producto | undefined;
-  sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number;
+  sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number;
 }) {
   const [editing, setEditing] = useState(false);
   const c = SEM_COLOR[sem.estado];
   const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
   const diasLabel = pedido.entregado ? "Entregado" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d restantes` : `${Math.abs(sem.diasRestantes)}d de retraso`;
   const borderLeft = sem.estado === "verde" ? "border-l-emerald-500" : sem.estado === "ambar" ? "border-l-amber-500" : "border-l-rose-500";
+  const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
+
+  // Marca el siguiente hito pendiente del flujo (según el tipo de producto).
+  function avanzarHito() {
+    const hitos = flujoPedido(producto?.tipo ?? "");
+    const next = hitos.find((h) => !pedido[h.key]);
+    if (!next) return;
+    actions.updatePedido(pedido.id, {
+      [next.key]: true,
+      [next.fechaKey]: new Date().toISOString().slice(0, 10),
+    } as Partial<Pedido>);
+  }
+  const completo = prog.hechos >= prog.total;
 
   return (
     <>
@@ -408,9 +423,21 @@ function PedidoCard({ pedido, producto, sem, totalT, okT }: {
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-300" />
         </Link>
 
-        <div className="grid grid-cols-4 border-t border-slate-100">
-          <ToggleHito label="Estr." active={pedido.estructuraHecha} onToggle={() => actions.updatePedido(pedido.id, { estructuraHecha: !pedido.estructuraHecha, estructuraHechaFecha: !pedido.estructuraHecha && !pedido.estructuraHechaFecha ? new Date().toISOString().slice(0, 10) : pedido.estructuraHechaFecha })} />
-          <ToggleHito label="Tapi." active={pedido.tapizadoHecho} onToggle={() => actions.updatePedido(pedido.id, { tapizadoHecho: !pedido.tapizadoHecho, tapizadoHechoFecha: !pedido.tapizadoHecho && !pedido.tapizadoHechoFecha ? new Date().toISOString().slice(0, 10) : pedido.tapizadoHechoFecha })} />
+        {/* Progreso de producción */}
+        <div className="border-t border-slate-100 px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <span className="truncate font-medium">{pedido.entregado ? "Entregado" : prog.actualLabel}</span>
+            <span className="ml-2 shrink-0 font-semibold">{prog.hechos}/{prog.total}</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${pedido.entregado ? "bg-emerald-500" : "bg-[#1a4b5b]"}`} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 border-t border-slate-100">
+          <button onClick={avanzarHito} disabled={completo} className="flex h-12 items-center justify-center gap-1.5 text-xs font-medium text-emerald-700 active:bg-emerald-50 disabled:text-slate-300 disabled:active:bg-transparent">
+            <Check className="h-3.5 w-3.5" /> {completo ? "Completo" : "Avanzar"}
+          </button>
           <button onClick={() => setEditing(true)} className="flex h-12 items-center justify-center gap-1.5 border-l border-slate-100 text-xs font-medium text-slate-600 active:bg-slate-100">
             <Pencil className="h-3.5 w-3.5" /> Editar
           </button>
@@ -421,17 +448,6 @@ function PedidoCard({ pedido, producto, sem, totalT, okT }: {
       </div>
       {editing && <EditPedidoSheet pedido={pedido} onClose={() => setEditing(false)} />}
     </>
-  );
-}
-
-function ToggleHito({ label, active, onToggle }: { label: string; active: boolean; onToggle: () => void }) {
-  return (
-    <button onClick={onToggle} className={`flex h-12 items-center justify-center gap-1.5 border-r border-slate-100 text-xs font-medium active:bg-slate-100 ${active ? "text-emerald-700" : "text-slate-500"}`}>
-      <span className={`flex h-4 w-4 items-center justify-center rounded border ${active ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white"}`}>
-        {active && <Check className="h-3 w-3" />}
-      </span>
-      {label}
-    </button>
   );
 }
 
@@ -487,12 +503,13 @@ function SheetField({ label, children }: { label: string; children: React.ReactN
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-function PedidoRow({ pedido, producto, sem, totalT, okT }: {
+function PedidoRow({ pedido, producto, sem, prog, totalT, okT }: {
   pedido: Pedido; producto: Producto | undefined;
-  sem: ReturnType<typeof semaforoPedido>; totalT: number; okT: number;
+  sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number;
 }) {
   const c = SEM_COLOR[sem.estado];
   const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
+  const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
   return (
     <tr className="border-t border-slate-100 hover:bg-slate-50/60">
       <td className="px-3 py-2 text-xs text-slate-700">
@@ -508,11 +525,16 @@ function PedidoRow({ pedido, producto, sem, totalT, okT }: {
           {okT}/{totalT}
         </Link>
       </td>
-      <td className="px-3 py-2 text-center">
-        <CheckCell value={pedido.estructuraHecha} onChange={(v) => actions.updatePedido(pedido.id, { estructuraHecha: v, estructuraHechaFecha: v && !pedido.estructuraHechaFecha ? new Date().toISOString().slice(0, 10) : pedido.estructuraHechaFecha })} />
-      </td>
-      <td className="px-3 py-2 text-center">
-        <CheckCell value={pedido.tapizadoHecho} onChange={(v) => actions.updatePedido(pedido.id, { tapizadoHecho: v, tapizadoHechoFecha: v && !pedido.tapizadoHechoFecha ? new Date().toISOString().slice(0, 10) : pedido.tapizadoHechoFecha })} />
+      <td className="px-3 py-2">
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="block min-w-[130px]" title={prog.actualLabel}>
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <span className="truncate">{pedido.entregado ? "Entregado" : prog.actualLabel}</span>
+            <span className="ml-1 shrink-0 font-semibold">{prog.hechos}/{prog.total}</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${pedido.entregado ? "bg-emerald-500" : "bg-[#1a4b5b]"}`} style={{ width: `${pct}%` }} />
+          </div>
+        </Link>
       </td>
       <td className={`px-3 py-2 text-xs ${sem.diasRestantes < 0 && !pedido.entregado ? "font-bold text-rose-700" : "text-slate-600"}`}>
         {formatShortDate(pedido.fechaLimite)}

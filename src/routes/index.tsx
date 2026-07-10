@@ -249,13 +249,14 @@ function Dashboard() {
   const maxVendValor = Math.max(1, ...VENDEDORES.map((v) => vendTotals.get(v)!.valor));
 
 
-  // Pedidos en riesgo (ámbar) o atrasados (rojo), no entregados
+  // Pedidos en riesgo (ámbar) o atrasados (rojo), no entregados.
+  // El flujo depende del tipo de producto, así que lo resolvemos por pedido.
+  const tipoProdDe = (p: (typeof pedidos)[number]) => store.productos.find((pr) => pr.id === p.productoLeadId)?.tipo ?? "";
   const pedidosRiesgo = pedidos.filter((p) => {
     if (p.entregado) return false;
-    const s = semaforoPedido(p);
-    return s.estado !== "verde";
+    return semaforoPedido(p, tipoProdDe(p)).estado !== "verde";
   });
-  const pedidosAtrasados = pedidosRiesgo.filter((p) => semaforoPedido(p).estado === "rojo");
+  const pedidosAtrasados = pedidosRiesgo.filter((p) => semaforoPedido(p, tipoProdDe(p)).estado === "rojo");
 
   function goEtapa(etapa: Etapa) {
     navigate({
