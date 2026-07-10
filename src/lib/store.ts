@@ -508,7 +508,8 @@ async function syncLeadValorFromProductos(leadId: string) {
   // sync por productos no debe pisar los valores.
   if (state.pedidos.some((p) => p.leadId === leadId)) return;
   const productos = state.productos.filter((p) => p.leadId === leadId);
-  if (productos.length === 0) return;
+  // Si no quedan productos, el valor de producto vuelve a 0 (antes se quedaba
+  // "pegado" al precio del último producto borrado).
   const valorProducto = productos.reduce((acc, p) => acc + (p.precioUnitario || 0) * (p.cantidad || 1), 0);
   if (valorProducto === lead.valorProducto) return;
   const valor = valorProducto + lead.valorEnvio;
