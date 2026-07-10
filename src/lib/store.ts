@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto } from "./types";
 import { VENDEDORES, telasPorTipo } from "./types";
+import { pedidoPendiente } from "./money";
+import { todayISO } from "./format";
 
 
 
@@ -483,6 +485,10 @@ export async function teardownStore() {
 async function syncLeadValorFromProductos(leadId: string) {
   const lead = state.leads.find((l) => l.id === leadId);
   if (!lead) return;
+  // Regla de dinero: los leads mandan HASTA que existe un pedido. En cuanto hay
+  // un pedido para este lead, manda `pedidos` (ver syncLeadFromPedidos) y este
+  // sync por productos no debe pisar los valores.
+  if (state.pedidos.some((p) => p.leadId === leadId)) return;
   const productos = state.productos.filter((p) => p.leadId === leadId);
   if (productos.length === 0) return;
   const valorProducto = productos.reduce((acc, p) => acc + (p.precioUnitario || 0) * (p.cantidad || 1), 0);
@@ -495,6 +501,38 @@ async function syncLeadValorFromProductos(leadId: string) {
   emit();
   suppressLead(leadId);
   await supabase.from("leads").update({ valor_producto: valorProducto, valor }).eq("id", leadId);
+}
+
+// Fuente de verdad del dinero: en cuanto hay pedidos, el lead refleja lo que
+// dicen los pedidos (venta = producto+envío, y si todo está cobrado marca el
+// lead como cobrado). Se llama tras cualquier alta/edición/borrado de pedido.
+async function syncLeadFromPedidos(leadId: string | null | undefined) {
+  if (!leadId) return;
+  const lead = state.leads.find((l) => l.id === leadId);
+  if (!lead) return;
+  const peds = state.pedidos.filter((p) => p.leadId === leadId);
+  if (peds.length === 0) return; // sin pedidos, manda el lead
+  const valorProducto = peds.reduce((s, p) => s + (p.precio || 0), 0);
+  const valorEnvio = peds.reduce((s, p) => s + (p.costeEnvio || 0), 0);
+  const valor = valorProducto + valorEnvio;
+  const pendiente = peds.reduce((s, p) => s + pedidoPendiente(p), 0);
+  const cobrado = valor > 0 && pendiente <= 0;
+  const fechaCobro = cobrado ? (lead.fechaCobro || todayISO()) : "";
+
+  const dbPatch: Record<string, unknown> = {};
+  if (valorProducto !== lead.valorProducto) dbPatch.valor_producto = valorProducto;
+  if (valorEnvio !== lead.valorEnvio) dbPatch.valor_envio = valorEnvio;
+  if (valor !== lead.valor) dbPatch.valor = valor;
+  if (cobrado !== lead.cobrado) { dbPatch.cobrado = cobrado; dbPatch.fecha_cobro = fechaCobro || null; }
+  if (Object.keys(dbPatch).length === 0) return;
+
+  state = {
+    ...state,
+    leads: state.leads.map((l) => l.id === leadId ? { ...l, valorProducto, valorEnvio, valor, cobrado, fechaCobro } : l),
+  };
+  emit();
+  suppressLead(leadId);
+  await supabase.from("leads").update(dbPatch as never).eq("id", leadId);
 }
 
 export const actions = {
@@ -964,6 +1002,7 @@ export const actions = {
       }));
       await supabase.from("pedido_telas").insert(rows);
     }
+    await syncLeadFromPedidos(prod.leadId);
     if (!opts.silent) toast.success("Pedido creado.");
     return pedido;
   },
@@ -1036,12 +1075,14 @@ export const actions = {
       }));
       await supabase.from("pedido_telas").insert(rows);
     }
+    await syncLeadFromPedidos(opts.leadId);
     toast.success("Pedido creado.");
     return pedido;
   },
 
   async updatePedido(id: string, patch: Partial<Pedido>) {
     const prevState = state;
+    const leadId = state.pedidos.find((p) => p.id === id)?.leadId;
     state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, ...patch } : p) };
     emit();
     const dbPatch: Record<string, unknown> = {};
@@ -1074,7 +1115,8 @@ export const actions = {
       if (col) dbPatch[col] = v === "" ? null : v;
     }
     const { error } = await supabase.from("pedidos").update(dbPatch as never).eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); }
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); return; }
+    await syncLeadFromPedidos(leadId);
   },
 
   // "Media pagada (todos)": marca el 50% en los pedidos ACTUALES indicados.
@@ -1117,15 +1159,25 @@ export const actions = {
       toast.error("Error al marcar la media pagada.");
       return;
     }
+    // Refleja el nuevo cobro en cada lead afectado.
+    const leadIds = new Set(objetivo.map((p) => p.leadId).filter(Boolean));
+    for (const lid of leadIds) await syncLeadFromPedidos(lid);
     toast.success(`Media pagada marcada en ${objetivo.length} pedido${objetivo.length === 1 ? "" : "s"}.`);
   },
 
   async deletePedido(id: string) {
     const prevState = state;
+    const leadId = state.pedidos.find((p) => p.id === id)?.leadId;
     state = { ...state, pedidos: state.pedidos.filter((p) => p.id !== id) };
     emit();
     const { error } = await supabase.from("pedidos").delete().eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al eliminar el pedido."); }
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar el pedido."); return; }
+    // Si aún quedan pedidos del lead, mandan ellos; si no, vuelve a mandar el
+    // lead (valor recalculado desde sus productos).
+    if (leadId) {
+      if (state.pedidos.some((p) => p.leadId === leadId)) await syncLeadFromPedidos(leadId);
+      else await syncLeadValorFromProductos(leadId);
+    }
   },
 
   async addPedidoTela(pedidoId: string, tipoTela: string) {
