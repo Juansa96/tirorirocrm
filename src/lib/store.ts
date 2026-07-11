@@ -1018,6 +1018,12 @@ export const actions = {
     // "Pagado 50%" pre-rellena la reserva con la mitad del precio de PRODUCTO
     // (envío aparte). La reserva es editable después en el pedido.
     const reserva = opts.pagado50 ? Math.round((precio / 2) * 100) / 100 : 0;
+    // Trasvasa el envío del lead al PRIMER pedido de venta para no perderlo
+    // cuando `syncLeadFromPedidos` recalcule valorEnvio a partir de pedidos.
+    // Si ya existe un pedido de venta, el envío ya vive allí.
+    const leadDelPedido = state.leads.find((l) => l.id === prod.leadId);
+    const yaHayPedidoVenta = state.pedidos.some((p) => p.leadId === prod.leadId && !p.esCanje);
+    const costeEnvioInicial = !opts.esCanje && !yaHayPedidoVenta ? (leadDelPedido?.valorEnvio || 0) : 0;
     const { data, error } = await supabase.from("pedidos").insert({
       producto_lead_id: prod.id,
       lead_id: prod.leadId,
@@ -1027,6 +1033,7 @@ export const actions = {
       creado_manualmente: opts.creadoManualmente,
       precio,
       reserva,
+      coste_envio: costeEnvioInicial,
       es_canje: !!opts.esCanje,
     } as never).select().single();
     if (error || !data) { toast.error("Error al crear el pedido."); return null; }
