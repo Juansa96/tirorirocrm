@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Plus, ChevronRight, Search, ArrowUp, ArrowDown, Package } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
-import { VENDEDORES, vendorName, ETAPAS, ETAPAS_B2B, ETAPA_COLORS, type Etapa, type EtapaB2B } from "@/lib/types";
+import { VENDEDORES, vendorName, ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, type Etapa, type EtapaB2B } from "@/lib/types";
 import { formatCurrency, dateLabel, formatShortDate } from "@/lib/format";
 
 import { SellerBadge } from "@/components/SellerBadge";
@@ -24,13 +24,13 @@ function exportLeadsCSV(rows: Array<Record<string, string | number>>, filename: 
   URL.revokeObjectURL(url);
 }
 
-type ClientTab = "b2c" | "b2b";
+type ClientTab = "b2c" | "b2b" | "colab";
 interface CSearch { tab?: ClientTab }
 
 export const Route = createFileRoute("/clientes/")({
   head: () => ({ meta: [{ title: "Clientes — TiroCRM" }] }),
   validateSearch: (s: Record<string, unknown>): CSearch => {
-    const tab = s.tab === "b2b" ? "b2b" : s.tab === "b2c" ? "b2c" : undefined;
+    const tab = s.tab === "b2b" ? "b2b" : s.tab === "colab" ? "colab" : s.tab === "b2c" ? "b2c" : undefined;
     return tab ? { tab } : {};
   },
   component: ClientesPage,
@@ -38,23 +38,24 @@ export const Route = createFileRoute("/clientes/")({
 
 function ClientesPage() {
   const { tab: tabParam } = Route.useSearch();
-  const tab: ClientTab = tabParam === "b2b" ? "b2b" : "b2c";
+  const tab: ClientTab = tabParam === "b2b" ? "b2b" : tabParam === "colab" ? "colab" : "b2c";
   return (
     <div className="space-y-4">
       <TabsHeader tab={tab} />
-      {tab === "b2c" ? <ClientesList /> : <ClientesB2BList />}
+      {tab === "b2c" ? <ClientesList /> : tab === "b2b" ? <ClientesB2BList /> : <ClientesList influencers />}
     </div>
   );
 }
 
 function TabsHeader({ tab }: { tab: ClientTab }) {
   const navigate = useNavigate();
-  const setTab = (t: ClientTab) => navigate({ to: "/clientes", search: t === "b2c" ? {} : { tab: "b2b" } });
+  const setTab = (t: ClientTab) => navigate({ to: "/clientes", search: t === "b2c" ? {} : { tab: t } });
   const base = "px-4 py-2 text-sm font-semibold border-b-2 transition-colors";
   return (
     <div className="flex items-center gap-1 border-b border-slate-200">
       <button onClick={() => setTab("b2c")} className={`${base} ${tab === "b2c" ? "border-[#1a1f36] text-[#1a1f36]" : "border-transparent text-slate-500 hover:text-slate-700"}`}>B2C</button>
       <button onClick={() => setTab("b2b")} className={`${base} ${tab === "b2b" ? "border-[#1a4b5b] text-[#1a4b5b]" : "border-transparent text-slate-500 hover:text-slate-700"}`}>B2B</button>
+      <button onClick={() => setTab("colab")} className={`${base} ${tab === "colab" ? "border-pink-600 text-pink-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}>Colaboraciones</button>
     </div>
   );
 }
@@ -180,11 +181,9 @@ function ClientesB2BList() {
 }
 
 
-function ClientesList() {
+function ClientesList({ influencers = false }: { influencers?: boolean }) {
   const store = useStore();
-  const [tab, setTab] = useState<"b2c" | "influ">("b2c");
-  const influCount = store.leads.filter((l) => l.tipo === "INFLUENCER").length;
-  const leads = store.leads.filter((l) => tab === "influ" ? l.tipo === "INFLUENCER" : (l.tipo !== "B2B" && l.tipo !== "INFLUENCER"));
+  const leads = store.leads.filter((l) => influencers ? l.tipo === "INFLUENCER" : (l.tipo !== "B2B" && l.tipo !== "INFLUENCER"));
   const tareas = store.tareas;
   const pedidos = store.pedidos;
   const [q, setQ] = useState("");
@@ -307,23 +306,12 @@ function ClientesList() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Clientes</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{influencers ? "Colaboraciones" : "Clientes"}</h1>
           <p className="text-sm text-slate-500">{sorted.length} de {leads.length} registros</p>
         </div>
-        <Link to="/clientes/nuevo" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a2f46]">
-          <Plus className="h-4 w-4" /> Nuevo Lead
+        <Link to="/clientes/nuevo" className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white ${influencers ? "bg-pink-600 hover:bg-pink-700" : "bg-[#1a1f36] hover:bg-[#2a2f46]"}`}>
+          <Plus className="h-4 w-4" /> {influencers ? "Nuevo influencer" : "Nuevo Lead"}
         </Link>
-      </div>
-
-      {/* Tabs B2C / Influencers */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200">
-        <button onClick={() => setTab("b2c")} className={`border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "b2c" ? "border-[#1a1f36] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-          Clientes B2C
-        </button>
-        <button onClick={() => setTab("influ")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "influ" ? "border-pink-600 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-          Colaboraciones
-          {influCount > 0 && <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-bold text-pink-700">{influCount}</span>}
-        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -356,7 +344,7 @@ function ClientesList() {
         >
           Todas
         </button>
-        {ETAPAS.map((e) => {
+        {(influencers ? ETAPAS_COLAB : ETAPAS).map((e) => {
           const active = etapaFiltro === e;
           return (
             <button
