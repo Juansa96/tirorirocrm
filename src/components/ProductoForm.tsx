@@ -358,22 +358,22 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     // Cabecero: forma id → nombre del modelo
     if (f.tipo === "cabecero") {
       const m = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? "";
-      return modelosTipo.find(x => x.modelo === m)?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, m))?.id ?? "";
     }
     if (f.tipo === "pantalla") {
       const m = PANTALLA_FORMAS.find(x => x.id === f.formaPantalla)?.name.split("—")[0].trim() ?? "";
-      return modelosTipo.find(x => x.modelo === m)?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, m))?.id ?? "";
     }
     if (f.tipo === "puf") {
-      return modelosTipo.find(x => x.modelo === "Patos")?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, "Patos"))?.id ?? "";
     }
     if (f.tipo === "almohadon") return modelosTipo[0]?.id ?? "";
     if (f.tipo === "otro") return modelosTipo[0]?.id ?? "";
     if (f.tipo === "mesa") {
-      return modelosTipo.find(x => x.modelo === "Cabo de Palos")?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, "Cabo de Palos"))?.id ?? "";
     }
     if (f.tipo === "banco") {
-      return modelosTipo.find(x => x.modelo === "Oyambre")?.id ?? modelosTipo[0]?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, "Oyambre"))?.id ?? modelosTipo[0]?.id ?? "";
     }
     return "";
   }, [modelosTipo, f.tipo, f.forma, f.formaPantalla]);
