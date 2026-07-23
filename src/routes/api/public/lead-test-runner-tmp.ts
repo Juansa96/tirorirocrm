@@ -72,7 +72,7 @@ const P3 = {
   ],
 };
 
-export const Route = createFileRoute("/api/public/_lead-test-runner")({
+export const Route = createFileRoute("/api/public/lead-test-runner-tmp")({
   server: {
     handlers: {
       POST: async ({ request }) => {
