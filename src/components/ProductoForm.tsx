@@ -509,12 +509,21 @@ export function ProductoForm({
       )}
 
       {/* ── BANCO OYAMBRE ── */}
-      {f.tipo === "banco" && (
+      {f.tipo === "banco" && (() => {
+        // Muestra solo las variantes activas del catálogo. Si el estado actual
+        // apunta a una variante legacy (p.ej. "60-doble" en un producto
+        // histórico que se está editando), se añade esa opción marcada como
+        // retirada para que siga siendo seleccionable y editable.
+        const activas = BANCO_OPCIONES.filter(o => o.activo);
+        const selectedOpt = findBancoById(f.bancoMedida);
+        const showLegacy = selectedOpt && !selectedOpt.activo;
+        const opciones = showLegacy ? [...activas, selectedOpt!] : activas;
+        return (
         <>
           <div>
             <div className={section}>Medida (Oyambre)</div>
             <div className="flex flex-wrap gap-2">
-              {BANCO_OYAMBRE.map(x => (
+              {opciones.map(x => (
                 <button
                   key={x.id}
                   type="button"
@@ -524,7 +533,11 @@ export function ProductoForm({
                   })}
                   className={btn(f.bancoMedida === x.id)}
                 >
-                  {x.label}{x.precio > 0 ? ` · ${x.precio}€` : " · A consultar"}
+                  {x.label}
+                  {x.id === "custom"
+                    ? " · A consultar"
+                    : x.precio > 0 ? ` · ${x.precio}€` : ""}
+                  {x.legacy ? " (retirado)" : ""}
                 </button>
               ))}
             </div>
@@ -548,6 +561,7 @@ export function ProductoForm({
               Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
             </div>
           </div>
+
           <TelaSection
             tela={f.tela}
             onTela={v => s({ tela: v })}
