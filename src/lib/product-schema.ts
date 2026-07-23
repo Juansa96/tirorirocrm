@@ -133,6 +133,7 @@ export function buildProducto(
   } else if (tipo === "otro") {
     modelo = sanitize(
       config.modelo ??
+      (config as Record<string, unknown>).resumen ??
       (config as Record<string, unknown>).descripcion ??
       (config as Record<string, unknown>).otroDescripcion,
       200
