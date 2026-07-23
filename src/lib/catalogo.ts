@@ -108,20 +108,21 @@ export const PANTALLA_FORMAS: Record<string, string> = {
 export interface BancoOpcion {
   id: string;
   label: string;
-  precio: number;
+  precio: number;      // base (basic, vivo simple)
+  premium: number;     // suplemento tela premium
   ancho: number | null;
   activo: boolean;
   legacy?: boolean;
 }
 
 export const BANCO_OPCIONES: BancoOpcion[] = [
-  { id: "60",       label: "60 cm",         precio: 295, ancho: 60,  activo: true },
-  { id: "90",       label: "90 cm",         precio: 335, ancho: 90,  activo: true },
-  { id: "120",      label: "120 cm",        precio: 380, ancho: 120, activo: true },
-  { id: "150",      label: "150 cm",        precio: 430, ancho: 150, activo: true },
-  { id: "180",      label: "180 cm",        precio: 485, ancho: 180, activo: true },
-  { id: "60-doble", label: "60 cm doble",   precio: 370, ancho: 60,  activo: false, legacy: true },
-  { id: "custom",   label: "Mis medidas",   precio: 0,   ancho: null, activo: true },
+  { id: "60",       label: "60 cm",         precio: 295, premium: 60,  ancho: 60,  activo: true },
+  { id: "90",       label: "90 cm",         precio: 335, premium: 75,  ancho: 90,  activo: true },
+  { id: "120",      label: "120 cm",        precio: 380, premium: 90,  ancho: 120, activo: true },
+  { id: "150",      label: "150 cm",        precio: 430, premium: 100, ancho: 150, activo: true },
+  { id: "180",      label: "180 cm",        precio: 485, premium: 135, ancho: 180, activo: true },
+  { id: "60-doble", label: "60 cm doble",   precio: 370, premium: 0,   ancho: 60,  activo: false, legacy: true },
+  { id: "custom",   label: "Mis medidas",   precio: 0,   premium: 0,   ancho: null, activo: true },
 ];
 
 // Medidas físicas por variante estándar. Fuente única de verdad — cualquier
