@@ -139,6 +139,7 @@ function mapProducto(r: Record<string, unknown>): Producto {
     modelo: (r.modelo as string) ?? "",
     ancho: r.ancho != null ? Number(r.ancho) : null,
     alto: r.alto != null ? Number(r.alto) : null,
+    fondo: r.fondo != null ? Number(r.fondo) : null,
     tela: (r.tela as string) ?? "",
     color: (r.color as string) ?? "",
     relleno: (r.relleno as string) ?? "",

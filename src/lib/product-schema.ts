@@ -57,6 +57,7 @@ export function buildProducto(
   modelo: string;
   ancho: number | null;
   alto: number | null;
+  fondo: number | null;
   tela: string;
   color: string;
   relleno: string;
@@ -147,12 +148,8 @@ export function buildProducto(
   if (topColor) color = topColor;
   if (topRelleno) relleno = topRelleno;
   if (topPatas) patas = topPatas;
-  // Fondo top-level: si viene, se anexa a `patas` para no perder el dato
-  // (no hay columna dedicada en productos_lead).
-  if (topFondo !== null) {
-    const nota = `Fondo ${topFondo} cm`;
-    patas = patas ? `${patas} · ${nota}` : nota;
-  }
+  // Fondo va a su columna dedicada `productos_lead.fondo` (aditiva, nullable).
+  // Ya no se anexa a `patas` — patas significa solo patas.
 
   const cantidad = Math.max(1, Math.floor(Number(config.cantidad) || 1));
   const precio = Math.max(0, Number(config.precio_unitario ?? config.precio) || 0);
@@ -162,6 +159,7 @@ export function buildProducto(
     modelo: modelo || (tipo === "otro" ? "Sin descripcion" : ""),
     ancho: Number.isFinite(ancho) ? ancho : null,
     alto: Number.isFinite(alto) ? alto : null,
+    fondo: topFondo !== null && Number.isFinite(topFondo) ? topFondo : null,
     tela: topTela,
     color,
     relleno,
