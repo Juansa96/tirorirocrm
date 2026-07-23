@@ -159,7 +159,9 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
       : (CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma);
     ancho = f.anchoCama === "tbd" ? null : f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
     alto  = f.altoCabecero === "tbd" ? null : f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
-    fondo = CABECERO_GROSOR_CM;
+    fondo = f._isEdit
+      ? (f._origFondo === null ? null : f._origFondo ?? null)
+      : CABECERO_GROSOR_CM;
     color = f.telaLateral; relleno = f.telaVivo;
     const tbdForma = f.forma === FORMA_POR_DECIDIR || !f.forma;
     const tbdAncho = f.anchoCama === "tbd";
