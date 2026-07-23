@@ -582,6 +582,7 @@ export type Database = {
           caracteristicas_confirmadas: boolean
           coleccion_tela: string | null
           color: string | null
+          config_json: Json | null
           created_at: string
           created_by: string | null
           fecha_confirmacion: string | null
@@ -604,6 +605,7 @@ export type Database = {
           caracteristicas_confirmadas?: boolean
           coleccion_tela?: string | null
           color?: string | null
+          config_json?: Json | null
           created_at?: string
           created_by?: string | null
           fecha_confirmacion?: string | null
@@ -626,6 +628,7 @@ export type Database = {
           caracteristicas_confirmadas?: boolean
           coleccion_tela?: string | null
           color?: string | null
+          config_json?: Json | null
           created_at?: string
           created_by?: string | null
           fecha_confirmacion?: string | null
