@@ -16,9 +16,10 @@ import {
   PANTALLA_FORMAS,
   BANCO_VARIANTES,
   BANCO_OYAMBRE_PRECIOS,
-  BANCO_ALTO_FIJO,
   BANCO_OPCIONES,
+  BANCO_MEDIDAS_FISICAS,
   normalizarColeccionTela,
+  esColeccionTelaInvalida,
   type TipoProductoKey,
 } from "./catalogo";
 
