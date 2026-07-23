@@ -61,8 +61,20 @@ const TIPO_ALIAS: Record<string, TipoProductoKey> = {
   cubrecanapes: "otro",
 };
 
-function stripDiacritics(s: string): string {
+export function stripDiacritics(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Compara dos etiquetas de modelo/forma tolerando acentos, mayúsculas, espacios
+// dobles y trims. Sustituye a `a === b` en cualquier campo de texto que venga
+// tanto de payloads externos como de datos históricos. Cadena vacía nunca
+// hace match (aunque las dos estén vacías) — evita colapsar "no dato" con "no dato".
+export function mismoModelo(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown) =>
+    stripDiacritics(String(v ?? "")).trim().toLowerCase().replace(/\s+/g, " ");
+  const na = norm(a);
+  if (!na) return false;
+  return na === norm(b);
 }
 
 export function normalizeTipo(raw: unknown): TipoProductoKey | null {
