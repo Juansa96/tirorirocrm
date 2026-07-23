@@ -5,6 +5,7 @@ import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela
 import { VENDEDORES, telasPorTipo } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
+import { normalizarColeccionTela } from "./catalogo";
 
 
 
@@ -886,9 +887,9 @@ export const actions = {
   async addProducto(leadId: string, input: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) {
     const { data, error } = await supabase.from("productos_lead").insert({
       lead_id: leadId, tipo: input.tipo, modelo: input.modelo,
-      ancho: input.ancho, alto: input.alto, tela: input.tela,
+      ancho: input.ancho, alto: input.alto, fondo: input.fondo, tela: input.tela,
       color: input.color, relleno: input.relleno, patas: input.patas,
-      acabado: input.acabado, coleccion_tela: input.coleccionTela,
+      acabado: input.acabado, coleccion_tela: normalizarColeccionTela(input.coleccionTela),
       cantidad: input.cantidad, precio_unitario: input.precioUnitario,
       notas_producto: input.notasProducto, created_by: currentUser ?? "",
     }).select().single();
@@ -912,9 +913,9 @@ export const actions = {
       emit();
     }
     const { error } = await supabase.from("productos_lead").update({
-      tipo: input.tipo, modelo: input.modelo, ancho: input.ancho, alto: input.alto,
+      tipo: input.tipo, modelo: input.modelo, ancho: input.ancho, alto: input.alto, fondo: input.fondo,
       tela: input.tela, color: input.color, relleno: input.relleno, patas: input.patas,
-      acabado: input.acabado, coleccion_tela: input.coleccionTela,
+      acabado: input.acabado, coleccion_tela: normalizarColeccionTela(input.coleccionTela),
       cantidad: input.cantidad, precio_unitario: input.precioUnitario,
       notas_producto: input.notasProducto,
     }).eq("id", id);
