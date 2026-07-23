@@ -601,8 +601,18 @@ export function ProductoForm({
             <div className={section}>Forma</div>
             <div className="flex flex-wrap gap-2">
               {CABECERO_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ forma: x.id })} className={`${btn(f.forma === x.id)} inline-flex items-center gap-1.5`}><span>{x.name}</span><FormaBadge modelo={x.name} className="border-transparent bg-transparent px-0 py-0" /></button>)}
+              <button type="button" onClick={() => s({ forma: FORMA_OTRA })} className={btn(f.forma === FORMA_OTRA)}>Otra</button>
               <button type="button" onClick={() => s({ forma: FORMA_POR_DECIDIR })} className={btn(f.forma === FORMA_POR_DECIDIR || !f.forma)}>Por decidir</button>
             </div>
+            {f.forma === FORMA_OTRA && (
+              <input
+                type="text"
+                className="mt-2 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                placeholder="Describe la forma (texto libre)…"
+                value={f.formaOtra}
+                onChange={e => s({ formaOtra: e.target.value })}
+              />
+            )}
             {(f.forma === FORMA_POR_DECIDIR || !f.forma) && (
               <div className="mt-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 Forma pendiente de decidir — se puede editar más adelante
