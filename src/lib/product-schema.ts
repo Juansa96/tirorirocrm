@@ -164,7 +164,9 @@ export function buildProducto(
     color,
     relleno,
     patas,
-    acabado: topAcabado || "vivo-simple",
+    // Default "vivo-simple" SOLO para tipos que realmente llevan vivo.
+    // cojin/pantalla/otro: NULL si no viene, nunca inventar.
+    acabado: topAcabado || (tipo === "cabecero" || tipo === "banco" || tipo === "puf" || tipo === "mesa" ? "vivo-simple" : ""),
     coleccion_tela: topColeccion,
     cantidad,
     precio_unitario: precio,
