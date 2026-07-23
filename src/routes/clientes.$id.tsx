@@ -15,6 +15,7 @@ import {
   ProductoForm, EMPTY_PROD_STATE, productoToState,
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
+import { displayColeccionTela } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/clientes/$id")({
   head: () => ({ meta: [{ title: "Cliente — TiroCRM" }] }),
