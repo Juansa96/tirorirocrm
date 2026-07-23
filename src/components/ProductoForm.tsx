@@ -4,7 +4,20 @@ import type { Producto } from "@/lib/types";
 import { CATALOG_TO_INTERNAL } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { FormaBadge } from "@/components/FormaBadge";
-import { normalizarColeccionTela, displayColeccionTela, mismoModelo } from "@/lib/catalogo";
+import {
+  normalizarColeccionTela,
+  displayColeccionTela,
+  mismoModelo,
+  BANCO_OPCIONES,
+  BANCO_MEDIDAS_FISICAS,
+  BANCO_ALTO_FIJO,
+  BANCO_FONDO_FIJO,
+  findBancoById,
+  MESA_PRESETS_UI,
+  PUF_TAMANOS_UI,
+  PANTALLA_TAMANOS_UI,
+  CABECERO_ALTURAS_UI,
+} from "@/lib/catalogo";
 
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
@@ -17,18 +30,12 @@ export const TIPOS_PRODUCTO = [
   { id: "otro",      label: "Otro" },
 ] as const;
 
-// Banco Oyambre — precios fijos por medida (idénticos al configurador web)
-export const BANCO_OYAMBRE = [
-  { id: "60",        label: "60 cm",         precio: 200 },
-  { id: "60-doble",  label: "60 cm doble",   precio: 370 },
-  { id: "90",        label: "90 cm",         precio: 250 },
-  { id: "120",       label: "120 cm",        precio: 300 },
-  { id: "150",       label: "150 cm",        precio: 350 },
-  { id: "custom",    label: "Mis medidas",   precio: 0 }, // A consultar
-] as const;
-export const BANCO_ALTO_FIJO = 45;
-export const BANCO_FONDO_FIJO = 33;
-
+// Alias locales para preservar el resto del código sin reescribir referencias.
+// Estas constantes viven ahora en src/lib/catalogo.ts (fuente única).
+export const MESA_PRESETS = MESA_PRESETS_UI as readonly string[];
+export const PUF_TAMANOS = PUF_TAMANOS_UI as readonly string[];
+export const PANTALLA_OPCIONES = PANTALLA_TAMANOS_UI;
+export const CABECERO_ALTOS = CABECERO_ALTURAS_UI as readonly string[];
 
 export const CABECERO_FORMAS = [
   { id: "recto",         name: "Calobra" },
@@ -38,9 +45,7 @@ export const CABECERO_FORMAS = [
   { id: "ondas",         name: "Barbaria" },
 ];
 export const CABECERO_ANCHOS = ["90", "105", "135", "150", "160", "180", "200"];
-export const CABECERO_ALTOS  = ["100", "120"];
 
-export const MESA_PRESETS = ["120×45×60 cm", "80×45×80 cm"];
 export const MESA_SUPERFICIES = [
   { id: "nada",        name: "Sin superficie" },
   { id: "metacrilato", name: "Metacrilato 5 mm (+50€)" },
@@ -52,11 +57,6 @@ export const PANTALLA_FORMAS = [
   { id: "cuadrado",   name: "Tormes — Cuadrado" },
   { id: "rectangulo", name: "La Serrota — Rectangular" },
 ];
-export const PANTALLA_OPCIONES: Record<string, string[]> = {
-  cilindro:   ["Ø15×20 cm", "Ø25×25 cm", "Ø40×40 cm"],
-  cuadrado:   ["20×20 cm"],
-  rectangulo: ["20×40 cm"],
-};
 
 export const FINISHES_CABECERO = [
   { id: "vivo-simple", name: "Vivo simple (incluido)" },
@@ -77,6 +77,7 @@ export const TELAS_SUGERIDAS = [
   "Ramas Siena Azul","Flores Gardenia","Bibiana","Prints Botánicos","Rayas Verde Sage",
   "Raya Monina","Rayas Jules Verde","Lino Azul Provenzal","Lino Flores Normandía","Lino Flores Senda",
 ];
+
 
 // ── Tipos ─────────────────────────────────────────────────────────
 export type ProdTipo = "cabecero" | "banco" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
