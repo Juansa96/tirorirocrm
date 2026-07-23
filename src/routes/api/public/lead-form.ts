@@ -85,7 +85,6 @@ export const Route = createFileRoute("/api/public/lead-form")({
     handlers: {
       POST: async ({ request }: { request: Request }) => {
         const configuredApiKey = process.env.LEAD_FORM_API_KEY;
-        const configuredTestApiKey = process.env.LEAD_FORM_API_KEY_TEST;
         const cors = {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -100,7 +99,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
           console.error("LEAD_FORM_API_KEY not configured; rejecting public submission");
           return json({ error: "Endpoint not configured" }, 503);
         }
-        // Comparación en tiempo constante contra clave de producción y (opcional) clave de test.
+        // Comparación en tiempo constante contra la clave de producción.
         const providedKey = request.headers.get("x-api-key") ?? "";
         const safeEqual = (a: string, b: string): boolean => {
           if (a.length !== b.length) return false;
@@ -108,9 +107,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
           for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
           return diff === 0;
         };
-        const matchesProd = safeEqual(providedKey, configuredApiKey);
-        const matchesTest = !!configuredTestApiKey && safeEqual(providedKey, configuredTestApiKey);
-        if (!matchesProd && !matchesTest) {
+        if (!safeEqual(providedKey, configuredApiKey)) {
           return json({ error: "Unauthorized" }, 401);
         }
 
