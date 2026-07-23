@@ -24,6 +24,7 @@ import { Route as PedidosIdRouteImport } from './routes/pedidos.$id'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
+import { Route as ApiPublicLeadTestRunnerTmpRouteImport } from './routes/api/public/lead-test-runner-tmp'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -105,6 +106,12 @@ const B2bNuevoRoute = B2bNuevoRouteImport.update({
   path: '/b2b/nuevo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicLeadTestRunnerTmpRoute =
+  ApiPublicLeadTestRunnerTmpRouteImport.update({
+    id: '/api/public/lead-test-runner-tmp',
+    path: '/api/public/lead-test-runner-tmp',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicLeadFormRoute = ApiPublicLeadFormRouteImport.update({
   id: '/api/public/lead-form',
   path: '/api/public/lead-form',
@@ -150,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/pedidos/': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/api/public/lead-test-runner-tmp': typeof ApiPublicLeadTestRunnerTmpRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -172,6 +180,7 @@ export interface FileRoutesByTo {
   '/pedidos': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/api/public/lead-test-runner-tmp': typeof ApiPublicLeadTestRunnerTmpRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -195,6 +204,7 @@ export interface FileRoutesById {
   '/pedidos/': typeof PedidosIndexRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/api/public/lead-test-runner-tmp': typeof ApiPublicLeadTestRunnerTmpRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/pedidos/'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
+    | '/api/public/lead-test-runner-tmp'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/pedidos'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
+    | '/api/public/lead-test-runner-tmp'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -263,6 +275,7 @@ export interface FileRouteTypes {
     | '/pedidos/'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
+    | '/api/public/lead-test-runner-tmp'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -286,6 +299,7 @@ export interface RootRouteChildren {
   PedidosIndexRoute: typeof PedidosIndexRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
+  ApiPublicLeadTestRunnerTmpRoute: typeof ApiPublicLeadTestRunnerTmpRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -398,6 +412,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof B2bNuevoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/lead-test-runner-tmp': {
+      id: '/api/public/lead-test-runner-tmp'
+      path: '/api/public/lead-test-runner-tmp'
+      fullPath: '/api/public/lead-test-runner-tmp'
+      preLoaderRoute: typeof ApiPublicLeadTestRunnerTmpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/lead-form': {
       id: '/api/public/lead-form'
       path: '/api/public/lead-form'
@@ -454,6 +475,7 @@ const rootRouteChildren: RootRouteChildren = {
   PedidosIndexRoute: PedidosIndexRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
+  ApiPublicLeadTestRunnerTmpRoute: ApiPublicLeadTestRunnerTmpRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
