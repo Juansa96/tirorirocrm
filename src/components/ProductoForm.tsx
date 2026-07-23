@@ -87,10 +87,11 @@ export const TELAS_SUGERIDAS = [
 // ── Tipos ─────────────────────────────────────────────────────────
 export type ProdTipo = "cabecero" | "banco" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
 export const FORMA_POR_DECIDIR = "tbd";
+export const FORMA_OTRA = "custom";
 
 export interface ProdState {
   tipo: ProdTipo;
-  forma: string;
+  forma: string; formaOtra: string;
   anchoCama: string; anchoCamaCustom: string;
   altoCabecero: string; altoCabeceroCustom: string;
   telaLateral: string; colgador: boolean;
@@ -120,7 +121,7 @@ export interface ProdState {
 
 export const EMPTY_PROD_STATE: ProdState = {
   tipo: "",
-  forma: "", anchoCama: "150", anchoCamaCustom: "", altoCabecero: "100", altoCabeceroCustom: "", telaLateral: "", colgador: false,
+  forma: "", formaOtra: "", anchoCama: "150", anchoCamaCustom: "", altoCabecero: "100", altoCabeceroCustom: "", telaLateral: "", colgador: false,
   pufId: "", pufAnchoCustom: "", pufFondoCustom: "", pufAltoCustom: "", cantidadPuf: "1",
   mesaId: "", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   pantallaId: "", formaPantalla: "cilindro", pantallaAnchoCustom: "", pantallaAltoCustom: "",
@@ -156,7 +157,9 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
   if (f.tipo === "cabecero") {
     modelo = f.forma === FORMA_POR_DECIDIR || !f.forma
       ? "Forma por decidir"
-      : (CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma);
+      : f.forma === FORMA_OTRA
+        ? (f.formaOtra.trim() || "Forma personalizada")
+        : (CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma);
     ancho = f.anchoCama === "tbd" ? null : f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
     alto  = f.altoCabecero === "tbd" ? null : f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
     fondo = f._isEdit
@@ -222,23 +225,30 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     relleno = opt?.formaId ?? f.formaPantalla;
     patas = extras([f.tapetes && "Tapetes protectores (+5€)", f.pantallaId === "tbd" && "Medida por decidir"]);
   } else if (f.tipo === "banco") {
-    const opt = findBancoById(f.bancoMedida);
+    const isTbd = f.bancoMedida === "tbd";
+    const opt = isTbd ? undefined : findBancoById(f.bancoMedida);
     const fis = BANCO_MEDIDAS_FISICAS[f.bancoMedida];
     const anchoCustom = f.bancoMedida === "custom" ? (Number(f.bancoLargoCustom) || null) : null;
-    modelo = `Oyambre — ${opt?.label ?? f.bancoMedida}`;
-    ancho = f.bancoMedida === "custom" ? anchoCustom : (opt?.ancho ?? null);
+    modelo = isTbd ? "Oyambre — Por decidir" : `Oyambre — ${opt?.label ?? f.bancoMedida}`;
+    ancho = isTbd ? null : f.bancoMedida === "custom" ? anchoCustom : (opt?.ancho ?? null);
     // Preserva alto/fondo históricos al editar: si el original era NULL,
-    // no escribimos el default del catálogo (mismo criterio que en cabecero).
-    if (f._isEdit) {
+    // no escribimos el default del catálogo. En "tbd" no se conocen medidas.
+    if (isTbd) {
+      alto = f._isEdit ? (f._origAlto ?? null) : null;
+      fondo = f._isEdit ? (f._origFondo ?? null) : null;
+    } else if (f._isEdit) {
       alto  = f._origAlto  === undefined ? (fis?.alto  ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO))  : f._origAlto;
       fondo = f._origFondo === undefined ? (fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO)) : f._origFondo;
     } else {
       alto  = fis?.alto  ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
       fondo = fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO);
     }
+    // `patas` NO recibe medidas físicas: alto/fondo van en sus columnas.
+    // Solo lleva lo que el operador introduce sobre las patas o el estado
+    // "medidas personalizadas / por decidir" cuando aplica.
     patas = extras([
-      !f._isEdit && fis && `Alto ${fis.alto} cm · Fondo ${fis.fondo} cm`,
       f.bancoMedida === "custom" && "A consultar (medidas personalizadas)",
+      isTbd && "Medida por decidir",
       f.tapetes && "Tapetes protectores (+5€)",
     ]);
     color = f.telaLateral; relleno = f.telaVivo;
@@ -298,7 +308,10 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
 
   if (p.tipo === "cabecero") {
     const formaMatch = CABECERO_FORMAS.find(x => mismoModelo(x.name, p.modelo));
-    s.forma = formaMatch ? formaMatch.id : (mismoModelo(p.modelo, "Forma por decidir") ? FORMA_POR_DECIDIR : "");
+    if (formaMatch) { s.forma = formaMatch.id; }
+    else if (mismoModelo(p.modelo, "Forma por decidir")) { s.forma = FORMA_POR_DECIDIR; }
+    else if (p.modelo) { s.forma = FORMA_OTRA; s.formaOtra = p.modelo; }
+    else { s.forma = ""; }
     const a = p.ancho ? String(p.ancho) : "";
     const anchosStd = CABECERO_ANCHOS_CAT.map(x => x.id);
     s.anchoCama = anchosStd.includes(a) ? a : (a ? "custom" : "150");
@@ -350,7 +363,8 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
       .filter(o => o.id !== "custom" && o.id !== "60-doble" && o.ancho !== null)
       .map(o => String(o.ancho));
     const isDoble = /doble/i.test(p.modelo);
-    s.bancoMedida = isDoble ? "60-doble" : (stdAnchos.includes(a) ? a : (a ? "custom" : "90"));
+    const isTbd = mismoModelo(p.modelo, "Oyambre — Por decidir") || /por decidir/i.test(p.modelo);
+    s.bancoMedida = isTbd ? "tbd" : (isDoble ? "60-doble" : (stdAnchos.includes(a) ? a : (a ? "custom" : "90")));
     s.bancoLargoCustom = s.bancoMedida === "custom" ? a : "";
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.cantidad = p.cantidad;
@@ -587,8 +601,18 @@ export function ProductoForm({
             <div className={section}>Forma</div>
             <div className="flex flex-wrap gap-2">
               {CABECERO_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ forma: x.id })} className={`${btn(f.forma === x.id)} inline-flex items-center gap-1.5`}><span>{x.name}</span><FormaBadge modelo={x.name} className="border-transparent bg-transparent px-0 py-0" /></button>)}
+              <button type="button" onClick={() => s({ forma: FORMA_OTRA })} className={btn(f.forma === FORMA_OTRA)}>Otra</button>
               <button type="button" onClick={() => s({ forma: FORMA_POR_DECIDIR })} className={btn(f.forma === FORMA_POR_DECIDIR || !f.forma)}>Por decidir</button>
             </div>
+            {f.forma === FORMA_OTRA && (
+              <input
+                type="text"
+                className="mt-2 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+                placeholder="Describe la forma (texto libre)…"
+                value={f.formaOtra}
+                onChange={e => s({ formaOtra: e.target.value })}
+              />
+            )}
             {(f.forma === FORMA_POR_DECIDIR || !f.forma) && (
               <div className="mt-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 Forma pendiente de decidir — se puede editar más adelante
@@ -679,6 +703,7 @@ export function ProductoForm({
                   {x.legacy ? " (retirado)" : ""}
                 </button>
               ))}
+              <button type="button" onClick={() => s({ bancoMedida: "tbd" })} className={btn(f.bancoMedida === "tbd")}>Por decidir</button>
             </div>
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.bancoMedida === "custom" && (
@@ -697,9 +722,16 @@ export function ProductoForm({
                 </div>
               </div>
             )}
-            <div className="mt-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
-              Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
-            </div>
+            {f.bancoMedida === "tbd" && (
+              <div className="mt-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Medida pendiente de decidir — se puede editar más adelante
+              </div>
+            )}
+            {f.bancoMedida !== "tbd" && (
+              <div className="mt-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+                Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
+              </div>
+            )}
           </div>
 
           <TelaSection
