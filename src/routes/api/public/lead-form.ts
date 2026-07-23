@@ -189,7 +189,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
                 ...producto,
                 precio_unitario: precio || producto.precio_unitario,
                 cantidad,
-                config_json,
+                config_json: config_json as never,
               });
             } else {
               await supabaseAdmin.from("notas").insert({
