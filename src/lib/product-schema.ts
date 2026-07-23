@@ -1,52 +1,91 @@
-// Shared product schema: used by the public lead-form API and ProductoForm UI
-// Single source of truth for model names and dimension logic
+// ══════════════════════════════════════════════════════════════════════════
+// src/lib/product-schema.ts
+//
+// Shim delgado sobre src/lib/catalogo.ts. Todo lo que era duplicado se
+// importa desde ahí. Este archivo solo mantiene:
+//   - `buildProducto()`: construye una fila de productos_lead desde el
+//     payload del formulario web (o del CRM manual, si algún día lo llama).
+//   - Re-exports de CABECERO_FORMAS y PANTALLA_FORMAS que consume
+//     FormaBadge.tsx.
+// ══════════════════════════════════════════════════════════════════════════
+
+import {
+  TIPOS_VALIDOS,
+  normalizeTipo,
+  CABECERO_FORMAS,
+  PANTALLA_FORMAS,
+  BANCO_VARIANTES,
+  BANCO_OYAMBRE_PRECIOS,
+  BANCO_ALTO_FIJO,
+  BANCO_OPCIONES,
+  normalizarColeccionTela,
+  type TipoProductoKey,
+} from "./catalogo";
+
+// Re-exports para que FormaBadge y cualquier consumidor legacy siga funcionando
+export {
+  TIPOS_VALIDOS,
+  normalizeTipo,
+  CABECERO_FORMAS,
+  PANTALLA_FORMAS,
+  BANCO_VARIANTES,
+  BANCO_OYAMBRE_PRECIOS,
+};
+export type { TipoProductoKey };
 
 function sanitize(val: unknown, maxLen = 200): string {
   if (val === null || val === undefined) return "";
   return String(val).trim().slice(0, maxLen);
 }
 
-export const TIPOS_VALIDOS = ["cabecero", "banco", "cojin", "puf", "mesa", "pantalla"] as const;
-export type TipoProductoKey = (typeof TIPOS_VALIDOS)[number];
+function num(val: unknown, max: number): number | null {
+  if (val === null || val === undefined || val === "") return null;
+  const n = Number(val);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(n, max);
+}
 
-export const CABECERO_FORMAS: Record<string, string> = {
-  recto: "Calobra",
-  semicirculo: "Pregonda",
-  "corona-simple": "Macarella",
-  "corona-doble": "Conta",
-  ondas: "Barbaria",
-};
-
-// Banco Oyambre — precios fijos por medida (coinciden con el configurador web).
-// Alto 45 cm y fondo 33 cm son fijos en las medidas estándar.
-export const BANCO_OYAMBRE_PRECIOS: Record<string, number> = {
-  "60": 200,
-  "60-doble": 370,
-  "90": 250,
-  "120": 300,
-  "150": 350,
-  "custom": 0, // "Mis medidas" — a consultar
-};
-
-export const BANCO_VARIANTES: Record<string, string> = {
-  "60": "Oyambre 60 cm",
-  "60-doble": "Oyambre 60 cm doble",
-  "90": "Oyambre 90 cm",
-  "120": "Oyambre 120 cm",
-  "150": "Oyambre 150 cm",
-  "custom": "Oyambre a medida",
-};
-
-
-export const PANTALLA_FORMAS: Record<string, string> = {
-  cilindro: "Almanzor",
-  cuadrado: "Tormes",
-  rectangulo: "La Serrota",
-};
-
-export function buildProducto(config: Record<string, string>, createdBy = "formulario-web") {
-  const tipo = sanitize(config.tipo, 50);
+// Construye una fila insertable en productos_lead a partir de un payload
+// del formulario web. Devuelve `null` si el `tipo` no se puede normalizar;
+// en ese caso el endpoint público deja constancia con una nota (no descarta
+// en silencio — ver 2.3).
+export function buildProducto(
+  config: Record<string, unknown>,
+  createdBy = "formulario-web"
+): {
+  tipo: TipoProductoKey;
+  modelo: string;
+  ancho: number | null;
+  alto: number | null;
+  tela: string;
+  color: string;
+  relleno: string;
+  patas: string;
+  acabado: string;
+  coleccion_tela: string;
+  cantidad: number;
+  precio_unitario: number;
+  notas_producto: string;
+  created_by: string;
+} | null {
+  const tipo = normalizeTipo(config.tipo);
   if (!tipo || !(TIPOS_VALIDOS as readonly string[]).includes(tipo)) return null;
+
+  // Campos top-level del payload (contrato de la sección 7.2). Si vienen,
+  // tienen prioridad sobre los campos legacy calculados a partir de `config.*`.
+  const topModelo = sanitize(config.modelo, 200);
+  const topAncho = num(config.ancho, 500);
+  const topAlto = num(config.alto, 500);
+  const topFondo = num(config.fondo, 500);
+  const topTela = sanitize(config.tela ?? (config as Record<string, unknown>).fabricName, 200);
+  const topColor = sanitize(config.color, 200);
+  const topRelleno = sanitize(config.relleno, 200);
+  const topPatas = sanitize(config.patas, 200);
+  const topAcabado = sanitize(config.acabado ?? (config as Record<string, unknown>).finish, 30);
+  const topColeccion = normalizarColeccionTela(
+    config.coleccion_tela ?? (config as Record<string, unknown>).coleccionTela ??
+    ((config as Record<string, unknown>).fabricGroup === "Premium" ? "Premium" : undefined)
+  );
 
   let modelo = "";
   let ancho: number | null = null;
@@ -56,43 +95,33 @@ export function buildProducto(config: Record<string, string>, createdBy = "formu
   let patas = "";
 
   if (tipo === "cabecero") {
-    modelo = CABECERO_FORMAS[config.forma] ?? sanitize(config.forma, 50);
-    ancho = config.anchoCama
-      ? Math.min(Number(config.anchoCama), 400)
-      : config.ancho
-      ? Math.min(Number(config.ancho), 400)
-      : null;
-    alto = config.altoCm
-      ? Math.min(Number(config.altoCm), 300)
-      : config.alto
-      ? Math.min(Number(config.alto), 300)
-      : null;
+    modelo = CABECERO_FORMAS[sanitize(config.forma, 50)] ?? sanitize(config.forma, 50);
+    ancho = num(config.anchoCama, 400) ?? num(config.ancho, 400);
+    alto = num(config.altoCm, 300) ?? num(config.alto, 300);
     color = sanitize(config.telaLateral);
-    patas = config.colgador === "true" ? "Con colgador" : "";
+    patas = config.colgador === "true" || config.colgador === true ? "Con colgador" : "";
   } else if (tipo === "banco") {
-    const variante = String(config.varianteBanco ?? "");
-    modelo = BANCO_VARIANTES[variante] ?? sanitize(variante, 50) ?? "Oyambre";
-    // Ancho según variante estándar; alto/fondo fijos (45/33) salvo custom
-    const anchoPorVariante: Record<string, number | null> = {
-      "60": 60, "60-doble": 60, "90": 90, "120": 120, "150": 150,
-    };
+    const variante = String(config.varianteBanco ?? config.bancoMedida ?? "");
+    const opt = BANCO_OPCIONES.find((o) => o.id === variante);
+    modelo = opt ? `Oyambre ${opt.label}` : (BANCO_VARIANTES[variante] ?? sanitize(variante, 50) ?? "Oyambre");
     ancho = variante === "custom"
-      ? (config.largoBanco ? Math.min(Number(config.largoBanco), 400) : null)
-      : (anchoPorVariante[variante] ?? null);
-    alto = 45; // fijo
+      ? num(config.largoBanco, 400)
+      : (opt?.ancho ?? null);
+    alto = variante === "custom" ? null : BANCO_ALTO_FIJO;
     patas = "Fondo 33 cm · Alto 45 cm";
-
   } else if (tipo === "cojin") {
-    modelo = sanitize(config.opcionAlmohadon?.replace(/-/g, " — "), 100);
-    const dims = config.opcionAlmohadon?.split("-")[1]?.replace(" cm", "").split("×");
-    ancho = dims ? Number(dims[0]) : null;
-    alto = dims ? Number(dims[1]) : null;
+    const opcionAlmohadon = sanitize(config.opcionAlmohadon, 100);
+    modelo = opcionAlmohadon.replace(/-/g, " — ");
+    const dims = opcionAlmohadon.split("-")[1]?.replace(" cm", "").split("×");
+    ancho = dims?.[0] ? Number(dims[0]) : null;
+    alto = dims?.[1] ? Number(dims[1]) : null;
   } else if (tipo === "puf") {
-    modelo = `${sanitize(config.tamanoPuf, 20)} cm`;
-    ancho = config.tamanoPuf ? Math.min(Number(config.tamanoPuf), 200) : null;
+    const t = sanitize(config.tamanoPuf, 20);
+    modelo = t ? `${t} cm` : "";
+    ancho = num(config.tamanoPuf, 200);
   } else if (tipo === "mesa") {
     modelo = sanitize(config.presetMesa, 50);
-    const dims = (config.presetMesa ?? "").replace(" cm", "").split("×");
+    const dims = (sanitize(config.presetMesa, 50)).replace(" cm", "").split("×");
     ancho = dims[0] ? Number(dims[0]) : null;
     alto = dims[1] ? Number(dims[1]) : null;
     color = sanitize(config.superficieMesa) || "nada";
@@ -101,24 +130,46 @@ export function buildProducto(config: Record<string, string>, createdBy = "formu
     modelo = `${PANTALLA_FORMAS[forma] ?? forma} ${sanitize(config.tamanoPantalla, 20)}`.trim();
     relleno = forma;
     patas = sanitize(config.tamanoPantalla, 20);
+  } else if (tipo === "otro") {
+    modelo = sanitize(
+      config.modelo ??
+      (config as Record<string, unknown>).descripcion ??
+      (config as Record<string, unknown>).otroDescripcion,
+      200
+    );
   }
+
+  // Priorizar campos top-level cuando estén presentes (nuevo contrato).
+  if (topModelo) modelo = topModelo;
+  if (topAncho !== null) ancho = topAncho;
+  if (topAlto !== null) alto = topAlto;
+  if (topColor) color = topColor;
+  if (topRelleno) relleno = topRelleno;
+  if (topPatas) patas = topPatas;
+  // Fondo top-level: si viene, se anexa a `patas` para no perder el dato
+  // (no hay columna dedicada en productos_lead).
+  if (topFondo !== null) {
+    const nota = `Fondo ${topFondo} cm`;
+    patas = patas ? `${patas} · ${nota}` : nota;
+  }
+
+  const cantidad = Math.max(1, Math.floor(Number(config.cantidad) || 1));
+  const precio = Math.max(0, Number(config.precio_unitario ?? config.precio) || 0);
 
   return {
     tipo,
-    modelo,
+    modelo: modelo || (tipo === "otro" ? "Producto sin especificar" : ""),
     ancho: Number.isFinite(ancho) ? ancho : null,
     alto: Number.isFinite(alto) ? alto : null,
-    tela: sanitize(config.tela ?? config.fabricName),
+    tela: topTela,
     color,
     relleno,
     patas,
-    acabado: sanitize(config.acabado ?? config.finish, 30) || "vivo-simple",
-    coleccion_tela:
-      sanitize(config.coleccionTela, 30) ||
-      (config.fabricGroup === "Premium" ? "Premium" : "Básicas"),
-    cantidad: 1,
-    precio_unitario: 0,
-    notas_producto: "",
+    acabado: topAcabado || "vivo-simple",
+    coleccion_tela: topColeccion,
+    cantidad,
+    precio_unitario: precio,
+    notas_producto: sanitize(config.notas_producto, 500),
     created_by: createdBy,
   };
 }
