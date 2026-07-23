@@ -509,7 +509,11 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
 
   function setTipo(label: string) {
     const internal = (CATALOG_TO_INTERNAL[label] ?? "") as ProdTipo;
-    s({ tipo: internal });
+    // Preseleccionar acabado por comodidad (visible y modificable). Solo
+    // aplica al CREAR (isEditing=false); en edición mantenemos lo guardado.
+    const patch: Partial<ProdState> = { tipo: internal };
+    if (!f._isEdit) patch.acabado = acabadoDefault(internal);
+    s(patch);
   }
   function setModelo(id: string) {
     const m = modelosTipo.find(x => x.id === id);
