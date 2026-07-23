@@ -62,7 +62,7 @@ export function buildProducto(
   color: string;
   relleno: string;
   patas: string;
-  acabado: string;
+  acabado: string | null;
   coleccion_tela: string;
   cantidad: number;
   precio_unitario: number;
@@ -164,7 +164,11 @@ export function buildProducto(
     color,
     relleno,
     patas,
-    acabado: topAcabado || "vivo-simple",
+    // Default "vivo-simple" SOLO para tipos que realmente llevan vivo.
+    // cojin/pantalla/otro: NULL si no viene, nunca inventar acabado.
+    acabado: topAcabado
+      ? topAcabado
+      : (tipo === "cabecero" || tipo === "banco" || tipo === "puf" || tipo === "mesa" ? "vivo-simple" : null),
     coleccion_tela: topColeccion,
     cantidad,
     precio_unitario: precio,
