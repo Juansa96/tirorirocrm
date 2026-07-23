@@ -15,7 +15,7 @@ import {
   ProductoForm, EMPTY_PROD_STATE, productoToState,
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
-import { displayColeccionTela } from "@/lib/catalogo";
+import { displayColeccionTela, displayModelo } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/clientes/$id")({
   head: () => ({ meta: [{ title: "Cliente — TiroCRM" }] }),
@@ -524,7 +524,7 @@ function ClienteDetalle() {
                     return (
                       <div key={p.id} className="flex items-baseline justify-between gap-2 text-sm">
                         <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-slate-600">
-                          <span className="truncate">{p.modelo || "Producto"}</span>
+                          <span className="truncate">{displayModelo(p.modelo) || "Producto"}</span>
                           <FormaBadge modelo={p.modelo} />
                           {p.cantidad > 1 && <span className="text-slate-400">×{p.cantidad}</span>}
                         </span>
@@ -661,7 +661,7 @@ function ClienteDetalle() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {p.tipo && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">{TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}</span>}
-                        <span className="font-medium text-slate-900">{p.modelo || "Producto"}</span>
+                        <span className="font-medium text-slate-900">{displayModelo(p.modelo) || "Producto"}</span>
                         <FormaBadge modelo={p.modelo} />
                         {(p.notasProducto || "").toLowerCase().includes("posible-duplicado") && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800" title="Detectado como posible duplicado. Revísalo y bórralo si procede.">
