@@ -62,7 +62,7 @@ export function buildProducto(
   color: string;
   relleno: string;
   patas: string;
-  acabado: string;
+  acabado: string | null;
   coleccion_tela: string;
   cantidad: number;
   precio_unitario: number;
