@@ -207,8 +207,8 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   s.tapetes = p.patas?.includes("Tapetes") ?? false;
 
   if (p.tipo === "cabecero") {
-    const formaMatch = CABECERO_FORMAS.find(x => x.name === p.modelo);
-    s.forma = formaMatch ? formaMatch.id : (p.modelo === "Forma por decidir" ? FORMA_POR_DECIDIR : "");
+    const formaMatch = CABECERO_FORMAS.find(x => mismoModelo(x.name, p.modelo));
+    s.forma = formaMatch ? formaMatch.id : (mismoModelo(p.modelo, "Forma por decidir") ? FORMA_POR_DECIDIR : "");
     const a = p.ancho ? String(p.ancho) : "";
     s.anchoCama = CABECERO_ANCHOS.includes(a) ? a : (a ? "custom" : "150");
     s.anchoCamaCustom = CABECERO_ANCHOS.includes(a) ? "" : a;
