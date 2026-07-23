@@ -199,7 +199,7 @@ function DatosPage() {
     .map(({ key, n }) => ({ name: key.charAt(0).toUpperCase() + key.slice(1), value: n }));
 
   const modeloData = count(
-    filteredProductos.filter(p => p.modelo && p.modelo !== "Forma por decidir").map(p => p.modelo)
+    filteredProductos.filter(p => p.modelo && !mismoModelo(p.modelo, "Forma por decidir")).map(p => p.modelo)
   ).slice(0, 8);
 
   // ── Telas ─────────────────────────────────────────────────────────
