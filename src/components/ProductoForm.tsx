@@ -4,7 +4,7 @@ import type { Producto } from "@/lib/types";
 import { CATALOG_TO_INTERNAL } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { FormaBadge } from "@/components/FormaBadge";
-import { normalizarColeccionTela, displayColeccionTela } from "@/lib/catalogo";
+import { normalizarColeccionTela, displayColeccionTela, mismoModelo } from "@/lib/catalogo";
 
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
@@ -207,8 +207,8 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   s.tapetes = p.patas?.includes("Tapetes") ?? false;
 
   if (p.tipo === "cabecero") {
-    const formaMatch = CABECERO_FORMAS.find(x => x.name === p.modelo);
-    s.forma = formaMatch ? formaMatch.id : (p.modelo === "Forma por decidir" ? FORMA_POR_DECIDIR : "");
+    const formaMatch = CABECERO_FORMAS.find(x => mismoModelo(x.name, p.modelo));
+    s.forma = formaMatch ? formaMatch.id : (mismoModelo(p.modelo, "Forma por decidir") ? FORMA_POR_DECIDIR : "");
     const a = p.ancho ? String(p.ancho) : "";
     s.anchoCama = CABECERO_ANCHOS.includes(a) ? a : (a ? "custom" : "150");
     s.anchoCamaCustom = CABECERO_ANCHOS.includes(a) ? "" : a;
@@ -235,7 +235,7 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.tamanoPantalla = (p.patas ?? "").split(" · ")[0] || "";
     s.cantidad = p.cantidad;
   } else if (p.tipo === "almohadon") {
-    s.almohadonMedidas = p.modelo === "Almohadón" ? "" : p.modelo;
+    s.almohadonMedidas = mismoModelo(p.modelo, "Almohadón") ? "" : p.modelo;
     s.almohadonTela = p.color || p.tela || "";
     if (p.patas === "Sin ribete") { s.almohadonSinRibete = true; s.almohadonRibete = ""; }
     else if (p.patas?.startsWith("Ribete: ")) { s.almohadonSinRibete = false; s.almohadonRibete = p.patas.slice(8); }
@@ -358,22 +358,22 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     // Cabecero: forma id → nombre del modelo
     if (f.tipo === "cabecero") {
       const m = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? "";
-      return modelosTipo.find(x => x.modelo === m)?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, m))?.id ?? "";
     }
     if (f.tipo === "pantalla") {
       const m = PANTALLA_FORMAS.find(x => x.id === f.formaPantalla)?.name.split("—")[0].trim() ?? "";
-      return modelosTipo.find(x => x.modelo === m)?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, m))?.id ?? "";
     }
     if (f.tipo === "puf") {
-      return modelosTipo.find(x => x.modelo === "Patos")?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, "Patos"))?.id ?? "";
     }
     if (f.tipo === "almohadon") return modelosTipo[0]?.id ?? "";
     if (f.tipo === "otro") return modelosTipo[0]?.id ?? "";
     if (f.tipo === "mesa") {
-      return modelosTipo.find(x => x.modelo === "Cabo de Palos")?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, "Cabo de Palos"))?.id ?? "";
     }
     if (f.tipo === "banco") {
-      return modelosTipo.find(x => x.modelo === "Oyambre")?.id ?? modelosTipo[0]?.id ?? "";
+      return modelosTipo.find(x => mismoModelo(x.modelo, "Oyambre"))?.id ?? modelosTipo[0]?.id ?? "";
     }
     return "";
   }, [modelosTipo, f.tipo, f.forma, f.formaPantalla]);

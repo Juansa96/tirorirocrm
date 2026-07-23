@@ -16,9 +16,10 @@ import {
   PANTALLA_FORMAS,
   BANCO_VARIANTES,
   BANCO_OYAMBRE_PRECIOS,
-  BANCO_ALTO_FIJO,
   BANCO_OPCIONES,
+  BANCO_MEDIDAS_FISICAS,
   normalizarColeccionTela,
+  esColeccionTelaInvalida,
   type TipoProductoKey,
 } from "./catalogo";
 
@@ -63,7 +64,7 @@ export function buildProducto(
   relleno: string;
   patas: string;
   acabado: string | null;
-  coleccion_tela: string;
+  coleccion_tela: string | null;
   cantidad: number;
   precio_unitario: number;
   notas_producto: string;
@@ -83,14 +84,20 @@ export function buildProducto(
   const topRelleno = sanitize(config.relleno, 200);
   const topPatas = sanitize(config.patas, 200);
   const topAcabado = sanitize(config.acabado ?? (config as Record<string, unknown>).finish, 30);
-  const topColeccion = normalizarColeccionTela(
+  const coleccionRaw =
     config.coleccion_tela ?? (config as Record<string, unknown>).coleccionTela ??
-    ((config as Record<string, unknown>).fabricGroup === "Premium" ? "Premium" : undefined)
-  );
+    ((config as Record<string, unknown>).fabricGroup === "Premium" ? "Premium" : undefined);
+  // Coleccion: si viene un valor NO reconocido, se guarda null. Si viene vacío
+  // o ausente, cae en el default "basic" (base del producto). El aviso lo
+  // dispara el endpoint público con esColeccionTelaInvalida.
+  const topColeccion: string | null = esColeccionTelaInvalida(coleccionRaw)
+    ? null
+    : normalizarColeccionTela(coleccionRaw);
 
   let modelo = "";
   let ancho: number | null = null;
   let alto: number | null = null;
+  let fondo: number | null = null;
   let color = "";
   let relleno = "";
   let patas = "";
@@ -102,14 +109,24 @@ export function buildProducto(
     color = sanitize(config.telaLateral);
     patas = config.colgador === "true" || config.colgador === true ? "Con colgador" : "";
   } else if (tipo === "banco") {
-    const variante = String(config.varianteBanco ?? config.bancoMedida ?? "");
-    const opt = BANCO_OPCIONES.find((o) => o.id === variante);
-    modelo = opt ? `Oyambre ${opt.label}` : (BANCO_VARIANTES[variante] ?? sanitize(variante, 50) ?? "Oyambre");
-    ancho = variante === "custom"
+    // Variante del banco tal cual llega en el payload. Si NO se reconoce en
+    // el catálogo, NO se inventa "Oyambre" — se deja lo que venga como modelo
+    // (o vacío) y el endpoint dispara nota vía esVarianteBancoInvalida.
+    const varianteRaw = String(config.varianteBanco ?? config.bancoMedida ?? "");
+    const opt = BANCO_OPCIONES.find((o) => o.id === varianteRaw);
+    modelo = opt ? `Oyambre ${opt.label}` : sanitize(varianteRaw, 200);
+    ancho = varianteRaw === "custom"
       ? num(config.largoBanco, 400)
       : (opt?.ancho ?? null);
-    alto = variante === "custom" ? null : BANCO_ALTO_FIJO;
-    patas = "Fondo 33 cm · Alto 45 cm";
+    // Defaults físicos del banco: solo si el payload NO manda fondo/alto,
+    // y solo para variantes estándar (no "custom"). Vienen de la fuente única.
+    const fis = BANCO_MEDIDAS_FISICAS[varianteRaw];
+    if (fis) {
+      if (topFondo === null) fondo = fis.fondo;
+      if (topAlto === null) alto = fis.alto;
+    }
+    // patas queda vacío por defecto — solo se llena con lo que venga en el
+    // payload (topPatas más abajo). Se elimina el string "Fondo N cm · Alto N cm".
   } else if (tipo === "cojin") {
     const opcionAlmohadon = sanitize(config.opcionAlmohadon, 100);
     modelo = opcionAlmohadon.replace(/-/g, " — ");
@@ -125,6 +142,7 @@ export function buildProducto(
     const dims = (sanitize(config.presetMesa, 50)).replace(" cm", "").split("×");
     ancho = dims[0] ? Number(dims[0]) : null;
     alto = dims[1] ? Number(dims[1]) : null;
+    // "nada" = valor legítimo (sin superficie). Ver MESA_SUPERFICIES.
     color = sanitize(config.superficieMesa) || "nada";
   } else if (tipo === "pantalla") {
     const forma = sanitize(config.formaPantalla, 30);
@@ -145,11 +163,10 @@ export function buildProducto(
   if (topModelo) modelo = topModelo;
   if (topAncho !== null) ancho = topAncho;
   if (topAlto !== null) alto = topAlto;
+  if (topFondo !== null) fondo = topFondo;
   if (topColor) color = topColor;
   if (topRelleno) relleno = topRelleno;
   if (topPatas) patas = topPatas;
-  // Fondo va a su columna dedicada `productos_lead.fondo` (aditiva, nullable).
-  // Ya no se anexa a `patas` — patas significa solo patas.
 
   const cantidad = Math.max(1, Math.floor(Number(config.cantidad) || 1));
   const precio = Math.max(0, Number(config.precio_unitario ?? config.precio) || 0);
@@ -159,7 +176,7 @@ export function buildProducto(
     modelo: modelo || (tipo === "otro" ? "Sin descripcion" : ""),
     ancho: Number.isFinite(ancho) ? ancho : null,
     alto: Number.isFinite(alto) ? alto : null,
-    fondo: topFondo !== null && Number.isFinite(topFondo) ? topFondo : null,
+    fondo: Number.isFinite(fondo) ? fondo : null,
     tela: topTela,
     color,
     relleno,

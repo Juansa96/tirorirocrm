@@ -61,8 +61,20 @@ const TIPO_ALIAS: Record<string, TipoProductoKey> = {
   cubrecanapes: "otro",
 };
 
-function stripDiacritics(s: string): string {
+export function stripDiacritics(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Compara dos etiquetas de modelo/forma tolerando acentos, mayúsculas, espacios
+// dobles y trims. Sustituye a `a === b` en cualquier campo de texto que venga
+// tanto de payloads externos como de datos históricos. Cadena vacía nunca
+// hace match (aunque las dos estén vacías) — evita colapsar "no dato" con "no dato".
+export function mismoModelo(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown) =>
+    stripDiacritics(String(v ?? "")).trim().toLowerCase().replace(/\s+/g, " ");
+  const na = norm(a);
+  if (!na) return false;
+  return na === norm(b);
 }
 
 export function normalizeTipo(raw: unknown): TipoProductoKey | null {
@@ -112,10 +124,33 @@ export const BANCO_OPCIONES: BancoOpcion[] = [
   { id: "custom",   label: "Mis medidas",   precio: 0,   ancho: null, activo: true },
 ];
 
-// Fondo/alto fijos para los bancos estándar (siguen igual que hoy)
+// Medidas físicas por variante estándar. Fuente única de verdad — cualquier
+// valor por defecto para `fondo`/`alto` de un banco viene de aquí. Se aplica
+// SOLO cuando el payload no manda ese campo (payload manda si viene). Se
+// mantiene como mapa por-variante aunque hoy las 5 sean iguales: futuros
+// modelos con otro fondo se cambian aquí en una línea. "custom" no tiene
+// defaults (medidas propias del cliente).
+export const BANCO_MEDIDAS_FISICAS: Record<string, { fondo: number; alto: number }> = {
+  "60":  { fondo: 33, alto: 45 },
+  "90":  { fondo: 33, alto: 45 },
+  "120": { fondo: 33, alto: 45 },
+  "150": { fondo: 33, alto: 45 },
+  "180": { fondo: 33, alto: 45 },
+};
+
+// Compatibilidad hacia atrás. Nuevos usos deben leer BANCO_MEDIDAS_FISICAS.
 export const BANCO_ALTO_FIJO = 45;
 export const BANCO_FONDO_FIJO = 33;
 export const BANCO_VIVO_RECARGO = 30;
+
+// True si `raw` trae una variante presente pero desconocida (dispara nota).
+// Undefined/vacío → false (ausencia legítima, no error).
+export function esVarianteBancoInvalida(raw: unknown): boolean {
+  if (raw === null || raw === undefined) return false;
+  const s = stripDiacritics(String(raw)).trim().toLowerCase();
+  if (!s) return false;
+  return !BANCO_OPCIONES.some((o) => o.id.toLowerCase() === s);
+}
 
 // Compatibilidad con el código antiguo (product-schema.ts los re-exporta)
 export const BANCO_VARIANTES: Record<string, string> = Object.fromEntries(
@@ -214,6 +249,10 @@ export const MESA_OPCIONES: MesaOpcion[] = [
   { id: "80x45x80-legacy",  label: "80×45×80 cm",  ancho: 80,  fondo: 80, alto: 45, precio: 0, premium: 0, vivo: 0, activo: false, legacy: true },
 ];
 
+// Superficies válidas de mesa. "nada" es un valor legítimo — significa
+// "sin superficie añadida". Se guarda como tal en productos_lead.color por
+// diseño preexistente (no se cambia para no romper la interfaz ni las
+// comparaciones con datos históricos).
 export const MESA_SUPERFICIES = [
   { id: "nada",        name: "Sin superficie",             recargo: 0 },
   { id: "metacrilato", name: "Metacrilato 5 mm (+50€)",    recargo: 50 },
@@ -278,10 +317,24 @@ export const PANTALLA_OPCIONES: PantallaOpcion[] = [
 export const TELA_CATEGORIAS = ["basic", "premium"] as const;
 export type TelaCategoria = (typeof TELA_CATEGORIAS)[number];
 
+// UI/store-safe: valor por defecto "basic" cuando el valor es ausente o no
+// reconocido. Se sigue usando en toda la UI y el store (contrato existente).
+// El endpoint público usa además `esColeccionTelaInvalida()` para NO
+// interpretar valores desconocidos como "basic" en silencio.
 export function normalizarColeccionTela(raw: unknown): TelaCategoria {
   const s = stripDiacritics(String(raw ?? "")).trim().toLowerCase();
   if (s === "premium") return "premium";
-  return "basic"; // "basic", "basica", "básicas", "Premium " ya cae arriba, vacío → basic
+  return "basic"; // "basic", "basica", "básicas", vacío/null/undefined → basic
+}
+
+// True si `raw` trae un valor NO vacío y NO reconocido (dispara nota de
+// aviso en el endpoint). Vacío/ausente → false (ausencia legítima = basic).
+// Reconoce: "basic"/"basica"/"basicas" (con o sin acentos) y "premium".
+export function esColeccionTelaInvalida(raw: unknown): boolean {
+  if (raw === null || raw === undefined) return false;
+  const s = stripDiacritics(String(raw)).trim().toLowerCase();
+  if (!s) return false;
+  return s !== "premium" && s !== "basic" && s !== "basica" && s !== "basicas";
 }
 
 // Etiqueta para render en UI. Acepta valores canónicos y también los históricos
