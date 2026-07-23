@@ -15,7 +15,7 @@ import {
   ProductoForm, EMPTY_PROD_STATE, productoToState,
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
-import { displayColeccionTela, displayModelo } from "@/lib/catalogo";
+import { displayColeccionTela, displayModelo, mismoTipo } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/clientes/$id")({
   head: () => ({ meta: [{ title: "Cliente — TiroCRM" }] }),
@@ -677,7 +677,7 @@ function ClienteDetalle() {
                         {p.coleccionTela && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px]">{displayColeccionTela(p.coleccionTela)}</span>}
                         {p.color && <span>Lateral: <strong>{p.color}</strong></span>}
                         {p.acabado && p.acabado !== "liso" && <span>Acabado: <strong>{p.acabado === "vivo-simple" ? "Vivo simple" : "Vivo doble"}</strong></span>}
-                        {p.relleno && (p.tipo === "cabecero" || p.tipo === "puf") && <span>Tela vivo: <strong>{p.relleno}</strong></span>}
+                        {p.relleno && (mismoTipo(p.tipo, "cabecero") || mismoTipo(p.tipo, "puf")) && <span>Tela vivo: <strong>{p.relleno}</strong></span>}
                         {p.patas && <span><strong>{p.patas}</strong></span>}
                         <span>Cant: <strong>{p.cantidad}</strong></span>
                         {p.precioUnitario > 0 && <span>Precio: <strong>{formatCurrency(p.precioUnitario)}</strong></span>}

@@ -3,8 +3,7 @@ import { useMemo } from "react";
 import { CopyCheck, Trash2, Check, Package, ArrowLeft, ShieldCheck } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { formatShortDate, formatCurrency } from "@/lib/format";
-import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
-import { displayModelo } from "@/lib/catalogo";
+import { displayModelo, tipoLabelOf, normalizeTipo } from "@/lib/catalogo";
 import type { Producto, Lead } from "@/lib/types";
 
 export const Route = createFileRoute("/duplicados")({
@@ -17,10 +16,12 @@ function esDuplicado(p: Producto): boolean {
   return (p.notasProducto || "").toLowerCase().includes("[posible-duplicado]");
 }
 function dupKey(p: Producto): string {
-  return [p.leadId, p.tipo, p.modelo, p.ancho ?? "", p.alto ?? "", p.precioUnitario].join("|");
+  // Normaliza el tipo para que 'almohadon' y 'cojin' agrupen igual.
+  const tipoNorm = normalizeTipo(p.tipo) ?? String(p.tipo || "");
+  return [p.leadId, tipoNorm, p.modelo, p.ancho ?? "", p.alto ?? "", p.precioUnitario].join("|");
 }
 function tipoLabel(tipo: string): string {
-  return TIPOS_PRODUCTO.find((t) => t.id === tipo)?.label ?? tipo;
+  return tipoLabelOf(tipo);
 }
 
 interface Grupo {

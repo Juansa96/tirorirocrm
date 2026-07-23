@@ -8,6 +8,7 @@ import {
   normalizarColeccionTela,
   displayColeccionTela,
   mismoModelo,
+  mismoTipo,
   MODELO_TBD,
   esModeloTBD,
   BANCO_OPCIONES,
@@ -306,7 +307,7 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   s._origFondo = p.fondo ?? null;
   s._origAlto  = p.alto  ?? null;
 
-  if (p.tipo === "cabecero") {
+  if (mismoTipo(p.tipo, "cabecero")) {
     const formaMatch = CABECERO_FORMAS.find(x => mismoModelo(x.name, p.modelo));
     if (formaMatch) { s.forma = formaMatch.id; }
     else if (mismoModelo(p.modelo, "Forma por decidir")) { s.forma = FORMA_POR_DECIDIR; }
@@ -322,7 +323,7 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.colgador = p.patas?.includes("Con colgador") ?? false;
     s.cantidad = p.cantidad;
-  } else if (p.tipo === "puf") {
+  } else if (mismoTipo(p.tipo, "puf")) {
     const id = findCatalogIdByDims(PUF_OPCIONES, p.ancho, p.alto, p.fondo);
     s.pufId = id || (p.ancho ? "custom" : "");
     s.pufAnchoCustom = !id && p.ancho ? String(p.ancho) : "";
@@ -330,7 +331,7 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.pufAltoCustom  = !id && p.alto  ? String(p.alto)  : "";
     s.cantidadPuf = String(p.cantidad);
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
-  } else if (p.tipo === "mesa") {
+  } else if (mismoTipo(p.tipo, "mesa")) {
     const id = findCatalogIdByDims(MESA_OPCIONES, p.ancho, p.alto, p.fondo);
     s.mesaId = id || (p.ancho ? "custom" : "");
     s.mesaLargo = !id && p.ancho ? String(p.ancho) : "";
@@ -338,14 +339,15 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.mesaFondo = !id && p.fondo ? String(p.fondo) : (p.relleno ?? "");
     s.superficieMesa = MESA_SUPERFICIES.find(x => x.name === p.color)?.id ?? "nada";
     s.cantidad = p.cantidad;
-  } else if (p.tipo === "pantalla") {
+  } else if (mismoTipo(p.tipo, "pantalla")) {
     const id = findCatalogIdByDims(PANTALLA_OPCIONES_CAT, p.ancho, p.alto);
     s.pantallaId = id || (p.ancho ? "custom" : "");
     s.formaPantalla = (p.relleno && ["cilindro","cuadrado","rectangulo"].includes(p.relleno)) ? p.relleno : "cilindro";
     s.pantallaAnchoCustom = !id && p.ancho ? String(p.ancho) : "";
     s.pantallaAltoCustom  = !id && p.alto  ? String(p.alto)  : "";
     s.cantidad = p.cantidad;
-  } else if (p.tipo === "almohadon") {
+  } else if (mismoTipo(p.tipo, "cojin")) {
+    // Acepta indistintamente 'almohadon' (histórico CRM) y 'cojin' (endpoint web).
     const id = findCatalogIdByDims(COJIN_OPCIONES, p.ancho, p.alto);
     s.almohadonId = id || (p.ancho || p.modelo ? "custom" : "");
     s.almohadonMedidas = !id ? (p.modelo && !mismoModelo(p.modelo, "Almohadón") ? p.modelo : "") : "";
@@ -353,11 +355,11 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     if (p.patas === "Sin ribete") { s.almohadonSinRibete = true; s.almohadonRibete = ""; }
     else if (p.patas?.startsWith("Ribete: ")) { s.almohadonSinRibete = false; s.almohadonRibete = p.patas.slice(8); }
     s.cantidad = p.cantidad;
-  } else if (p.tipo === "otro") {
+  } else if (mismoTipo(p.tipo, "otro")) {
     s.otroPorDecidir = esModeloTBD(p.modelo);
     s.otroDescripcion = s.otroPorDecidir ? "" : p.modelo;
     s.cantidad = p.cantidad;
-  } else if (p.tipo === "banco") {
+  } else if (mismoTipo(p.tipo, "banco")) {
     const a = p.ancho ? String(p.ancho) : "";
     const stdAnchos = BANCO_OPCIONES
       .filter(o => o.id !== "custom" && o.id !== "60-doble" && o.ancho !== null)
