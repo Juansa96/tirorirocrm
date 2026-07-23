@@ -653,6 +653,7 @@ function ClienteDetalle() {
                   initial={productoToState({ tipo: p.tipo, modelo: p.modelo, ancho: p.ancho, alto: p.alto, fondo: p.fondo, tela: p.tela, color: p.color, relleno: p.relleno, patas: p.patas, acabado: p.acabado, coleccionTela: p.coleccionTela, cantidad: p.cantidad, precioUnitario: p.precioUnitario, notasProducto: p.notasProducto })}
                   onSave={(updated) => { actions.updateProducto(p.id, updated); setEditingProd(null); }}
                   onCancel={() => setEditingProd(null)}
+                  isEditing
                 />
               ) : (
                 <div className={`rounded-lg border p-3 ${p.caracteristicasConfirmadas ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-slate-50"}`}>
