@@ -220,10 +220,12 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.cantidad = p.cantidad;
   } else if (p.tipo === "puf") {
     const a = p.ancho ? String(p.ancho) : "";
-    s.tamanoPuf = ["40","50"].includes(a) ? a : (a ? "custom" : "40");
-    s.tamanoPufCustom = ["40","50"].includes(a) ? "" : a;
+    const std = PUF_TAMANOS.includes(a);
+    s.tamanoPuf = std ? a : (a ? "custom" : "40");
+    s.tamanoPufCustom = std ? "" : a;
     s.cantidadPuf = String(p.cantidad);
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
+
   } else if (p.tipo === "mesa") {
     s.presetMesa = MESA_PRESETS.includes(p.modelo) ? p.modelo : "custom";
     s.mesaLargo = p.ancho ? String(p.ancho) : ""; s.mesaAlto = p.alto ? String(p.alto) : "";
