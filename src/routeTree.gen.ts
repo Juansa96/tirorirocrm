@@ -26,6 +26,7 @@ import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
+import { Route as ApiPublicLeadTestRunnerRouteImport } from './routes/api/public/_lead-test-runner'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -115,6 +116,11 @@ const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   path: '/api/public/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicLeadTestRunnerRoute = ApiPublicLeadTestRunnerRouteImport.update({
+  id: '/api/public/_lead-test-runner',
+  path: '/api/public',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
+  '/api/public': typeof ApiPublicLeadTestRunnerRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/b2b': typeof B2bIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/pedidos': typeof PedidosIndexRoute
+  '/api/public': typeof ApiPublicLeadTestRunnerRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
+  '/api/public/_lead-test-runner': typeof ApiPublicLeadTestRunnerRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/b2b/'
     | '/clientes/'
     | '/pedidos/'
+    | '/api/public'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/b2b'
     | '/clientes'
     | '/pedidos'
+    | '/api/public'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/b2b/'
     | '/clientes/'
     | '/pedidos/'
+    | '/api/public/_lead-test-runner'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -284,6 +296,7 @@ export interface RootRouteChildren {
   B2bIndexRoute: typeof B2bIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   PedidosIndexRoute: typeof PedidosIndexRoute
+  ApiPublicLeadTestRunnerRoute: typeof ApiPublicLeadTestRunnerRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -412,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/_lead-test-runner': {
+      id: '/api/public/_lead-test-runner'
+      path: '/api/public'
+      fullPath: '/api/public'
+      preLoaderRoute: typeof ApiPublicLeadTestRunnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -452,6 +472,7 @@ const rootRouteChildren: RootRouteChildren = {
   B2bIndexRoute: B2bIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   PedidosIndexRoute: PedidosIndexRoute,
+  ApiPublicLeadTestRunnerRoute: ApiPublicLeadTestRunnerRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
