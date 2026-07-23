@@ -6,7 +6,7 @@ import { semaforoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLA
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
-import { displayModelo } from "@/lib/catalogo";
+import { displayModelo, tipoLabelOf } from "@/lib/catalogo";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
   const headers = Object.keys(rows[0] ?? {});
@@ -397,7 +397,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
 }) {
   const [editing, setEditing] = useState(false);
   const c = SEM_COLOR[sem.estado];
-  const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
+  const tipoLabel = producto ? tipoLabelOf(producto.tipo) : "";
   const diasLabel = pedido.entregado ? "Entregado" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d restantes` : `${Math.abs(sem.diasRestantes)}d de retraso`;
   const borderLeft = sem.estado === "verde" ? "border-l-emerald-500" : sem.estado === "ambar" ? "border-l-amber-500" : "border-l-rose-500";
   const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
@@ -525,7 +525,7 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT }: {
   sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number;
 }) {
   const c = SEM_COLOR[sem.estado];
-  const tipoLabel = producto ? (TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo) : "";
+  const tipoLabel = producto ? tipoLabelOf(producto.tipo) : "";
   const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
   return (
     <tr className="border-t border-slate-100 hover:bg-slate-50/60">
@@ -759,7 +759,7 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                 <option value="">— Selecciona producto —</option>
                 {productosDelLead.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}{displayModelo(p.modelo) ? ` · ${displayModelo(p.modelo)}` : ""}
+                    {tipoLabelOf(p.tipo)}{displayModelo(p.modelo) ? ` · ${displayModelo(p.modelo)}` : ""}
                   </option>
                 ))}
               </select>

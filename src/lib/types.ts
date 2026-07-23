@@ -309,10 +309,11 @@ export interface PedidoTela {
 
 // Plantilla de telas según tipo de producto (punto de partida; el usuario puede editar libremente)
 export function telasPorTipo(tipo: string): string[] {
-  const t = (tipo || "").toLowerCase();
+  // Acepta tanto los canónicos ("cojin") como los alias históricos ("almohadon", "cojín").
+  const t = (tipo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   if (t === "cabecero") return ["Frontal", "Lateral", "Vivo"];
   if (t === "puf") return ["Superior", "Lateral", "Vivo"];
-  if (t === "cojin" || t === "cojín") return ["Principal"];
+  if (t === "cojin" || t === "almohadon" || t === "almohadones" || t === "cojines") return ["Principal"];
   if (t === "banco") return ["Asiento", "Lateral", "Vivo"];
   if (t === "pantalla") return ["Principal"];
   if (t === "mesa") return [];

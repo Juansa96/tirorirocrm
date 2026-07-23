@@ -100,6 +100,23 @@ export function normalizeTipo(raw: unknown): TipoProductoKey | null {
   return TIPO_ALIAS[key] ?? null;
 }
 
+// Compara dos tipos de producto tolerando alias / mayúsculas / acentos.
+// Genérico: resuelve almohadon↔cojin, oyambre↔banco, cubrecanape↔otro, etc.
+// Devuelve false si alguno no se puede normalizar (no colapsa "desconocido").
+export function mismoTipo(a: unknown, b: unknown): boolean {
+  const na = normalizeTipo(a);
+  const nb = normalizeTipo(b);
+  return na !== null && na === nb;
+}
+
+// Etiqueta legible desde cualquier variante de tipo (raw o canónico).
+// Si no se reconoce devuelve el string original en crudo (o "").
+export function tipoLabelOf(raw: unknown): string {
+  const k = normalizeTipo(raw);
+  if (k) return TIPO_LABEL[k];
+  return typeof raw === "string" ? raw : "";
+}
+
 // ── Formas (cabecero + pantalla) ───────────────────────────────────────────
 // Se conservan tal cual porque FormaBadge y buildProducto las consumen.
 export const CABECERO_FORMAS: Record<string, string> = {

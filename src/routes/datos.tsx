@@ -9,7 +9,7 @@ import { useStore } from "@/lib/store";
 import type { Etapa } from "@/lib/types";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, RANGOS_EDAD, vendorName } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
-import { mismoModelo, esModeloTBD } from "@/lib/catalogo";
+import { mismoModelo, esModeloTBD, mismoTipo, tipoLabelOf } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/datos")({
   head: () => ({ meta: [{ title: "Datos — TiroCRM" }] }),
@@ -196,8 +196,9 @@ function DatosPage() {
   }).filter(v => v.leads > 0 || vendedorFilter === "all");
 
   // ── Productos ─────────────────────────────────────────────────────
-  const tipoData = count(filteredProductos.map(p => p.tipo || "Sin tipo"))
-    .map(({ key, n }) => ({ name: key.charAt(0).toUpperCase() + key.slice(1), value: n }));
+  // Agrupa por tipo canónico ("almohadon" y "cojin" cuentan como el mismo bucket).
+  const tipoData = count(filteredProductos.map(p => tipoLabelOf(p.tipo) || "Sin tipo"))
+    .map(({ key, n }) => ({ name: key, value: n }));
 
   const modeloData = count(
     filteredProductos.filter(p => p.modelo && !mismoModelo(p.modelo, "Forma por decidir") && !esModeloTBD(p.modelo)).map(p => p.modelo)
@@ -216,7 +217,7 @@ function DatosPage() {
 
   // ── Anchos de cabecero ────────────────────────────────────────────
   const anchoData = count(
-    filteredProductos.filter(p => p.tipo === "cabecero" && p.ancho).map(p => `${p.ancho} cm`)
+    filteredProductos.filter(p => mismoTipo(p.tipo, "cabecero") && p.ancho).map(p => `${p.ancho} cm`)
   ).slice(0, 8);
   const maxAncho = anchoData[0]?.n ?? 1;
 
