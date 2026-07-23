@@ -316,7 +316,7 @@ function TelaSection({ tela, onTela, coleccionTela, onColeccion, telaLateral, on
       <div>
         <div className={SECTION_CLS}>Colección</div>
         <div className="flex gap-2">
-          {["Básicas","Premium"].map(c => <button key={c} type="button" onClick={() => onColeccion(c)} className={BTN_CLS(coleccionTela === c)}>{c}</button>)}
+          {(["basic","premium"] as const).map(c => <button key={c} type="button" onClick={() => onColeccion(c)} className={BTN_CLS(normalizarColeccionTela(coleccionTela) === c)}>{displayColeccionTela(c)}</button>)}
         </div>
       </div>
       {showLateral && (
