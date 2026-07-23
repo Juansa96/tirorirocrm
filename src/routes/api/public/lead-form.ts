@@ -198,10 +198,11 @@ export const Route = createFileRoute("/api/public/lead-form")({
                 cantidad,
                 config_json: config_json as never,
               });
-              // Aviso adicional: tipo "otro" sin descripción real (A1).
               const rawObj = raw as Record<string, unknown>;
               const rawTipo = String(rawObj.tipo ?? "").toLowerCase().trim();
               const cfg = (rawObj.config ?? {}) as Record<string, unknown>;
+
+              // Aviso: tipo "otro" sin descripción real (adenda A1).
               const tieneModelo = typeof rawObj.modelo === "string" && rawObj.modelo.trim().length > 0
                 || typeof cfg.modelo === "string" && (cfg.modelo as string).trim().length > 0;
               const tieneResumen = typeof cfg.resumen === "string" && (cfg.resumen as string).trim().length > 0;
@@ -211,6 +212,34 @@ export const Route = createFileRoute("/api/public/lead-form")({
                   contenido:
                     "AVISO: llegó un producto tipo \"otro\" sin descripción desde la web.\n" +
                     "Payload recibido: " + JSON.stringify(raw),
+                  usuario: "sistema",
+                });
+              }
+
+              // Aviso: coleccion_tela presente pero no reconocida (B.1 §1.2).
+              // Guardado como null (nunca inventamos "basic" a partir de una errata).
+              const coleccionRaw = rawObj.coleccion_tela ?? (rawObj as Record<string, unknown>).coleccionTela
+                ?? (cfg.coleccion_tela ?? (cfg as Record<string, unknown>).coleccionTela);
+              if (esColeccionTelaInvalida(coleccionRaw)) {
+                await supabaseAdmin.from("notas").insert({
+                  lead_id: lead.id,
+                  contenido:
+                    "AVISO: colección de tela no reconocida: \"" + String(coleccionRaw) + "\". " +
+                    "Guardada como sin categoría (null). Revisar y clasificar manualmente.",
+                  usuario: "sistema",
+                });
+              }
+
+              // Aviso: variante de banco presente pero no reconocida (B.1 §2.1).
+              // NO se inventa modelo "Oyambre"; se guarda tal cual venga en el payload.
+              const varianteBancoRaw = rawObj.varianteBanco ?? (rawObj as Record<string, unknown>).bancoMedida
+                ?? cfg.varianteBanco ?? (cfg as Record<string, unknown>).bancoMedida;
+              if (rawTipo === "banco" && esVarianteBancoInvalida(varianteBancoRaw)) {
+                await supabaseAdmin.from("notas").insert({
+                  lead_id: lead.id,
+                  contenido:
+                    "AVISO: variante de banco no reconocida: \"" + String(varianteBancoRaw) + "\". " +
+                    "Modelo guardado tal cual llegó del payload (no se ha inventado \"Oyambre\").",
                   usuario: "sistema",
                 });
               }
