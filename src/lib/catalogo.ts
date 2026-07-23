@@ -124,10 +124,33 @@ export const BANCO_OPCIONES: BancoOpcion[] = [
   { id: "custom",   label: "Mis medidas",   precio: 0,   ancho: null, activo: true },
 ];
 
-// Fondo/alto fijos para los bancos estándar (siguen igual que hoy)
+// Medidas físicas por variante estándar. Fuente única de verdad — cualquier
+// valor por defecto para `fondo`/`alto` de un banco viene de aquí. Se aplica
+// SOLO cuando el payload no manda ese campo (payload manda si viene). Se
+// mantiene como mapa por-variante aunque hoy las 5 sean iguales: futuros
+// modelos con otro fondo se cambian aquí en una línea. "custom" no tiene
+// defaults (medidas propias del cliente).
+export const BANCO_MEDIDAS_FISICAS: Record<string, { fondo: number; alto: number }> = {
+  "60":  { fondo: 33, alto: 45 },
+  "90":  { fondo: 33, alto: 45 },
+  "120": { fondo: 33, alto: 45 },
+  "150": { fondo: 33, alto: 45 },
+  "180": { fondo: 33, alto: 45 },
+};
+
+// Compatibilidad hacia atrás. Nuevos usos deben leer BANCO_MEDIDAS_FISICAS.
 export const BANCO_ALTO_FIJO = 45;
 export const BANCO_FONDO_FIJO = 33;
 export const BANCO_VIVO_RECARGO = 30;
+
+// True si `raw` trae una variante presente pero desconocida (dispara nota).
+// Undefined/vacío → false (ausencia legítima, no error).
+export function esVarianteBancoInvalida(raw: unknown): boolean {
+  if (raw === null || raw === undefined) return false;
+  const s = stripDiacritics(String(raw)).trim().toLowerCase();
+  if (!s) return false;
+  return !BANCO_OPCIONES.some((o) => o.id.toLowerCase() === s);
+}
 
 // Compatibilidad con el código antiguo (product-schema.ts los re-exporta)
 export const BANCO_VARIANTES: Record<string, string> = Object.fromEntries(
