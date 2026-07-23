@@ -1,0 +1,1 @@
+ALTER TABLE public.productos_lead ADD COLUMN IF NOT EXISTS fondo numeric;
