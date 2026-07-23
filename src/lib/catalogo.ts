@@ -317,10 +317,24 @@ export const PANTALLA_OPCIONES: PantallaOpcion[] = [
 export const TELA_CATEGORIAS = ["basic", "premium"] as const;
 export type TelaCategoria = (typeof TELA_CATEGORIAS)[number];
 
+// UI/store-safe: valor por defecto "basic" cuando el valor es ausente o no
+// reconocido. Se sigue usando en toda la UI y el store (contrato existente).
+// El endpoint público usa además `esColeccionTelaInvalida()` para NO
+// interpretar valores desconocidos como "basic" en silencio.
 export function normalizarColeccionTela(raw: unknown): TelaCategoria {
   const s = stripDiacritics(String(raw ?? "")).trim().toLowerCase();
   if (s === "premium") return "premium";
-  return "basic"; // "basic", "basica", "básicas", "Premium " ya cae arriba, vacío → basic
+  return "basic"; // "basic", "basica", "básicas", vacío/null/undefined → basic
+}
+
+// True si `raw` trae un valor NO vacío y NO reconocido (dispara nota de
+// aviso en el endpoint). Vacío/ausente → false (ausencia legítima = basic).
+// Reconoce: "basic"/"basica"/"basicas" (con o sin acentos) y "premium".
+export function esColeccionTelaInvalida(raw: unknown): boolean {
+  if (raw === null || raw === undefined) return false;
+  const s = stripDiacritics(String(raw)).trim().toLowerCase();
+  if (!s) return false;
+  return s !== "premium" && s !== "basic" && s !== "basica" && s !== "basicas";
 }
 
 // Etiqueta para render en UI. Acepta valores canónicos y también los históricos
