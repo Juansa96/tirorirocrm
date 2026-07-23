@@ -77,6 +77,22 @@ export function mismoModelo(a: unknown, b: unknown): boolean {
   return na === norm(b);
 }
 
+// ── Sentinela "Por decidir" para modelo ────────────────────────────────────
+// Valor centinela que NO puede colisionar con texto libre escrito por el usuario.
+// Se guarda en productos_lead.modelo cuando el operador marca "Por decidir"
+// en el tipo "otro". Para render usar SIEMPRE displayModelo(m).
+// Reconoce además el valor legado "Otro (por decidir)" para no romper filas
+// históricas guardadas antes de introducir el centinela.
+export const MODELO_TBD = "__TBD__";
+export function esModeloTBD(m: unknown): boolean {
+  if (typeof m !== "string") return false;
+  return m === MODELO_TBD || mismoModelo(m, "Otro (por decidir)");
+}
+export function displayModelo(m: unknown): string {
+  if (esModeloTBD(m)) return "Por decidir";
+  return typeof m === "string" ? m : "";
+}
+
 export function normalizeTipo(raw: unknown): TipoProductoKey | null {
   if (raw === null || raw === undefined) return null;
   const key = stripDiacritics(String(raw)).trim().toLowerCase();
