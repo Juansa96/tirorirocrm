@@ -376,3 +376,26 @@ export function findCojinById(id: string): CojinOpcion | undefined {
 export function findPantallaById(id: string): PantallaOpcion | undefined {
   return PANTALLA_OPCIONES.find((o) => o.id === id);
 }
+
+// ── Constantes UI trasladadas desde ProductoForm.tsx (B.2a) ────────────────
+// Estos son los valores exactos que consume el componente HOY. Vivirán aquí
+// como fuente única mientras B.2b rediseña esos selectores para usar los
+// catálogos nuevos (MESA_OPCIONES, PUF_OPCIONES, PANTALLA_OPCIONES...).
+
+// Presets de mesa que muestra la UI actual (dos medidas rectangulares).
+export const MESA_PRESETS_UI = ["120×45×60 cm", "80×45×80 cm"] as const;
+
+// Diámetros de puf que la UI actual ofrece como estándar (cm, string).
+export const PUF_TAMANOS_UI = ["40", "50"] as const;
+
+// Tamaños de pantalla por forma, tal cual los muestra la UI actual.
+export const PANTALLA_TAMANOS_UI: Record<string, string[]> = {
+  cilindro:   ["Ø15×20 cm", "Ø25×25 cm", "Ø40×40 cm"],
+  cuadrado:   ["20×20 cm"],
+  rectangulo: ["20×40 cm"],
+};
+
+// Alturas de cabecero (alias del ya existente CABECERO_ALTOS, para simetría
+// con el resto de constantes UI trasladadas).
+export const CABECERO_ALTURAS_UI = CABECERO_ALTOS;
+

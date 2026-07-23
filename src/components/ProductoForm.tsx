@@ -4,7 +4,20 @@ import type { Producto } from "@/lib/types";
 import { CATALOG_TO_INTERNAL } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { FormaBadge } from "@/components/FormaBadge";
-import { normalizarColeccionTela, displayColeccionTela, mismoModelo } from "@/lib/catalogo";
+import {
+  normalizarColeccionTela,
+  displayColeccionTela,
+  mismoModelo,
+  BANCO_OPCIONES,
+  BANCO_MEDIDAS_FISICAS,
+  BANCO_ALTO_FIJO,
+  BANCO_FONDO_FIJO,
+  findBancoById,
+  MESA_PRESETS_UI,
+  PUF_TAMANOS_UI,
+  PANTALLA_TAMANOS_UI,
+  CABECERO_ALTURAS_UI,
+} from "@/lib/catalogo";
 
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
@@ -17,18 +30,12 @@ export const TIPOS_PRODUCTO = [
   { id: "otro",      label: "Otro" },
 ] as const;
 
-// Banco Oyambre — precios fijos por medida (idénticos al configurador web)
-export const BANCO_OYAMBRE = [
-  { id: "60",        label: "60 cm",         precio: 200 },
-  { id: "60-doble",  label: "60 cm doble",   precio: 370 },
-  { id: "90",        label: "90 cm",         precio: 250 },
-  { id: "120",       label: "120 cm",        precio: 300 },
-  { id: "150",       label: "150 cm",        precio: 350 },
-  { id: "custom",    label: "Mis medidas",   precio: 0 }, // A consultar
-] as const;
-export const BANCO_ALTO_FIJO = 45;
-export const BANCO_FONDO_FIJO = 33;
-
+// Alias locales para preservar el resto del código sin reescribir referencias.
+// Estas constantes viven ahora en src/lib/catalogo.ts (fuente única).
+export const MESA_PRESETS = MESA_PRESETS_UI as readonly string[];
+export const PUF_TAMANOS = PUF_TAMANOS_UI as readonly string[];
+export const PANTALLA_OPCIONES = PANTALLA_TAMANOS_UI;
+export const CABECERO_ALTOS = CABECERO_ALTURAS_UI as readonly string[];
 
 export const CABECERO_FORMAS = [
   { id: "recto",         name: "Calobra" },
@@ -38,9 +45,7 @@ export const CABECERO_FORMAS = [
   { id: "ondas",         name: "Barbaria" },
 ];
 export const CABECERO_ANCHOS = ["90", "105", "135", "150", "160", "180", "200"];
-export const CABECERO_ALTOS  = ["100", "120"];
 
-export const MESA_PRESETS = ["120×45×60 cm", "80×45×80 cm"];
 export const MESA_SUPERFICIES = [
   { id: "nada",        name: "Sin superficie" },
   { id: "metacrilato", name: "Metacrilato 5 mm (+50€)" },
@@ -52,11 +57,6 @@ export const PANTALLA_FORMAS = [
   { id: "cuadrado",   name: "Tormes — Cuadrado" },
   { id: "rectangulo", name: "La Serrota — Rectangular" },
 ];
-export const PANTALLA_OPCIONES: Record<string, string[]> = {
-  cilindro:   ["Ø15×20 cm", "Ø25×25 cm", "Ø40×40 cm"],
-  cuadrado:   ["20×20 cm"],
-  rectangulo: ["20×40 cm"],
-};
 
 export const FINISHES_CABECERO = [
   { id: "vivo-simple", name: "Vivo simple (incluido)" },
@@ -77,6 +77,7 @@ export const TELAS_SUGERIDAS = [
   "Ramas Siena Azul","Flores Gardenia","Bibiana","Prints Botánicos","Rayas Verde Sage",
   "Raya Monina","Rayas Jules Verde","Lino Azul Provenzal","Lino Flores Normandía","Lino Flores Senda",
 ];
+
 
 // ── Tipos ─────────────────────────────────────────────────────────
 export type ProdTipo = "cabecero" | "banco" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
@@ -162,21 +163,20 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     relleno = f.formaPantalla;
     patas = extras([!tbd && f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)", tbd && "Medida por decidir"]);
   } else if (f.tipo === "banco") {
-    const opt = BANCO_OYAMBRE.find(x => x.id === f.bancoMedida);
+    const opt = findBancoById(f.bancoMedida);
+    const fis = BANCO_MEDIDAS_FISICAS[f.bancoMedida];
     const anchoCustom = f.bancoMedida === "custom" ? (Number(f.bancoLargoCustom) || null) : null;
     modelo = `Oyambre — ${opt?.label ?? f.bancoMedida}`;
-    ancho = f.bancoMedida === "custom"
-      ? anchoCustom
-      : (Number(f.bancoMedida) || null);
-    alto = f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO;
-    // Fondo/alto fijos + "a consultar" para custom
+    ancho = f.bancoMedida === "custom" ? anchoCustom : (opt?.ancho ?? null);
+    alto = fis?.alto ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
     patas = extras([
-      f.bancoMedida !== "custom" && `Alto ${BANCO_ALTO_FIJO} cm · Fondo ${BANCO_FONDO_FIJO} cm`,
+      fis && `Alto ${fis.alto} cm · Fondo ${fis.fondo} cm`,
       f.bancoMedida === "custom" && "A consultar (medidas personalizadas)",
       f.tapetes && "Tapetes protectores (+5€)",
     ]);
     color = f.telaLateral; relleno = f.telaVivo;
   }
+
 
   if (f.tipo === "almohadon") {
     modelo = f.almohadonMedidas || "Almohadón";
@@ -220,10 +220,12 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.cantidad = p.cantidad;
   } else if (p.tipo === "puf") {
     const a = p.ancho ? String(p.ancho) : "";
-    s.tamanoPuf = ["40","50"].includes(a) ? a : (a ? "custom" : "40");
-    s.tamanoPufCustom = ["40","50"].includes(a) ? "" : a;
+    const std = PUF_TAMANOS.includes(a);
+    s.tamanoPuf = std ? a : (a ? "custom" : "40");
+    s.tamanoPufCustom = std ? "" : a;
     s.cantidadPuf = String(p.cantidad);
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
+
   } else if (p.tipo === "mesa") {
     s.presetMesa = MESA_PRESETS.includes(p.modelo) ? p.modelo : "custom";
     s.mesaLargo = p.ancho ? String(p.ancho) : ""; s.mesaAlto = p.alto ? String(p.alto) : "";
@@ -245,14 +247,18 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.cantidad = p.cantidad;
   } else if (p.tipo === "banco") {
     const a = p.ancho ? String(p.ancho) : "";
-    const std = ["60","90","120","150"];
-    // "60 doble" no se puede distinguir solo por ancho — buscar en modelo
+    // Anchos estándar (excluye custom y variante doble); vienen del catálogo.
+    const stdAnchos = BANCO_OPCIONES
+      .filter(o => o.id !== "custom" && o.id !== "60-doble" && o.ancho !== null)
+      .map(o => String(o.ancho));
+    // "60 doble" no se puede distinguir solo por ancho — buscar en modelo.
     const isDoble = /doble/i.test(p.modelo);
-    s.bancoMedida = isDoble ? "60-doble" : (std.includes(a) ? a : (a ? "custom" : "90"));
+    s.bancoMedida = isDoble ? "60-doble" : (stdAnchos.includes(a) ? a : (a ? "custom" : "90"));
     s.bancoLargoCustom = s.bancoMedida === "custom" ? a : "";
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.cantidad = p.cantidad;
   }
+
 
   return s;
 }
@@ -505,12 +511,21 @@ export function ProductoForm({
       )}
 
       {/* ── BANCO OYAMBRE ── */}
-      {f.tipo === "banco" && (
+      {f.tipo === "banco" && (() => {
+        // Muestra solo las variantes activas del catálogo. Si el estado actual
+        // apunta a una variante legacy (p.ej. "60-doble" en un producto
+        // histórico que se está editando), se añade esa opción marcada como
+        // retirada para que siga siendo seleccionable y editable.
+        const activas = BANCO_OPCIONES.filter(o => o.activo);
+        const selectedOpt = findBancoById(f.bancoMedida);
+        const showLegacy = selectedOpt && !selectedOpt.activo;
+        const opciones = showLegacy ? [...activas, selectedOpt!] : activas;
+        return (
         <>
           <div>
             <div className={section}>Medida (Oyambre)</div>
             <div className="flex flex-wrap gap-2">
-              {BANCO_OYAMBRE.map(x => (
+              {opciones.map(x => (
                 <button
                   key={x.id}
                   type="button"
@@ -520,7 +535,11 @@ export function ProductoForm({
                   })}
                   className={btn(f.bancoMedida === x.id)}
                 >
-                  {x.label}{x.precio > 0 ? ` · ${x.precio}€` : " · A consultar"}
+                  {x.label}
+                  {x.id === "custom"
+                    ? " · A consultar"
+                    : x.precio > 0 ? ` · ${x.precio}€` : ""}
+                  {x.legacy ? " (retirado)" : ""}
                 </button>
               ))}
             </div>
@@ -544,6 +563,7 @@ export function ProductoForm({
               Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
             </div>
           </div>
+
           <TelaSection
             tela={f.tela}
             onTela={v => s({ tela: v })}
@@ -561,7 +581,9 @@ export function ProductoForm({
             </label>
           </div>
         </>
-      )}
+        );
+      })()}
+
 
 
       {/* ── PUF ── */}
