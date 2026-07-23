@@ -159,7 +159,7 @@ export function buildProducto(
 
   return {
     tipo,
-    modelo: modelo || (tipo === "otro" ? "Producto sin especificar" : ""),
+    modelo: modelo || (tipo === "otro" ? "Sin descripcion" : ""),
     ancho: Number.isFinite(ancho) ? ancho : null,
     alto: Number.isFinite(alto) ? alto : null,
     tela: topTela,
