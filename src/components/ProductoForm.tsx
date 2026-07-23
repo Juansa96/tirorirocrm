@@ -8,6 +8,8 @@ import {
   normalizarColeccionTela,
   displayColeccionTela,
   mismoModelo,
+  MODELO_TBD,
+  esModeloTBD,
   BANCO_OPCIONES,
   BANCO_MEDIDAS_FISICAS,
   BANCO_ALTO_FIJO,
@@ -107,6 +109,13 @@ export interface ProdState {
   otroDescripcion: string; otroPorDecidir: boolean;
   bancoMedida: string; bancoLargoCustom: string;
   cantidad: number; precioUnitario: number; notasProducto: string;
+  // Snapshot de campos mutables al abrir en modo edición. Se usa para NO
+  // sobreescribir valores históricos con defaults del catálogo (grosor 8 del
+  // cabecero, alto/fondo del banco). Undefined ≡ creando; null ≡ editando y
+  // el valor original era NULL; number ≡ editando con valor guardado.
+  _origFondo?: number | null;
+  _origAlto?: number | null;
+  _isEdit?: boolean;
 }
 
 export const EMPTY_PROD_STATE: ProdState = {
@@ -122,6 +131,14 @@ export const EMPTY_PROD_STATE: ProdState = {
   bancoMedida: "90", bancoLargoCustom: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
+
+// Preselección de "vivo-simple" al elegir tipo desde el CRM. Es una
+// comodidad visible y modificable, NO un default silencioso del endpoint.
+// Solo aplica a tipos que llevan vivo: cabecero, banco, puf, mesa.
+const TIPOS_CON_VIVO = new Set<ProdTipo>(["cabecero", "banco", "puf", "mesa"]);
+function acabadoDefault(tipo: ProdTipo): string {
+  return TIPOS_CON_VIVO.has(tipo) ? "vivo-simple" : "";
+}
 
 
 // ── Conversiones ──────────────────────────────────────────────────
@@ -142,7 +159,9 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
       : (CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma);
     ancho = f.anchoCama === "tbd" ? null : f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
     alto  = f.altoCabecero === "tbd" ? null : f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
-    fondo = CABECERO_GROSOR_CM;
+    fondo = f._isEdit
+      ? (f._origFondo === null ? null : f._origFondo ?? null)
+      : CABECERO_GROSOR_CM;
     color = f.telaLateral; relleno = f.telaVivo;
     const tbdForma = f.forma === FORMA_POR_DECIDIR || !f.forma;
     const tbdAncho = f.anchoCama === "tbd";
@@ -208,10 +227,17 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     const anchoCustom = f.bancoMedida === "custom" ? (Number(f.bancoLargoCustom) || null) : null;
     modelo = `Oyambre — ${opt?.label ?? f.bancoMedida}`;
     ancho = f.bancoMedida === "custom" ? anchoCustom : (opt?.ancho ?? null);
-    alto = fis?.alto ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
-    fondo = fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO);
+    // Preserva alto/fondo históricos al editar: si el original era NULL,
+    // no escribimos el default del catálogo (mismo criterio que en cabecero).
+    if (f._isEdit) {
+      alto  = f._origAlto  === undefined ? (fis?.alto  ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO))  : f._origAlto;
+      fondo = f._origFondo === undefined ? (fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO)) : f._origFondo;
+    } else {
+      alto  = fis?.alto  ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
+      fondo = fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO);
+    }
     patas = extras([
-      fis && `Alto ${fis.alto} cm · Fondo ${fis.fondo} cm`,
+      !f._isEdit && fis && `Alto ${fis.alto} cm · Fondo ${fis.fondo} cm`,
       f.bancoMedida === "custom" && "A consultar (medidas personalizadas)",
       f.tapetes && "Tapetes protectores (+5€)",
     ]);
@@ -231,7 +257,7 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     color = f.almohadonTela;
     patas = f.almohadonSinRibete ? "Sin ribete" : (f.almohadonRibete ? `Ribete: ${f.almohadonRibete}` : "");
   } else if (f.tipo === "otro") {
-    modelo = f.otroPorDecidir ? "Otro (por decidir)" : f.otroDescripcion;
+    modelo = f.otroPorDecidir ? MODELO_TBD : f.otroDescripcion;
   }
 
   return {
@@ -264,6 +290,11 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   s.acabado = p.acabado || "";
   s.precioUnitario = p.precioUnitario; s.notasProducto = p.notasProducto;
   s.tapetes = p.patas?.includes("Tapetes") ?? false;
+  // Marca edición y captura dims originales (para NO sobreescribir NULLs
+  // históricos con defaults del catálogo al guardar).
+  s._isEdit = true;
+  s._origFondo = p.fondo ?? null;
+  s._origAlto  = p.alto  ?? null;
 
   if (p.tipo === "cabecero") {
     const formaMatch = CABECERO_FORMAS.find(x => mismoModelo(x.name, p.modelo));
@@ -310,7 +341,7 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     else if (p.patas?.startsWith("Ribete: ")) { s.almohadonSinRibete = false; s.almohadonRibete = p.patas.slice(8); }
     s.cantidad = p.cantidad;
   } else if (p.tipo === "otro") {
-    s.otroPorDecidir = mismoModelo(p.modelo, "Otro (por decidir)");
+    s.otroPorDecidir = esModeloTBD(p.modelo);
     s.otroDescripcion = s.otroPorDecidir ? "" : p.modelo;
     s.cantidad = p.cantidad;
   } else if (p.tipo === "banco") {
@@ -478,7 +509,11 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
 
   function setTipo(label: string) {
     const internal = (CATALOG_TO_INTERNAL[label] ?? "") as ProdTipo;
-    s({ tipo: internal });
+    // Preseleccionar acabado por comodidad (visible y modificable). Solo
+    // aplica al CREAR (isEditing=false); en edición mantenemos lo guardado.
+    const patch: Partial<ProdState> = { tipo: internal };
+    if (!f._isEdit) patch.acabado = acabadoDefault(internal);
+    s(patch);
   }
   function setModelo(id: string) {
     const m = modelosTipo.find(x => x.id === id);

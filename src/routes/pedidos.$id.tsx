@@ -4,6 +4,7 @@ import { useStore, actions } from "@/lib/store";
 import { semaforoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
+import { displayModelo } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/pedidos/$id")({
   head: () => ({ meta: [{ title: "Pedido — TiroCRM" }] }),
@@ -60,7 +61,7 @@ function PedidoDetalle() {
             )}
           </div>
           <div className="mt-1 text-sm text-slate-500">
-            {producto ? `${TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo} · ${producto.modelo}` : "Producto"}
+            {producto ? `${TIPOS_PRODUCTO.find(t => t.id === producto.tipo)?.label ?? producto.tipo} · ${displayModelo(producto.modelo)}` : "Producto"}
           </div>
           <div className={`mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${c.bg} ${c.text}`}>
             <span className={`h-2 w-2 rounded-full ${c.dot}`} />

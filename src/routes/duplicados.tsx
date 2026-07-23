@@ -4,6 +4,7 @@ import { CopyCheck, Trash2, Check, Package, ArrowLeft, ShieldCheck } from "lucid
 import { useStore, actions } from "@/lib/store";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
+import { displayModelo } from "@/lib/catalogo";
 import type { Producto, Lead } from "@/lib/types";
 
 export const Route = createFileRoute("/duplicados")({
@@ -91,7 +92,7 @@ function DuplicadosPage() {
                     <span className="text-sm font-bold text-slate-900">Sin cliente</span>
                   )}
                   <span className="ml-2 text-xs text-slate-500">
-                    {tipoLabel(g.productos[0].tipo)}{g.productos[0].modelo ? ` · ${g.productos[0].modelo}` : ""}
+                    {tipoLabel(g.productos[0].tipo)}{displayModelo(g.productos[0].modelo) ? ` · ${displayModelo(g.productos[0].modelo)}` : ""}
                     {g.productos[0].ancho && g.productos[0].alto ? ` · ${g.productos[0].ancho}×${g.productos[0].alto}` : ""}
                     {g.productos[0].precioUnitario > 0 ? ` · ${formatCurrency(g.productos[0].precioUnitario)}` : ""}
                   </span>

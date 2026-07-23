@@ -6,6 +6,7 @@ import { semaforoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLA
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
+import { displayModelo } from "@/lib/catalogo";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
   const headers = Object.keys(rows[0] ?? {});
@@ -156,7 +157,7 @@ function PedidosIndex() {
             onClick={() => {
               const rows = groups.flatMap((g) => g.items.map(({ pedido, producto, sem }) => ({
                 Cliente: g.nombre,
-                Producto: [producto?.tipo, producto?.modelo].filter(Boolean).join(" "),
+                Producto: [producto?.tipo, displayModelo(producto?.modelo)].filter(Boolean).join(" "),
                 Estado: pedido.estadoPedido,
                 Semaforo: sem.estado,
                 FechaCreacion: formatShortDate(pedido.fechaCreacionPedido),
@@ -230,7 +231,7 @@ function PedidosIndex() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-slate-900">{lead?.nombre ?? pedido.clienteNombreLibre ?? "—"}</div>
-                    <div className="truncate text-xs text-slate-500">{producto?.modelo || producto?.tipo || "Producto"}</div>
+                    <div className="truncate text-xs text-slate-500">{displayModelo(producto?.modelo) || producto?.tipo || "Producto"}</div>
                   </div>
                   <span className="shrink-0 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
                     {sem.diasRestantes < 0 ? `${Math.abs(sem.diasRestantes)}d tarde` : "límite hoy"}
@@ -421,7 +422,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
               <h3 className="truncate text-sm font-semibold text-slate-900">
-                {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "Pedido"}
+                {producto ? `${tipoLabel}${displayModelo(producto.modelo) ? ` · ${displayModelo(producto.modelo)}` : ""}` : "Pedido"}
               </h3>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -758,7 +759,7 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                 <option value="">— Selecciona producto —</option>
                 {productosDelLead.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}{p.modelo ? ` · ${p.modelo}` : ""}
+                    {TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}{displayModelo(p.modelo) ? ` · ${displayModelo(p.modelo)}` : ""}
                   </option>
                 ))}
               </select>
