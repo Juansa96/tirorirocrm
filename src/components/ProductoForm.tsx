@@ -109,6 +109,13 @@ export interface ProdState {
   otroDescripcion: string; otroPorDecidir: boolean;
   bancoMedida: string; bancoLargoCustom: string;
   cantidad: number; precioUnitario: number; notasProducto: string;
+  // Snapshot de campos mutables al abrir en modo edición. Se usa para NO
+  // sobreescribir valores históricos con defaults del catálogo (grosor 8 del
+  // cabecero, alto/fondo del banco). Undefined ≡ creando; null ≡ editando y
+  // el valor original era NULL; number ≡ editando con valor guardado.
+  _origFondo?: number | null;
+  _origAlto?: number | null;
+  _isEdit?: boolean;
 }
 
 export const EMPTY_PROD_STATE: ProdState = {
@@ -124,6 +131,14 @@ export const EMPTY_PROD_STATE: ProdState = {
   bancoMedida: "90", bancoLargoCustom: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
+
+// Preselección de "vivo-simple" al elegir tipo desde el CRM. Es una
+// comodidad visible y modificable, NO un default silencioso del endpoint.
+// Solo aplica a tipos que llevan vivo: cabecero, banco, puf, mesa.
+const TIPOS_CON_VIVO = new Set<ProdTipo>(["cabecero", "banco", "puf", "mesa"]);
+function acabadoDefault(tipo: ProdTipo): string {
+  return TIPOS_CON_VIVO.has(tipo) ? "vivo-simple" : "";
+}
 
 
 // ── Conversiones ──────────────────────────────────────────────────
