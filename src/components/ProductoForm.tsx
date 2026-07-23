@@ -436,11 +436,12 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
 
 // ── ProductoForm ──────────────────────────────────────────────────
 export function ProductoForm({
-  initial, onSave, onCancel,
+  initial, onSave, onCancel, isEditing = false,
 }: {
   initial: ProdState;
   onSave: (p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) => void;
   onCancel: () => void;
+  isEditing?: boolean;
 }) {
   const [f, setF] = useState<ProdState>(initial);
   const s = (patch: Partial<ProdState>) => setF(prev => ({ ...prev, ...patch }));
@@ -529,10 +530,12 @@ export function ProductoForm({
                 <button
                   key={x.id}
                   type="button"
-                  onClick={() => s({
-                    bancoMedida: x.id,
-                    precioUnitario: x.precio,
-                  })}
+                  onClick={() => s(
+                    // V8: al EDITAR nunca se recalcula precioUnitario desde el
+                    // catálogo — solo se cambia la variante. Al CREAR sí se
+                    // pre-rellena con el precio sugerido.
+                    isEditing ? { bancoMedida: x.id } : { bancoMedida: x.id, precioUnitario: x.precio }
+                  )}
                   className={btn(f.bancoMedida === x.id)}
                 >
                   {x.label}
@@ -543,6 +546,20 @@ export function ProductoForm({
                 </button>
               ))}
             </div>
+            {isEditing && selectedOpt && selectedOpt.precio > 0 && f.precioUnitario !== selectedOpt.precio && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <span>
+                  Precio guardado <strong>{f.precioUnitario}€</strong> · Precio actual del catálogo <strong>{selectedOpt.precio}€</strong>.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => s({ precioUnitario: selectedOpt.precio })}
+                  className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                >
+                  Actualizar a {selectedOpt.precio}€
+                </button>
+              </div>
+            )}
             {f.bancoMedida === "custom" && (
               <div className="mt-2 space-y-2">
                 <input
