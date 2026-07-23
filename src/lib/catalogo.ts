@@ -249,6 +249,10 @@ export const MESA_OPCIONES: MesaOpcion[] = [
   { id: "80x45x80-legacy",  label: "80×45×80 cm",  ancho: 80,  fondo: 80, alto: 45, precio: 0, premium: 0, vivo: 0, activo: false, legacy: true },
 ];
 
+// Superficies válidas de mesa. "nada" es un valor legítimo — significa
+// "sin superficie añadida". Se guarda como tal en productos_lead.color por
+// diseño preexistente (no se cambia para no romper la interfaz ni las
+// comparaciones con datos históricos).
 export const MESA_SUPERFICIES = [
   { id: "nada",        name: "Sin superficie",             recargo: 0 },
   { id: "metacrilato", name: "Metacrilato 5 mm (+50€)",    recargo: 50 },
