@@ -4,6 +4,7 @@ import type { Producto } from "@/lib/types";
 import { CATALOG_TO_INTERNAL } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { FormaBadge } from "@/components/FormaBadge";
+import { normalizarColeccionTela, displayColeccionTela } from "@/lib/catalogo";
 
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
