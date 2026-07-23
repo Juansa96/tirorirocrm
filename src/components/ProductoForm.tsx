@@ -436,11 +436,12 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
 
 // ── ProductoForm ──────────────────────────────────────────────────
 export function ProductoForm({
-  initial, onSave, onCancel,
+  initial, onSave, onCancel, isEditing = false,
 }: {
   initial: ProdState;
   onSave: (p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) => void;
   onCancel: () => void;
+  isEditing?: boolean;
 }) {
   const [f, setF] = useState<ProdState>(initial);
   const s = (patch: Partial<ProdState>) => setF(prev => ({ ...prev, ...patch }));
