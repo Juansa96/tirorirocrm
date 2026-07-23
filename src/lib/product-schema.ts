@@ -133,6 +133,7 @@ export function buildProducto(
   } else if (tipo === "otro") {
     modelo = sanitize(
       config.modelo ??
+      (config as Record<string, unknown>).resumen ??
       (config as Record<string, unknown>).descripcion ??
       (config as Record<string, unknown>).otroDescripcion,
       200
@@ -158,7 +159,7 @@ export function buildProducto(
 
   return {
     tipo,
-    modelo: modelo || (tipo === "otro" ? "Producto sin especificar" : ""),
+    modelo: modelo || (tipo === "otro" ? "Sin descripcion" : ""),
     ancho: Number.isFinite(ancho) ? ancho : null,
     alto: Number.isFinite(alto) ? alto : null,
     tela: topTela,

@@ -25,7 +25,7 @@ export const TIPO_LABEL: Record<TipoProductoKey, string> = {
   puf: "Puf",
   mesa: "Mesa de centro",
   pantalla: "Pantalla de lámpara",
-  otro: "Otro",
+  otro: "Otro producto",
 };
 
 // Alias de entrada → tipo canónico. Se normaliza quitando acentos, minúsculas

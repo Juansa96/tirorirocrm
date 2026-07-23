@@ -191,6 +191,22 @@ export const Route = createFileRoute("/api/public/lead-form")({
                 cantidad,
                 config_json: config_json as never,
               });
+              // Aviso adicional: tipo "otro" sin descripción real (A1).
+              const rawObj = raw as Record<string, unknown>;
+              const rawTipo = String(rawObj.tipo ?? "").toLowerCase().trim();
+              const cfg = (rawObj.config ?? {}) as Record<string, unknown>;
+              const tieneModelo = typeof rawObj.modelo === "string" && rawObj.modelo.trim().length > 0
+                || typeof cfg.modelo === "string" && (cfg.modelo as string).trim().length > 0;
+              const tieneResumen = typeof cfg.resumen === "string" && (cfg.resumen as string).trim().length > 0;
+              if (rawTipo === "otro" && !tieneModelo && !tieneResumen) {
+                await supabaseAdmin.from("notas").insert({
+                  lead_id: lead.id,
+                  contenido:
+                    "AVISO: llegó un producto tipo \"otro\" sin descripción desde la web.\n" +
+                    "Payload recibido: " + JSON.stringify(raw),
+                  usuario: "sistema",
+                });
+              }
             } else {
               await supabaseAdmin.from("notas").insert({
                 lead_id: lead.id,
