@@ -9,6 +9,7 @@ import { useStore } from "@/lib/store";
 import type { Etapa } from "@/lib/types";
 import { ETAPAS, ETAPA_COLORS, VENDEDORES, RANGOS_EDAD, vendorName } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
+import { mismoModelo } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/datos")({
   head: () => ({ meta: [{ title: "Datos — TiroCRM" }] }),
