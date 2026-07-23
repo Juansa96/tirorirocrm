@@ -3,7 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { buildProducto } from "@/lib/product-schema";
-import { TIPO_LABEL, normalizeTipo } from "@/lib/catalogo";
+import { TIPO_LABEL, normalizeTipo, esColeccionTelaInvalida, esVarianteBancoInvalida } from "@/lib/catalogo";
 
 // Todos los leads del formulario web se asignan a Rocío por defecto.
 // El vendedor se puede reasignar manualmente desde la ficha del lead.
