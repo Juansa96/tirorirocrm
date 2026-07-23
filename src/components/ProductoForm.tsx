@@ -227,10 +227,17 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     const anchoCustom = f.bancoMedida === "custom" ? (Number(f.bancoLargoCustom) || null) : null;
     modelo = `Oyambre — ${opt?.label ?? f.bancoMedida}`;
     ancho = f.bancoMedida === "custom" ? anchoCustom : (opt?.ancho ?? null);
-    alto = fis?.alto ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
-    fondo = fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO);
+    // Preserva alto/fondo históricos al editar: si el original era NULL,
+    // no escribimos el default del catálogo (mismo criterio que en cabecero).
+    if (f._isEdit) {
+      alto  = f._origAlto  === undefined ? (fis?.alto  ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO))  : f._origAlto;
+      fondo = f._origFondo === undefined ? (fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO)) : f._origFondo;
+    } else {
+      alto  = fis?.alto  ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
+      fondo = fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO);
+    }
     patas = extras([
-      fis && `Alto ${fis.alto} cm · Fondo ${fis.fondo} cm`,
+      !f._isEdit && fis && `Alto ${fis.alto} cm · Fondo ${fis.fondo} cm`,
       f.bancoMedida === "custom" && "A consultar (medidas personalizadas)",
       f.tapetes && "Tapetes protectores (+5€)",
     ]);
@@ -250,7 +257,7 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     color = f.almohadonTela;
     patas = f.almohadonSinRibete ? "Sin ribete" : (f.almohadonRibete ? `Ribete: ${f.almohadonRibete}` : "");
   } else if (f.tipo === "otro") {
-    modelo = f.otroPorDecidir ? "Otro (por decidir)" : f.otroDescripcion;
+    modelo = f.otroPorDecidir ? MODELO_TBD : f.otroDescripcion;
   }
 
   return {
