@@ -163,21 +163,20 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     relleno = f.formaPantalla;
     patas = extras([!tbd && f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)", tbd && "Medida por decidir"]);
   } else if (f.tipo === "banco") {
-    const opt = BANCO_OYAMBRE.find(x => x.id === f.bancoMedida);
+    const opt = findBancoById(f.bancoMedida);
+    const fis = BANCO_MEDIDAS_FISICAS[f.bancoMedida];
     const anchoCustom = f.bancoMedida === "custom" ? (Number(f.bancoLargoCustom) || null) : null;
     modelo = `Oyambre — ${opt?.label ?? f.bancoMedida}`;
-    ancho = f.bancoMedida === "custom"
-      ? anchoCustom
-      : (Number(f.bancoMedida) || null);
-    alto = f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO;
-    // Fondo/alto fijos + "a consultar" para custom
+    ancho = f.bancoMedida === "custom" ? anchoCustom : (opt?.ancho ?? null);
+    alto = fis?.alto ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
     patas = extras([
-      f.bancoMedida !== "custom" && `Alto ${BANCO_ALTO_FIJO} cm · Fondo ${BANCO_FONDO_FIJO} cm`,
+      fis && `Alto ${fis.alto} cm · Fondo ${fis.fondo} cm`,
       f.bancoMedida === "custom" && "A consultar (medidas personalizadas)",
       f.tapetes && "Tapetes protectores (+5€)",
     ]);
     color = f.telaLateral; relleno = f.telaVivo;
   }
+
 
   if (f.tipo === "almohadon") {
     modelo = f.almohadonMedidas || "Almohadón";
