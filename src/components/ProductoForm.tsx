@@ -13,10 +13,19 @@ import {
   BANCO_ALTO_FIJO,
   BANCO_FONDO_FIJO,
   findBancoById,
-  MESA_PRESETS_UI,
-  PUF_TAMANOS_UI,
-  PANTALLA_TAMANOS_UI,
-  CABECERO_ALTURAS_UI,
+  CABECERO_ANCHOS as CABECERO_ANCHOS_CAT,
+  CABECERO_ALTOS as CABECERO_ALTOS_CAT,
+  CABECERO_GROSOR_CM,
+  CABECERO_VIVO_DOBLE_RECARGO,
+  PUF_OPCIONES,
+  findPufById,
+  MESA_OPCIONES,
+  MESA_ALTO_FIJO,
+  findMesaById,
+  COJIN_OPCIONES,
+  findCojinById,
+  PANTALLA_OPCIONES as PANTALLA_OPCIONES_CAT,
+  findPantallaById,
 } from "@/lib/catalogo";
 
 // ── Constantes ────────────────────────────────────────────────────
@@ -30,13 +39,6 @@ export const TIPOS_PRODUCTO = [
   { id: "otro",      label: "Otro" },
 ] as const;
 
-// Alias locales para preservar el resto del código sin reescribir referencias.
-// Estas constantes viven ahora en src/lib/catalogo.ts (fuente única).
-export const MESA_PRESETS = MESA_PRESETS_UI as readonly string[];
-export const PUF_TAMANOS = PUF_TAMANOS_UI as readonly string[];
-export const PANTALLA_OPCIONES = PANTALLA_TAMANOS_UI;
-export const CABECERO_ALTOS = CABECERO_ALTURAS_UI as readonly string[];
-
 export const CABECERO_FORMAS = [
   { id: "recto",         name: "Calobra" },
   { id: "semicirculo",   name: "Pregonda" },
@@ -44,7 +46,8 @@ export const CABECERO_FORMAS = [
   { id: "corona-doble",  name: "Conta" },
   { id: "ondas",         name: "Barbaria" },
 ];
-export const CABECERO_ANCHOS = ["90", "105", "135", "150", "160", "180", "200"];
+// Alturas seleccionables (alias local, exportado para el resto del código).
+export const CABECERO_ALTOS = CABECERO_ALTOS_CAT as readonly string[];
 
 export const MESA_SUPERFICIES = [
   { id: "nada",        name: "Sin superficie" },
@@ -60,11 +63,11 @@ export const PANTALLA_FORMAS = [
 
 export const FINISHES_CABECERO = [
   { id: "vivo-simple", name: "Vivo simple (incluido)" },
-  { id: "vivo-doble",  name: "Vivo doble (+10€)" },
+  { id: "vivo-doble",  name: `Vivo doble (+${CABECERO_VIVO_DOBLE_RECARGO}€)` },
 ];
 export const FINISHES_PUF = [
   { id: "liso",        name: "Sin acabado" },
-  { id: "vivo-simple", name: "Vivo simple" },
+  { id: "vivo-simple", name: "Vivo simple (+15€)" },
 ];
 
 export const TELAS_SUGERIDAS = [
@@ -89,13 +92,19 @@ export interface ProdState {
   anchoCama: string; anchoCamaCustom: string;
   altoCabecero: string; altoCabeceroCustom: string;
   telaLateral: string; colgador: boolean;
-  tamanoPuf: string; tamanoPufCustom: string; cantidadPuf: string;
-  presetMesa: string; mesaLargo: string; mesaAlto: string; mesaFondo: string; superficieMesa: string;
-  formaPantalla: string; tamanoPantalla: string;
+  // Puf: pufId ∈ PUF_OPCIONES.id | "custom" | "tbd" | ""
+  pufId: string; pufAnchoCustom: string; pufFondoCustom: string; pufAltoCustom: string; cantidadPuf: string;
+  // Mesa: mesaId ∈ MESA_OPCIONES.id | "custom" | "tbd" | ""
+  mesaId: string; mesaLargo: string; mesaAlto: string; mesaFondo: string; superficieMesa: string;
+  // Pantalla: pantallaId ∈ PANTALLA_OPCIONES.id | "custom" | "tbd" | "";
+  //          formaPantalla queda para agrupar visualmente el custom/tbd.
+  pantallaId: string; formaPantalla: string; pantallaAnchoCustom: string; pantallaAltoCustom: string;
   tela: string; coleccionTela: string; acabado: string; telaVivo: string;
   tapetes: boolean;
-  almohadonMedidas: string; almohadonTela: string; almohadonRibete: string; almohadonSinRibete: boolean;
-  otroDescripcion: string;
+  // Almohadón: almohadonId ∈ COJIN_OPCIONES.id | "custom" | "tbd" | ""
+  almohadonId: string; almohadonMedidas: string; almohadonTela: string; almohadonRibete: string; almohadonSinRibete: boolean;
+  // Otro: descripción libre o "Por decidir"
+  otroDescripcion: string; otroPorDecidir: boolean;
   bancoMedida: string; bancoLargoCustom: string;
   cantidad: number; precioUnitario: number; notasProducto: string;
 }
@@ -103,21 +112,27 @@ export interface ProdState {
 export const EMPTY_PROD_STATE: ProdState = {
   tipo: "",
   forma: "", anchoCama: "150", anchoCamaCustom: "", altoCabecero: "100", altoCabeceroCustom: "", telaLateral: "", colgador: false,
-  tamanoPuf: "40", tamanoPufCustom: "", cantidadPuf: "1",
-  presetMesa: "120×45×60 cm", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
-  formaPantalla: "cilindro", tamanoPantalla: "Ø40×40 cm",
-  tela: "", coleccionTela: "basic", acabado: "vivo-simple", telaVivo: "",
+  pufId: "", pufAnchoCustom: "", pufFondoCustom: "", pufAltoCustom: "", cantidadPuf: "1",
+  mesaId: "", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
+  pantallaId: "", formaPantalla: "cilindro", pantallaAnchoCustom: "", pantallaAltoCustom: "",
+  tela: "", coleccionTela: "basic", acabado: "", telaVivo: "",
   tapetes: false,
-  almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
-  otroDescripcion: "",
+  almohadonId: "", almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
+  otroDescripcion: "", otroPorDecidir: false,
   bancoMedida: "90", bancoLargoCustom: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
 
 
 // ── Conversiones ──────────────────────────────────────────────────
+// Reglas comunes:
+//  - Ningún campo se completa por defecto silenciosamente. Los defaults
+//    marcados en decisiones anteriores (acabado, patas, modelo…) NO se
+//    inventan: si el usuario no lo eligió, se guarda vacío/null.
+//  - `precioUnitario` viene del state y NO se recalcula aquí; el reconciliador
+//    de V8 vive en el selector, con banner explícito.
 export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50"> {
-  let modelo = "", ancho: number | null = null, alto: number | null = null;
+  let modelo = "", ancho: number | null = null, alto: number | null = null, fondo: number | null = null;
   let color = "", relleno = "", patas = "";
   const extras = (items: (string | false)[]) => items.filter(Boolean).join(" · ");
 
@@ -127,6 +142,7 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
       : (CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? f.forma);
     ancho = f.anchoCama === "tbd" ? null : f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null);
     alto  = f.altoCabecero === "tbd" ? null : f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null);
+    fondo = CABECERO_GROSOR_CM;
     color = f.telaLateral; relleno = f.telaVivo;
     const tbdForma = f.forma === FORMA_POR_DECIDIR || !f.forma;
     const tbdAncho = f.anchoCama === "tbd";
@@ -138,30 +154,54 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
       (tbdAncho || tbdAlto) && `Medidas por decidir${tbdAncho && tbdAlto ? "" : tbdAncho ? " (ancho)" : " (alto)"}`,
     ]);
   } else if (f.tipo === "puf") {
-    modelo = "Patos";
-    ancho  = f.tamanoPuf === "tbd" ? null : f.tamanoPuf === "custom" ? (Number(f.tamanoPufCustom) || null) : (Number(f.tamanoPuf) || null);
-    color  = f.telaLateral; relleno = f.telaVivo;
-    patas  = extras([f.tapetes && "Tapetes protectores (+5€)", f.tamanoPuf === "tbd" && "Tamaño por decidir"]);
-  } else if (f.tipo === "mesa") {
-    if (f.presetMesa === "tbd") {
-      modelo = "Medidas por decidir";
-      ancho = null; alto = null; relleno = "";
-    } else if (f.presetMesa === "custom") {
-      modelo = "Medida personalizada";
-      ancho = Number(f.mesaLargo) || null; alto = Number(f.mesaAlto) || null; relleno = f.mesaFondo;
-    } else {
-      modelo = f.presetMesa;
-      const dims = f.presetMesa.replace(" cm", "").split("×");
-      ancho = dims[0] ? Number(dims[0]) : null; alto = dims[1] ? Number(dims[1]) : null; relleno = dims[2] ?? "";
+    const opt = findPufById(f.pufId);
+    if (f.pufId === "tbd" || !f.pufId) {
+      modelo = "Puf (medida por decidir)";
+      ancho = null; alto = null; fondo = null;
+    } else if (f.pufId === "custom") {
+      modelo = "Puf (medida personalizada)";
+      ancho = Number(f.pufAnchoCustom) || null;
+      fondo = Number(f.pufFondoCustom) || null;
+      alto  = Number(f.pufAltoCustom)  || null;
+    } else if (opt) {
+      modelo = opt.label;
+      ancho = opt.ancho; fondo = opt.fondo; alto = opt.alto;
     }
+    color  = f.telaLateral; relleno = f.telaVivo;
+    patas  = extras([f.tapetes && "Tapetes protectores (+5€)", f.pufId === "tbd" && "Tamaño por decidir"]);
+  } else if (f.tipo === "mesa") {
+    const opt = findMesaById(f.mesaId);
+    if (f.mesaId === "tbd" || !f.mesaId) {
+      modelo = "Mesa (medida por decidir)";
+      ancho = null; alto = null; fondo = null;
+    } else if (f.mesaId === "custom") {
+      modelo = "Mesa (medida personalizada)";
+      ancho = Number(f.mesaLargo) || null;
+      alto  = Number(f.mesaAlto)  || null;
+      fondo = Number(f.mesaFondo) || null;
+    } else if (opt) {
+      modelo = opt.label;
+      ancho = opt.ancho; alto = opt.alto; fondo = opt.fondo;
+    }
+    // La superficie se sigue guardando en `color` (contrato preexistente).
     color = MESA_SUPERFICIES.find(x => x.id === f.superficieMesa)?.name ?? "";
     patas = extras([f.tapetes && "Tapetes protectores (+5€)"]);
   } else if (f.tipo === "pantalla") {
-    const fn = PANTALLA_FORMAS.find(x => x.id === f.formaPantalla)?.name.split("—")[0].trim() ?? "";
-    const tbd = f.tamanoPantalla === "tbd";
-    modelo = tbd ? `${fn} (medida por decidir)` : `${fn} ${f.tamanoPantalla}`.trim();
-    relleno = f.formaPantalla;
-    patas = extras([!tbd && f.tamanoPantalla, f.tapetes && "Tapetes protectores (+5€)", tbd && "Medida por decidir"]);
+    const opt = findPantallaById(f.pantallaId);
+    if (f.pantallaId === "tbd" || !f.pantallaId) {
+      modelo = "Pantalla (medida por decidir)";
+      ancho = null; alto = null;
+    } else if (f.pantallaId === "custom") {
+      modelo = "Pantalla (medida personalizada)";
+      ancho = Number(f.pantallaAnchoCustom) || null;
+      alto  = Number(f.pantallaAltoCustom)  || null;
+    } else if (opt) {
+      modelo = opt.label;
+      ancho = opt.ancho; alto = opt.alto;
+    }
+    // `relleno` guarda la forma (contrato preexistente).
+    relleno = opt?.formaId ?? f.formaPantalla;
+    patas = extras([f.tapetes && "Tapetes protectores (+5€)", f.pantallaId === "tbd" && "Medida por decidir"]);
   } else if (f.tipo === "banco") {
     const opt = findBancoById(f.bancoMedida);
     const fis = BANCO_MEDIDAS_FISICAS[f.bancoMedida];
@@ -169,27 +209,33 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     modelo = `Oyambre — ${opt?.label ?? f.bancoMedida}`;
     ancho = f.bancoMedida === "custom" ? anchoCustom : (opt?.ancho ?? null);
     alto = fis?.alto ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
+    fondo = fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO);
     patas = extras([
       fis && `Alto ${fis.alto} cm · Fondo ${fis.fondo} cm`,
       f.bancoMedida === "custom" && "A consultar (medidas personalizadas)",
       f.tapetes && "Tapetes protectores (+5€)",
     ]);
     color = f.telaLateral; relleno = f.telaVivo;
-  }
-
-
-  if (f.tipo === "almohadon") {
-    modelo = f.almohadonMedidas || "Almohadón";
+  } else if (f.tipo === "almohadon") {
+    const opt = findCojinById(f.almohadonId);
+    if (f.almohadonId === "tbd" || (!f.almohadonId && !f.almohadonMedidas)) {
+      modelo = "Almohadón (medida por decidir)";
+      ancho = null; alto = null;
+    } else if (f.almohadonId === "custom" || (!f.almohadonId && f.almohadonMedidas)) {
+      modelo = f.almohadonMedidas || "Almohadón (medida personalizada)";
+      ancho = null; alto = null;
+    } else if (opt) {
+      modelo = opt.label;
+      ancho = opt.ancho; alto = opt.alto;
+    }
     color = f.almohadonTela;
     patas = f.almohadonSinRibete ? "Sin ribete" : (f.almohadonRibete ? `Ribete: ${f.almohadonRibete}` : "");
   } else if (f.tipo === "otro") {
-    modelo = f.otroDescripcion;
+    modelo = f.otroPorDecidir ? "Otro (por decidir)" : f.otroDescripcion;
   }
 
-
-
   return {
-    tipo: f.tipo, modelo, ancho, alto, fondo: null,
+    tipo: f.tipo, modelo, ancho, alto, fondo,
     tela: f.tipo === "almohadon" ? f.almohadonTela : f.tela,
     color, relleno, patas,
     acabado: f.acabado, coleccionTela: normalizarColeccionTela(f.coleccionTela),
@@ -198,11 +244,24 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
   };
 }
 
+// Recupera el id de opción de un catálogo dado un ancho/alto/fondo. Devuelve
+// "" si no encuentra match exacto (el llamante decide fallback a "custom").
+function findCatalogIdByDims<T extends { id: string; ancho: number; alto: number; fondo?: number }>(
+  list: T[], ancho: number | null, alto: number | null, fondo?: number | null
+): string {
+  if (ancho === null || alto === null) return "";
+  const match = list.find(o =>
+    o.ancho === ancho && o.alto === alto &&
+    (fondo == null || o.fondo === undefined || o.fondo === fondo)
+  );
+  return match?.id ?? "";
+}
+
 export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">): ProdState {
   const s = { ...EMPTY_PROD_STATE };
   s.tipo = p.tipo as ProdTipo;
   s.tela = p.tela; s.coleccionTela = normalizarColeccionTela(p.coleccionTela);
-  s.acabado = p.acabado || "vivo-simple";
+  s.acabado = p.acabado || "";
   s.precioUnitario = p.precioUnitario; s.notasProducto = p.notasProducto;
   s.tapetes = p.patas?.includes("Tapetes") ?? false;
 
@@ -210,8 +269,9 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     const formaMatch = CABECERO_FORMAS.find(x => mismoModelo(x.name, p.modelo));
     s.forma = formaMatch ? formaMatch.id : (mismoModelo(p.modelo, "Forma por decidir") ? FORMA_POR_DECIDIR : "");
     const a = p.ancho ? String(p.ancho) : "";
-    s.anchoCama = CABECERO_ANCHOS.includes(a) ? a : (a ? "custom" : "150");
-    s.anchoCamaCustom = CABECERO_ANCHOS.includes(a) ? "" : a;
+    const anchosStd = CABECERO_ANCHOS_CAT.map(x => x.id);
+    s.anchoCama = anchosStd.includes(a) ? a : (a ? "custom" : "150");
+    s.anchoCamaCustom = anchosStd.includes(a) ? "" : a;
     const h = p.alto ? String(p.alto) : "";
     s.altoCabecero = CABECERO_ALTOS.includes(h) ? h : (h ? "custom" : "100");
     s.altoCabeceroCustom = CABECERO_ALTOS.includes(h) ? "" : h;
@@ -219,46 +279,51 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.colgador = p.patas?.includes("Con colgador") ?? false;
     s.cantidad = p.cantidad;
   } else if (p.tipo === "puf") {
-    const a = p.ancho ? String(p.ancho) : "";
-    const std = PUF_TAMANOS.includes(a);
-    s.tamanoPuf = std ? a : (a ? "custom" : "40");
-    s.tamanoPufCustom = std ? "" : a;
+    const id = findCatalogIdByDims(PUF_OPCIONES, p.ancho, p.alto, p.fondo);
+    s.pufId = id || (p.ancho ? "custom" : "");
+    s.pufAnchoCustom = !id && p.ancho ? String(p.ancho) : "";
+    s.pufFondoCustom = !id && p.fondo ? String(p.fondo) : "";
+    s.pufAltoCustom  = !id && p.alto  ? String(p.alto)  : "";
     s.cantidadPuf = String(p.cantidad);
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
-
   } else if (p.tipo === "mesa") {
-    s.presetMesa = MESA_PRESETS.includes(p.modelo) ? p.modelo : "custom";
-    s.mesaLargo = p.ancho ? String(p.ancho) : ""; s.mesaAlto = p.alto ? String(p.alto) : "";
-    s.mesaFondo = p.relleno ?? "";
+    const id = findCatalogIdByDims(MESA_OPCIONES, p.ancho, p.alto, p.fondo);
+    s.mesaId = id || (p.ancho ? "custom" : "");
+    s.mesaLargo = !id && p.ancho ? String(p.ancho) : "";
+    s.mesaAlto  = !id && p.alto  ? String(p.alto)  : "";
+    s.mesaFondo = !id && p.fondo ? String(p.fondo) : (p.relleno ?? "");
     s.superficieMesa = MESA_SUPERFICIES.find(x => x.name === p.color)?.id ?? "nada";
     s.cantidad = p.cantidad;
   } else if (p.tipo === "pantalla") {
-    s.formaPantalla = p.relleno || "cilindro";
-    s.tamanoPantalla = (p.patas ?? "").split(" · ")[0] || "";
+    const id = findCatalogIdByDims(PANTALLA_OPCIONES_CAT, p.ancho, p.alto);
+    s.pantallaId = id || (p.ancho ? "custom" : "");
+    s.formaPantalla = (p.relleno && ["cilindro","cuadrado","rectangulo"].includes(p.relleno)) ? p.relleno : "cilindro";
+    s.pantallaAnchoCustom = !id && p.ancho ? String(p.ancho) : "";
+    s.pantallaAltoCustom  = !id && p.alto  ? String(p.alto)  : "";
     s.cantidad = p.cantidad;
   } else if (p.tipo === "almohadon") {
-    s.almohadonMedidas = mismoModelo(p.modelo, "Almohadón") ? "" : p.modelo;
+    const id = findCatalogIdByDims(COJIN_OPCIONES, p.ancho, p.alto);
+    s.almohadonId = id || (p.ancho || p.modelo ? "custom" : "");
+    s.almohadonMedidas = !id ? (p.modelo && !mismoModelo(p.modelo, "Almohadón") ? p.modelo : "") : "";
     s.almohadonTela = p.color || p.tela || "";
     if (p.patas === "Sin ribete") { s.almohadonSinRibete = true; s.almohadonRibete = ""; }
     else if (p.patas?.startsWith("Ribete: ")) { s.almohadonSinRibete = false; s.almohadonRibete = p.patas.slice(8); }
     s.cantidad = p.cantidad;
   } else if (p.tipo === "otro") {
-    s.otroDescripcion = p.modelo;
+    s.otroPorDecidir = mismoModelo(p.modelo, "Otro (por decidir)");
+    s.otroDescripcion = s.otroPorDecidir ? "" : p.modelo;
     s.cantidad = p.cantidad;
   } else if (p.tipo === "banco") {
     const a = p.ancho ? String(p.ancho) : "";
-    // Anchos estándar (excluye custom y variante doble); vienen del catálogo.
     const stdAnchos = BANCO_OPCIONES
       .filter(o => o.id !== "custom" && o.id !== "60-doble" && o.ancho !== null)
       .map(o => String(o.ancho));
-    // "60 doble" no se puede distinguir solo por ancho — buscar en modelo.
     const isDoble = /doble/i.test(p.modelo);
     s.bancoMedida = isDoble ? "60-doble" : (stdAnchos.includes(a) ? a : (a ? "custom" : "90"));
     s.bancoLargoCustom = s.bancoMedida === "custom" ? a : "";
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.cantidad = p.cantidad;
   }
-
 
   return s;
 }
@@ -302,7 +367,7 @@ export function TelaSelect({ value, onChange, placeholder }: { value: string; on
   );
 }
 
-// ── TelaSection (nivel de módulo para evitar remount en cada render) ──
+// ── TelaSection ────────────────────────────────────────────────────
 const SECTION_CLS = "text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2";
 const BTN_CLS = (active: boolean) =>
   `rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? "border-[#1a1f36] bg-[#1a1f36] text-white" : "border-slate-200 text-slate-600 hover:border-slate-400"}`;
@@ -335,7 +400,37 @@ function TelaSection({ tela, onTela, coleccionTela, onColeccion, telaLateral, on
   );
 }
 
-// ── CatalogoSelector: dos desplegables encadenados (Tipo → Modelo) ──
+// ── PriceReconciler ───────────────────────────────────────────────
+// V8 unificado. Al EDITAR (isEditing=true) el `precioUnitario` guardado nunca
+// se reasigna solo al cambiar variante. Si el catálogo difiere, se muestra
+// aviso ámbar con botón explícito "Actualizar a X€".
+function PriceReconciler({ isEditing, saved, catalog, onUpdate }: {
+  isEditing: boolean; saved: number; catalog: number; onUpdate: (v: number) => void;
+}) {
+  if (!isEditing || catalog <= 0 || saved === catalog) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      <span>
+        Precio guardado <strong>{saved}€</strong> · Precio actual del catálogo <strong>{catalog}€</strong>.
+      </span>
+      <button
+        type="button"
+        onClick={() => onUpdate(catalog)}
+        className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
+      >
+        Actualizar a {catalog}€
+      </button>
+    </div>
+  );
+}
+
+// Al pulsar una variante: crear pre-rellena precioUnitario; editar solo cambia
+// el campo indicado. Helper para evitar duplicar la condición en cada botón.
+function patchPrecio<T extends Record<string, unknown>>(isEditing: boolean, patch: T, precio: number): T & { precioUnitario?: number } {
+  return isEditing ? patch : { ...patch, precioUnitario: precio };
+}
+
+// ── CatalogoSelector ──────────────────────────────────────────────
 function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState>) => void }) {
   const { catalogo } = useStore();
   const internalToLabel: Record<string, string> = {
@@ -346,12 +441,10 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
 
   const tipos = useMemo(() => {
     const fromCat = Array.from(new Set(catalogo.map(c => c.tipo)));
-    // Fallback al hardcoded si el catálogo aún no ha cargado
     return fromCat.length > 0
       ? fromCat
       : ["Cabecero", "Banco", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón", "Cubrecanapé"];
   }, [catalogo]);
-
 
   const tipoLabel = f.tipo ? internalToLabel[f.tipo] ?? "" : "";
   const modelosTipo = useMemo(
@@ -361,7 +454,6 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
 
   const selectedModelo = useMemo(() => {
     if (!modelosTipo.length) return "";
-    // Cabecero: forma id → nombre del modelo
     if (f.tipo === "cabecero") {
       const m = CABECERO_FORMAS.find(x => x.id === f.forma)?.name ?? "";
       return modelosTipo.find(x => mismoModelo(x.modelo, m))?.id ?? "";
@@ -384,7 +476,6 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     return "";
   }, [modelosTipo, f.tipo, f.forma, f.formaPantalla]);
 
-
   function setTipo(label: string) {
     const internal = (CATALOG_TO_INTERNAL[label] ?? "") as ProdTipo;
     s({ tipo: internal });
@@ -401,7 +492,6 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     } else if (f.tipo === "otro") {
       s({ otroDescripcion: m.modelo });
     }
-    // Para puf / mesa / almohadón mantenemos selección visible aunque no haya forma interna distinta
   }
 
   const sel = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none";
@@ -453,9 +543,10 @@ export function ProductoForm({
     <div className="space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
       <CatalogoSelector f={f} s={s} />
 
-
       {/* ── CABECERO ── */}
-      {f.tipo === "cabecero" && (
+      {f.tipo === "cabecero" && (() => {
+        const anchoOpt = CABECERO_ANCHOS_CAT.find(x => x.id === f.anchoCama);
+        return (
         <>
           <div>
             <div className={section}>Forma</div>
@@ -472,21 +563,37 @@ export function ProductoForm({
           <div>
             <div className={section}>Ancho de cabecero</div>
             <div className="flex flex-wrap gap-2">
-              {CABECERO_ANCHOS.map(a => <button key={a} type="button" onClick={() => s({ anchoCama: a })} className={btn(f.anchoCama === a)}>{a} cm</button>)}
+              {CABECERO_ANCHOS_CAT.filter(x => x.activo || x.id === f.anchoCama).map(x => (
+                <button
+                  key={x.id}
+                  type="button"
+                  onClick={() => s(patchPrecio(isEditing, { anchoCama: x.id }, x.precio))}
+                  className={btn(f.anchoCama === x.id)}
+                >
+                  {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
+                </button>
+              ))}
               <button type="button" onClick={() => s({ anchoCama: "custom" })} className={btn(f.anchoCama === "custom")}>Otra medida</button>
               <button type="button" onClick={() => s({ anchoCama: "tbd" })} className={btn(f.anchoCama === "tbd")}>Por decidir</button>
             </div>
             {f.anchoCama === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.anchoCamaCustom} onChange={e => s({ anchoCamaCustom: e.target.value })} placeholder="cm" min={60} max={300} />}
+            <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={anchoOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
           </div>
           <div>
             <div className={section}>Alto del cabecero</div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => s({ altoCabecero: "100" })} className={btn(f.altoCabecero === "100")}>100 cm (estándar)</button>
-              <button type="button" onClick={() => s({ altoCabecero: "120" })} className={btn(f.altoCabecero === "120")}>120 cm</button>
+              {CABECERO_ALTOS.map(a => (
+                <button key={a} type="button" onClick={() => s({ altoCabecero: a })} className={btn(f.altoCabecero === a)}>
+                  {a} cm{a === "100" ? " (estándar)" : ""}
+                </button>
+              ))}
               <button type="button" onClick={() => s({ altoCabecero: "custom" })} className={btn(f.altoCabecero === "custom")}>Otra medida</button>
               <button type="button" onClick={() => s({ altoCabecero: "tbd" })} className={btn(f.altoCabecero === "tbd")}>Por decidir</button>
             </div>
             {f.altoCabecero === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.altoCabeceroCustom} onChange={e => s({ altoCabeceroCustom: e.target.value })} placeholder="cm" min={40} max={200} />}
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+            Grosor <strong>{CABECERO_GROSOR_CM} cm</strong> (fijo)
           </div>
           <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral />
           <div>
@@ -509,14 +616,11 @@ export function ProductoForm({
             </div>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* ── BANCO OYAMBRE ── */}
       {f.tipo === "banco" && (() => {
-        // Muestra solo las variantes activas del catálogo. Si el estado actual
-        // apunta a una variante legacy (p.ej. "60-doble" en un producto
-        // histórico que se está editando), se añade esa opción marcada como
-        // retirada para que siga siendo seleccionable y editable.
         const activas = BANCO_OPCIONES.filter(o => o.activo);
         const selectedOpt = findBancoById(f.bancoMedida);
         const showLegacy = selectedOpt && !selectedOpt.activo;
@@ -530,12 +634,7 @@ export function ProductoForm({
                 <button
                   key={x.id}
                   type="button"
-                  onClick={() => s(
-                    // V8: al EDITAR nunca se recalcula precioUnitario desde el
-                    // catálogo — solo se cambia la variante. Al CREAR sí se
-                    // pre-rellena con el precio sugerido.
-                    isEditing ? { bancoMedida: x.id } : { bancoMedida: x.id, precioUnitario: x.precio }
-                  )}
+                  onClick={() => s(patchPrecio(isEditing, { bancoMedida: x.id }, x.precio))}
                   className={btn(f.bancoMedida === x.id)}
                 >
                   {x.label}
@@ -546,20 +645,7 @@ export function ProductoForm({
                 </button>
               ))}
             </div>
-            {isEditing && selectedOpt && selectedOpt.precio > 0 && f.precioUnitario !== selectedOpt.precio && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                <span>
-                  Precio guardado <strong>{f.precioUnitario}€</strong> · Precio actual del catálogo <strong>{selectedOpt.precio}€</strong>.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => s({ precioUnitario: selectedOpt.precio })}
-                  className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
-                >
-                  Actualizar a {selectedOpt.precio}€
-                </button>
-              </div>
-            )}
+            <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.bancoMedida === "custom" && (
               <div className="mt-2 space-y-2">
                 <input
@@ -601,20 +687,48 @@ export function ProductoForm({
         );
       })()}
 
-
-
       {/* ── PUF ── */}
-      {f.tipo === "puf" && (
+      {f.tipo === "puf" && (() => {
+        const activasCuad = PUF_OPCIONES.filter(o => o.activo && o.forma === "cuadrado");
+        const activasRed  = PUF_OPCIONES.filter(o => o.activo && o.forma === "redondo");
+        const selectedOpt = findPufById(f.pufId);
+        const legacyExtra = selectedOpt && !selectedOpt.activo ? [selectedOpt] : [];
+        return (
         <>
           <div>
-            <div className={section}>Tamaño (diámetro)</div>
+            <div className={section}>Forma cuadrada</div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => s({ tamanoPuf: "40" })} className={btn(f.tamanoPuf === "40")}>40 cm</button>
-              <button type="button" onClick={() => s({ tamanoPuf: "50" })} className={btn(f.tamanoPuf === "50")}>50 cm</button>
-              <button type="button" onClick={() => s({ tamanoPuf: "custom" })} className={btn(f.tamanoPuf === "custom")}>Otra medida</button>
-              <button type="button" onClick={() => s({ tamanoPuf: "tbd" })} className={btn(f.tamanoPuf === "tbd")}>Por decidir</button>
+              {[...activasCuad, ...legacyExtra.filter(o => o.forma === "cuadrado")].map(x => (
+                <button key={x.id} type="button"
+                  onClick={() => s(patchPrecio(isEditing, { pufId: x.id }, x.precio))}
+                  className={btn(f.pufId === x.id)}>
+                  {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
+                </button>
+              ))}
             </div>
-            {f.tamanoPuf === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.tamanoPufCustom} onChange={e => s({ tamanoPufCustom: e.target.value })} placeholder="cm" min={30} max={120} />}
+            <div className={`${section} mt-3`}>Forma redonda</div>
+            <div className="flex flex-wrap gap-2">
+              {[...activasRed, ...legacyExtra.filter(o => o.forma === "redondo")].map(x => (
+                <button key={x.id} type="button"
+                  onClick={() => s(patchPrecio(isEditing, { pufId: x.id }, x.precio))}
+                  className={btn(f.pufId === x.id)}>
+                  {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
+                </button>
+              ))}
+            </div>
+            <div className={`${section} mt-3`}>Otras opciones</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => s({ pufId: "custom" })} className={btn(f.pufId === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ pufId: "tbd" })} className={btn(f.pufId === "tbd")}>Por decidir</button>
+            </div>
+            <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
+            {f.pufId === "custom" && (
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <div><label className="mb-1 block text-xs text-slate-500">Ancho (cm)</label><input type="number" className={inp} value={f.pufAnchoCustom} onChange={e => s({ pufAnchoCustom: e.target.value })} min={20} max={200} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label><input type="number" className={inp} value={f.pufFondoCustom} onChange={e => s({ pufFondoCustom: e.target.value })} min={20} max={200} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" className={inp} value={f.pufAltoCustom} onChange={e => s({ pufAltoCustom: e.target.value })} min={20} max={100} /></div>
+              </div>
+            )}
           </div>
           <div>
             <div className={section}>Cantidad</div>
@@ -630,7 +744,7 @@ export function ProductoForm({
               {FINISHES_PUF.map(x => <button key={x.id} type="button" onClick={() => s({ acabado: x.id })} className={btn(f.acabado === x.id)}>{x.name}</button>)}
             </div>
           </div>
-          {(f.acabado === "vivo-simple" || f.acabado === "vivo-doble") && (
+          {f.acabado === "vivo-simple" && (
             <div>
               <div className={section}>Tela del vivo <span className="normal-case font-normal text-slate-400">(opcional — vacío = igual que la principal)</span></div>
               <TelaSelect value={f.telaVivo} onChange={v => s({ telaVivo: v })} placeholder="Tela para el ribete…" />
@@ -641,19 +755,32 @@ export function ProductoForm({
             <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* ── MESA ── */}
-      {f.tipo === "mesa" && (
+      {f.tipo === "mesa" && (() => {
+        const activas = MESA_OPCIONES.filter(o => o.activo);
+        const selectedOpt = findMesaById(f.mesaId);
+        const showLegacy = selectedOpt && !selectedOpt.activo;
+        const opciones = showLegacy ? [...activas, selectedOpt!] : activas;
+        return (
         <>
           <div>
-            <div className={section}>Medidas (largo × alto × fondo)</div>
+            <div className={section}>Medida (alto {MESA_ALTO_FIJO} cm fijo)</div>
             <div className="flex flex-wrap gap-2">
-              {MESA_PRESETS.map(p => <button key={p} type="button" onClick={() => s({ presetMesa: p })} className={btn(f.presetMesa === p)}>{p}</button>)}
-              <button type="button" onClick={() => s({ presetMesa: "custom" })} className={btn(f.presetMesa === "custom")}>Otra medida</button>
-              <button type="button" onClick={() => s({ presetMesa: "tbd" })} className={btn(f.presetMesa === "tbd")}>Por decidir</button>
+              {opciones.map(x => (
+                <button key={x.id} type="button"
+                  onClick={() => s(patchPrecio(isEditing, { mesaId: x.id }, x.precio))}
+                  className={btn(f.mesaId === x.id)}>
+                  {x.label}{x.precio > 0 ? ` · ${x.precio}€` : ""}{x.legacy ? " (retirado)" : ""}
+                </button>
+              ))}
+              <button type="button" onClick={() => s({ mesaId: "custom" })} className={btn(f.mesaId === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ mesaId: "tbd" })} className={btn(f.mesaId === "tbd")}>Por decidir</button>
             </div>
-            {f.presetMesa === "custom" && (
+            <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
+            {f.mesaId === "custom" && (
               <div className="mt-2 grid grid-cols-3 gap-2">
                 <div><label className="mb-1 block text-xs text-slate-500">Largo (cm)</label><input type="number" className={inp} value={f.mesaLargo} onChange={e => s({ mesaLargo: e.target.value })} min={40} max={300} /></div>
                 <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" className={inp} value={f.mesaAlto} onChange={e => s({ mesaAlto: e.target.value })} min={20} max={100} /></div>
@@ -662,9 +789,6 @@ export function ProductoForm({
             )}
           </div>
           <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral={false} />
-          <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
-            Acabado: <strong>Vivo simple</strong> — incluido en el precio
-          </div>
           <div>
             <div className={section}>Superficie encima de la mesa</div>
             <div className="flex flex-wrap gap-2">
@@ -676,45 +800,85 @@ export function ProductoForm({
             <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* ── PANTALLA ── */}
-      {f.tipo === "pantalla" && (
+      {f.tipo === "pantalla" && (() => {
+        const selectedOpt = findPantallaById(f.pantallaId);
+        const byForma = (fid: string) => PANTALLA_OPCIONES_CAT.filter(o => o.formaId === fid && (o.activo || o.id === f.pantallaId));
+        return (
         <>
+          {PANTALLA_FORMAS.map(fp => {
+            const opts = byForma(fp.id);
+            if (opts.length === 0) return null;
+            return (
+              <div key={fp.id}>
+                <div className={section}>{fp.name}</div>
+                <div className="flex flex-wrap gap-2">
+                  {opts.map(x => (
+                    <button key={x.id} type="button"
+                      onClick={() => s(patchPrecio(isEditing, { pantallaId: x.id, formaPantalla: x.formaId }, x.precio))}
+                      className={btn(f.pantallaId === x.id)}>
+                      {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
           <div>
-            <div className={section}>Forma</div>
+            <div className={section}>Otras opciones</div>
             <div className="flex flex-wrap gap-2">
-              {PANTALLA_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ formaPantalla: x.id, tamanoPantalla: PANTALLA_OPCIONES[x.id]?.[0] ?? "" })} className={btn(f.formaPantalla === x.id)}>{x.name}</button>)}
+              <button type="button" onClick={() => s({ pantallaId: "custom" })} className={btn(f.pantallaId === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ pantallaId: "tbd" })} className={btn(f.pantallaId === "tbd")}>Por decidir</button>
             </div>
-          </div>
-          <div>
-            <div className={section}>Medida</div>
-            <div className="flex flex-wrap gap-2">
-              {(PANTALLA_OPCIONES[f.formaPantalla] ?? []).map(sz => <button key={sz} type="button" onClick={() => s({ tamanoPantalla: sz })} className={btn(f.tamanoPantalla === sz)}>{sz}</button>)}
-              <button type="button" onClick={() => s({ tamanoPantalla: "tbd" })} className={btn(f.tamanoPantalla === "tbd")}>Por decidir</button>
-            </div>
+            <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
+            {f.pantallaId === "custom" && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div><label className="mb-1 block text-xs text-slate-500">Ancho / Ø (cm)</label><input type="number" className={inp} value={f.pantallaAnchoCustom} onChange={e => s({ pantallaAnchoCustom: e.target.value })} min={5} max={200} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" className={inp} value={f.pantallaAltoCustom} onChange={e => s({ pantallaAltoCustom: e.target.value })} min={5} max={200} /></div>
+              </div>
+            )}
           </div>
           <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral={false} />
-          <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
-            Acabado: <strong>Ribete incluido</strong> — vivo en borde superior e inferior sin coste adicional
-          </div>
           <div>
             <div className={section}>Extras</div>
             <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* ── ALMOHADÓN ── */}
-      {f.tipo === "almohadon" && (
+      {f.tipo === "almohadon" && (() => {
+        const activas = COJIN_OPCIONES.filter(o => o.activo);
+        const selectedOpt = findCojinById(f.almohadonId);
+        const showLegacy = selectedOpt && !selectedOpt.activo;
+        const opciones = showLegacy ? [...activas, selectedOpt!] : activas;
+        return (
         <>
           <div>
-            <div className={section}>Medidas</div>
-            <input type="text" className={inp} value={f.almohadonMedidas} onChange={e => s({ almohadonMedidas: e.target.value })} placeholder="Ej. 50x50 cm" />
+            <div className={section}>Medida</div>
+            <div className="flex flex-wrap gap-2">
+              {opciones.map(x => (
+                <button key={x.id} type="button"
+                  onClick={() => s(patchPrecio(isEditing, { almohadonId: x.id }, x.precio))}
+                  className={btn(f.almohadonId === x.id)}>
+                  {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
+                </button>
+              ))}
+              <button type="button" onClick={() => s({ almohadonId: "custom" })} className={btn(f.almohadonId === "custom")}>Otra medida</button>
+              <button type="button" onClick={() => s({ almohadonId: "tbd" })} className={btn(f.almohadonId === "tbd")}>Por decidir</button>
+            </div>
+            <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
+            {f.almohadonId === "custom" && (
+              <input type="text" className={`${inp} mt-2`} value={f.almohadonMedidas} onChange={e => s({ almohadonMedidas: e.target.value })} placeholder="Ej. 55×35 cm" />
+            )}
           </div>
           <div>
             <div className={section}>Tela</div>
-            <input type="text" className={inp} value={f.almohadonTela} onChange={e => s({ almohadonTela: e.target.value })} placeholder="Tela elegida…" />
+            <TelaSelect value={f.almohadonTela} onChange={v => s({ almohadonTela: v })} />
           </div>
           <div>
             <div className={section}>Ribete</div>
@@ -737,23 +901,33 @@ export function ProductoForm({
             </label>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* ── OTRO ── */}
       {f.tipo === "otro" && (
-        <div>
-          <div className={section}>¿Qué producto es? <span className="text-red-500">*</span></div>
-          <input
-            type="text"
-            className={inp}
-            value={f.otroDescripcion}
-            onChange={e => s({ otroDescripcion: e.target.value })}
-            placeholder="Describe el producto…"
-            required
-          />
+        <div className="space-y-2">
+          <div className={section}>¿Qué producto es? {!f.otroPorDecidir && <span className="text-red-500">*</span>}</div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => s({ otroPorDecidir: false })} className={btn(!f.otroPorDecidir)}>Descripción libre</button>
+            <button type="button" onClick={() => s({ otroPorDecidir: true, otroDescripcion: "" })} className={btn(f.otroPorDecidir)}>Por decidir</button>
+          </div>
+          {!f.otroPorDecidir && (
+            <input
+              type="text"
+              className={inp}
+              value={f.otroDescripcion}
+              onChange={e => s({ otroDescripcion: e.target.value })}
+              placeholder="Describe el producto…"
+            />
+          )}
+          {f.otroPorDecidir && (
+            <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Producto pendiente de definir — se puede editar más adelante
+            </div>
+          )}
         </div>
       )}
-
 
       {/* ── Precio / cantidad / notas ── */}
       {f.tipo && (
@@ -781,7 +955,7 @@ export function ProductoForm({
         <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancelar</button>
         <button
           type="button"
-          disabled={!f.tipo || (f.tipo === "otro" && !f.otroDescripcion.trim())}
+          disabled={!f.tipo || (f.tipo === "otro" && !f.otroPorDecidir && !f.otroDescripcion.trim())}
           onClick={() => onSave(prodStateToProducto(f))}
           className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-40">
           <Check className="mr-1 inline h-3.5 w-3.5" />Guardar producto
