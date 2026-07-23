@@ -290,6 +290,11 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   s.acabado = p.acabado || "";
   s.precioUnitario = p.precioUnitario; s.notasProducto = p.notasProducto;
   s.tapetes = p.patas?.includes("Tapetes") ?? false;
+  // Marca edición y captura dims originales (para NO sobreescribir NULLs
+  // históricos con defaults del catálogo al guardar).
+  s._isEdit = true;
+  s._origFondo = p.fondo ?? null;
+  s._origAlto  = p.alto  ?? null;
 
   if (p.tipo === "cabecero") {
     const formaMatch = CABECERO_FORMAS.find(x => mismoModelo(x.name, p.modelo));
