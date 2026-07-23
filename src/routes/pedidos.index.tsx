@@ -759,7 +759,7 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                 <option value="">— Selecciona producto —</option>
                 {productosDelLead.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}{p.modelo ? ` · ${p.modelo}` : ""}
+                    {TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}{displayModelo(p.modelo) ? ` · ${displayModelo(p.modelo)}` : ""}
                   </option>
                 ))}
               </select>
