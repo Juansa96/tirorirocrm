@@ -15,6 +15,7 @@ import {
   ProductoForm, EMPTY_PROD_STATE, productoToState,
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
+import { displayColeccionTela } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/clientes/$id")({
   head: () => ({ meta: [{ title: "Cliente — TiroCRM" }] }),
@@ -649,7 +650,7 @@ function ClienteDetalle() {
             <div key={p.id}>
               {editingProd === p.id ? (
                 <ProductoForm
-                  initial={productoToState({ tipo: p.tipo, modelo: p.modelo, ancho: p.ancho, alto: p.alto, tela: p.tela, color: p.color, relleno: p.relleno, patas: p.patas, acabado: p.acabado, coleccionTela: p.coleccionTela, cantidad: p.cantidad, precioUnitario: p.precioUnitario, notasProducto: p.notasProducto })}
+                  initial={productoToState({ tipo: p.tipo, modelo: p.modelo, ancho: p.ancho, alto: p.alto, fondo: p.fondo, tela: p.tela, color: p.color, relleno: p.relleno, patas: p.patas, acabado: p.acabado, coleccionTela: p.coleccionTela, cantidad: p.cantidad, precioUnitario: p.precioUnitario, notasProducto: p.notasProducto })}
                   onSave={(updated) => { actions.updateProducto(p.id, updated); setEditingProd(null); }}
                   onCancel={() => setEditingProd(null)}
                 />
@@ -670,8 +671,9 @@ function ClienteDetalle() {
                       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
                         {p.ancho && <span>Ancho: <strong>{p.ancho} cm</strong></span>}
                         {p.alto && <span>Alto: <strong>{p.alto} cm</strong></span>}
+                        {p.fondo != null && <span>Fondo: <strong>{p.fondo} cm</strong></span>}
                         {p.tela && <span>Tela: <strong>{p.tela}</strong></span>}
-                        {p.coleccionTela && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px]">{p.coleccionTela}</span>}
+                        {p.coleccionTela && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px]">{displayColeccionTela(p.coleccionTela)}</span>}
                         {p.color && <span>Lateral: <strong>{p.color}</strong></span>}
                         {p.acabado && p.acabado !== "liso" && <span>Acabado: <strong>{p.acabado === "vivo-simple" ? "Vivo simple" : "Vivo doble"}</strong></span>}
                         {p.relleno && (p.tipo === "cabecero" || p.tipo === "puf") && <span>Tela vivo: <strong>{p.relleno}</strong></span>}

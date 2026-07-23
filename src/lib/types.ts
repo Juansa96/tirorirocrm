@@ -214,6 +214,7 @@ export interface Producto {
   modelo: string;        // forma / variante display name
   ancho: number | null;
   alto: number | null;
+  fondo: number | null;
   tela: string;
   color: string;
   relleno: string;

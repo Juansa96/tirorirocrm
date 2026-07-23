@@ -272,13 +272,22 @@ export const PANTALLA_OPCIONES: PantallaOpcion[] = [
 // ── Telas ──────────────────────────────────────────────────────────────────
 // La web colapsa el catálogo en dos categorías: BASIC y PREMIUM.
 // La lista de telas concretas se mantiene informativa para el selector manual.
-export const TELA_CATEGORIAS = ["Básicas", "Premium"] as const;
+// Canónico en BD: SIEMPRE minúscula, sin acentos → "basic" | "premium".
+// La capitalización ("Básicas" / "Premium") es solo de UI; nunca se guarda así.
+// Filas históricas ("Premium", "Básicas") NO se migran; se normalizan al comparar.
+export const TELA_CATEGORIAS = ["basic", "premium"] as const;
 export type TelaCategoria = (typeof TELA_CATEGORIAS)[number];
 
 export function normalizarColeccionTela(raw: unknown): TelaCategoria {
   const s = stripDiacritics(String(raw ?? "")).trim().toLowerCase();
-  if (s === "premium") return "Premium";
-  return "Básicas"; // "basic", "basica", "básicas", vacío → Básicas
+  if (s === "premium") return "premium";
+  return "basic"; // "basic", "basica", "básicas", "Premium " ya cae arriba, vacío → basic
+}
+
+// Etiqueta para render en UI. Acepta valores canónicos y también los históricos
+// "Básicas"/"Premium" para no romper filas antiguas al mostrarlas.
+export function displayColeccionTela(raw: unknown): string {
+  return normalizarColeccionTela(raw) === "premium" ? "Premium" : "Básicas";
 }
 
 // Nombres sugeridos para el selector manual (misma lista que la web).

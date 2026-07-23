@@ -586,6 +586,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           fecha_confirmacion: string | null
+          fondo: number | null
           id: string
           lead_id: string | null
           modelo: string | null
@@ -609,6 +610,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           fecha_confirmacion?: string | null
+          fondo?: number | null
           id?: string
           lead_id?: string | null
           modelo?: string | null
@@ -632,6 +634,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           fecha_confirmacion?: string | null
+          fondo?: number | null
           id?: string
           lead_id?: string | null
           modelo?: string | null

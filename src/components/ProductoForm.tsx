@@ -4,6 +4,7 @@ import type { Producto } from "@/lib/types";
 import { CATALOG_TO_INTERNAL } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { FormaBadge } from "@/components/FormaBadge";
+import { normalizarColeccionTela, displayColeccionTela } from "@/lib/catalogo";
 
 // ── Constantes ────────────────────────────────────────────────────
 export const TIPOS_PRODUCTO = [
@@ -104,7 +105,7 @@ export const EMPTY_PROD_STATE: ProdState = {
   tamanoPuf: "40", tamanoPufCustom: "", cantidadPuf: "1",
   presetMesa: "120×45×60 cm", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   formaPantalla: "cilindro", tamanoPantalla: "Ø40×40 cm",
-  tela: "", coleccionTela: "Básicas", acabado: "vivo-simple", telaVivo: "",
+  tela: "", coleccionTela: "basic", acabado: "vivo-simple", telaVivo: "",
   tapetes: false,
   almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
   otroDescripcion: "",
@@ -188,10 +189,10 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
 
 
   return {
-    tipo: f.tipo, modelo, ancho, alto,
+    tipo: f.tipo, modelo, ancho, alto, fondo: null,
     tela: f.tipo === "almohadon" ? f.almohadonTela : f.tela,
     color, relleno, patas,
-    acabado: f.acabado, coleccionTela: f.coleccionTela,
+    acabado: f.acabado, coleccionTela: normalizarColeccionTela(f.coleccionTela),
     cantidad: f.tipo === "puf" ? Number(f.cantidadPuf) : f.cantidad,
     precioUnitario: f.precioUnitario, notasProducto: f.notasProducto,
   };
@@ -200,7 +201,7 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
 export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">): ProdState {
   const s = { ...EMPTY_PROD_STATE };
   s.tipo = p.tipo as ProdTipo;
-  s.tela = p.tela; s.coleccionTela = p.coleccionTela || "Básicas";
+  s.tela = p.tela; s.coleccionTela = normalizarColeccionTela(p.coleccionTela);
   s.acabado = p.acabado || "vivo-simple";
   s.precioUnitario = p.precioUnitario; s.notasProducto = p.notasProducto;
   s.tapetes = p.patas?.includes("Tapetes") ?? false;
@@ -315,7 +316,7 @@ function TelaSection({ tela, onTela, coleccionTela, onColeccion, telaLateral, on
       <div>
         <div className={SECTION_CLS}>Colección</div>
         <div className="flex gap-2">
-          {["Básicas","Premium"].map(c => <button key={c} type="button" onClick={() => onColeccion(c)} className={BTN_CLS(coleccionTela === c)}>{c}</button>)}
+          {(["basic","premium"] as const).map(c => <button key={c} type="button" onClick={() => onColeccion(c)} className={BTN_CLS(normalizarColeccionTela(coleccionTela) === c)}>{displayColeccionTela(c)}</button>)}
         </div>
       </div>
       {showLateral && (
