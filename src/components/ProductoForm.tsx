@@ -245,14 +245,18 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.cantidad = p.cantidad;
   } else if (p.tipo === "banco") {
     const a = p.ancho ? String(p.ancho) : "";
-    const std = ["60","90","120","150"];
-    // "60 doble" no se puede distinguir solo por ancho — buscar en modelo
+    // Anchos estándar (excluye custom y variante doble); vienen del catálogo.
+    const stdAnchos = BANCO_OPCIONES
+      .filter(o => o.id !== "custom" && o.id !== "60-doble" && o.ancho !== null)
+      .map(o => String(o.ancho));
+    // "60 doble" no se puede distinguir solo por ancho — buscar en modelo.
     const isDoble = /doble/i.test(p.modelo);
-    s.bancoMedida = isDoble ? "60-doble" : (std.includes(a) ? a : (a ? "custom" : "90"));
+    s.bancoMedida = isDoble ? "60-doble" : (stdAnchos.includes(a) ? a : (a ? "custom" : "90"));
     s.bancoLargoCustom = s.bancoMedida === "custom" ? a : "";
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.cantidad = p.cantidad;
   }
+
 
   return s;
 }
