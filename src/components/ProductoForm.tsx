@@ -703,6 +703,7 @@ export function ProductoForm({
                   {x.legacy ? " (retirado)" : ""}
                 </button>
               ))}
+              <button type="button" onClick={() => s({ bancoMedida: "tbd" })} className={btn(f.bancoMedida === "tbd")}>Por decidir</button>
             </div>
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.bancoMedida === "custom" && (
@@ -721,9 +722,16 @@ export function ProductoForm({
                 </div>
               </div>
             )}
-            <div className="mt-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
-              Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
-            </div>
+            {f.bancoMedida === "tbd" && (
+              <div className="mt-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Medida pendiente de decidir — se puede editar más adelante
+              </div>
+            )}
+            {f.bancoMedida !== "tbd" && (
+              <div className="mt-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+                Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
+              </div>
+            )}
           </div>
 
           <TelaSection
