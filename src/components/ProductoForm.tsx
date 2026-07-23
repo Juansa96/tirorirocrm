@@ -341,7 +341,7 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     else if (p.patas?.startsWith("Ribete: ")) { s.almohadonSinRibete = false; s.almohadonRibete = p.patas.slice(8); }
     s.cantidad = p.cantidad;
   } else if (p.tipo === "otro") {
-    s.otroPorDecidir = mismoModelo(p.modelo, "Otro (por decidir)");
+    s.otroPorDecidir = esModeloTBD(p.modelo);
     s.otroDescripcion = s.otroPorDecidir ? "" : p.modelo;
     s.cantidad = p.cantidad;
   } else if (p.tipo === "banco") {
