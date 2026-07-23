@@ -8,6 +8,8 @@ import {
   normalizarColeccionTela,
   displayColeccionTela,
   mismoModelo,
+  MODELO_TBD,
+  esModeloTBD,
   BANCO_OPCIONES,
   BANCO_MEDIDAS_FISICAS,
   BANCO_ALTO_FIJO,
