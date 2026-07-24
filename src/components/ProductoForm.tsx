@@ -273,6 +273,28 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     modelo = f.otroPorDecidir ? MODELO_TBD : f.otroDescripcion;
   }
 
+  // V8bis — preservación de modelo histórico en round-trip.
+  // Puf/pantalla/almohadón históricos guardaban modelo real pero con
+  // ancho/alto/fondo NULL (o solo ancho). Al reabrirlos, el selector no
+  // encuentra opción y cae a "custom"/vacío, y el render regenera el
+  // placeholder ("Puf (medida personalizada)", etc.), machacando el nombre
+  // original al guardar. Si estamos editando, el nombre calculado ES un
+  // placeholder genérico Y las medidas coinciden exactamente con las
+  // originales (el usuario no las cambió), restauramos el modelo original.
+  // Si el usuario tocó alguna medida, el placeholder se aplica normalmente.
+  const PLACEHOLDER_RE = /^(Puf|Pantalla|Almohadón) \(medida (por decidir|personalizada)\)$/;
+  if (
+    f._isEdit &&
+    f._origModelo &&
+    (f.tipo === "puf" || f.tipo === "pantalla" || f.tipo === "almohadon") &&
+    PLACEHOLDER_RE.test(modelo) &&
+    (ancho ?? null) === (f._origAncho ?? null) &&
+    (alto  ?? null) === (f._origAlto  ?? null) &&
+    (fondo ?? null) === (f._origFondo ?? null)
+  ) {
+    modelo = f._origModelo;
+  }
+
   return {
     tipo: f.tipo, modelo, ancho, alto, fondo,
     tela: f.tipo === "almohadon" ? f.almohadonTela : f.tela,
