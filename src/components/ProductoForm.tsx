@@ -308,6 +308,9 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   s._isEdit = true;
   s._origFondo = p.fondo ?? null;
   s._origAlto  = p.alto  ?? null;
+  s._origAncho = p.ancho ?? null;
+  s._origModelo = p.modelo ?? null;
+
 
   if (mismoTipo(p.tipo, "cabecero")) {
     const formaMatch = CABECERO_FORMAS.find(x => mismoModelo(x.name, p.modelo));
