@@ -117,6 +117,8 @@ export interface ProdState {
   // el valor original era NULL; number ≡ editando con valor guardado.
   _origFondo?: number | null;
   _origAlto?: number | null;
+  _origAncho?: number | null;
+  _origModelo?: string | null;
   _isEdit?: boolean;
 }
 
