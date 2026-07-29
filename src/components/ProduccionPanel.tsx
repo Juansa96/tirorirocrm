@@ -142,7 +142,7 @@ export function ProduccionPanel() {
                       <td className="px-4 py-2.5">
                         <select
                           value={pedido.tapiceroId}
-                          onChange={(e) => actions.updatePedido(pedido.id, { tapiceroId: e.target.value })}
+                          onChange={(e) => actions.reasignarTapicero(pedido.id, e.target.value)}
                           className="rounded border border-slate-200 bg-white px-2 py-1 text-xs focus:border-slate-400 focus:outline-none"
                         >
                           <option value="">Sin asignar</option>

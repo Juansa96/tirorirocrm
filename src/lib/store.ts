@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero } from "./types";
-import { VENDEDORES, telasPorTipo } from "./types";
+import { VENDEDORES, telasPorTipo, flujoPedido } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela } from "./catalogo";
@@ -204,6 +204,7 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     factura: (r.factura as string) ?? "",
     notasPedido: (r.notas_pedido as string) ?? "",
     tapiceroId: (r.tapicero_id as string) ?? "",
+    pasosTapicero: (r.pasos_tapicero && typeof r.pasos_tapicero === "object" ? r.pasos_tapicero : {}) as Record<string, string>,
     createdAt: (r.created_at as string) ?? "",
     updatedAt: (r.updated_at as string) ?? "",
     empresaId: (r.empresa_id as string) ?? "",
@@ -1200,6 +1201,7 @@ export const actions = {
       factura: "factura",
       notasPedido: "notas_pedido",
       tapiceroId: "tapicero_id",
+      pasosTapicero: "pasos_tapicero",
       clienteNombreLibre: "cliente_nombre_libre",
       esCanje: "es_canje",
       formatos: "formatos",
@@ -1212,6 +1214,25 @@ export const actions = {
     const { error } = await supabase.from("pedidos").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); return; }
     await syncLeadFromPedidos(leadId);
+  },
+
+  // Reasigna el tapicero conservando el histórico por paso. Los pasos YA HECHOS
+  // que aún no tengan sello se sellan con el tapicero SALIENTE (así "los
+  // anteriores" mantienen quién los hizo); los pasos no hechos siguen al
+  // tapicero nuevo. Usar esto (no updatePedido) al cambiar de tapicero.
+  async reasignarTapicero(pedidoId: string, nuevoTapiceroId: string) {
+    const pedido = state.pedidos.find((p) => p.id === pedidoId);
+    if (!pedido) return;
+    const saliente = pedido.tapiceroId;
+    if (saliente === nuevoTapiceroId) return; // sin cambios
+    const sellos: Record<string, string> = { ...(pedido.pasosTapicero || {}) };
+    if (saliente) {
+      const producto = state.productos.find((pr) => pr.id === pedido.productoLeadId);
+      for (const h of flujoPedido(producto?.tipo ?? "")) {
+        if ((pedido[h.key] as boolean) && !sellos[h.key]) sellos[h.key] = saliente;
+      }
+    }
+    await actions.updatePedido(pedidoId, { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos });
   },
 
   // "Media pagada (todos)": marca el 50% en los pedidos ACTUALES indicados.

@@ -432,6 +432,7 @@ export type Database = {
           pago_todo_al_final: boolean
           pantalla_hecha: boolean
           pantalla_hecha_fecha: string | null
+          pasos_tapicero: Json
           precio: number
           precio_con_iva: number | null
           producto_lead_id: string | null
@@ -482,6 +483,7 @@ export type Database = {
           pago_todo_al_final?: boolean
           pantalla_hecha?: boolean
           pantalla_hecha_fecha?: string | null
+          pasos_tapicero?: Json
           precio?: number
           precio_con_iva?: number | null
           producto_lead_id?: string | null
@@ -532,6 +534,7 @@ export type Database = {
           pago_todo_al_final?: boolean
           pantalla_hecha?: boolean
           pantalla_hecha_fecha?: string | null
+          pasos_tapicero?: Json
           precio?: number
           precio_con_iva?: number | null
           producto_lead_id?: string | null

@@ -40,7 +40,13 @@ function PedidoDetalle() {
 
   const hitos = flujoPedido(producto?.tipo ?? "");
   const tapiceroAsignado = tapiceros.find((t) => t.id === pedido.tapiceroId);
-  const nombreTapicero = tapiceroNombre(tapiceroAsignado);
+  // Nombre del tapicero responsable de un paso concreto: si el paso está hecho
+  // y tiene sello, el que lo hizo; si no, el tapicero asignado actualmente.
+  const nombreDePaso = (stepKey: string, hecho: boolean): string => {
+    const selloId = hecho ? pedido.pasosTapicero?.[stepKey] : undefined;
+    const t = selloId ? tapiceros.find((x) => x.id === selloId) : tapiceroAsignado;
+    return tapiceroNombre(t);
+  };
   // Al asignar solo se ofrecen tapiceros activos; se incluye el ya asignado
   // aunque esté inactivo, para no perderlo del selector en pedidos históricos.
   const tapicerosSeleccionables = tapiceros.filter(
@@ -208,7 +214,7 @@ function PedidoDetalle() {
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Tapicero asignado</div>
         <select
           value={pedido.tapiceroId}
-          onChange={(e) => actions.updatePedido(pedido.id, { tapiceroId: e.target.value })}
+          onChange={(e) => actions.reasignarTapicero(pedido.id, e.target.value)}
           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none sm:w-72"
         >
           <option value="">— Sin asignar —</option>
@@ -239,7 +245,7 @@ function PedidoDetalle() {
                     }}
                     className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                   />
-                  <span className={`font-medium ${checked ? "text-slate-900" : "text-slate-600"}`}>{hitoLabel(h.label, nombreTapicero)}</span>
+                  <span className={`font-medium ${checked ? "text-slate-900" : "text-slate-600"}`}>{hitoLabel(h.label, nombreDePaso(h.key, checked))}</span>
                 </label>
                 {checked && (
                   <input
