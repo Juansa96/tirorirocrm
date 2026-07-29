@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Trash2, Plus, Package, ExternalLink } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { semaforoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { semaforoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
 import { displayModelo, tipoLabelOf } from "@/lib/catalogo";
@@ -20,7 +20,7 @@ const SEM_COLOR = {
 function PedidoDetalle() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { pedidos, leads, productos, pedidoTelas } = useStore();
+  const { pedidos, leads, productos, pedidoTelas, tapiceros } = useStore();
   const pedido = pedidos.find((p) => p.id === id);
 
   if (!pedido) {
@@ -39,6 +39,13 @@ function PedidoDetalle() {
   const c = SEM_COLOR[sem.estado];
 
   const hitos = flujoPedido(producto?.tipo ?? "");
+  const tapiceroAsignado = tapiceros.find((t) => t.id === pedido.tapiceroId);
+  const nombreTapicero = tapiceroNombre(tapiceroAsignado);
+  // Al asignar solo se ofrecen tapiceros activos; se incluye el ya asignado
+  // aunque esté inactivo, para no perderlo del selector en pedidos históricos.
+  const tapicerosSeleccionables = tapiceros.filter(
+    (t) => t.activo || t.id === pedido.tapiceroId
+  );
 
   return (
     <div className="space-y-4">
@@ -196,6 +203,23 @@ function PedidoDetalle() {
         </div>
       </div>
 
+      {/* Tapicero asignado */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Tapicero asignado</div>
+        <select
+          value={pedido.tapiceroId}
+          onChange={(e) => actions.updatePedido(pedido.id, { tapiceroId: e.target.value })}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none sm:w-72"
+        >
+          <option value="">— Sin asignar —</option>
+          {tapicerosSeleccionables.map((t) => (
+            <option key={t.id} value={t.id}>
+              {tapiceroNombre(t)}{!t.activo ? " (inactivo)" : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Hitos */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Ruta de producción</div>
@@ -218,7 +242,7 @@ function PedidoDetalle() {
                     }}
                     className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                   />
-                  <span className={`font-medium ${checked ? "text-slate-900" : "text-slate-600"}`}>{h.label}</span>
+                  <span className={`font-medium ${checked ? "text-slate-900" : "text-slate-600"}`}>{hitoLabel(h.label, nombreTapicero)}</span>
                 </label>
                 {checked && (
                   <input

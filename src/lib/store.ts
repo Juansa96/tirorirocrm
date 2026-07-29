@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero } from "./types";
 import { VENDEDORES, telasPorTipo } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
@@ -18,6 +18,7 @@ interface State {
   pedidos: Pedido[];
   pedidoTelas: PedidoTela[];
   catalogo: CatalogoProducto[];
+  tapiceros: Tapicero[];
   leadFotos: LeadFoto[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
@@ -26,7 +27,7 @@ interface State {
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], leadFotos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], leadFotos: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -201,6 +202,7 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     pagadoCompleto: !!r.pagado_completo,
     factura: (r.factura as string) ?? "",
     notasPedido: (r.notas_pedido as string) ?? "",
+    tapiceroId: (r.tapicero_id as string) ?? "",
     createdAt: (r.created_at as string) ?? "",
     updatedAt: (r.updated_at as string) ?? "",
     empresaId: (r.empresa_id as string) ?? "",
@@ -459,8 +461,21 @@ async function refetchLeadFotos() {
   const { data, error } = await supabase.from("lead_fotos").select("*").order("created_at", { ascending: false });
   if (!error && data) { state = { ...state, leadFotos: (data as unknown as Record<string, unknown>[]).map(mapLeadFoto) }; emit(); }
 }
+async function refetchTapiceros() {
+  const { data, error } = await supabase.from("tapiceros").select("*").order("orden", { ascending: true });
+  if (!error && data) {
+    const rows = (data as unknown as Record<string, unknown>[]).map((r): Tapicero => ({
+      id: r.id as string,
+      nombre: (r.nombre as string) ?? "",
+      apellido: (r.apellido as string) ?? "",
+      activo: r.activo !== false,
+      orden: Number(r.orden) || 0,
+    }));
+    state = { ...state, tapiceros: rows }; emit();
+  }
+}
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo(), refetchLeadFotos()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo(), refetchTapiceros(), refetchLeadFotos()]);
   state = { ...state, loaded: true };
   emit();
 }
@@ -477,7 +492,7 @@ function subscribe(cb: () => void) {
 
 
 const SERVER: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], leadFotos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], leadFotos: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
@@ -496,7 +511,7 @@ export async function teardownStore() {
   } catch { /* ignore */ }
   initStarted = false;
   state = {
-    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], leadFotos: [],
+    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], leadFotos: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
   };
   emit();
@@ -1180,6 +1195,7 @@ export const actions = {
       pagadoCompleto: "pagado_completo",
       factura: "factura",
       notasPedido: "notas_pedido",
+      tapiceroId: "tapicero_id",
       clienteNombreLibre: "cliente_nombre_libre",
       esCanje: "es_canje",
       formatos: "formatos",

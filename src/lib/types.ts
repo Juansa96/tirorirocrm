@@ -23,6 +23,25 @@ export function vendorName(v: string): string {
   return NAMES[v] ?? v;
 }
 
+// ───────────── Tapiceros ─────────────
+// Catálogo de tapiceros a los que se puede asignar un pedido (tabla `tapiceros`).
+// `activo=false` = baja lógica: no se ofrece al asignar pedidos nuevos, pero
+// se conserva para resolver el nombre en pedidos históricos ya asignados.
+export interface Tapicero {
+  id: string;
+  nombre: string;
+  apellido: string;
+  activo: boolean;
+  orden: number;
+}
+
+// Nombre para mostrar en la UI. Hay dos "Daniel": SIEMPRE nombre + apellido
+// cuando lo haya, para que no se confundan.
+export function tapiceroNombre(t: Tapicero | undefined | null): string {
+  if (!t) return "";
+  return t.apellido ? `${t.nombre} ${t.apellido}` : t.nombre;
+}
+
 export type EtapaB2C =
   | "Discovery"
   | "Primer Contacto"
@@ -287,6 +306,7 @@ export interface Pedido {
   pagadoCompleto: boolean;
   factura: string;
   notasPedido: string;
+  tapiceroId: string;  // uuid del tapicero asignado, o "" si sin asignar
   createdAt: string;
   updatedAt: string;
   empresaId: string;   // uuid del lead B2B vinculado, o "" si no aplica
@@ -354,6 +374,15 @@ const FLUJO_DANIEL: HitoDef[] = [
 
 export function flujoPedido(tipoProducto: string): HitoDef[] {
   return esPantalla(tipoProducto) ? FLUJO_PANTALLA : FLUJO_DANIEL;
+}
+
+// Etiqueta del hito personalizada con el tapicero asignado. Los pasos del
+// flujo llevan "Daniel" cableado (histórico); si el pedido tiene un tapicero
+// asignado, se sustituye por su nombre completo para no confundir a los dos
+// Daniel. Sin tapicero asignado, se deja la etiqueta tal cual.
+export function hitoLabel(label: string, nombreTapicero: string): string {
+  if (!nombreTapicero) return label;
+  return label.replace(/Daniel/g, nombreTapicero);
 }
 
 /** Nº de hitos completados y el hito "actual" (siguiente pendiente). */
