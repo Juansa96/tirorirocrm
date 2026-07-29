@@ -225,7 +225,10 @@ export const CABECERO_ANCHOS: CabeceroAnchoOpcion[] = [
 ];
 
 // Alturas seleccionables del cabecero (más "Otra altura" y "Por decidir" en la UI)
-export const CABECERO_ALTOS = ["100", "120"] as const;
+// La web publicada añadió 130 cm (antes solo 100 y 120). El recargo por altura
+// lo define CABECERO_SUPLEMENTO_10CM: +15€ por cada 10 cm por encima de 100 cm
+// (130 cm → +45€), igual que getHeightSurcharge en la web.
+export const CABECERO_ALTOS = ["100", "120", "130"] as const;
 
 // ── Pufs ──────────────────────────────────────────────────────────────────
 // Redesign completo: forma cuadrada / redonda con SKUs concretos.
@@ -245,13 +248,15 @@ export interface PufOpcion {
   legacy?: boolean;
 }
 
+// Altura fija 40 cm en todos los pufs (antes 45). Fuente: pricing.ts de la web
+// (PUF_HEIGHT_CM = 40 en todas las variantes). Huella cuadrada N×N y redonda ØN.
 export const PUF_OPCIONES: PufOpcion[] = [
   { id: "cuad-40x40x40", label: "Cuadrado 40×40×40 cm",   forma: "cuadrado", ancho: 40, fondo: 40, alto: 40, precio: 150, premium: 45, vivo: 15, activo: true },
-  { id: "cuad-50x50x45", label: "Cuadrado 50×50×45 cm",   forma: "cuadrado", ancho: 50, fondo: 50, alto: 45, precio: 175, premium: 55, vivo: 15, activo: true },
-  { id: "cuad-60x40x45", label: "Cuadrado 60×40×45 cm",   forma: "cuadrado", ancho: 60, fondo: 40, alto: 45, precio: 225, premium: 70, vivo: 15, activo: true },
+  { id: "cuad-50x50x40", label: "Cuadrado 50×50×40 cm",   forma: "cuadrado", ancho: 50, fondo: 50, alto: 40, precio: 175, premium: 55, vivo: 15, activo: true },
+  { id: "cuad-60x60x40", label: "Cuadrado 60×60×40 cm",   forma: "cuadrado", ancho: 60, fondo: 60, alto: 40, precio: 225, premium: 70, vivo: 15, activo: true },
   { id: "red-40x40",     label: "Redondo Ø40 × 40 cm alto", forma: "redondo", ancho: 40, fondo: 40, alto: 40, precio: 160, premium: 45, vivo: 15, activo: true },
-  { id: "red-50x45",     label: "Redondo Ø50 × 45 cm alto", forma: "redondo", ancho: 50, fondo: 50, alto: 45, precio: 185, premium: 55, vivo: 15, activo: true },
-  { id: "red-60x45",     label: "Redondo Ø60 × 45 cm alto", forma: "redondo", ancho: 60, fondo: 60, alto: 45, precio: 240, premium: 70, vivo: 15, activo: true },
+  { id: "red-50x40",     label: "Redondo Ø50 × 40 cm alto", forma: "redondo", ancho: 50, fondo: 50, alto: 40, precio: 185, premium: 55, vivo: 15, activo: true },
+  { id: "red-60x40",     label: "Redondo Ø60 × 40 cm alto", forma: "redondo", ancho: 60, fondo: 60, alto: 40, precio: 240, premium: 70, vivo: 15, activo: true },
 ];
 
 // ── Mesas de centro ────────────────────────────────────────────────────────
@@ -314,8 +319,8 @@ export const COJIN_OPCIONES: CojinOpcion[] = [
   { id: "cuad-50x50",   label: "Cuadrado 50×50",     forma: "cuadrado",    ancho: 50, alto: 50, precio: 70,  premium: 40, activo: true },
   { id: "rect-50x30",   label: "Rectangular 50×30",  forma: "rectangular", ancho: 50, alto: 30, precio: 60,  premium: 35, activo: true },
   { id: "rect-60x40",   label: "Rectangular 60×40",  forma: "rectangular", ancho: 60, alto: 40, precio: 75,  premium: 40, activo: true },
-  { id: "rect-70x90",   label: "Rectangular 70×90",  forma: "rectangular", ancho: 70, alto: 90, precio: 100, premium: 60, activo: true },
-  { id: "cil-13x90",    label: "Cilindro 13×90",     forma: "cilindro",    ancho: 13, alto: 90, precio: 70,  premium: 40, activo: true },
+  { id: "rect-70x90",   label: "Rectangular 70×90",  forma: "rectangular", ancho: 70, alto: 90, precio: 100, premium: 20, activo: true },
+  { id: "cil-13x90",    label: "Cilindro 13×90",     forma: "cilindro",    ancho: 13, alto: 90, precio: 70,  premium: 20, activo: true },
 ];
 
 // ── Pantallas de lámpara ───────────────────────────────────────────────────
