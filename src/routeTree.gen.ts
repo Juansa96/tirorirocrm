@@ -26,6 +26,7 @@ import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
+import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -116,6 +117,11 @@ const ApiPublicLeadFormRoute = ApiPublicLeadFormRouteImport.update({
   path: '/api/public/lead-form',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCatalogRoute = ApiPublicCatalogRouteImport.update({
+  id: '/api/public/catalog',
+  path: '/api/public/catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   id: '/api/public/bootstrap',
   path: '/api/public/bootstrap',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
+  '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/b2b': typeof B2bIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/pedidos': typeof PedidosIndexRoute
+  '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
+  '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -227,6 +236,7 @@ export interface FileRouteTypes {
     | '/b2b/'
     | '/clientes/'
     | '/pedidos/'
+    | '/api/public/catalog'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/b2b'
     | '/clientes'
     | '/pedidos'
+    | '/api/public/catalog'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/b2b/'
     | '/clientes/'
     | '/pedidos/'
+    | '/api/public/catalog'
     | '/api/public/bootstrap'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
@@ -297,6 +309,7 @@ export interface RootRouteChildren {
   B2bIndexRoute: typeof B2bIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   PedidosIndexRoute: typeof PedidosIndexRoute
+  ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -425,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicLeadFormRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/catalog': {
+      id: '/api/public/catalog'
+      path: '/api/public/catalog'
+      fullPath: '/api/public/catalog'
+      preLoaderRoute: typeof ApiPublicCatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/bootstrap': {
       id: '/api/public/bootstrap'
       path: '/api/public/bootstrap'
@@ -473,6 +493,7 @@ const rootRouteChildren: RootRouteChildren = {
   B2bIndexRoute: B2bIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   PedidosIndexRoute: PedidosIndexRoute,
+  ApiPublicCatalogRoute: ApiPublicCatalogRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,

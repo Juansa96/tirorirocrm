@@ -6,6 +6,7 @@ import { VENDEDORES, telasPorTipo } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela } from "./catalogo";
+import { loadRemoteCatalog } from "./catalogo-remote";
 
 
 
@@ -475,7 +476,10 @@ async function refetchTapiceros() {
   }
 }
 async function refetchAll() {
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo(), refetchTapiceros(), refetchLeadFotos()]);
+  // loadRemoteCatalog() aplica los precios de la web (fuente única, Fase 2)
+  // sobre el catálogo local antes de marcar `loaded`. Nunca lanza: si la web
+  // no responde, quedan los precios espejo locales.
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo(), refetchTapiceros(), refetchLeadFotos(), loadRemoteCatalog()]);
   state = { ...state, loaded: true };
   emit();
 }
