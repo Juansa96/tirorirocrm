@@ -440,6 +440,7 @@ export type Database = {
           reserva: number
           solicitado_daniel: boolean
           solicitado_daniel_fecha: string | null
+          tapicero_id: string | null
           tapizado_hecho: boolean
           tapizado_hecho_fecha: string | null
           tela_pedida: boolean
@@ -489,6 +490,7 @@ export type Database = {
           reserva?: number
           solicitado_daniel?: boolean
           solicitado_daniel_fecha?: string | null
+          tapicero_id?: string | null
           tapizado_hecho?: boolean
           tapizado_hecho_fecha?: string | null
           tela_pedida?: boolean
@@ -538,6 +540,7 @@ export type Database = {
           reserva?: number
           solicitado_daniel?: boolean
           solicitado_daniel_fecha?: string | null
+          tapicero_id?: string | null
           tapizado_hecho?: boolean
           tapizado_hecho_fecha?: string | null
           tela_pedida?: boolean
@@ -569,6 +572,13 @@ export type Database = {
             columns: ["producto_lead_id"]
             isOneToOne: false
             referencedRelation: "productos_lead"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_tapicero_id_fkey"
+            columns: ["tapicero_id"]
+            isOneToOne: false
+            referencedRelation: "tapiceros"
             referencedColumns: ["id"]
           },
         ]
@@ -720,6 +730,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tapiceros: {
+        Row: {
+          activo: boolean
+          apellido: string
+          created_at: string
+          id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          activo?: boolean
+          apellido?: string
+          created_at?: string
+          id?: string
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          activo?: boolean
+          apellido?: string
+          created_at?: string
+          id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: []
       }
     }
     Views: {

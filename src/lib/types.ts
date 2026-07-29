@@ -23,6 +23,25 @@ export function vendorName(v: string): string {
   return NAMES[v] ?? v;
 }
 
+// ───────────── Tapiceros ─────────────
+// Catálogo de tapiceros a los que se puede asignar un pedido (tabla `tapiceros`).
+// `activo=false` = baja lógica: no se ofrece al asignar pedidos nuevos, pero
+// se conserva para resolver el nombre en pedidos históricos ya asignados.
+export interface Tapicero {
+  id: string;
+  nombre: string;
+  apellido: string;
+  activo: boolean;
+  orden: number;
+}
+
+// Nombre para mostrar en la UI. Hay dos "Daniel": SIEMPRE nombre + apellido
+// cuando lo haya, para que no se confundan.
+export function tapiceroNombre(t: Tapicero | undefined | null): string {
+  if (!t) return "";
+  return t.apellido ? `${t.nombre} ${t.apellido}` : t.nombre;
+}
+
 export type EtapaB2C =
   | "Discovery"
   | "Primer Contacto"
@@ -287,6 +306,7 @@ export interface Pedido {
   pagadoCompleto: boolean;
   factura: string;
   notasPedido: string;
+  tapiceroId: string;  // uuid del tapicero asignado, o "" si sin asignar
   createdAt: string;
   updatedAt: string;
   empresaId: string;   // uuid del lead B2B vinculado, o "" si no aplica
@@ -354,6 +374,55 @@ const FLUJO_DANIEL: HitoDef[] = [
 
 export function flujoPedido(tipoProducto: string): HitoDef[] {
   return esPantalla(tipoProducto) ? FLUJO_PANTALLA : FLUJO_DANIEL;
+}
+
+// Etiqueta del hito personalizada con el tapicero asignado. Los pasos del
+// flujo llevan "Daniel" cableado (histórico); si el pedido tiene un tapicero
+// asignado, se sustituye por su nombre completo para no confundir a los dos
+// Daniel. Sin tapicero asignado, se deja la etiqueta tal cual.
+export function hitoLabel(label: string, nombreTapicero: string): string {
+  if (!nombreTapicero) return label;
+  return label.replace(/Daniel/g, nombreTapicero);
+}
+
+// Cascada de marcado de pasos (Tarea 3). Reglas:
+//   · La cascada SOLO se dispara al MARCAR uno de los dos ÚLTIMOS pasos
+//     (último o penúltimo): entonces se marcan automáticamente todos los
+//     anteriores que estén sin marcar.
+//   · Al marcar el antepenúltimo o cualquier paso anterior → solo ese paso.
+//   · Al DESMARCAR nunca hay cascada: se desmarca únicamente ese paso y los
+//     demás se quedan como estaban.
+// La lógica es por POSICIÓN dentro de la secuencia, no por nombre de paso, así
+// que sigue funcionando si se añade o quita un paso.
+//
+// Fechas: el paso sobre el que se hace clic recibe la fecha `hoy` (si no tenía
+// ya una), como en el marcado manual normal. Los pasos marcados EN CASCADA se
+// quedan SIN fecha (decisión del cliente): hechos pero con la fecha en blanco.
+export function cascadaMarcado(
+  hitos: HitoDef[],
+  index: number,
+  checked: boolean,
+  pedido: Pedido,
+  hoy: string,
+): Partial<Pedido> {
+  const patch: Record<string, unknown> = {};
+  const h = hitos[index];
+  patch[h.key] = checked;
+  if (!checked) {
+    // Desmarcar: solo este paso, sin tocar los demás ni sus fechas.
+    return patch as Partial<Pedido>;
+  }
+  // Marcar: fecha de hoy en el paso clicado si aún no tenía.
+  if (!pedido[h.fechaKey]) patch[h.fechaKey] = hoy;
+  // Cascada solo desde los dos últimos pasos de la secuencia.
+  const disparaCascada = index >= hitos.length - 2;
+  if (disparaCascada) {
+    for (let i = 0; i < index; i++) {
+      const prev = hitos[i];
+      if (!pedido[prev.key]) patch[prev.key] = true; // marcado por cascada, sin fecha
+    }
+  }
+  return patch as Partial<Pedido>;
 }
 
 /** Nº de hitos completados y el hito "actual" (siguiente pendiente). */
