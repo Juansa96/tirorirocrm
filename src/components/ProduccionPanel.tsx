@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { User } from "lucide-react";
-import { useStore } from "@/lib/store";
+import { useStore, actions } from "@/lib/store";
 import { tapiceroNombre, type Pedido, type Lead, type Producto, type Tapicero } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 import { tipoLabelOf, displayModelo, displayColeccionTela } from "@/lib/catalogo";
@@ -114,7 +114,7 @@ export function ProduccionPanel() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
+              <table className="w-full min-w-[760px] text-sm">
                 <thead>
                   <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
                     <th className="px-4 py-2 font-semibold">Cliente</th>
@@ -122,6 +122,7 @@ export function ProduccionPanel() {
                     <th className="px-4 py-2 font-semibold">Medidas</th>
                     <th className="px-4 py-2 font-semibold">Tela</th>
                     <th className="px-4 py-2 font-semibold">Entrega comprometida</th>
+                    <th className="px-4 py-2 font-semibold">Tapicero</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -138,6 +139,22 @@ export function ProduccionPanel() {
                       <td className="px-4 py-2.5 text-slate-600">{medidasOf(producto)}</td>
                       <td className="px-4 py-2.5 text-slate-600">{telaOf(producto)}</td>
                       <td className="px-4 py-2.5 text-slate-600">{pedido.fechaLimite ? formatShortDate(pedido.fechaLimite) : "—"}</td>
+                      <td className="px-4 py-2.5">
+                        <select
+                          value={pedido.tapiceroId}
+                          onChange={(e) => actions.updatePedido(pedido.id, { tapiceroId: e.target.value })}
+                          className="rounded border border-slate-200 bg-white px-2 py-1 text-xs focus:border-slate-400 focus:outline-none"
+                        >
+                          <option value="">Sin asignar</option>
+                          {tapicerosSelect.map((t) => (
+                            <option key={t.id} value={t.id}>{tapiceroNombre(t)}{!t.activo ? " (inactivo)" : ""}</option>
+                          ))}
+                          {/* Incluye el asignado aunque esté inactivo y no salga en la lista */}
+                          {pedido.tapiceroId && !tapicerosSelect.some((t) => t.id === pedido.tapiceroId) && (
+                            <option value={pedido.tapiceroId}>(tapicero actual)</option>
+                          )}
+                        </select>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
