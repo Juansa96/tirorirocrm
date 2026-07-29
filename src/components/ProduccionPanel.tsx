@@ -1,15 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { Package, User } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { User } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { tapiceroNombre, type Pedido, type Lead, type Producto, type Tapicero } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 import { tipoLabelOf, displayModelo, displayColeccionTela } from "@/lib/catalogo";
-
-export const Route = createFileRoute("/produccion")({
-  head: () => ({ meta: [{ title: "Producción — TiroCRM" }] }),
-  component: Produccion,
-});
 
 // Medidas legibles a partir de ancho/alto/fondo (los que existan).
 function medidasOf(p: Producto | undefined): string {
@@ -25,66 +20,71 @@ function telaOf(p: Producto | undefined): string {
   return partes.length ? partes.join(" · ") : "—";
 }
 
-interface Linea {
-  pedido: Pedido;
-  lead: Lead | undefined;
-  producto: Producto | undefined;
-}
+interface Linea { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; }
+interface Grupo { tapicero: Tapicero | null; lineas: Linea[]; }
 
-interface Grupo {
-  tapicero: Tapicero | null; // null = "Sin asignar"
-  lineas: Linea[];
-}
+const SIN_ASIGNAR = "__sin__";
 
-function Produccion() {
+// Vista de producción por tapicero. Va DENTRO de Pedidos (pestaña Producción).
+// Permite filtrar por un tapicero concreto y ver solo lo que está en curso.
+export function ProduccionPanel() {
   const { pedidos, leads, productos, tapiceros } = useStore();
   const [soloEnCurso, setSoloEnCurso] = useState(true);
+  const [tapiceroF, setTapiceroF] = useState<string>("todos"); // "todos" | id | SIN_ASIGNAR
+
+  // Tapiceros que aparecen en el selector: activos + inactivos que tengan pedidos.
+  const conPedidos = useMemo(
+    () => new Set(pedidos.map((p) => p.tapiceroId).filter(Boolean)),
+    [pedidos],
+  );
+  const tapicerosSelect = useMemo(
+    () => [...tapiceros].sort((a, b) => a.orden - b.orden).filter((t) => t.activo || conPedidos.has(t.id)),
+    [tapiceros, conPedidos],
+  );
 
   const grupos = useMemo<Grupo[]>(() => {
-    // Filtra por "en curso" = todavía no entregado.
     const visibles = pedidos.filter((p) => (soloEnCurso ? !p.entregado : true));
-
     const lineaDe = (p: Pedido): Linea => ({
       pedido: p,
       lead: leads.find((l) => l.id === p.leadId),
       producto: productos.find((pr) => pr.id === p.productoLeadId),
     });
 
-    // Orden de tapiceros: activos por `orden`, luego inactivos que aún tengan
-    // pedidos (para no perderlos), y por último el grupo "Sin asignar".
-    const conPedidos = new Set(pedidos.map((p) => p.tapiceroId).filter(Boolean));
-    const ordenados = [...tapiceros].sort((a, b) => a.orden - b.orden)
-      .filter((t) => t.activo || conPedidos.has(t.id));
+    const out: Grupo[] = tapicerosSelect
+      .filter((t) => tapiceroF === "todos" || tapiceroF === t.id)
+      .map((t) => ({ tapicero: t, lineas: visibles.filter((p) => p.tapiceroId === t.id).map(lineaDe) }));
 
-    const out: Grupo[] = ordenados.map((t) => ({
-      tapicero: t,
-      lineas: visibles.filter((p) => p.tapiceroId === t.id).map(lineaDe),
-    }));
-
-    const sinAsignar = visibles.filter((p) => !p.tapiceroId);
-    if (sinAsignar.length > 0) {
-      out.push({ tapicero: null, lineas: sinAsignar.map(lineaDe) });
+    if (tapiceroF === "todos" || tapiceroF === SIN_ASIGNAR) {
+      const sinAsignar = visibles.filter((p) => !p.tapiceroId);
+      if (sinAsignar.length > 0) out.push({ tapicero: null, lineas: sinAsignar.map(lineaDe) });
     }
-    // Ordena cada grupo por fecha de entrega comprometida (más próxima primero).
     for (const g of out) {
       g.lineas.sort((a, b) => (a.pedido.fechaLimite || "9999").localeCompare(b.pedido.fechaLimite || "9999"));
     }
-    // Solo grupos con al menos una línea.
     return out.filter((g) => g.lineas.length > 0);
-  }, [pedidos, leads, productos, tapiceros, soloEnCurso]);
+  }, [pedidos, leads, productos, tapicerosSelect, soloEnCurso, tapiceroF]);
 
   const totalLineas = grupos.reduce((acc, g) => acc + g.lineas.length, 0);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
-            <Package className="h-5 w-5 text-[#1a1f36]" /> Producción por tapicero
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">{totalLineas} producto{totalLineas === 1 ? "" : "s"} {soloEnCurso ? "en curso" : "en total"}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-xs font-medium text-slate-500">Tapicero</label>
+          <select
+            value={tapiceroF}
+            onChange={(e) => setTapiceroF(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
+          >
+            <option value="todos">Todos los tapiceros</option>
+            {tapicerosSelect.map((t) => (
+              <option key={t.id} value={t.id}>{tapiceroNombre(t)}{!t.activo ? " (inactivo)" : ""}</option>
+            ))}
+            <option value={SIN_ASIGNAR}>Sin asignar</option>
+          </select>
+          <span className="text-xs text-slate-400">{totalLineas} producto{totalLineas === 1 ? "" : "s"}</span>
         </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
           <input
             type="checkbox"
             checked={soloEnCurso}
@@ -96,7 +96,7 @@ function Produccion() {
       </div>
 
       {grupos.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-sm text-slate-400 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white py-12 text-center text-sm text-slate-400 shadow-sm">
           No hay productos {soloEnCurso ? "en curso" : ""} para mostrar.
         </div>
       ) : (
@@ -110,9 +110,7 @@ function Produccion() {
                   <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-500">inactivo</span>
                 )}
               </div>
-              <span className="rounded-full bg-[#1a1f36] px-2.5 py-0.5 text-xs font-bold text-white">
-                {g.lineas.length}
-              </span>
+              <span className="rounded-full bg-[#1a1f36] px-2.5 py-0.5 text-xs font-bold text-white">{g.lineas.length}</span>
             </div>
 
             <div className="overflow-x-auto">

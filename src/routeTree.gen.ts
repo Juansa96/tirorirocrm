@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as ProduccionRouteImport } from './routes/produccion'
 import { Route as PipelineB2bRouteImport } from './routes/pipeline-b2b'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as PerfilRouteImport } from './routes/perfil'
@@ -35,11 +34,6 @@ import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/em
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProduccionRoute = ProduccionRouteImport.update({
-  id: '/produccion',
-  path: '/produccion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PipelineB2bRoute = PipelineB2bRouteImport.update({
@@ -152,7 +146,6 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
-  '/produccion': typeof ProduccionRoute
   '/reset-password': typeof ResetPasswordRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -176,7 +169,6 @@ export interface FileRoutesByTo {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
-  '/produccion': typeof ProduccionRoute
   '/reset-password': typeof ResetPasswordRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -201,7 +193,6 @@ export interface FileRoutesById {
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
-  '/produccion': typeof ProduccionRoute
   '/reset-password': typeof ResetPasswordRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -227,7 +218,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/pipeline-b2b'
-    | '/produccion'
     | '/reset-password'
     | '/b2b/nuevo'
     | '/clientes/$id'
@@ -251,7 +241,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/pipeline-b2b'
-    | '/produccion'
     | '/reset-password'
     | '/b2b/nuevo'
     | '/clientes/$id'
@@ -275,7 +264,6 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/pipeline'
     | '/pipeline-b2b'
-    | '/produccion'
     | '/reset-password'
     | '/b2b/nuevo'
     | '/clientes/$id'
@@ -300,7 +288,6 @@ export interface RootRouteChildren {
   PerfilRoute: typeof PerfilRoute
   PipelineRoute: typeof PipelineRoute
   PipelineB2bRoute: typeof PipelineB2bRoute
-  ProduccionRoute: typeof ProduccionRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   B2bNuevoRoute: typeof B2bNuevoRoute
   ClientesIdRoute: typeof ClientesIdRoute
@@ -331,13 +318,6 @@ declare module '@tanstack/react-router' {
       path: '/pipeline-b2b'
       fullPath: '/pipeline-b2b'
       preLoaderRoute: typeof PipelineB2bRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/produccion': {
-      id: '/produccion'
-      path: '/produccion'
-      fullPath: '/produccion'
-      preLoaderRoute: typeof ProduccionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pipeline': {
@@ -484,7 +464,6 @@ const rootRouteChildren: RootRouteChildren = {
   PerfilRoute: PerfilRoute,
   PipelineRoute: PipelineRoute,
   PipelineB2bRoute: PipelineB2bRoute,
-  ProduccionRoute: ProduccionRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   B2bNuevoRoute: B2bNuevoRoute,
   ClientesIdRoute: ClientesIdRoute,

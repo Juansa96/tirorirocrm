@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet } from "lucide-react";
+import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
+import { ProduccionPanel } from "@/components/ProduccionPanel";
 import { semaforoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
@@ -38,6 +39,7 @@ type EstadoFiltro = typeof ESTADO_OPTS[number];
 
 function PedidosIndex() {
   const { pedidos, leads, productos, pedidoTelas } = useStore();
+  const [modo, setModo] = useState<"pedidos" | "produccion">("pedidos");
   const [tab, setTab] = useState<"todos" | "normal" | "ab" | "influ">("normal");
   const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
@@ -186,6 +188,20 @@ function PedidosIndex() {
         </div>
       </div>
 
+      {/* Modo: Pedidos / Producción */}
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
+        <button onClick={() => setModo("pedidos")} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium ${modo === "pedidos" ? "bg-slate-900 text-white" : "text-slate-600"}`}>
+          <Package className="h-3.5 w-3.5" /> Pedidos
+        </button>
+        <button onClick={() => setModo("produccion")} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium ${modo === "produccion" ? "bg-slate-900 text-white" : "text-slate-600"}`}>
+          <Hammer className="h-3.5 w-3.5" /> Producción
+        </button>
+      </div>
+
+      {modo === "produccion" ? (
+        <ProduccionPanel />
+      ) : (
+      <>
       {/* Tabs partner */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200">
         <button onClick={() => setTab("todos")} className={`flex items-center gap-2 border-b-2 px-3 pb-2 pt-1 text-sm font-semibold transition-colors ${tab === "todos" ? "border-[#1a1f36] text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
@@ -278,6 +294,8 @@ function PedidosIndex() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {newOpen && <NuevoPedidoModal onClose={() => setNewOpen(false)} />}
     </div>
