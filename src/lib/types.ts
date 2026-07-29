@@ -306,7 +306,11 @@ export interface Pedido {
   pagadoCompleto: boolean;
   factura: string;
   notasPedido: string;
-  tapiceroId: string;  // uuid del tapicero asignado, o "" si sin asignar
+  tapiceroId: string;  // uuid del tapicero asignado actualmente, o "" si sin asignar
+  // Sello por paso: stepKey → tapicero_id de quien lo hizo. Se rellena solo al
+  // reasignar (los pasos ya hechos se sellan con el tapicero saliente). Los
+  // pasos sin sello se muestran con el tapicero actual (tapiceroId).
+  pasosTapicero: Record<string, string>;
   createdAt: string;
   updatedAt: string;
   empresaId: string;   // uuid del lead B2B vinculado, o "" si no aplica
