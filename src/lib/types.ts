@@ -385,6 +385,46 @@ export function hitoLabel(label: string, nombreTapicero: string): string {
   return label.replace(/Daniel/g, nombreTapicero);
 }
 
+// Cascada de marcado de pasos (Tarea 3). Reglas:
+//   · La cascada SOLO se dispara al MARCAR uno de los dos ÚLTIMOS pasos
+//     (último o penúltimo): entonces se marcan automáticamente todos los
+//     anteriores que estén sin marcar.
+//   · Al marcar el antepenúltimo o cualquier paso anterior → solo ese paso.
+//   · Al DESMARCAR nunca hay cascada: se desmarca únicamente ese paso y los
+//     demás se quedan como estaban.
+// La lógica es por POSICIÓN dentro de la secuencia, no por nombre de paso, así
+// que sigue funcionando si se añade o quita un paso.
+//
+// Fechas: el paso sobre el que se hace clic recibe la fecha `hoy` (si no tenía
+// ya una), como en el marcado manual normal. Los pasos marcados EN CASCADA se
+// quedan SIN fecha (decisión del cliente): hechos pero con la fecha en blanco.
+export function cascadaMarcado(
+  hitos: HitoDef[],
+  index: number,
+  checked: boolean,
+  pedido: Pedido,
+  hoy: string,
+): Partial<Pedido> {
+  const patch: Record<string, unknown> = {};
+  const h = hitos[index];
+  patch[h.key] = checked;
+  if (!checked) {
+    // Desmarcar: solo este paso, sin tocar los demás ni sus fechas.
+    return patch as Partial<Pedido>;
+  }
+  // Marcar: fecha de hoy en el paso clicado si aún no tenía.
+  if (!pedido[h.fechaKey]) patch[h.fechaKey] = hoy;
+  // Cascada solo desde los dos últimos pasos de la secuencia.
+  const disparaCascada = index >= hitos.length - 2;
+  if (disparaCascada) {
+    for (let i = 0; i < index; i++) {
+      const prev = hitos[i];
+      if (!pedido[prev.key]) patch[prev.key] = true; // marcado por cascada, sin fecha
+    }
+  }
+  return patch as Partial<Pedido>;
+}
+
 /** Nº de hitos completados y el hito "actual" (siguiente pendiente). */
 export function progresoPedido(p: Pedido, tipoProducto: string): { hechos: number; total: number; actualLabel: string } {
   const hitos = flujoPedido(tipoProducto);

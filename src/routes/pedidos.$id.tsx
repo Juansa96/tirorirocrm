@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Trash2, Plus, Package, ExternalLink } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { semaforoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { semaforoPedido, flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
 import { displayModelo, tipoLabelOf } from "@/lib/catalogo";
@@ -224,7 +224,7 @@ function PedidoDetalle() {
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Ruta de producción</div>
         <div className="space-y-2">
-          {hitos.map((h) => {
+          {hitos.map((h, index) => {
             const checked = pedido[h.key] as boolean;
             const fecha = pedido[h.fechaKey] as string;
             return (
@@ -233,11 +233,8 @@ function PedidoDetalle() {
                   <input
                     type="checkbox" checked={checked}
                     onChange={(e) => {
-                      const next: Partial<typeof pedido> = { [h.key]: e.target.checked } as Partial<typeof pedido>;
-                      if (e.target.checked && !fecha) {
-                        const today = new Date().toISOString().slice(0, 10);
-                        (next as Record<string, unknown>)[h.fechaKey] = today;
-                      }
+                      const today = new Date().toISOString().slice(0, 10);
+                      const next = cascadaMarcado(hitos, index, e.target.checked, pedido, today);
                       void actions.updatePedido(pedido.id, next);
                     }}
                     className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
