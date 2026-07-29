@@ -40,12 +40,18 @@ function PedidoDetalle() {
 
   const hitos = flujoPedido(producto?.tipo ?? "");
   const tapiceroAsignado = tapiceros.find((t) => t.id === pedido.tapiceroId);
-  // Nombre del tapicero responsable de un paso concreto: si el paso está hecho
-  // y tiene sello, el que lo hizo; si no, el tapicero asignado actualmente.
-  const nombreDePaso = (stepKey: string, hecho: boolean): string => {
-    const selloId = hecho ? pedido.pasosTapicero?.[stepKey] : undefined;
-    const t = selloId ? tapiceros.find((x) => x.id === selloId) : tapiceroAsignado;
-    return tapiceroNombre(t);
+  // Tapicero responsable de un paso: su sello si lo tiene; si no, el asignado
+  // actualmente. El sello se pone al reasignar (pasos hechos) o a mano por paso.
+  const tapiceroDePaso = (stepKey: string) => {
+    const selloId = pedido.pasosTapicero?.[stepKey];
+    return selloId ? tapiceros.find((x) => x.id === selloId) : tapiceroAsignado;
+  };
+  const nombreDePaso = (stepKey: string): string => tapiceroNombre(tapiceroDePaso(stepKey));
+  // Fija (o limpia) el tapicero de un paso concreto sin tocar los demás.
+  const setPasoTapicero = (stepKey: string, tapiceroId: string) => {
+    const next = { ...(pedido.pasosTapicero || {}) };
+    if (tapiceroId) next[stepKey] = tapiceroId; else delete next[stepKey];
+    void actions.updatePedido(pedido.id, { pasosTapicero: next });
   };
   // Al asignar solo se ofrecen tapiceros activos; se incluye el ya asignado
   // aunque esté inactivo, para no perderlo del selector en pedidos históricos.
@@ -245,8 +251,19 @@ function PedidoDetalle() {
                     }}
                     className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                   />
-                  <span className={`font-medium ${checked ? "text-slate-900" : "text-slate-600"}`}>{hitoLabel(h.label, nombreDePaso(h.key, checked))}</span>
+                  <span className={`font-medium ${checked ? "text-slate-900" : "text-slate-600"}`}>{hitoLabel(h.label, nombreDePaso(h.key))}</span>
                 </label>
+                <select
+                  value={pedido.pasosTapicero?.[h.key] ?? ""}
+                  onChange={(e) => setPasoTapicero(h.key, e.target.value)}
+                  title="Tapicero de este paso"
+                  className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 focus:border-slate-400 focus:outline-none"
+                >
+                  <option value="">Tapicero: {tapiceroNombre(tapiceroAsignado) || "sin asignar"}</option>
+                  {tapicerosSeleccionables.map((t) => (
+                    <option key={t.id} value={t.id}>{tapiceroNombre(t)}{!t.activo ? " (inactivo)" : ""}</option>
+                  ))}
+                </select>
                 {checked && (
                   <input
                     type="date" defaultValue={fecha} key={h.fechaKey + fecha}
