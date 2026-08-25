@@ -27,6 +27,7 @@ import { Route as PanelIdRouteImport } from './routes/panel.$id'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
+import { Route as ApiTapiceroEnviarRouteImport } from './routes/api/tapicero/enviar'
 import { Route as ApiTapiceroAccionRouteImport } from './routes/api/tapicero/accion'
 import { Route as ApiPublicTelasRouteImport } from './routes/api/public/telas'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
@@ -127,6 +128,11 @@ const B2bNuevoRoute = B2bNuevoRouteImport.update({
   path: '/b2b/nuevo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTapiceroEnviarRoute = ApiTapiceroEnviarRouteImport.update({
+  id: '/api/tapicero/enviar',
+  path: '/api/tapicero/enviar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTapiceroAccionRoute = ApiTapiceroAccionRouteImport.update({
   id: '/api/tapicero/accion',
   path: '/api/tapicero/accion',
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -258,6 +266,7 @@ export interface FileRoutesById {
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/api/public/lead-form'
     | '/api/public/telas'
     | '/api/tapicero/accion'
+    | '/api/tapicero/enviar'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/api/public/lead-form'
     | '/api/public/telas'
     | '/api/tapicero/accion'
+    | '/api/tapicero/enviar'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/api/public/lead-form'
     | '/api/public/telas'
     | '/api/tapicero/accion'
+    | '/api/tapicero/enviar'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -376,6 +388,7 @@ export interface RootRouteChildren {
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
   ApiPublicTelasRoute: typeof ApiPublicTelasRoute
   ApiTapiceroAccionRoute: typeof ApiTapiceroAccionRoute
+  ApiTapiceroEnviarRoute: typeof ApiTapiceroEnviarRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -509,6 +522,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof B2bNuevoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tapicero/enviar': {
+      id: '/api/tapicero/enviar'
+      path: '/api/tapicero/enviar'
+      fullPath: '/api/tapicero/enviar'
+      preLoaderRoute: typeof ApiTapiceroEnviarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tapicero/accion': {
       id: '/api/tapicero/accion'
       path: '/api/tapicero/accion'
@@ -609,6 +629,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
   ApiPublicTelasRoute: ApiPublicTelasRoute,
   ApiTapiceroAccionRoute: ApiTapiceroAccionRoute,
+  ApiTapiceroEnviarRoute: ApiTapiceroEnviarRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
