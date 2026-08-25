@@ -23,9 +23,12 @@ import { Route as PedidosIndexRouteImport } from './routes/pedidos.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as B2bIndexRouteImport } from './routes/b2b.index'
 import { Route as PedidosIdRouteImport } from './routes/pedidos.$id'
+import { Route as PanelIdRouteImport } from './routes/panel.$id'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
+import { Route as ApiTapiceroEnviarRouteImport } from './routes/api/tapicero/enviar'
+import { Route as ApiTapiceroAccionRouteImport } from './routes/api/tapicero/accion'
 import { Route as ApiPublicTelasRouteImport } from './routes/api/public/telas'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
@@ -105,6 +108,11 @@ const PedidosIdRoute = PedidosIdRouteImport.update({
   path: '/pedidos/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PanelIdRoute = PanelIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PanelRoute,
+} as any)
 const ClientesNuevoRoute = ClientesNuevoRouteImport.update({
   id: '/clientes/nuevo',
   path: '/clientes/nuevo',
@@ -118,6 +126,16 @@ const ClientesIdRoute = ClientesIdRouteImport.update({
 const B2bNuevoRoute = B2bNuevoRouteImport.update({
   id: '/b2b/nuevo',
   path: '/b2b/nuevo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTapiceroEnviarRoute = ApiTapiceroEnviarRouteImport.update({
+  id: '/api/tapicero/enviar',
+  path: '/api/tapicero/enviar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTapiceroAccionRoute = ApiTapiceroAccionRouteImport.update({
+  id: '/api/tapicero/accion',
+  path: '/api/tapicero/accion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicTelasRoute = ApiPublicTelasRouteImport.update({
@@ -167,7 +185,7 @@ export interface FileRoutesByFullPath {
   '/datos': typeof DatosRoute
   '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
-  '/panel': typeof PanelRoute
+  '/panel': typeof PanelRouteWithChildren
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
@@ -176,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
+  '/panel/$id': typeof PanelIdRoute
   '/pedidos/$id': typeof PedidosIdRoute
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
@@ -185,6 +204,8 @@ export interface FileRoutesByFullPath {
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
+  '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -194,7 +215,7 @@ export interface FileRoutesByTo {
   '/datos': typeof DatosRoute
   '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
-  '/panel': typeof PanelRoute
+  '/panel': typeof PanelRouteWithChildren
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
@@ -203,6 +224,7 @@ export interface FileRoutesByTo {
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
+  '/panel/$id': typeof PanelIdRoute
   '/pedidos/$id': typeof PedidosIdRoute
   '/b2b': typeof B2bIndexRoute
   '/clientes': typeof ClientesIndexRoute
@@ -212,6 +234,8 @@ export interface FileRoutesByTo {
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
+  '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -222,7 +246,7 @@ export interface FileRoutesById {
   '/datos': typeof DatosRoute
   '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
-  '/panel': typeof PanelRoute
+  '/panel': typeof PanelRouteWithChildren
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
@@ -231,6 +255,7 @@ export interface FileRoutesById {
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
+  '/panel/$id': typeof PanelIdRoute
   '/pedidos/$id': typeof PedidosIdRoute
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
@@ -240,6 +265,8 @@ export interface FileRoutesById {
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
+  '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -260,6 +287,7 @@ export interface FileRouteTypes {
     | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/panel/$id'
     | '/pedidos/$id'
     | '/b2b/'
     | '/clientes/'
@@ -269,6 +297,8 @@ export interface FileRouteTypes {
     | '/api/public/catalog'
     | '/api/public/lead-form'
     | '/api/public/telas'
+    | '/api/tapicero/accion'
+    | '/api/tapicero/enviar'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -287,6 +317,7 @@ export interface FileRouteTypes {
     | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/panel/$id'
     | '/pedidos/$id'
     | '/b2b'
     | '/clientes'
@@ -296,6 +327,8 @@ export interface FileRouteTypes {
     | '/api/public/catalog'
     | '/api/public/lead-form'
     | '/api/public/telas'
+    | '/api/tapicero/accion'
+    | '/api/tapicero/enviar'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -314,6 +347,7 @@ export interface FileRouteTypes {
     | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/panel/$id'
     | '/pedidos/$id'
     | '/b2b/'
     | '/clientes/'
@@ -323,6 +357,8 @@ export interface FileRouteTypes {
     | '/api/public/catalog'
     | '/api/public/lead-form'
     | '/api/public/telas'
+    | '/api/tapicero/accion'
+    | '/api/tapicero/enviar'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -333,7 +369,7 @@ export interface RootRouteChildren {
   DatosRoute: typeof DatosRoute
   DuplicadosRoute: typeof DuplicadosRoute
   LoginRoute: typeof LoginRoute
-  PanelRoute: typeof PanelRoute
+  PanelRoute: typeof PanelRouteWithChildren
   PerfilRoute: typeof PerfilRoute
   PipelineRoute: typeof PipelineRoute
   PipelineB2bRoute: typeof PipelineB2bRoute
@@ -351,6 +387,8 @@ export interface RootRouteChildren {
   ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
   ApiPublicTelasRoute: typeof ApiPublicTelasRoute
+  ApiTapiceroAccionRoute: typeof ApiTapiceroAccionRoute
+  ApiTapiceroEnviarRoute: typeof ApiTapiceroEnviarRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -456,6 +494,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PedidosIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/panel/$id': {
+      id: '/panel/$id'
+      path: '/$id'
+      fullPath: '/panel/$id'
+      preLoaderRoute: typeof PanelIdRouteImport
+      parentRoute: typeof PanelRoute
+    }
     '/clientes/nuevo': {
       id: '/clientes/nuevo'
       path: '/clientes/nuevo'
@@ -475,6 +520,20 @@ declare module '@tanstack/react-router' {
       path: '/b2b/nuevo'
       fullPath: '/b2b/nuevo'
       preLoaderRoute: typeof B2bNuevoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tapicero/enviar': {
+      id: '/api/tapicero/enviar'
+      path: '/api/tapicero/enviar'
+      fullPath: '/api/tapicero/enviar'
+      preLoaderRoute: typeof ApiTapiceroEnviarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tapicero/accion': {
+      id: '/api/tapicero/accion'
+      path: '/api/tapicero/accion'
+      fullPath: '/api/tapicero/accion'
+      preLoaderRoute: typeof ApiTapiceroAccionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/telas': {
@@ -536,12 +595,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PanelRouteChildren {
+  PanelIdRoute: typeof PanelIdRoute
+}
+
+const PanelRouteChildren: PanelRouteChildren = {
+  PanelIdRoute: PanelIdRoute,
+}
+
+const PanelRouteWithChildren = PanelRoute._addFileChildren(PanelRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DatosRoute: DatosRoute,
   DuplicadosRoute: DuplicadosRoute,
   LoginRoute: LoginRoute,
-  PanelRoute: PanelRoute,
+  PanelRoute: PanelRouteWithChildren,
   PerfilRoute: PerfilRoute,
   PipelineRoute: PipelineRoute,
   PipelineB2bRoute: PipelineB2bRoute,
@@ -559,6 +628,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCatalogRoute: ApiPublicCatalogRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
   ApiPublicTelasRoute: ApiPublicTelasRoute,
+  ApiTapiceroAccionRoute: ApiTapiceroAccionRoute,
+  ApiTapiceroEnviarRoute: ApiTapiceroEnviarRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,

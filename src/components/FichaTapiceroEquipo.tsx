@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 import { displayModelo } from "@/lib/catalogo";
@@ -40,8 +41,23 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
       ? confirm("¿Enviar este pedido al panel de " + (tapiceroNombre(tapicero) || "el tapicero") + "?")
       : confirm("⚠️ Falta: " + faltan.join(", ") + ".\n¿Enviarlo igualmente al panel del tapicero?");
     if (!ok) return;
-    actions.updatePedido(pedido.id, { enviadoTapicero: true, enviadoTapiceroFecha: new Date().toISOString() });
-    toast.success("Pedido enviado al panel del tapicero.");
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token ?? "";
+      const res = await fetch("/api/tapicero/enviar", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoIds: [pedido.id] }),
+      });
+      if (res.ok) {
+        const d = await res.json().catch(() => ({}));
+        // Reflejo local inmediato (el realtime lo confirma).
+        actions.updatePedido(pedido.id, { enviadoTapicero: true, enviadoTapiceroFecha: new Date().toISOString() });
+        toast.success(d.emailsEncolados ? "Enviado + email al tapicero." : "Enviado al panel del tapicero.");
+      } else {
+        toast.error("No se pudo enviar.");
+      }
+    })();
   }
 
   return (

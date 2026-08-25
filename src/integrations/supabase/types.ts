@@ -370,6 +370,9 @@ export type Database = {
           orden: number
           pedido_id: string
           tipo_tela: string
+          tela_foto_url: string | null
+          tela_biblioteca_id: string | null
+          misma_que_frontal: boolean
         }
         Insert: {
           created_at?: string
@@ -390,6 +393,9 @@ export type Database = {
           orden?: number
           pedido_id?: string
           tipo_tela?: string
+          tela_foto_url?: string | null
+          tela_biblioteca_id?: string | null
+          misma_que_frontal?: boolean
         }
         Relationships: [
           {
@@ -433,6 +439,15 @@ export type Database = {
           pantalla_hecha: boolean
           pantalla_hecha_fecha: string | null
           pasos_tapicero: Json
+          enviado_tapicero: boolean
+          enviado_tapicero_fecha: string | null
+          tela_estado: string
+          tela_estado_por: string | null
+          tela_estado_fecha: string | null
+          terminado_tapicero: boolean
+          terminado_tapicero_por: string | null
+          terminado_tapicero_fecha: string | null
+          montaje: string | null
           precio: number
           precio_con_iva: number | null
           producto_lead_id: string | null
@@ -484,6 +499,15 @@ export type Database = {
           pantalla_hecha?: boolean
           pantalla_hecha_fecha?: string | null
           pasos_tapicero?: Json
+          enviado_tapicero?: boolean
+          enviado_tapicero_fecha?: string | null
+          tela_estado?: string
+          tela_estado_por?: string | null
+          tela_estado_fecha?: string | null
+          terminado_tapicero?: boolean
+          terminado_tapicero_por?: string | null
+          terminado_tapicero_fecha?: string | null
+          montaje?: string | null
           precio?: number
           precio_con_iva?: number | null
           producto_lead_id?: string | null
@@ -535,6 +559,15 @@ export type Database = {
           pantalla_hecha?: boolean
           pantalla_hecha_fecha?: string | null
           pasos_tapicero?: Json
+          enviado_tapicero?: boolean
+          enviado_tapicero_fecha?: string | null
+          tela_estado?: string
+          tela_estado_por?: string | null
+          tela_estado_fecha?: string | null
+          terminado_tapicero?: boolean
+          terminado_tapicero_por?: string | null
+          terminado_tapicero_fecha?: string | null
+          montaje?: string | null
           precio?: number
           precio_con_iva?: number | null
           producto_lead_id?: string | null
