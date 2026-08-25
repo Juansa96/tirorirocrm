@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Columns3, List, LogOut, Search, X, BarChart2, Package, WifiOff, RefreshCw,
+  LayoutDashboard, Columns3, List, LogOut, Search, X, BarChart2, Package, Users, WifiOff, RefreshCw,
 } from "lucide-react";
 import { useState, useEffect, useRef, type ComponentType } from "react";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +14,7 @@ interface NavItem {
   label: string;
   icon: ComponentType<{ className?: string }>;
   exact?: boolean;
+  desktopOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
@@ -22,7 +23,10 @@ const NAV: NavItem[] = [
   { to: "/clientes", label: "Clientes", icon: List },
   { to: "/datos", label: "Datos", icon: BarChart2 },
   { to: "/pedidos", label: "Pedidos", icon: Package },
+  { to: "/usuarios", label: "Usuarios", icon: Users, desktopOnly: true },
 ];
+
+const NAV_MOBILE = NAV.filter((n) => !n.desktopOnly);
 
 function isActive(path: string, item: NavItem) {
   if (item.exact) return path === item.to;
@@ -213,7 +217,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
-        {NAV.map((item) => {
+        {NAV_MOBILE.map((item) => {
           const active = isActive(path, item);
           const Icon = item.icon;
           return (

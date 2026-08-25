@@ -586,6 +586,38 @@ export type Database = {
           },
         ]
       }
+      perfiles: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          rol: string
+          tapicero_id: string | null
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id: string
+          rol?: string
+          tapicero_id?: string | null
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          rol?: string
+          tapicero_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "perfiles_tapicero_id_fkey"
+            columns: ["tapicero_id"]
+            isOneToOne: false
+            referencedRelation: "tapiceros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       productos_lead: {
         Row: {
           acabado: string | null
