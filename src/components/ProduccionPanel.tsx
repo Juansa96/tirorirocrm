@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import { User, Eye, Send } from "lucide-react";
+import { User, Eye, Send, Star } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Lead, type Producto, type Tapicero } from "@/lib/types";
@@ -162,9 +162,18 @@ export function ProduccionPanel() {
                   {g.lineas.map(({ pedido, lead, producto }) => (
                     <tr key={pedido.id} className="hover:bg-slate-50">
                       <td className="px-4 py-2.5">
-                        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-medium text-slate-900 hover:text-blue-600">
-                          {lead?.nombre || pedido.clienteNombreLibre || "—"}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => actions.updatePedido(pedido.id, { prioritario: !pedido.prioritario })}
+                            title={pedido.prioritario ? "Quitar prioridad" : "Marcar prioritario"}
+                            className="shrink-0"
+                          >
+                            <Star className={`h-4 w-4 ${pedido.prioritario ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-400"}`} />
+                          </button>
+                          <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-medium text-slate-900 hover:text-blue-600">
+                            {lead?.nombre || pedido.clienteNombreLibre || "—"}
+                          </Link>
+                        </div>
                       </td>
                       <td className="px-4 py-2.5 text-slate-700">
                         {producto ? `${tipoLabelOf(producto.tipo)} · ${displayModelo(producto.modelo)}` : "—"}

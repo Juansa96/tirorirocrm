@@ -175,6 +175,10 @@ function TapicerosSection({ tapiceros }: { tapiceros: Tapicero[] }) {
               className={`rounded-lg border p-1.5 ${t.activo ? "border-amber-200 text-amber-600 hover:bg-amber-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}>
               <Power className="h-3.5 w-3.5" />
             </button>
+            <button onClick={() => { if (confirm(`¿Eliminar a ${tapiceroNombre(t)}? Sus pedidos quedarán sin asignar.`)) void actions.deleteTapicero(t.id); }} title="Eliminar tapicero"
+              className="rounded-lg border border-rose-200 p-1.5 text-rose-600 hover:bg-rose-50">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </div>
         ))}
       </div>
