@@ -1304,6 +1304,27 @@ export const actions = {
     await actions.updatePedido(pedidoId, { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos });
   },
 
+  // ───────── Catálogo de tapiceros (gestión desde Usuarios) ─────────
+  async addTapicero(nombre: string, apellido: string): Promise<boolean> {
+    if (!nombre.trim()) { toast.error("El tapicero necesita un nombre."); return false; }
+    const orden = state.tapiceros.length + 1;
+    const { error } = await supabase.from("tapiceros").insert({ nombre: nombre.trim(), apellido: apellido.trim(), activo: true, orden } as never);
+    if (error) { toast.error("No se pudo crear el tapicero."); return false; }
+    await refetchTapiceros();
+    return true;
+  },
+  async updateTapicero(id: string, patch: { nombre?: string; apellido?: string; activo?: boolean }) {
+    const db: Record<string, unknown> = {};
+    if (patch.nombre !== undefined) db.nombre = patch.nombre.trim();
+    if (patch.apellido !== undefined) db.apellido = patch.apellido.trim();
+    if (patch.activo !== undefined) db.activo = patch.activo;
+    const prev = state;
+    state = { ...state, tapiceros: state.tapiceros.map((t) => t.id === id ? { ...t, ...patch } : t) };
+    emit();
+    const { error } = await supabase.from("tapiceros").update(db as never).eq("id", id);
+    if (error) { state = prev; emit(); toast.error("No se pudo actualizar el tapicero."); }
+  },
+
   // "Media pagada (todos)": marca el 50% en los pedidos ACTUALES indicados.
   // Pre-rellena la reserva con la mitad del precio de PRODUCTO (envío aparte)
   // y activa pagado50. No toca pedidos ya cobrados por completo, ni baja una
