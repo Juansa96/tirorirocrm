@@ -448,6 +448,8 @@ export type Database = {
           terminado_tapicero_por: string | null
           terminado_tapicero_fecha: string | null
           montaje: string | null
+          prioritario: boolean
+          cliente_nombre: string | null
           precio: number
           precio_con_iva: number | null
           producto_lead_id: string | null
@@ -508,6 +510,8 @@ export type Database = {
           terminado_tapicero_por?: string | null
           terminado_tapicero_fecha?: string | null
           montaje?: string | null
+          prioritario?: boolean
+          cliente_nombre?: string | null
           precio?: number
           precio_con_iva?: number | null
           producto_lead_id?: string | null
@@ -568,6 +572,8 @@ export type Database = {
           terminado_tapicero_por?: string | null
           terminado_tapicero_fecha?: string | null
           montaje?: string | null
+          prioritario?: boolean
+          cliente_nombre?: string | null
           precio?: number
           precio_con_iva?: number | null
           producto_lead_id?: string | null

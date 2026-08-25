@@ -37,7 +37,10 @@ function FichaPanel() {
     <div className="min-h-screen bg-slate-50 pb-28">
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <Link to="/panel" search={backSearch} className="text-slate-500"><ArrowLeft className="h-5 w-5" /></Link>
-        <div className="min-w-0 flex-1 truncate text-lg font-bold text-slate-900">{tipoLabelOf(p.tipo)} {displayModelo(p.modelo)}</div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-lg font-bold text-slate-900">{tipoLabelOf(p.tipo)} {displayModelo(p.modelo)}</div>
+          {p.cliente && <div className="truncate text-xs text-slate-500">Cliente: {p.cliente}</div>}
+        </div>
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
@@ -48,7 +51,7 @@ function FichaPanel() {
 
         {/* Telas: frontal / lateral / vivo con foto y nombre */}
         <div className="grid grid-cols-1 gap-3">
-          <TelaCard rol="Frontal" tela={buscaTela(p.telas, "Frontal")} />
+          <TelaCard rol="Frontal" tela={buscaTela(p.telas, "Frontal")} fallback={p.telaTexto} />
           <TelaCard rol="Lateral" tela={buscaTela(p.telas, "Lateral")} />
           <TelaCard rol="Vivo" tela={buscaTela(p.telas, "Vivo")} />
         </div>
@@ -125,9 +128,10 @@ function buscaTela(telas: PanelTela[], rol: string): PanelTela | undefined {
   return telas.find((t) => (t.rol || "").toLowerCase() === rol.toLowerCase());
 }
 
-function TelaCard({ rol, tela }: { rol: string; tela: PanelTela | undefined }) {
+function TelaCard({ rol, tela, fallback }: { rol: string; tela: PanelTela | undefined; fallback?: string }) {
   const label = rol === "Frontal" ? "Tela frontal" : rol === "Lateral" ? "Tela lateral" : "Tela del vivo";
   const misma = tela?.mismaQueFrontal;
+  const nombre = misma ? "Misma que el frontal" : (tela?.nombre || fallback || "—");
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
       {tela?.fotoUrl ? (
@@ -137,10 +141,8 @@ function TelaCard({ rol, tela }: { rol: string; tela: PanelTela | undefined }) {
       )}
       <div className="min-w-0">
         <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</div>
-        <div className="truncate text-lg font-bold text-slate-900">
-          {misma ? "Misma que el frontal" : (tela?.nombre || "—")}
-        </div>
-        {tela && !tela.fotoUrl && !misma && <div className="text-[11px] text-amber-600">sin foto</div>}
+        <div className="truncate text-lg font-bold text-slate-900">{nombre}</div>
+        {!tela?.fotoUrl && nombre !== "—" && !misma && <div className="text-[11px] text-amber-600">sin foto</div>}
       </div>
     </div>
   );

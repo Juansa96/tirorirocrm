@@ -215,6 +215,8 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     terminadoTapiceroPor: (r.terminado_tapicero_por as string) ?? "",
     terminadoTapiceroFecha: (r.terminado_tapicero_fecha as string) ?? "",
     montaje: (r.montaje as string) ?? "",
+    prioritario: !!r.prioritario,
+    clienteNombre: (r.cliente_nombre as string) ?? "",
     tapiceroId: (r.tapicero_id as string) ?? "",
     pasosTapicero: (r.pasos_tapicero && typeof r.pasos_tapicero === "object" ? r.pasos_tapicero : {}) as Record<string, string>,
     createdAt: (r.created_at as string) ?? "",
@@ -1109,6 +1111,7 @@ export const actions = {
     const { data, error } = await supabase.from("pedidos").insert({
       producto_lead_id: prod.id,
       lead_id: prod.leadId,
+      cliente_nombre: leadDelPedido?.nombre ?? "",
       dias_plazo: opts.diasPlazo ?? 20,
       pagado_50: opts.pagado50,
       pago_todo_al_final: opts.pagoTodoAlFinal,
@@ -1185,6 +1188,7 @@ export const actions = {
       producto_lead_id: productoId,
       lead_id: opts.leadId,
       cliente_nombre_libre: opts.clienteNombreLibre ?? "",
+      cliente_nombre: opts.clienteNombreLibre || state.leads.find((l) => l.id === opts.leadId)?.nombre || "",
       dias_plazo: opts.diasPlazo,
       precio: opts.precio,
       reserva: opts.reserva,
@@ -1271,6 +1275,8 @@ export const actions = {
       terminadoTapiceroPor: "terminado_tapicero_por",
       terminadoTapiceroFecha: "terminado_tapicero_fecha",
       montaje: "montaje",
+      prioritario: "prioritario",
+      clienteNombre: "cliente_nombre",
       clienteNombreLibre: "cliente_nombre_libre",
       esCanje: "es_canje",
       formatos: "formatos",
@@ -1311,6 +1317,16 @@ export const actions = {
     const { error } = await supabase.from("tapiceros").insert({ nombre: nombre.trim(), apellido: apellido.trim(), activo: true, orden } as never);
     if (error) { toast.error("No se pudo crear el tapicero."); return false; }
     await refetchTapiceros();
+    return true;
+  },
+  async deleteTapicero(id: string): Promise<boolean> {
+    // La FK de pedidos es ON DELETE SET NULL: sus pedidos quedan sin asignar.
+    const prev = state;
+    state = { ...state, tapiceros: state.tapiceros.filter((t) => t.id !== id) };
+    emit();
+    const { error } = await supabase.from("tapiceros").delete().eq("id", id);
+    if (error) { state = prev; emit(); toast.error("No se pudo eliminar el tapicero."); return false; }
+    await refetchPedidos();
     return true;
   },
   async updateTapicero(id: string, patch: { nombre?: string; apellido?: string; activo?: boolean }) {

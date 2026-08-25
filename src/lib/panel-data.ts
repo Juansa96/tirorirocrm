@@ -1,13 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { displayColeccionTela } from "@/lib/catalogo";
 
 export interface PanelTela { rol: string; nombre: string; fotoUrl: string; mismaQueFrontal: boolean; }
 export interface PanelArchivo { id: string; tipo: string; nombre: string; url: string; createdAt: string; }
 export interface PanelPedido {
   id: string;
+  cliente: string;
+  prioritario: boolean;
   tipo: string; modelo: string;
   ancho: number | null; alto: number | null; fondo: number | null;
   acabado: string; montaje: string; notasProducto: string; notasPedido: string;
+  telaTexto: string;   // tela del producto (texto), respaldo si no hay telas con foto
   fechaLimite: string; fechaAsignacion: string; diasRestantes: number;
   entregado: boolean;
   telaEstado: string; telaEstadoPor: string; telaEstadoFecha: string;
@@ -71,12 +75,15 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
       }));
       return {
         id: p.id as string,
+        cliente: (p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "",
+        prioritario: !!p.prioritario,
         tipo: (prod.tipo as string) ?? "",
         modelo: (prod.modelo as string) ?? "",
         ancho: (prod.ancho as number | null) ?? null,
         alto: (prod.alto as number | null) ?? null,
         fondo: (prod.fondo as number | null) ?? null,
         acabado: (prod.acabado as string) ?? "",
+        telaTexto: [(prod.tela as string) || "", prod.coleccion_tela ? displayColeccionTela(prod.coleccion_tela as string) : ""].filter(Boolean).join(" · "),
         montaje: (p.montaje as string) ?? "",
         notasProducto: (prod.notas_producto as string) ?? "",
         notasPedido: (p.notas_pedido as string) ?? "",

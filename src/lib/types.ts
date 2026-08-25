@@ -316,6 +316,8 @@ export interface Pedido {
   terminadoTapiceroPor: string;
   terminadoTapiceroFecha: string;
   montaje: string;                  // 'colgar' | 'apoyar' | ''
+  prioritario: boolean;             // el equipo lo marca; sale primero en el panel
+  clienteNombre: string;            // nombre de cliente denormalizado (el tapicero no ve leads)
   tapiceroId: string;  // uuid del tapicero asignado actualmente, o "" si sin asignar
   // Sello por paso: stepKey → tapicero_id de quien lo hizo. Se rellena solo al
   // reasignar (los pasos ya hechos se sellan con el tapicero saliente). Los
