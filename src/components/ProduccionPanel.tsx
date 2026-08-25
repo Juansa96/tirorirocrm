@@ -1,10 +1,26 @@
 import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import { User, Eye } from "lucide-react";
+import { User, Eye, Send } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Lead, type Producto, type Tapicero } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 import { tipoLabelOf, displayModelo, displayColeccionTela } from "@/lib/catalogo";
+import { toast } from "sonner";
+
+// Avisa por email a un tapicero de un grupo de pedidos (uno solo, agrupado).
+async function avisarGrupo(pedidoIds: string[]): Promise<void> {
+  if (pedidoIds.length === 0) return;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? "";
+  const res = await fetch("/api/tapicero/enviar", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ pedidoIds }),
+  });
+  if (res.ok) { const d = await res.json().catch(() => ({})); toast.success(d.emailsEncolados ? "Email enviado al tapicero." : "Marcado como enviado."); }
+  else toast.error("No se pudo enviar el aviso.");
+}
 
 // Medidas legibles a partir de ancho/alto/fondo (los que existan).
 function medidasOf(p: Producto | undefined): string {
@@ -117,7 +133,17 @@ export function ProduccionPanel() {
                   <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-500">inactivo</span>
                 )}
               </div>
-              <span className="rounded-full bg-[#1a1f36] px-2.5 py-0.5 text-xs font-bold text-white">{g.lineas.length}</span>
+              <div className="flex items-center gap-2">
+                {g.tapicero && (
+                  <button
+                    onClick={() => { if (confirm(`¿Avisar por email a ${tapiceroNombre(g.tapicero)} de estos ${g.lineas.length} pedido(s)?`)) void avisarGrupo(g.lineas.map((l) => l.pedido.id)); }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <Send className="h-3.5 w-3.5" /> Avisar por email
+                  </button>
+                )}
+                <span className="rounded-full bg-[#1a1f36] px-2.5 py-0.5 text-xs font-bold text-white">{g.lineas.length}</span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">

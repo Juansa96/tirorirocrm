@@ -8,6 +8,8 @@ const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: 
 
 const FROM = "Tiroriro Home <pedidos@notify.tirorirohome.com>";
 const SENDER_DOMAIN = "notify.tirorirohome.com";
+// El helper de emails de Lovable no fija reply-to; se muestra en el cuerpo.
+const REPLY_TO = process.env.TAPICERO_REPLY_TO || "sangradortorresjuan@gmail.com";
 
 function esc(s: string): string {
   return (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
@@ -83,8 +85,9 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
               <p style="color:#555;font-size:15px">Entra en tu panel para ver la forma, las medidas, las telas y las fechas.</p>
               <table style="width:100%;border-collapse:collapse">${items}</table>
               <p style="margin-top:20px"><a href="${origin}/panel" style="display:inline-block;background:#1a4b5b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;font-size:16px">Abrir mi taller</a></p>
+              <p style="margin-top:20px;color:#888;font-size:13px">¿Alguna duda? Escribe a Juan: <a href="mailto:${REPLY_TO}" style="color:#1a4b5b">${REPLY_TO}</a></p>
             </div></body></html>`;
-          const text = `Tienes ${n} pedido(s) nuevo(s). Abre tu panel: ${origin}/panel`;
+          const text = `Tienes ${n} pedido(s) nuevo(s). Abre tu panel: ${origin}/panel\n¿Dudas? Escribe a Juan: ${REPLY_TO}`;
 
           const messageId = crypto.randomUUID();
           await supabaseAdmin.from("email_send_log").insert({ message_id: messageId, template_name: "tapicero_asignacion", recipient_email: to, status: "pending" });
