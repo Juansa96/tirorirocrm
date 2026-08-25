@@ -39,8 +39,8 @@ ALTER TABLE public.pedidos
   ADD COLUMN IF NOT EXISTS enviado_tapicero_fecha TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS tela_estado TEXT NOT NULL DEFAULT 'pendiente'
     CHECK (tela_estado IN ('pendiente','enviada','recibida')),
-  ADD COLUMN IF NOT EXISTS tela_recibida_por TEXT,
-  ADD COLUMN IF NOT EXISTS tela_recibida_fecha TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS tela_estado_por TEXT,
+  ADD COLUMN IF NOT EXISTS tela_estado_fecha TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS terminado_tapicero BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS terminado_tapicero_por TEXT,
   ADD COLUMN IF NOT EXISTS terminado_tapicero_fecha TIMESTAMPTZ,

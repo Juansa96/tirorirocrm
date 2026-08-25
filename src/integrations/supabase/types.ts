@@ -618,6 +618,80 @@ export type Database = {
           },
         ]
       }
+      telas_biblioteca: {
+        Row: {
+          id: string
+          nombre: string
+          nombre_norm: string
+          foto_url: string | null
+          coleccion: string
+          origen: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          nombre: string
+          nombre_norm: string
+          foto_url?: string | null
+          coleccion?: string
+          origen?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          nombre?: string
+          nombre_norm?: string
+          foto_url?: string | null
+          coleccion?: string
+          origen?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      pedido_archivos: {
+        Row: {
+          id: string
+          pedido_id: string
+          tipo: string
+          nombre: string
+          storage_path: string
+          url: string
+          subido_por: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pedido_id: string
+          tipo: string
+          nombre: string
+          storage_path: string
+          url: string
+          subido_por?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pedido_id?: string
+          tipo?: string
+          nombre?: string
+          storage_path?: string
+          url?: string
+          subido_por?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_archivos_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       productos_lead: {
         Row: {
           acabado: string | null

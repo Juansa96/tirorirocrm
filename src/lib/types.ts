@@ -306,6 +306,16 @@ export interface Pedido {
   pagadoCompleto: boolean;
   factura: string;
   notasPedido: string;
+  // ── Vista de tapicero (Fase 2) ──
+  enviadoTapicero: boolean;         // el pedido está enviado al panel del tapicero
+  enviadoTapiceroFecha: string;
+  telaEstado: string;               // 'pendiente' | 'enviada' | 'recibida'
+  telaEstadoPor: string;            // quién marcó el último estado de tela
+  telaEstadoFecha: string;
+  terminadoTapicero: boolean;
+  terminadoTapiceroPor: string;
+  terminadoTapiceroFecha: string;
+  montaje: string;                  // 'colgar' | 'apoyar' | ''
   tapiceroId: string;  // uuid del tapicero asignado actualmente, o "" si sin asignar
   // Sello por paso: stepKey → tapicero_id de quien lo hizo. Se rellena solo al
   // reasignar (los pasos ya hechos se sellan con el tapicero saliente). Los
@@ -329,6 +339,37 @@ export interface PedidoTela {
   fechaRecibo: string;
   orden: number;
   createdAt: string;
+  // ── Fase 2 ──
+  telaFotoUrl: string;        // foto (de la web o subida)
+  telaBibliotecaId: string;   // ref a telas_biblioteca (si vino de una subida)
+  mismaQueFrontal: boolean;   // "misma tela que el frontal"
+}
+
+// Archivo adjunto a un pedido (plantilla de corte o etiqueta CTT).
+export interface PedidoArchivo {
+  id: string;
+  pedidoId: string;
+  tipo: string;       // 'plantilla' | 'etiqueta_ctt'
+  nombre: string;
+  storagePath: string;
+  url: string;
+  subidoPor: string;
+  createdAt: string;
+}
+
+// Tela de la biblioteca (subida a mano) o de la web (leída de /telas.json).
+export interface TelaBiblioteca {
+  id: string;
+  nombre: string;
+  fotoUrl: string;
+  coleccion: string;   // basica | premium | otra
+  origen: string;      // subida | web
+}
+
+// Normaliza un nombre de tela para deduplicar/buscar (sin acentos, minúsculas,
+// espacios colapsados). Misma idea que mismoModelo pero para telas.
+export function normNombreTela(s: string): string {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 // Plantilla de telas según tipo de producto (punto de partida; el usuario puede editar libremente)

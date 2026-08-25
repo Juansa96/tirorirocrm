@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero } from "./types";
-import { VENDEDORES, telasPorTipo, flujoPedido } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo } from "./types";
+import { VENDEDORES, telasPorTipo, flujoPedido, normNombreTela } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela } from "./catalogo";
@@ -20,6 +20,9 @@ interface State {
   pedidoTelas: PedidoTela[];
   catalogo: CatalogoProducto[];
   tapiceros: Tapicero[];
+  telasBiblioteca: TelaBiblioteca[];
+  telasWeb: TelaBiblioteca[];
+  pedidoArchivos: PedidoArchivo[];
   leadFotos: LeadFoto[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
@@ -28,7 +31,7 @@ interface State {
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], leadFotos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -203,6 +206,15 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     pagadoCompleto: !!r.pagado_completo,
     factura: (r.factura as string) ?? "",
     notasPedido: (r.notas_pedido as string) ?? "",
+    enviadoTapicero: !!r.enviado_tapicero,
+    enviadoTapiceroFecha: (r.enviado_tapicero_fecha as string) ?? "",
+    telaEstado: (r.tela_estado as string) ?? "pendiente",
+    telaEstadoPor: (r.tela_estado_por as string) ?? "",
+    telaEstadoFecha: (r.tela_estado_fecha as string) ?? "",
+    terminadoTapicero: !!r.terminado_tapicero,
+    terminadoTapiceroPor: (r.terminado_tapicero_por as string) ?? "",
+    terminadoTapiceroFecha: (r.terminado_tapicero_fecha as string) ?? "",
+    montaje: (r.montaje as string) ?? "",
     tapiceroId: (r.tapicero_id as string) ?? "",
     pasosTapicero: (r.pasos_tapicero && typeof r.pasos_tapicero === "object" ? r.pasos_tapicero : {}) as Record<string, string>,
     createdAt: (r.created_at as string) ?? "",
@@ -224,6 +236,9 @@ function mapPedidoTela(r: Record<string, unknown>): PedidoTela {
     fechaRecibo: (r.fecha_recibo as string) ?? "",
     orden: Number(r.orden) || 0,
     createdAt: (r.created_at as string) ?? "",
+    telaFotoUrl: (r.tela_foto_url as string) ?? "",
+    telaBibliotecaId: (r.tela_biblioteca_id as string) ?? "",
+    mismaQueFrontal: !!r.misma_que_frontal,
   };
 }
 
@@ -476,11 +491,56 @@ async function refetchTapiceros() {
     state = { ...state, tapiceros: rows }; emit();
   }
 }
+async function refetchTelasBiblioteca() {
+  const { data, error } = await supabase.from("telas_biblioteca").select("*").order("nombre", { ascending: true });
+  if (!error && data) {
+    const rows = (data as unknown as Record<string, unknown>[]).map((r): TelaBiblioteca => ({
+      id: r.id as string,
+      nombre: (r.nombre as string) ?? "",
+      fotoUrl: (r.foto_url as string) ?? "",
+      coleccion: (r.coleccion as string) ?? "otra",
+      origen: (r.origen as string) ?? "subida",
+    }));
+    state = { ...state, telasBiblioteca: rows }; emit();
+  }
+}
+// Telas publicadas por la web (nombre + foto), leídas por el proxy del CRM.
+async function fetchTelasWeb() {
+  try {
+    const res = await fetch("/api/public/telas", { cache: "no-cache" });
+    if (!res.ok) return;
+    const data = await res.json() as { telas?: Array<Record<string, unknown>> };
+    const rows: TelaBiblioteca[] = (data.telas ?? []).map((t) => ({
+      id: "web:" + String(t.id ?? t.nombre ?? ""),
+      nombre: String(t.nombre ?? ""),
+      fotoUrl: String(t.foto ?? ""),
+      coleccion: String(t.coleccion ?? "basica"),
+      origen: "web",
+    }));
+    state = { ...state, telasWeb: rows }; emit();
+  } catch { /* la web no responde: solo quedan las telas subidas */ }
+}
+async function refetchPedidoArchivos() {
+  const { data, error } = await supabase.from("pedido_archivos").select("*").order("created_at", { ascending: false });
+  if (!error && data) {
+    const rows = (data as unknown as Record<string, unknown>[]).map((r): PedidoArchivo => ({
+      id: r.id as string,
+      pedidoId: r.pedido_id as string,
+      tipo: (r.tipo as string) ?? "",
+      nombre: (r.nombre as string) ?? "",
+      storagePath: (r.storage_path as string) ?? "",
+      url: (r.url as string) ?? "",
+      subidoPor: (r.subido_por as string) ?? "",
+      createdAt: (r.created_at as string) ?? "",
+    }));
+    state = { ...state, pedidoArchivos: rows }; emit();
+  }
+}
 async function refetchAll() {
   // loadRemoteCatalog() aplica los precios de la web (fuente única, Fase 2)
   // sobre el catálogo local antes de marcar `loaded`. Nunca lanza: si la web
   // no responde, quedan los precios espejo locales.
-  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo(), refetchTapiceros(), refetchLeadFotos(), loadRemoteCatalog()]);
+  await Promise.all([refetchLeads(), refetchTareas(), refetchAudit(), refetchNotas(), refetchProductos(), refetchPedidos(), refetchPedidoTelas(), refetchCatalogo(), refetchTapiceros(), refetchTelasBiblioteca(), refetchPedidoArchivos(), fetchTelasWeb(), refetchLeadFotos(), loadRemoteCatalog()]);
   state = { ...state, loaded: true };
   emit();
 }
@@ -497,7 +557,7 @@ function subscribe(cb: () => void) {
 
 
 const SERVER: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], leadFotos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
@@ -516,7 +576,7 @@ export async function teardownStore() {
   } catch { /* ignore */ }
   initStarted = false;
   state = {
-    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], leadFotos: [],
+    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
   };
   emit();
@@ -1202,6 +1262,15 @@ export const actions = {
       notasPedido: "notas_pedido",
       tapiceroId: "tapicero_id",
       pasosTapicero: "pasos_tapicero",
+      enviadoTapicero: "enviado_tapicero",
+      enviadoTapiceroFecha: "enviado_tapicero_fecha",
+      telaEstado: "tela_estado",
+      telaEstadoPor: "tela_estado_por",
+      telaEstadoFecha: "tela_estado_fecha",
+      terminadoTapicero: "terminado_tapicero",
+      terminadoTapiceroPor: "terminado_tapicero_por",
+      terminadoTapiceroFecha: "terminado_tapicero_fecha",
+      montaje: "montaje",
       clienteNombreLibre: "cliente_nombre_libre",
       esCanje: "es_canje",
       formatos: "formatos",
@@ -1313,6 +1382,9 @@ export const actions = {
     if (patch.nombreTela !== undefined) dbPatch.nombre_tela = patch.nombreTela;
     if (patch.estado !== undefined) dbPatch.estado = patch.estado;
     if (patch.fechaRecibo !== undefined) dbPatch.fecha_recibo = patch.fechaRecibo || null;
+    if (patch.telaFotoUrl !== undefined) dbPatch.tela_foto_url = patch.telaFotoUrl || null;
+    if (patch.telaBibliotecaId !== undefined) dbPatch.tela_biblioteca_id = patch.telaBibliotecaId || null;
+    if (patch.mismaQueFrontal !== undefined) dbPatch.misma_que_frontal = patch.mismaQueFrontal;
     const { error } = await supabase.from("pedido_telas").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); }
   },
@@ -1323,6 +1395,76 @@ export const actions = {
     emit();
     const { error } = await supabase.from("pedido_telas").delete().eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al eliminar la tela."); }
+  },
+
+  // ───────── Biblioteca de telas + telas por pedido (Fase 2) ─────────
+  // Sube (o reutiliza) una tela en la biblioteca. Si `blob` es null se guarda
+  // sin foto. Deduplica por nombre normalizado. Devuelve la fila de biblioteca.
+  async subirTela(nombre: string, blob: Blob | null, coleccion = "otra"): Promise<TelaBiblioteca | null> {
+    const norm = normNombreTela(nombre);
+    if (!norm) { toast.error("La tela necesita un nombre."); return null; }
+    const existente = state.telasBiblioteca.find((t) => normNombreTela(t.nombre) === norm);
+    let fotoUrl = existente?.fotoUrl ?? "";
+    if (blob) {
+      const path = `telas/${crypto.randomUUID()}.jpg`;
+      const { error: upErr } = await supabase.storage.from("telas").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (upErr) { toast.error("No se pudo subir la foto de la tela."); return null; }
+      fotoUrl = supabase.storage.from("telas").getPublicUrl(path).data.publicUrl;
+    }
+    if (existente) {
+      if (blob) await supabase.from("telas_biblioteca").update({ foto_url: fotoUrl } as never).eq("id", existente.id);
+      await refetchTelasBiblioteca();
+      return { ...existente, fotoUrl };
+    }
+    const { data, error } = await supabase.from("telas_biblioteca").insert({
+      nombre: nombre.trim(), nombre_norm: norm, foto_url: fotoUrl || null, coleccion, origen: "subida", created_by: currentUser,
+    } as never).select().single();
+    if (error || !data) { toast.error("No se pudo guardar la tela."); return null; }
+    await refetchTelasBiblioteca();
+    const r = data as Record<string, unknown>;
+    return { id: r.id as string, nombre: (r.nombre as string) ?? "", fotoUrl: (r.foto_url as string) ?? "", coleccion: (r.coleccion as string) ?? "otra", origen: "subida" };
+  },
+
+  // Asigna la tela de un rol (Frontal/Lateral/Vivo) a un pedido. Crea la fila
+  // en pedido_telas si no existe, o la actualiza.
+  async asignarTelaPedido(pedidoId: string, rol: string, tela: { nombreTela: string; telaFotoUrl: string; telaBibliotecaId?: string; mismaQueFrontal?: boolean }) {
+    const existente = state.pedidoTelas.find((t) => t.pedidoId === pedidoId && t.tipoTela === rol);
+    if (existente) {
+      await actions.updatePedidoTela(existente.id, {
+        nombreTela: tela.nombreTela, telaFotoUrl: tela.telaFotoUrl,
+        telaBibliotecaId: tela.telaBibliotecaId ?? "", mismaQueFrontal: !!tela.mismaQueFrontal,
+      });
+      return;
+    }
+    const orden = state.pedidoTelas.filter((t) => t.pedidoId === pedidoId).length;
+    const { error } = await supabase.from("pedido_telas").insert({
+      pedido_id: pedidoId, tipo_tela: rol, estado: "Pedida", orden,
+      nombre_tela: tela.nombreTela, tela_foto_url: tela.telaFotoUrl || null,
+      tela_biblioteca_id: tela.telaBibliotecaId || null, misma_que_frontal: !!tela.mismaQueFrontal,
+    } as never);
+    if (error) toast.error("No se pudo asignar la tela.");
+  },
+
+  // ───────── Archivos del pedido (plantilla / etiquetas CTT) ─────────
+  async subirArchivoPedido(pedidoId: string, tipo: "plantilla" | "etiqueta_ctt", file: File) {
+    const path = `${pedidoId}/${tipo}/${crypto.randomUUID()}-${file.name}`;
+    const { error: upErr } = await supabase.storage.from("pedido-archivos").upload(path, file, { upsert: false });
+    if (upErr) { toast.error("No se pudo subir el archivo."); return; }
+    const url = supabase.storage.from("pedido-archivos").getPublicUrl(path).data.publicUrl;
+    const { error } = await supabase.from("pedido_archivos").insert({
+      pedido_id: pedidoId, tipo, nombre: file.name, storage_path: path, url, subido_por: currentUser,
+    } as never);
+    if (error) { toast.error("No se pudo guardar el archivo."); return; }
+    await refetchPedidoArchivos();
+  },
+  async deleteArchivoPedido(id: string, storagePath: string) {
+    const prevState = state;
+    state = { ...state, pedidoArchivos: state.pedidoArchivos.filter((a) => a.id !== id) };
+    emit();
+    await supabase.storage.from("pedido-archivos").remove([storagePath]);
+    const { error } = await supabase.from("pedido_archivos").delete().eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("No se pudo eliminar el archivo."); return; }
+    await refetchPedidoArchivos();
   },
 
   // deleteAuditEntry intentionally removed — audit log is append-only

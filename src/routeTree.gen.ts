@@ -26,6 +26,7 @@ import { Route as PedidosIdRouteImport } from './routes/pedidos.$id'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
+import { Route as ApiPublicTelasRouteImport } from './routes/api/public/telas'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
@@ -119,6 +120,11 @@ const B2bNuevoRoute = B2bNuevoRouteImport.update({
   path: '/b2b/nuevo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTelasRoute = ApiPublicTelasRouteImport.update({
+  id: '/api/public/telas',
+  path: '/api/public/telas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicLeadFormRoute = ApiPublicLeadFormRouteImport.update({
   id: '/api/public/lead-form',
   path: '/api/public/lead-form',
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/api/public/telas': typeof ApiPublicTelasRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/api/public/telas': typeof ApiPublicTelasRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
+  '/api/public/telas': typeof ApiPublicTelasRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
+    | '/api/public/telas'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
+    | '/api/public/telas'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -311,6 +322,7 @@ export interface FileRouteTypes {
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
+    | '/api/public/telas'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -338,6 +350,7 @@ export interface RootRouteChildren {
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
+  ApiPublicTelasRoute: typeof ApiPublicTelasRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -464,6 +477,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof B2bNuevoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/telas': {
+      id: '/api/public/telas'
+      path: '/api/public/telas'
+      fullPath: '/api/public/telas'
+      preLoaderRoute: typeof ApiPublicTelasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/lead-form': {
       id: '/api/public/lead-form'
       path: '/api/public/lead-form'
@@ -538,6 +558,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicCatalogRoute: ApiPublicCatalogRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
+  ApiPublicTelasRoute: ApiPublicTelasRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
