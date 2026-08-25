@@ -5,6 +5,7 @@ import { semaforoPedido, flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre,
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
 import { displayModelo, tipoLabelOf } from "@/lib/catalogo";
+import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 
 export const Route = createFileRoute("/pedidos/$id")({
   head: () => ({ meta: [{ title: "Pedido — TiroCRM" }] }),
@@ -231,6 +232,9 @@ function PedidoDetalle() {
           ))}
         </select>
       </div>
+
+      {/* Ficha para el tapicero (equipo rellena; el tapicero la ve en su panel) */}
+      <FichaTapiceroEquipo pedido={pedido} producto={producto} />
 
       {/* Hitos */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
