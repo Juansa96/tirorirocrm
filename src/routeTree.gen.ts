@@ -9,10 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PipelineB2bRouteImport } from './routes/pipeline-b2b'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as PerfilRouteImport } from './routes/perfil'
+import { Route as PanelRouteImport } from './routes/panel'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DuplicadosRouteImport } from './routes/duplicados'
 import { Route as DatosRouteImport } from './routes/datos'
@@ -27,10 +29,16 @@ import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
+import { Route as ApiAdminUsuariosRouteImport } from './routes/api/admin/usuarios'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 
+const UsuariosRoute = UsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -49,6 +57,11 @@ const PipelineRoute = PipelineRouteImport.update({
 const PerfilRoute = PerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PanelRoute = PanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -121,6 +134,11 @@ const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   path: '/api/public/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminUsuariosRoute = ApiAdminUsuariosRouteImport.update({
+  id: '/api/admin/usuarios',
+  path: '/api/admin/usuarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -143,10 +161,12 @@ export interface FileRoutesByFullPath {
   '/datos': typeof DatosRoute
   '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
+  '/panel': typeof PanelRoute
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/usuarios': typeof UsuariosRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
@@ -154,8 +174,9 @@ export interface FileRoutesByFullPath {
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
-  '/api/public/catalog': typeof ApiPublicCatalogRoute
+  '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
+  '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -166,10 +187,12 @@ export interface FileRoutesByTo {
   '/datos': typeof DatosRoute
   '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
+  '/panel': typeof PanelRoute
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/usuarios': typeof UsuariosRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
@@ -177,8 +200,9 @@ export interface FileRoutesByTo {
   '/b2b': typeof B2bIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/pedidos': typeof PedidosIndexRoute
-  '/api/public/catalog': typeof ApiPublicCatalogRoute
+  '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
+  '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -190,10 +214,12 @@ export interface FileRoutesById {
   '/datos': typeof DatosRoute
   '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
+  '/panel': typeof PanelRoute
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/usuarios': typeof UsuariosRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/nuevo': typeof ClientesNuevoRoute
@@ -201,8 +227,9 @@ export interface FileRoutesById {
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
-  '/api/public/catalog': typeof ApiPublicCatalogRoute
+  '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
+  '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -215,10 +242,12 @@ export interface FileRouteTypes {
     | '/datos'
     | '/duplicados'
     | '/login'
+    | '/panel'
     | '/perfil'
     | '/pipeline'
     | '/pipeline-b2b'
     | '/reset-password'
+    | '/usuarios'
     | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
@@ -226,8 +255,9 @@ export interface FileRouteTypes {
     | '/b2b/'
     | '/clientes/'
     | '/pedidos/'
-    | '/api/public/catalog'
+    | '/api/admin/usuarios'
     | '/api/public/bootstrap'
+    | '/api/public/catalog'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -238,10 +268,12 @@ export interface FileRouteTypes {
     | '/datos'
     | '/duplicados'
     | '/login'
+    | '/panel'
     | '/perfil'
     | '/pipeline'
     | '/pipeline-b2b'
     | '/reset-password'
+    | '/usuarios'
     | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
@@ -249,8 +281,9 @@ export interface FileRouteTypes {
     | '/b2b'
     | '/clientes'
     | '/pedidos'
-    | '/api/public/catalog'
+    | '/api/admin/usuarios'
     | '/api/public/bootstrap'
+    | '/api/public/catalog'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -261,10 +294,12 @@ export interface FileRouteTypes {
     | '/datos'
     | '/duplicados'
     | '/login'
+    | '/panel'
     | '/perfil'
     | '/pipeline'
     | '/pipeline-b2b'
     | '/reset-password'
+    | '/usuarios'
     | '/b2b/nuevo'
     | '/clientes/$id'
     | '/clientes/nuevo'
@@ -272,8 +307,9 @@ export interface FileRouteTypes {
     | '/b2b/'
     | '/clientes/'
     | '/pedidos/'
-    | '/api/public/catalog'
+    | '/api/admin/usuarios'
     | '/api/public/bootstrap'
+    | '/api/public/catalog'
     | '/api/public/lead-form'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -285,10 +321,12 @@ export interface RootRouteChildren {
   DatosRoute: typeof DatosRoute
   DuplicadosRoute: typeof DuplicadosRoute
   LoginRoute: typeof LoginRoute
+  PanelRoute: typeof PanelRoute
   PerfilRoute: typeof PerfilRoute
   PipelineRoute: typeof PipelineRoute
   PipelineB2bRoute: typeof PipelineB2bRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  UsuariosRoute: typeof UsuariosRoute
   B2bNuevoRoute: typeof B2bNuevoRoute
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNuevoRoute: typeof ClientesNuevoRoute
@@ -296,8 +334,9 @@ export interface RootRouteChildren {
   B2bIndexRoute: typeof B2bIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   PedidosIndexRoute: typeof PedidosIndexRoute
-  ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
+  ApiAdminUsuariosRoute: typeof ApiAdminUsuariosRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
+  ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -306,6 +345,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/usuarios': {
+      id: '/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof UsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -332,6 +378,13 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil'
       preLoaderRoute: typeof PerfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/panel': {
+      id: '/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof PanelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -432,6 +485,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/usuarios': {
+      id: '/api/admin/usuarios'
+      path: '/api/admin/usuarios'
+      fullPath: '/api/admin/usuarios'
+      preLoaderRoute: typeof ApiAdminUsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -461,10 +521,12 @@ const rootRouteChildren: RootRouteChildren = {
   DatosRoute: DatosRoute,
   DuplicadosRoute: DuplicadosRoute,
   LoginRoute: LoginRoute,
+  PanelRoute: PanelRoute,
   PerfilRoute: PerfilRoute,
   PipelineRoute: PipelineRoute,
   PipelineB2bRoute: PipelineB2bRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  UsuariosRoute: UsuariosRoute,
   B2bNuevoRoute: B2bNuevoRoute,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNuevoRoute: ClientesNuevoRoute,
@@ -472,8 +534,9 @@ const rootRouteChildren: RootRouteChildren = {
   B2bIndexRoute: B2bIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   PedidosIndexRoute: PedidosIndexRoute,
-  ApiPublicCatalogRoute: ApiPublicCatalogRoute,
+  ApiAdminUsuariosRoute: ApiAdminUsuariosRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
+  ApiPublicCatalogRoute: ApiPublicCatalogRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,

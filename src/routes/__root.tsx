@@ -95,35 +95,61 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function LoadingBar() {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="fixed left-0 right-0 top-0 z-50 h-0.5 overflow-hidden bg-slate-200">
+        <div className="h-full w-1/3 animate-[loading_1.2s_ease-in-out_infinite] bg-[#1a4b5b]" />
+      </div>
+      <style>{`@keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}`}</style>
+    </div>
+  );
+}
+
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, loading, perfilLoaded, rol, esTapicero, signOut } = useAuth();
   const router = useRouter();
   const path = useRouterState({ select: (s) => s.location.pathname });
 
   const isPublic = path === "/login" || path === "/reset-password";
+  const enPanel = path === "/panel" || path.startsWith("/panel/");
 
   useEffect(() => {
     if (loading) return;
     if (!session && !isPublic) {
       router.navigate({ to: "/login" });
+      return;
     }
-  }, [session, loading, isPublic, router]);
+    // El tapicero solo puede estar en su panel: cualquier otra ruta → /panel.
+    if (session && perfilLoaded && esTapicero && !isPublic && !enPanel) {
+      router.navigate({ to: "/panel" });
+    }
+  }, [session, loading, perfilLoaded, esTapicero, isPublic, enPanel, router]);
 
-  // Initial auth check: keep screen blank-ish (no centered spinner that flashes
-  // and jumps the layout). A thin top progress bar signals activity instead.
-  if (loading) {
+  if (loading) return <LoadingBar />;
+  if (isPublic) return <>{children}</>;
+  if (!session) return null;
+  // Esperar a saber el rol antes de decidir el layout (evita enseñar el CRM a un tapicero).
+  if (!perfilLoaded) return <LoadingBar />;
+
+  // Sesión sin perfil / desactivada → sin acceso (sin bucle de logout).
+  if (rol === null) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="fixed left-0 right-0 top-0 z-50 h-0.5 overflow-hidden bg-slate-200">
-          <div className="h-full w-1/3 animate-[loading_1.2s_ease-in-out_infinite] bg-[#1a4b5b]" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-center">
+        <div className="max-w-sm">
+          <h1 className="text-lg font-semibold text-slate-900">Cuenta sin acceso</h1>
+          <p className="mt-2 text-sm text-slate-500">Tu cuenta no tiene acceso configurado o está desactivada. Contacta con el equipo.</p>
+          <button onClick={() => void signOut()} className="mt-6 rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white">Cerrar sesión</button>
         </div>
-        <style>{`@keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}`}</style>
       </div>
     );
   }
 
-  if (isPublic) return <>{children}</>;
-  if (!session) return null;
+  // El panel del tapicero (y su vista para el equipo) tiene su propia interfaz,
+  // sin el chrome del CRM.
+  if (enPanel) return <>{children}</>;
+  // Un tapicero nunca llega aquí (se le redirige a /panel arriba).
+  if (esTapicero) return <LoadingBar />;
   return <AppLayout>{children}</AppLayout>;
 }
 

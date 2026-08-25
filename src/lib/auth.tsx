@@ -4,11 +4,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { vendorName } from "./types";
 import { setCurrentUser, teardownStore } from "./store";
 
+export type Rol = "admin" | "equipo" | "tapicero";
+
+interface Perfil {
+  rol: Rol;
+  tapiceroId: string;
+  activo: boolean;
+}
+
 interface AuthCtx {
   session: Session | null;
   loading: boolean;
   email: string | null;
   displayName: string;
+  // Perfil / rol
+  perfilLoaded: boolean;
+  rol: Rol | null;          // null = sesión sin perfil (sin acceso configurado)
+  tapiceroId: string;       // solo relevante para rol tapicero
+  esEquipo: boolean;        // admin o equipo
+  esAdmin: boolean;
+  esTapicero: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -18,6 +33,8 @@ const Ctx = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [perfilLoaded, setPerfilLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -51,14 +68,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Carga el perfil (rol) del usuario en sesión.
+  useEffect(() => {
+    let active = true;
+    const uid = session?.user.id;
+    if (!uid) { setPerfil(null); setPerfilLoaded(true); return; }
+    setPerfilLoaded(false);
+    (async () => {
+      try {
+        const { data } = await supabase.from("perfiles").select("rol, tapicero_id, activo").eq("id", uid).maybeSingle();
+        if (!active) return;
+        setPerfil(data ? { rol: data.rol as Rol, tapiceroId: data.tapicero_id ?? "", activo: data.activo !== false } : null);
+      } catch {
+        if (active) setPerfil(null);
+      } finally {
+        if (active) setPerfilLoaded(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [session?.user.id]);
+
   const email = session?.user.email ?? null;
   const displayName = email ? vendorName(email) : "";
+  const rol = perfil?.rol ?? null;
+  const activo = perfil?.activo ?? false;
+
+  // Cuenta desactivada → cerrar sesión.
+  useEffect(() => {
+    if (perfilLoaded && perfil && !perfil.activo) {
+      void supabase.auth.signOut();
+    }
+  }, [perfilLoaded, perfil]);
 
   const value: AuthCtx = {
     session,
     loading,
     email,
     displayName,
+    perfilLoaded,
+    rol: activo ? rol : null,
+    tapiceroId: perfil?.tapiceroId ?? "",
+    esEquipo: activo && (rol === "admin" || rol === "equipo"),
+    esAdmin: activo && rol === "admin",
+    esTapicero: activo && rol === "tapicero",
     async signIn(em, pw) {
       const { error } = await supabase.auth.signInWithPassword({ email: em, password: pw });
       return { error: error?.message ?? null };
