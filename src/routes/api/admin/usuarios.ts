@@ -89,6 +89,16 @@ export const Route = createFileRoute("/api/admin/usuarios")({
           return json({ ok: true });
         }
 
+        if (op === "delete") {
+          const id = String(body?.id ?? "");
+          if (!id) return json({ error: "Falta id" }, 400);
+          if (id === auth.uid) return json({ error: "No puedes borrarte a ti mismo" }, 400);
+          await supabaseAdmin.from("perfiles").delete().eq("id", id);
+          const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+          if (error) return json({ error: error.message }, 400);
+          return json({ ok: true });
+        }
+
         if (op === "activo") {
           const id = String(body?.id ?? "");
           const activo = body?.activo === true;

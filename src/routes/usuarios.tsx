@@ -1,9 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { Users, Plus, KeyRound, Power, RefreshCw } from "lucide-react";
+import { Users, Plus, KeyRound, Power, RefreshCw, Trash2, Hammer, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { useStore } from "@/lib/store";
+import { useStore, actions } from "@/lib/store";
 import { tapiceroNombre, type Tapicero } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -62,6 +62,13 @@ function Usuarios() {
     else toast.error("No se pudo cambiar el estado.");
   }
 
+  async function eliminar(u: UsuarioRow) {
+    if (!confirm(`¿Eliminar el usuario ${u.email}? Perderá el acceso definitivamente.`)) return;
+    const res = await apiCall("POST", { op: "delete", id: u.id });
+    if (res.ok) { toast.success("Usuario eliminado."); void cargar(); }
+    else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "No se pudo eliminar."); }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -72,6 +79,12 @@ function Usuarios() {
           <RefreshCw className="h-4 w-4" /> Actualizar
         </button>
       </div>
+
+      {/* Catálogo de tapiceros (personas) + acceso a su panel */}
+      <TapicerosSection tapiceros={tapiceros} />
+
+      <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Usuarios de acceso (login)</div>
+      <p className="-mt-3 text-xs text-slate-400">Crea un login cuando el tapicero te dé su email. Mientras, ves su panel arriba con «Ver panel».</p>
 
       {/* Alta de tapicero */}
       <NuevoTapicero
@@ -114,8 +127,11 @@ function Usuarios() {
                       <button onClick={() => void resetPassword(u)} title="Resetear contraseña" className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50">
                         <KeyRound className="h-4 w-4" />
                       </button>
-                      <button onClick={() => void toggleActivo(u)} title={u.activo ? "Desactivar" : "Activar"} className={`rounded-lg border p-1.5 ${u.activo ? "border-rose-200 text-rose-600 hover:bg-rose-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}>
+                      <button onClick={() => void toggleActivo(u)} title={u.activo ? "Desactivar" : "Activar"} className={`rounded-lg border p-1.5 ${u.activo ? "border-amber-200 text-amber-600 hover:bg-amber-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}>
                         <Power className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => void eliminar(u)} title="Eliminar usuario" className="rounded-lg border border-rose-200 p-1.5 text-rose-600 hover:bg-rose-50">
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -124,6 +140,50 @@ function Usuarios() {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TapicerosSection({ tapiceros }: { tapiceros: Tapicero[] }) {
+  const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const orden = [...tapiceros].sort((a, b) => a.orden - b.orden);
+
+  async function crear() {
+    if (!nombre.trim()) return;
+    setGuardando(true);
+    const ok = await actions.addTapicero(nombre, apellido);
+    setGuardando(false);
+    if (ok) { setNombre(""); setApellido(""); toast.success("Tapicero añadido."); }
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+        <Hammer className="h-4 w-4 text-[#1a1f36]" /> Tapiceros
+      </div>
+      <div className="space-y-2">
+        {orden.map((t) => (
+          <div key={t.id} className={`flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 ${t.activo ? "" : "bg-slate-50 text-slate-400"}`}>
+            <span className="min-w-0 flex-1 truncate font-medium">{tapiceroNombre(t)}{!t.activo && " (inactivo)"}</span>
+            <Link to="/panel" search={{ tapicero: t.id }} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              <Eye className="h-3.5 w-3.5" /> Ver panel
+            </Link>
+            <button onClick={() => void actions.updateTapicero(t.id, { activo: !t.activo })} title={t.activo ? "Desactivar" : "Activar"}
+              className={`rounded-lg border p-1.5 ${t.activo ? "border-amber-200 text-amber-600 hover:bg-amber-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}>
+              <Power className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre" className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        <input value={apellido} onChange={(e) => setApellido(e.target.value)} placeholder="Apellido (opcional)" className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        <button onClick={() => void crear()} disabled={!nombre.trim() || guardando} className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-3 py-2 text-sm font-medium text-white disabled:opacity-40">
+          <Plus className="h-4 w-4" /> Añadir tapicero
+        </button>
       </div>
     </div>
   );
