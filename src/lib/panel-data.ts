@@ -30,8 +30,11 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
 
   const cargar = useCallback(async () => {
     if (!tapiceroId) { setPedidos([]); return; }
+    // Muestra TODOS los pedidos asignados al tapicero (no solo los "enviados"),
+    // para que vea de una lo que ya tiene. El botón "Enviar a Daniel" queda
+    // solo para el aviso por email.
     const { data: peds } = await supabase.from("pedidos").select("*")
-      .eq("tapicero_id", tapiceroId).eq("enviado_tapicero", true);
+      .eq("tapicero_id", tapiceroId);
     const rows = (peds ?? []) as unknown as Record<string, unknown>[];
     const prodIds = rows.map((p) => p.producto_lead_id).filter(Boolean) as string[];
     const pedIds = rows.map((p) => p.id) as string[];
