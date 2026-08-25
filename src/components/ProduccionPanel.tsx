@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import { User } from "lucide-react";
+import { User, Eye } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { tapiceroNombre, type Pedido, type Lead, type Producto, type Tapicero } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
@@ -84,6 +84,13 @@ export function ProduccionPanel() {
           </select>
           <span className="text-xs text-slate-400">{totalLineas} producto{totalLineas === 1 ? "" : "s"}</span>
         </div>
+        <Link
+          to="/panel"
+          search={tapiceroF !== "todos" && tapiceroF !== SIN_ASIGNAR ? { tapicero: tapiceroF } : {}}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <Eye className="h-4 w-4" /> Ver panel del tapicero
+        </Link>
         <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
           <input
             type="checkbox"

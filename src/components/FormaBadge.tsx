@@ -20,7 +20,7 @@ const FORMA_LABEL: Record<string, string> = {
   rectangulo: "Rectángulo",
 };
 
-function FormaSVG({ forma, className = "h-3.5 w-3.5" }: { forma: string; className?: string }) {
+export function FormaSVG({ forma, className = "h-3.5 w-3.5" }: { forma: string; className?: string }) {
   // Mirrors the SVGs used on tirorirohome.com (viewBox 0 0 32 32, stroked silhouette)
   const common = { className, viewBox: "0 0 32 32", fill: "none", stroke: "currentColor", strokeWidth: 1.5 } as const;
   switch (forma) {
