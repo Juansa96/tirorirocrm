@@ -183,6 +183,22 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
         <EtiquetaEnvioSlot pedidoId={pedido.id} archivos={archivos.filter((a) => a.tipo === "etiqueta_envio" || a.tipo === "etiqueta_ctt")} />
       </div>
 
+      {/* Foto del acabado subida por el tapicero (solo lectura para el equipo) */}
+      {archivos.some((a) => a.tipo === "foto_terminado") && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-500"><ImageIcon className="h-3.5 w-3.5" /> Foto del producto terminado</div>
+          <div className="grid grid-cols-4 gap-2">
+            {archivos.filter((a) => a.tipo === "foto_terminado").map((a) => (
+              <div key={a.id} className="group relative overflow-hidden rounded-lg border border-slate-200">
+                <a href={a.url} target="_blank" rel="noreferrer"><img src={a.url} alt="Producto terminado" loading="lazy" className="aspect-square w-full object-cover" /></a>
+                <button onClick={() => { if (confirm("¿Eliminar foto?")) void actions.deleteArchivoPedido(a.id, a.storagePath); }}
+                  className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100"><Trash2 className="h-3 w-3" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Estado de acciones del tapicero (con deshacer desde administración) */}
       {(pedido.telaEstado === "recibida" || pedido.terminadoTapicero) && (
         <div className="mt-3 space-y-1 rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-600">

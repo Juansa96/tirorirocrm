@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   ArrowLeft, Download, PackageCheck, Ruler, Calendar, Scissors, User, Flag,
-  StickyNote, Truck, Image as ImageIcon, X, ZoomIn, Sofa, Anchor, Printer,
+  StickyNote, Truck, Image as ImageIcon, X, ZoomIn, Sofa, Anchor, Printer, Camera,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
-import { usePanelPedidos, accionTapicero, type PanelPedido, type PanelTela } from "@/lib/panel-data";
+import { usePanelPedidos, accionTapicero, subirFotoTerminado, type PanelPedido, type PanelTela } from "@/lib/panel-data";
 import { toast } from "sonner";
 
 interface Search { tapicero?: string; }
@@ -61,6 +61,7 @@ function FichaPanel() {
   const plantilla = p.archivos.filter((a) => a.tipo === "plantilla");
   const referencia = p.archivos.filter((a) => a.tipo === "referencia");
   const etiquetas = p.archivos.filter((a) => a.tipo === "etiqueta_envio" || a.tipo === "etiqueta_ctt");
+  const fotosAcabado = p.archivos.filter((a) => a.tipo === "foto_terminado");
 
   // Extras del producto (tapetes / colgadores) leídos de `patas`.
   const llevaTapetes = /tapete/i.test(p.patas);
@@ -193,6 +194,11 @@ function FichaPanel() {
           )}
         </Bloque>
 
+        {/* Foto del producto terminado (opcional) */}
+        <Bloque titulo="Foto del producto terminado" icon={<Camera className="h-4 w-4" />}>
+          <FotoTerminado pedidoId={p.id} fotos={fotosAcabado} onDone={refetch} onZoom={(url) => setZoom({ url, alt: "Producto terminado" })} />
+        </Bloque>
+
         {/* Notas */}
         {(p.notasProducto || p.notasPedido) && (
           <div className="flex gap-2 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -306,6 +312,43 @@ function TelaCard({ label, tela, fallback, onZoom }: {
     </div>
   );
 }
+
+// Foto (opcional) del acabado. La subida va por la ruta de servidor validada;
+// no bloquea el marcado de "terminado".
+function FotoTerminado({ pedidoId, fotos, onDone, onZoom }: {
+  pedidoId: string; fotos: PanelArchivoLike[]; onDone: () => void; onZoom: (url: string) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  async function subir(file: File) {
+    setSubiendo(true);
+    const ok = await subirFotoTerminado(pedidoId, file);
+    setSubiendo(false);
+    if (ok) { toast.success("Foto subida ✅"); void onDone(); } else toast.error("No se pudo subir la foto.");
+  }
+  return (
+    <div>
+      {fotos.length > 0 && (
+        <div className="mb-3 grid grid-cols-3 gap-2">
+          {fotos.map((f) => (
+            <button key={f.id} type="button" onClick={() => onZoom(f.url)} className="overflow-hidden rounded-xl border border-slate-200">
+              <img src={f.url} alt="Producto terminado" loading="lazy" className="aspect-square w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+      <button type="button" disabled={subiendo} onClick={() => ref.current?.click()}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 print:hidden">
+        <Camera className="h-4 w-4" /> {subiendo ? "Subiendo…" : fotos.length ? "Añadir otra foto" : "Subir foto del acabado"}
+      </button>
+      <span className="ml-2 text-xs text-slate-400 print:hidden">Opcional</span>
+      <input ref={ref} type="file" accept="image/*" capture="environment" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void subir(f); if (ref.current) ref.current.value = ""; }} />
+    </div>
+  );
+}
+
+interface PanelArchivoLike { id: string; url: string; }
 
 function Bloque({ titulo, icon, children }: { titulo: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (

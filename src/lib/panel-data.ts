@@ -154,3 +154,26 @@ export async function accionTapicero(op: "tela_recibida" | "terminado", pedidoId
   });
   return res.ok;
 }
+
+// Sube (opcionalmente) una foto del producto terminado. La escritura pasa por
+// la ruta de servidor (el tapicero es solo-lectura en BD). La imagen se comprime
+// antes de enviarse en base64.
+export async function subirFotoTerminado(pedidoId: string, file: File): Promise<boolean> {
+  const { compressImage } = await import("@/lib/img");
+  const blob = await compressImage(file);
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+  const dataBase64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? "";
+  const res = await fetch("/api/tapicero/foto", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ pedidoId, filename: file.name || "foto.jpg", contentType: "image/jpeg", dataBase64 }),
+  });
+  return res.ok;
+}
