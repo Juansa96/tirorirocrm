@@ -52,7 +52,7 @@ function Panel() {
   }, [esEquipo]);
 
   const viendoId = esTapicero ? miTapiceroId : (search.tapicero ?? "");
-  const { pedidos, refetch } = usePanelPedidos(viendoId || null);
+  const { pedidos, refetch } = usePanelPedidos(viendoId || null, esTapicero);
   const [verEntregados, setVerEntregados] = useState(false);
   // Filtro rápido: por estado de tela y por retraso.
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso">("todos");
