@@ -8,6 +8,7 @@ export interface PanelTela { rol: string; nombre: string; fotoUrl: string; colec
 export interface PanelArchivo { id: string; tipo: string; nombre: string; url: string; transportista: string; createdAt: string; }
 export interface PanelPedido {
   id: string;
+  numero: number | null;
   cliente: string;
   prioritario: boolean;
   prioridad: number;   // 1 = Alta, 2 = Normal, 3 = Baja
@@ -70,8 +71,10 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
     // Muestra TODOS los pedidos asignados al tapicero (no solo los "enviados"),
     // para que vea de una lo que ya tiene. El botón "Enviar a Daniel" queda
     // solo para el aviso por email.
-    const { data: peds } = await supabase.from("pedidos").select("*")
-      .eq("tapicero_id", tapiceroId);
+    // Los pedidos se leen por RPC (panel_pedidos): el enmascarado del apellido
+    // del cliente para el tapicero con oculta_apellidos se hace EN LA CONSULTA
+    // (SECURITY DEFINER), no aquí (punto 4). El equipo ve el nombre completo.
+    const { data: peds } = await supabase.rpc("panel_pedidos", { p_tapicero_id: tapiceroId });
     const rows = (peds ?? []) as unknown as Record<string, unknown>[];
 
     // Nombre del tapicero asignado (todos los pedidos son del mismo). El tapicero
@@ -132,6 +135,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
       }));
       return {
         id: p.id as string,
+        numero: p.numero != null ? Number(p.numero) : null,
         cliente: (p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "",
         prioritario: !!p.prioritario,
         prioridad: Number(p.prioridad) || 2,

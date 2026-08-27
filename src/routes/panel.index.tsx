@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LogOut, Hammer, ChevronRight, ArrowLeft, Eye, Star, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -46,6 +46,7 @@ function Panel() {
         id: t.id as string, nombre: (t.nombre as string) ?? "", apellido: (t.apellido as string) ?? "",
         activo: t.activo !== false, orden: Number(t.orden) || 0,
         accessToken: (t.access_token as string) ?? "", accessTokenActivo: t.access_token_activo !== false,
+        ocultaApellidos: t.oculta_apellidos === true,
       })));
     });
   }, [esEquipo]);
@@ -59,8 +60,19 @@ function Panel() {
   // Reordenación por arrastre (solo equipo). `ordenOverride` reordena al instante
   // (optimista) mientras se guarda en la BD.
   const [ordenOverride, setOrdenOverride] = useState<Record<string, number>>({});
+  // Reordenación por arrastre con POINTER EVENTS (funciona con ratón y en
+  // móvil/táctil; la card se ve moverse). dy = desplazamiento vertical en px.
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [dy, setDy] = useState(0);
+  const dragIdRef = useRef<string | null>(null);
+  const overIdRef = useRef<string | null>(null);
+  const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const dragStart = useRef<{ y: number; flat: PanelPedido[] } | null>(null);
+
+  const registrar = useCallback((rid: string, el: HTMLElement | null) => {
+    if (el) rowRefs.current.set(rid, el); else rowRefs.current.delete(rid);
+  }, []);
 
   const tapiceroActual = tapiceros.find((t) => t.id === viendoId);
 
@@ -114,27 +126,53 @@ function Panel() {
     setOrdenOverride({});
   }
 
-  async function soltar(destinoId: string) {
-    const arrastrado = dragId;
-    setDragId(null); setOverId(null);
-    if (!arrastrado || arrastrado === destinoId) return;
-    const flat = agruparPorCliente(conOrden(activos)).flatMap((g) => g.items);
-    const from = flat.findIndex((x) => x.id === arrastrado);
-    const to = flat.findIndex((x) => x.id === destinoId);
+  // Funciones normales (no hooks): van después del early-return de arriba, así
+  // que no pueden ser useCallback. Referencian refs, no estado obsoleto, y se
+  // registran/retiran con la misma identidad dentro de un mismo arrastre.
+  function onPointerMove(e: PointerEvent) {
+    if (!dragStart.current) return;
+    e.preventDefault(); // evita el scroll de la página durante el arrastre táctil
+    setDy(e.clientY - dragStart.current.y);
+    let found: string | null = null;
+    for (const [rid, el] of rowRefs.current) {
+      const r = el.getBoundingClientRect();
+      if (e.clientY >= r.top && e.clientY <= r.bottom) { found = rid; break; }
+    }
+    if (found && found !== overIdRef.current) { overIdRef.current = found; setOverId(found); }
+  }
+
+  async function finalizarDrag() {
+    window.removeEventListener("pointermove", onPointerMove);
+    const st = dragStart.current;
+    const arrastrado = dragIdRef.current;
+    const destino = overIdRef.current;
+    dragStart.current = null; dragIdRef.current = null; overIdRef.current = null;
+    setDragId(null); setOverId(null); setDy(0);
+    if (!st || !arrastrado || !destino || arrastrado === destino) return;
+    const from = st.flat.findIndex((x) => x.id === arrastrado);
+    const to = st.flat.findIndex((x) => x.id === destino);
     if (from < 0 || to < 0) return;
-    const arr = [...flat];
+    const arr = [...st.flat];
     const [m] = arr.splice(from, 1);
     arr.splice(to, 0, m);
     await guardarOrden(arr);
   }
 
-  const dnd: DnD | undefined = puedeOrdenar ? {
-    dragId, overId,
-    onStart: (id) => setDragId(id),
-    onOver: (id) => { if (id !== overId) setOverId(id); },
-    onDrop: (id) => void soltar(id),
-    onEnd: () => { setDragId(null); setOverId(null); },
-  } : undefined;
+  function onGripDown(id: string, e: React.PointerEvent) {
+    if (!puedeOrdenar) return;
+    e.preventDefault();
+    const flat = agruparPorCliente(conOrden(activos)).flatMap((g) => g.items);
+    dragStart.current = { y: e.clientY, flat };
+    dragIdRef.current = id; overIdRef.current = id;
+    setDragId(id); setOverId(id); setDy(0);
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("pointerup", finalizarDrag, { once: true });
+    window.addEventListener("pointercancel", finalizarDrag, { once: true });
+  }
+
+  const dnd: DnD | undefined = puedeOrdenar
+    ? { dragId, overId, dy, registrar, onGripDown }
+    : undefined;
 
   return (
     <Shell onSignOut={signOut} equipo={esEquipo} bannerNombre={esEquipo ? tapiceroNombre(tapiceroActual) : ""}>
@@ -214,10 +252,9 @@ function agruparPorCliente(lista: PanelPedido[]): Grupo[] {
 interface DnD {
   dragId: string | null;
   overId: string | null;
-  onStart: (id: string) => void;
-  onOver: (id: string) => void;
-  onDrop: (id: string) => void;
-  onEnd: () => void;
+  dy: number;
+  registrar: (id: string, el: HTMLElement | null) => void;
+  onGripDown: (id: string, e: React.PointerEvent) => void;
 }
 
 function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch, dnd }: { cliente: string; prioritario: boolean; items: PanelPedido[]; tapiceroSearch?: string; dnd?: DnD }) {
@@ -248,17 +285,16 @@ function ProductoRow({ p, tapiceroSearch, dnd }: { p: PanelPedido; tapiceroSearc
   const encima = !!dnd && dnd.overId === p.id && dnd.dragId != null && dnd.dragId !== p.id;
   return (
     <div
-      onDragOver={dnd ? (e) => { e.preventDefault(); dnd.onOver(p.id); } : undefined}
-      onDrop={dnd ? (e) => { e.preventDefault(); dnd.onDrop(p.id); } : undefined}
-      className={`flex items-center transition-opacity ${arrastrando ? "opacity-40" : ""} ${encima ? "border-t-2 border-slate-900" : "border-t-2 border-transparent"}`}
+      ref={dnd ? (el) => dnd.registrar(p.id, el) : undefined}
+      className={`flex items-center bg-white ${arrastrando ? "relative z-30 rounded-lg shadow-xl ring-2 ring-slate-900/10" : ""} ${encima ? "border-t-2 border-slate-900" : "border-t-2 border-transparent"}`}
+      style={arrastrando ? { transform: `translateY(${dnd!.dy}px)`, opacity: 0.97, touchAction: "none" } : undefined}
     >
-      {/* Tirador de arrastre: solo equipo (dnd definido). Daniel no lo ve. */}
+      {/* Tirador de arrastre (pointer events: ratón + táctil). Solo equipo. */}
       {dnd && (
         <span
-          draggable
-          onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; dnd.onStart(p.id); }}
-          onDragEnd={() => dnd.onEnd()}
+          onPointerDown={(e) => dnd.onGripDown(p.id, e)}
           title="Arrastra para ordenar"
+          style={{ touchAction: "none" }}
           className="flex cursor-grab items-center self-stretch pl-1.5 pr-0.5 text-slate-300 hover:text-slate-500 active:cursor-grabbing"
         >
           <GripVertical className="h-5 w-5" />
@@ -272,6 +308,7 @@ function ProductoRow({ p, tapiceroSearch, dnd }: { p: PanelPedido; tapiceroSearc
         <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
+            {p.numero != null && <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {p.numero}</span>}
             {p.prioridad === 1 && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
             <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
           </div>
