@@ -538,16 +538,22 @@ async function fetchTelasWeb() {
 async function refetchPedidoArchivos() {
   const { data, error } = await supabase.from("pedido_archivos").select("*").order("created_at", { ascending: false });
   if (!error && data) {
-    const rows = (data as unknown as Record<string, unknown>[]).map((r): PedidoArchivo => ({
-      id: r.id as string,
-      pedidoId: r.pedido_id as string,
-      tipo: (r.tipo as string) ?? "",
-      nombre: (r.nombre as string) ?? "",
-      storagePath: (r.storage_path as string) ?? "",
-      url: (r.url as string) ?? "",
-      subidoPor: (r.subido_por as string) ?? "",
-      createdAt: (r.created_at as string) ?? "",
-    }));
+    const raw = data as unknown as Record<string, unknown>[];
+    // Bucket privado: se firma la descarga a partir de la ruta guardada.
+    const firmadas = await signPaths("pedido-archivos", raw.map((r) => (r.storage_path as string) ?? ""));
+    const rows = raw.map((r): PedidoArchivo => {
+      const path = (r.storage_path as string) ?? "";
+      return {
+        id: r.id as string,
+        pedidoId: r.pedido_id as string,
+        tipo: (r.tipo as string) ?? "",
+        nombre: (r.nombre as string) ?? "",
+        storagePath: path,
+        url: firmadas.get(path) ?? ((r.url as string) ?? ""),
+        subidoPor: (r.subido_por as string) ?? "",
+        createdAt: (r.created_at as string) ?? "",
+      };
+    });
     state = { ...state, pedidoArchivos: rows }; emit();
   }
 }
