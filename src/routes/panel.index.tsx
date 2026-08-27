@@ -1,12 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LogOut, Hammer, ChevronRight, ArrowLeft, Eye, Star, ChevronUp, ChevronDown } from "lucide-react";
+import { LogOut, Hammer, ChevronRight, ArrowLeft, Eye, Star, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { tapiceroNombre, type Tapicero } from "@/lib/types";
 import { displayNombreProducto, modeloDetalle, esDetalleMedida } from "@/lib/catalogo";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
-import { usePanelPedidos, accionTapicero, type PanelPedido } from "@/lib/panel-data";
+import { usePanelPedidos, type PanelPedido } from "@/lib/panel-data";
 import { toast } from "sonner";
 
 interface Search { tapicero?: string; }
@@ -56,6 +56,11 @@ function Panel() {
   // Filtro rápido: por estado de tela y por retraso.
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso">("todos");
   const [soloRetrasados, setSoloRetrasados] = useState(false);
+  // Reordenación por arrastre (solo equipo). `ordenOverride` reordena al instante
+  // (optimista) mientras se guarda en la BD.
+  const [ordenOverride, setOrdenOverride] = useState<Record<string, number>>({});
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   const tapiceroActual = tapiceros.find((t) => t.id === viendoId);
 
@@ -88,23 +93,48 @@ function Panel() {
     return true;
   });
 
-  // Reordena (solo equipo): mueve un producto antes/después en la secuencia
-  // global de "en curso" y reescribe orden_produccion = 1..N.
-  async function mover(pedidoId: string, dir: "up" | "down") {
-    const flat = agruparPorCliente(activos).flatMap((g) => g.items);
-    const i = flat.findIndex((x) => x.id === pedidoId);
-    const j = dir === "up" ? i - 1 : i + 1;
-    if (i < 0 || j < 0 || j >= flat.length) return;
-    const nuevo = [...flat];
-    [nuevo[i], nuevo[j]] = [nuevo[j], nuevo[i]];
-    const updates = nuevo
-      .map((p, idx) => ({ p, orden: idx + 1 }))
-      .filter(({ p, orden }) => p.ordenProduccion !== orden)
-      .map(({ p, orden }) => supabase.from("pedidos").update({ orden_produccion: orden } as never).eq("id", p.id));
-    await Promise.all(updates);
-    void refetch();
+  // Solo el equipo puede reordenar, y solo en "En curso" sin filtros (para que
+  // la secuencia sea la global). El tapicero nunca puede: solo ve el número.
+  const puedeOrdenar = esEquipo && !verEntregados && filtroEstado === "todos" && !soloRetrasados;
+
+  // Aplica el orden optimista (arrastre en curso) a una lista.
+  const conOrden = (arr: PanelPedido[]) =>
+    Object.keys(ordenOverride).length === 0
+      ? arr
+      : arr.map((p) => (ordenOverride[p.id] != null ? { ...p, ordenProduccion: ordenOverride[p.id] } : p));
+
+  // Guarda una secuencia plana como orden_produccion = 1..N (refleja al instante
+  // y persiste en la BD).
+  async function guardarOrden(flat: PanelPedido[]) {
+    setOrdenOverride(Object.fromEntries(flat.map((p, i) => [p.id, i + 1])));
+    try {
+      await Promise.all(flat.map((p, i) => supabase.from("pedidos").update({ orden_produccion: i + 1 } as never).eq("id", p.id)));
+      await refetch();
+    } catch { toast.error("No se pudo guardar el orden."); }
+    setOrdenOverride({});
   }
-  const puedeOrdenar = esEquipo && !verEntregados;
+
+  async function soltar(destinoId: string) {
+    const arrastrado = dragId;
+    setDragId(null); setOverId(null);
+    if (!arrastrado || arrastrado === destinoId) return;
+    const flat = agruparPorCliente(conOrden(activos)).flatMap((g) => g.items);
+    const from = flat.findIndex((x) => x.id === arrastrado);
+    const to = flat.findIndex((x) => x.id === destinoId);
+    if (from < 0 || to < 0) return;
+    const arr = [...flat];
+    const [m] = arr.splice(from, 1);
+    arr.splice(to, 0, m);
+    await guardarOrden(arr);
+  }
+
+  const dnd: DnD | undefined = puedeOrdenar ? {
+    dragId, overId,
+    onStart: (id) => setDragId(id),
+    onOver: (id) => { if (id !== overId) setOverId(id); },
+    onDrop: (id) => void soltar(id),
+    onEnd: () => { setDragId(null); setOverId(null); },
+  } : undefined;
 
   return (
     <Shell onSignOut={signOut} equipo={esEquipo} bannerNombre={esEquipo ? tapiceroNombre(tapiceroActual) : ""}>
@@ -142,8 +172,9 @@ function Panel() {
           </div>
         ) : (
           <div className="space-y-4">
-            {agruparPorCliente(lista).map((g) => (
-              <ClienteGrupo key={g.cliente} cliente={g.cliente} prioritario={g.prioritario} items={g.items} tapiceroSearch={esEquipo ? viendoId : undefined} onDone={refetch} onMover={puedeOrdenar ? mover : undefined} />
+            {puedeOrdenar && <p className="mb-2 px-1 text-xs text-slate-400">Arrastra ⠿ para ordenar la prioridad de trabajo.</p>}
+            {agruparPorCliente(conOrden(lista)).map((g) => (
+              <ClienteGrupo key={g.cliente} cliente={g.cliente} prioritario={g.prioritario} items={g.items} tapiceroSearch={esEquipo ? viendoId : undefined} dnd={dnd} />
             ))}
           </div>
         )}
@@ -180,7 +211,16 @@ function agruparPorCliente(lista: PanelPedido[]): Grupo[] {
   return grupos.sort((a, b) => (a.minOrden - b.minOrden) || (a.minPrioridad - b.minPrioridad) || a.masProximo.localeCompare(b.masProximo));
 }
 
-function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch, onDone, onMover }: { cliente: string; prioritario: boolean; items: PanelPedido[]; tapiceroSearch?: string; onDone: () => void; onMover?: (id: string, dir: "up" | "down") => void }) {
+interface DnD {
+  dragId: string | null;
+  overId: string | null;
+  onStart: (id: string) => void;
+  onOver: (id: string) => void;
+  onDrop: (id: string) => void;
+  onEnd: () => void;
+}
+
+function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch, dnd }: { cliente: string; prioritario: boolean; items: PanelPedido[]; tapiceroSearch?: string; dnd?: DnD }) {
   return (
     <div className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${prioritario ? "border-amber-300" : "border-slate-200"}`}>
       <div className={`flex items-center justify-between gap-2 border-b px-4 py-2.5 ${prioritario ? "border-amber-100 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
@@ -191,80 +231,59 @@ function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch, onDone, onM
         <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">{items.length} producto{items.length === 1 ? "" : "s"}</span>
       </div>
       <div className="divide-y divide-slate-100">
-        {items.map((p) => <ProductoRow key={p.id} p={p} tapiceroSearch={tapiceroSearch} onDone={onDone} onMover={onMover} />)}
+        {items.map((p) => <ProductoRow key={p.id} p={p} tapiceroSearch={tapiceroSearch} dnd={dnd} />)}
       </div>
     </div>
   );
 }
 
-function ProductoRow({ p, tapiceroSearch, onDone, onMover }: { p: PanelPedido; tapiceroSearch?: string; onDone: () => void; onMover?: (id: string, dir: "up" | "down") => void }) {
+function ProductoRow({ p, tapiceroSearch, dnd }: { p: PanelPedido; tapiceroSearch?: string; dnd?: DnD }) {
   const c = diasColor(p.diasRestantes, p.entregado);
   const medidasNum = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
   const det = modeloDetalle(p.tipo, p.modelo);
-  // Línea de medidas: las columnas numéricas si existen; si no, un detalle de
-  // modelo que sea una medida (p. ej. almohadón "45×45" sin columnas); si no,
-  // "Medida personalizada".
   const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medidas sin poner");
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   const prio = prioridadChip(p.prioridad);
+  const arrastrando = dnd?.dragId === p.id;
+  const encima = !!dnd && dnd.overId === p.id && dnd.dragId != null && dnd.dragId !== p.id;
   return (
-    <div className="flex items-stretch">
-      <div className="min-w-0 flex-1">
-        <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}}
-          className="flex items-center gap-2.5 px-3 pt-3 active:bg-slate-50">
-          {p.ordenProduccion != null && (
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">{p.ordenProduccion}</span>
-          )}
-          <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              {p.prioridad === 1 && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
-              <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
-            </div>
-            <div className="text-xs text-slate-500">{medidas}</div>
-            <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
-            {prio && <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${prio.bg} ${prio.text}`}>{prio.label}</span>}
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
-        </Link>
-        {/* Acciones rápidas desde la propia card */}
-        <AccionesMini p={p} onDone={onDone} />
-      </div>
-      {/* Flechas de orden (solo equipo) */}
-      {onMover && (
-        <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100 px-1.5">
-          <button onClick={() => onMover(p.id, "up")} title="Subir" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><ChevronUp className="h-4 w-4" /></button>
-          <button onClick={() => onMover(p.id, "down")} title="Bajar" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><ChevronDown className="h-4 w-4" /></button>
-        </div>
+    <div
+      onDragOver={dnd ? (e) => { e.preventDefault(); dnd.onOver(p.id); } : undefined}
+      onDrop={dnd ? (e) => { e.preventDefault(); dnd.onDrop(p.id); } : undefined}
+      className={`flex items-center transition-opacity ${arrastrando ? "opacity-40" : ""} ${encima ? "border-t-2 border-slate-900" : "border-t-2 border-transparent"}`}
+    >
+      {/* Tirador de arrastre: solo equipo (dnd definido). Daniel no lo ve. */}
+      {dnd && (
+        <span
+          draggable
+          onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; dnd.onStart(p.id); }}
+          onDragEnd={() => dnd.onEnd()}
+          title="Arrastra para ordenar"
+          className="flex cursor-grab items-center self-stretch pl-1.5 pr-0.5 text-slate-300 hover:text-slate-500 active:cursor-grabbing"
+        >
+          <GripVertical className="h-5 w-5" />
+        </span>
       )}
-    </div>
-  );
-}
-
-// Botones "Tela recibida" / "Terminado" dentro de la card (fuera del enlace,
-// para no navegar al pulsarlos). Toggle: se pueden marcar y desmarcar.
-function AccionesMini({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const telaRecibida = p.telaEstado === "recibida";
-  async function marca(op: "tela_recibida" | "terminado", valor: boolean) {
-    setBusy(true);
-    const ok = await accionTapicero(op, p.id, valor);
-    setBusy(false);
-    if (ok) { toast.success("Hecho ✅"); void onDone(); } else toast.error("No se pudo guardar.");
-  }
-  return (
-    <div className="flex gap-2 px-3 pb-3 pt-2">
-      <button disabled={busy} onClick={() => marca("tela_recibida", !telaRecibida)}
-        className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold ${telaRecibida ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600"} disabled:opacity-50`}>
-        {telaRecibida ? "✓ Tela recibida" : "Tela recibida"}
-      </button>
-      <button disabled={busy} onClick={() => marca("terminado", !p.terminado)}
-        className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold ${p.terminado ? "border-slate-300 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"} disabled:opacity-50`}>
-        {p.terminado ? "✓ Terminado" : "Terminado"}
-      </button>
+      <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}} draggable={false}
+        className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-3 active:bg-slate-50">
+        {p.ordenProduccion != null && (
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">{p.ordenProduccion}</span>
+        )}
+        <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {p.prioridad === 1 && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
+            <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
+          </div>
+          <div className="text-xs text-slate-500">{medidas}</div>
+          <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
+          {prio && <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${prio.bg} ${prio.text}`}>{prio.label}</span>}
+        </div>
+        <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
+      </Link>
     </div>
   );
 }
