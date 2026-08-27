@@ -29,18 +29,24 @@ async function requireEquipo(request: Request): Promise<{ uid: string } | Respon
   return { uid: userData.user.id };
 }
 
+const ROLES_VALIDOS = ["admin", "equipo", "tapicero"] as const;
+
+// Lista TODOS los usuarios de auth, tengan perfil o no. Los que no lo tienen
+// aparecen con rol "" (sin acceso) para poder asignárselo desde la app.
 async function listUsers(): Promise<Response> {
-  // Perfiles (rol/estado) + emails desde auth.
   const { data: perfiles } = await supabaseAdmin.from("perfiles").select("id, rol, tapicero_id, activo");
   const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-  const emailById = new Map((authList?.users ?? []).map((u) => [u.id, u.email ?? ""]));
-  const rows = (perfiles ?? []).map((p) => ({
-    id: p.id as string,
-    email: emailById.get(p.id as string) ?? "",
-    rol: p.rol as string,
-    tapiceroId: (p.tapicero_id as string) ?? "",
-    activo: p.activo !== false,
-  }));
+  const perfilById = new Map((perfiles ?? []).map((p) => [p.id as string, p]));
+  const rows = (authList?.users ?? []).map((u) => {
+    const p = perfilById.get(u.id);
+    return {
+      id: u.id,
+      email: u.email ?? "",
+      rol: (p?.rol as string) ?? "",
+      tapiceroId: (p?.tapicero_id as string) ?? "",
+      activo: p ? p.activo !== false : false,
+    };
+  });
   return json({ usuarios: rows });
 }
 
