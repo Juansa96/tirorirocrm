@@ -316,7 +316,9 @@ export interface Pedido {
   terminadoTapiceroPor: string;
   terminadoTapiceroFecha: string;
   montaje: string;                  // 'colgar' | 'apoyar' | ''
-  prioritario: boolean;             // el equipo lo marca; sale primero en el panel
+  prioritario: boolean;             // legacy: destacado (estrella). La app usa `prioridad`.
+  prioridad: number;                // 1 = Alta, 2 = Normal, 3 = Baja. El equipo la asigna.
+  fechaRecogida: string;            // fecha prevista de recogida por Juan en el taller (YYYY-MM-DD)
   clienteNombre: string;            // nombre de cliente denormalizado (el tapicero no ve leads)
   tapiceroId: string;  // uuid del tapicero asignado actualmente, o "" si sin asignar
   // Sello por paso: stepKey → tapicero_id de quien lo hizo. Se rellena solo al
@@ -344,6 +346,7 @@ export interface PedidoTela {
   // ── Fase 2 ──
   telaFotoUrl: string;        // foto (de la web o subida)
   telaBibliotecaId: string;   // ref a telas_biblioteca (si vino de una subida)
+  telaColeccion: string;      // colección/proveedor (denormalizado para el tapicero)
   mismaQueFrontal: boolean;   // "misma tela que el frontal"
 }
 
@@ -351,11 +354,12 @@ export interface PedidoTela {
 export interface PedidoArchivo {
   id: string;
   pedidoId: string;
-  tipo: string;       // 'plantilla' | 'etiqueta_ctt'
+  tipo: string;       // 'plantilla' | 'etiqueta_ctt' | 'etiqueta_envio' | 'referencia'
   nombre: string;
   storagePath: string;
   url: string;
   subidoPor: string;
+  transportista: string; // solo etiqueta de envío: 'ctt' | 'mrw' | texto libre
   createdAt: string;
 }
 

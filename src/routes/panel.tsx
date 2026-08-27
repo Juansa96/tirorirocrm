@@ -24,6 +24,13 @@ function diasColor(d: number, entregado: boolean) {
   return { bg: "bg-emerald-100", text: "text-emerald-700", label: `${d}d` };
 }
 
+// Chip de prioridad. Solo se muestra si NO es Normal (para no llenar de ruido).
+function prioridadChip(prioridad: number): { bg: string; text: string; label: string } | null {
+  if (prioridad === 1) return { bg: "bg-rose-100", text: "text-rose-700", label: "Alta" };
+  if (prioridad === 3) return { bg: "bg-slate-100", text: "text-slate-500", label: "Baja" };
+  return null;
+}
+
 function Panel() {
   const { esTapicero, esEquipo, tapiceroId: miTapiceroId, signOut } = useAuth();
   const search = Route.useSearch();
@@ -98,26 +105,27 @@ function Panel() {
   );
 }
 
-interface Grupo { cliente: string; items: PanelPedido[]; prioritario: boolean; masProximo: string; }
+interface Grupo { cliente: string; items: PanelPedido[]; prioritario: boolean; minPrioridad: number; masProximo: string; }
 
-// Agrupa por cliente. Ordena: primero los que tienen algún pedido prioritario,
-// luego por la entrega más próxima.
+// Agrupa por cliente. Ordena: primero prioridad alta, y dentro de cada nivel,
+// por la entrega más próxima (mayor retraso primero).
 function agruparPorCliente(lista: PanelPedido[]): Grupo[] {
   const map = new Map<string, Grupo>();
   for (const p of lista) {
     const k = p.cliente || "Sin cliente";
-    const g = map.get(k) ?? { cliente: k, items: [], prioritario: false, masProximo: "9999" };
+    const g = map.get(k) ?? { cliente: k, items: [], prioritario: false, minPrioridad: 3, masProximo: "9999" };
     g.items.push(p);
-    if (p.prioritario) g.prioritario = true;
+    if (p.prioridad === 1) g.prioritario = true;
+    if (p.prioridad < g.minPrioridad) g.minPrioridad = p.prioridad;
     if (p.fechaLimite && p.fechaLimite < g.masProximo) g.masProximo = p.fechaLimite;
     map.set(k, g);
   }
   const grupos = [...map.values()];
   for (const g of grupos) {
-    // Dentro del cliente: prioritarios primero, luego lo que antes vence.
-    g.items.sort((a, b) => (Number(b.prioritario) - Number(a.prioritario)) || (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
+    // Dentro del cliente: prioridad alta primero, luego lo que antes vence.
+    g.items.sort((a, b) => (a.prioridad - b.prioridad) || (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
   }
-  return grupos.sort((a, b) => (Number(b.prioritario) - Number(a.prioritario)) || a.masProximo.localeCompare(b.masProximo));
+  return grupos.sort((a, b) => (a.minPrioridad - b.minPrioridad) || a.masProximo.localeCompare(b.masProximo));
 }
 
 function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch }: { cliente: string; prioritario: boolean; items: PanelPedido[]; tapiceroSearch?: string }) {
@@ -146,19 +154,23 @@ function ProductoRow({ p, tapiceroSearch }: { p: PanelPedido; tapiceroSearch?: s
   // "Medida personalizada".
   const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medida personalizada");
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
+  const prio = prioridadChip(p.prioridad);
   return (
     <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}}
       className="flex items-center gap-3 px-3 py-3 active:bg-slate-50">
       <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          {p.prioritario && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
+          {p.prioridad === 1 && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
           <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
         </div>
         <div className="text-xs text-slate-500">{medidas}</div>
         <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
       </div>
-      <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
+        {prio && <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${prio.bg} ${prio.text}`}>{prio.label}</span>}
+      </div>
       <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
     </Link>
   );

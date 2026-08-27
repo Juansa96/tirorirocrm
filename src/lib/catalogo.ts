@@ -136,6 +136,82 @@ export function esDetalleMedida(det: string): boolean {
   return /\d/.test(det);
 }
 
+// ── Prioridad del producto/pedido ───────────────────────────────────────────
+// 1 = Alta, 2 = Normal, 3 = Baja. El equipo la asigna; el tapicero solo la ve.
+export const PRIORIDAD_OPCIONES = [
+  { valor: 1, label: "Alta" },
+  { valor: 2, label: "Normal" },
+  { valor: 3, label: "Baja" },
+] as const;
+
+export function prioridadLabel(v: unknown): string {
+  const n = Number(v) || 2;
+  return PRIORIDAD_OPCIONES.find((o) => o.valor === n)?.label ?? "Normal";
+}
+
+// ── Telas por tipo de producto ──────────────────────────────────────────────
+// El almacén (pedido_telas.tipo_tela) usa siempre los roles "Frontal" / "Lateral"
+// / "Vivo" (compatibilidad con datos y con FabricPicker). Aquí se decide QUÉ
+// roles pide cada tipo y con qué ETIQUETA se muestran, adaptado al producto:
+//   · Cabecero → frontal + lateral + ribete.
+//   · Almohadón (cojin) → tela del cojín + ribete.
+//   · Puf / Banco → tela principal + ribete (opcional; el banco casi siempre
+//     lleva solo la principal).
+//   · Mesa → tela principal + ribete (opcional).
+//   · Pantalla → una sola tela.
+//   · Otro → genérico (frontal + lateral + ribete).
+export interface TelaRol {
+  rol: "Frontal" | "Lateral" | "Vivo"; // clave de almacenamiento (tipo_tela)
+  label: string;                        // etiqueta visible, según el tipo
+  opcional?: boolean;
+}
+
+const TELAS_POR_TIPO: Record<TipoProductoKey, TelaRol[]> = {
+  cabecero: [
+    { rol: "Frontal", label: "Tela frontal" },
+    { rol: "Lateral", label: "Tela lateral" },
+    { rol: "Vivo", label: "Tela de ribete" },
+  ],
+  cojin: [
+    { rol: "Frontal", label: "Tela del cojín" },
+    { rol: "Vivo", label: "Tela de ribete" },
+  ],
+  puf: [
+    { rol: "Frontal", label: "Tela principal" },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
+  ],
+  banco: [
+    { rol: "Frontal", label: "Tela principal" },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
+  ],
+  mesa: [
+    { rol: "Frontal", label: "Tela principal" },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
+  ],
+  pantalla: [
+    { rol: "Frontal", label: "Tela de la pantalla" },
+  ],
+  otro: [
+    { rol: "Frontal", label: "Tela principal" },
+    { rol: "Lateral", label: "Tela lateral", opcional: true },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
+  ],
+};
+
+// Roles de tela que pide un tipo de producto. Tipos desconocidos → genérico
+// (frontal + lateral + ribete) para no ocultar nada por error.
+export function telasDeProducto(tipo: unknown): TelaRol[] {
+  const k = normalizeTipo(tipo);
+  return k ? TELAS_POR_TIPO[k] : TELAS_POR_TIPO.otro;
+}
+
+// Etiqueta visible de un rol de tela para un tipo dado (fallback genérico).
+export function etiquetaTela(tipo: unknown, rol: string): string {
+  const r = telasDeProducto(tipo).find((x) => x.rol.toLowerCase() === rol.toLowerCase());
+  if (r) return r.label;
+  return rol === "Frontal" ? "Tela frontal" : rol === "Lateral" ? "Tela lateral" : rol === "Vivo" ? "Tela de ribete" : rol;
+}
+
 export function displayNombreProducto(tipo: unknown, modelo: unknown): string {
   const label = tipoLabelOf(tipo);
   const det = modeloDetalle(tipo, modelo);
