@@ -7,6 +7,7 @@ import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
+import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 
 
 
@@ -459,7 +460,12 @@ async function refetchPedidos() {
 }
 async function refetchPedidoTelas() {
   const { data, error } = await supabase.from("pedido_telas").select("*").order("orden", { ascending: true });
-  if (!error && data) { state = { ...state, pedidoTelas: (data as unknown as Record<string, unknown>[]).map(mapPedidoTela) }; emit(); }
+  if (!error && data) {
+    const raw = data as unknown as Record<string, unknown>[];
+    const firmadas = await refreshSignedUrls("telas", raw.map((r) => (r.tela_foto_url as string) ?? ""));
+    const rows = raw.map(mapPedidoTela).map((t) => ({ ...t, telaFotoUrl: firmadas.get(t.telaFotoUrl) ?? t.telaFotoUrl }));
+    state = { ...state, pedidoTelas: rows }; emit();
+  }
 }
 async function refetchCatalogo() {
   const { data, error } = await supabase.from("catalogo_productos").select("*").order("tipo", { ascending: true }).order("orden", { ascending: true });
@@ -496,13 +502,20 @@ async function refetchTapiceros() {
 async function refetchTelasBiblioteca() {
   const { data, error } = await supabase.from("telas_biblioteca").select("*").order("nombre", { ascending: true });
   if (!error && data) {
-    const rows = (data as unknown as Record<string, unknown>[]).map((r): TelaBiblioteca => ({
-      id: r.id as string,
-      nombre: (r.nombre as string) ?? "",
-      fotoUrl: (r.foto_url as string) ?? "",
-      coleccion: (r.coleccion as string) ?? "otra",
-      origen: (r.origen as string) ?? "subida",
-    }));
+    const raw = data as unknown as Record<string, unknown>[];
+    // Bucket privado: se refirman las URLs guardadas (públicas antiguas o
+    // firmadas caducadas) antes de mostrarlas.
+    const firmadas = await refreshSignedUrls("telas", raw.map((r) => (r.foto_url as string) ?? ""));
+    const rows = raw.map((r): TelaBiblioteca => {
+      const url = (r.foto_url as string) ?? "";
+      return {
+        id: r.id as string,
+        nombre: (r.nombre as string) ?? "",
+        fotoUrl: firmadas.get(url) ?? url,
+        coleccion: (r.coleccion as string) ?? "otra",
+        origen: (r.origen as string) ?? "subida",
+      };
+    });
     state = { ...state, telasBiblioteca: rows }; emit();
   }
 }
@@ -525,16 +538,22 @@ async function fetchTelasWeb() {
 async function refetchPedidoArchivos() {
   const { data, error } = await supabase.from("pedido_archivos").select("*").order("created_at", { ascending: false });
   if (!error && data) {
-    const rows = (data as unknown as Record<string, unknown>[]).map((r): PedidoArchivo => ({
-      id: r.id as string,
-      pedidoId: r.pedido_id as string,
-      tipo: (r.tipo as string) ?? "",
-      nombre: (r.nombre as string) ?? "",
-      storagePath: (r.storage_path as string) ?? "",
-      url: (r.url as string) ?? "",
-      subidoPor: (r.subido_por as string) ?? "",
-      createdAt: (r.created_at as string) ?? "",
-    }));
+    const raw = data as unknown as Record<string, unknown>[];
+    // Bucket privado: se firma la descarga a partir de la ruta guardada.
+    const firmadas = await signPaths("pedido-archivos", raw.map((r) => (r.storage_path as string) ?? ""));
+    const rows = raw.map((r): PedidoArchivo => {
+      const path = (r.storage_path as string) ?? "";
+      return {
+        id: r.id as string,
+        pedidoId: r.pedido_id as string,
+        tipo: (r.tipo as string) ?? "",
+        nombre: (r.nombre as string) ?? "",
+        storagePath: path,
+        url: firmadas.get(path) ?? ((r.url as string) ?? ""),
+        subidoPor: (r.subido_por as string) ?? "",
+        createdAt: (r.created_at as string) ?? "",
+      };
+    });
     state = { ...state, pedidoArchivos: rows }; emit();
   }
 }
@@ -1446,7 +1465,7 @@ export const actions = {
       const path = `telas/${crypto.randomUUID()}.jpg`;
       const { error: upErr } = await supabase.storage.from("telas").upload(path, blob, { contentType: "image/jpeg", upsert: false });
       if (upErr) { toast.error("No se pudo subir la foto de la tela."); return null; }
-      fotoUrl = supabase.storage.from("telas").getPublicUrl(path).data.publicUrl;
+      fotoUrl = await signPath("telas", path);
     }
     if (existente) {
       if (blob) await supabase.from("telas_biblioteca").update({ foto_url: fotoUrl } as never).eq("id", existente.id);
@@ -1487,7 +1506,7 @@ export const actions = {
     const path = `${pedidoId}/${tipo}/${crypto.randomUUID()}-${file.name}`;
     const { error: upErr } = await supabase.storage.from("pedido-archivos").upload(path, file, { upsert: false });
     if (upErr) { toast.error("No se pudo subir el archivo."); return; }
-    const url = supabase.storage.from("pedido-archivos").getPublicUrl(path).data.publicUrl;
+    const url = await signPath("pedido-archivos", path);
     const { error } = await supabase.from("pedido_archivos").insert({
       pedido_id: pedidoId, tipo, nombre: file.name, storage_path: path, url, subido_por: currentUser,
     } as never);
