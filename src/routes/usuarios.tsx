@@ -125,12 +125,32 @@ function Usuarios() {
                 <tr key={u.id} className={u.activo ? "" : "bg-slate-50/60 text-slate-400"}>
                   <td className="px-4 py-2.5 font-medium">{u.email}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${u.rol === "tapicero" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                      {u.rol === "tapicero" ? "Tapicero" : u.rol === "admin" ? "Admin" : "Equipo"}
-                    </span>
+                    <select
+                      value={u.rol}
+                      onChange={(e) => void cambiarRol(u, e.target.value)}
+                      className={`rounded-lg border px-2 py-1 text-xs font-medium ${u.rol ? "border-slate-200 bg-white text-slate-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}
+                    >
+                      {!u.rol && <option value="">Sin acceso</option>}
+                      <option value="admin">Admin</option>
+                      <option value="equipo">Equipo</option>
+                      <option value="tapicero">Tapicero</option>
+                    </select>
                   </td>
-                  <td className="px-4 py-2.5 text-slate-600">{u.rol === "tapicero" ? (tapiceroNombreById(u.tapiceroId) || "—") : "—"}</td>
-                  <td className="px-4 py-2.5">{u.activo ? "Activo" : "Desactivado"}</td>
+                  <td className="px-4 py-2.5 text-slate-600">
+                    {u.rol === "tapicero" ? (
+                      <select
+                        value={u.tapiceroId}
+                        onChange={(e) => void cambiarRol(u, "tapicero", e.target.value)}
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+                      >
+                        <option value="">— Elegir —</option>
+                        {tapiceros.filter((t) => t.activo || t.id === u.tapiceroId).map((t) => (
+                          <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
+                        ))}
+                      </select>
+                    ) : "—"}
+                  </td>
+                  <td className="px-4 py-2.5">{u.rol ? (u.activo ? "Activo" : "Desactivado") : "Sin acceso"}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex justify-end gap-1.5">
                       <button onClick={() => void resetPassword(u)} title="Resetear contraseña" className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50">
