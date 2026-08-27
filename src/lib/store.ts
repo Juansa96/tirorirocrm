@@ -1575,7 +1575,7 @@ export const actions = {
       }
       await refetchPedidoTelas();
       return true;
-    } catch (e) {
+    } catch {
       toast.error("Error al guardar las telas del pedido.");
       return false;
     }
