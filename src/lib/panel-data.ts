@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela } from "@/lib/catalogo";
+import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 
 export interface PanelTela { rol: string; nombre: string; fotoUrl: string; mismaQueFrontal: boolean; }
 export interface PanelArchivo { id: string; tipo: string; nombre: string; url: string; createdAt: string; }
@@ -60,18 +61,27 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
       (archByPedido.get(k) ?? archByPedido.set(k, []).get(k)!).push(a);
     }
 
+    // Buckets privados: se firman las fotos de tela y los archivos del pedido.
+    const telaRows = (telas as unknown as Record<string, unknown>[] ?? []);
+    const archRows = (archivos as unknown as Record<string, unknown>[] ?? []);
+    const [telasFirmadas, archFirmados] = await Promise.all([
+      refreshSignedUrls("telas", telaRows.map((t) => (t.tela_foto_url as string) ?? "")),
+      signPaths("pedido-archivos", archRows.map((a) => (a.storage_path as string) ?? "")),
+    ]);
+
     const out: PanelPedido[] = rows.map((p) => {
       const prod = prodById.get(p.producto_lead_id as string) ?? {};
       const fechaLimite = (p.fecha_limite as string) ?? "";
       const ts = (telasByPedido.get(p.id as string) ?? []).map((t): PanelTela => ({
         rol: (t.tipo_tela as string) ?? "",
         nombre: (t.nombre_tela as string) ?? "",
-        fotoUrl: (t.tela_foto_url as string) ?? "",
+        fotoUrl: telasFirmadas.get((t.tela_foto_url as string) ?? "") ?? ((t.tela_foto_url as string) ?? ""),
         mismaQueFrontal: !!t.misma_que_frontal,
       }));
       const ar = (archByPedido.get(p.id as string) ?? []).map((a): PanelArchivo => ({
         id: a.id as string, tipo: (a.tipo as string) ?? "", nombre: (a.nombre as string) ?? "",
-        url: (a.url as string) ?? "", createdAt: (a.created_at as string) ?? "",
+        url: archFirmados.get((a.storage_path as string) ?? "") ?? ((a.url as string) ?? ""),
+        createdAt: (a.created_at as string) ?? "",
       }));
       return {
         id: p.id as string,
