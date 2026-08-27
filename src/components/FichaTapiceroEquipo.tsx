@@ -1,17 +1,17 @@
 import { useRef } from "react";
-import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Flag, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus } from "lucide-react";
+import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
-import { displayNombreProducto, telasDeProducto, PRIORIDAD_OPCIONES } from "@/lib/catalogo";
+import { displayNombreProducto, telasDeProducto } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
 
 // Panel del EQUIPO dentro de la ficha del pedido. Trabaja sobre el BORRADOR
 // (nada se persiste hasta pulsar "Guardar" en la ficha): las telas y los campos
-// del tapicero (prioridad, montaje, estado de tela, comentario, recogida) se
+// del tapicero (montaje, estado de tela, comentario, recogida) se
 // editan en memoria. Los ARCHIVOS (plantilla, referencia, etiqueta) y el aviso
 // por email sí son acciones inmediatas (subidas / correos).
 export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, setTelas }: {
@@ -107,19 +107,6 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
           <div><strong>Producto incompleto</strong> — falta: {incompletos.join(", ")}. Complétalo antes de mandar a producción.</div>
         </div>
       )}
-
-      {/* Prioridad (la asigna el equipo; el tapicero solo la ve) */}
-      <div className="mb-3 rounded-lg border border-slate-200 bg-white p-2.5">
-        <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-500"><Flag className="h-3.5 w-3.5" /> Prioridad</div>
-        <div className="flex gap-1.5">
-          {PRIORIDAD_OPCIONES.map((o) => (
-            <button key={o.valor} onClick={() => patch({ prioridad: o.valor })}
-              className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${draft.prioridad === o.valor ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Comentarios para el tapicero (esto SÍ lo ve; las notas internas no) */}
       <ComentarioTapicero value={draft.notaTapicero} onChange={(v) => patch({ notaTapicero: v })} />

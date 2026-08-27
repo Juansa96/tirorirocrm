@@ -41,7 +41,7 @@ export function emptyTela(tipoTela: string): TelaDraft {
 // tratan aparte (validación de duplicado / reasignación con sellado de pasos).
 export const CAMPOS_EDITABLES_PEDIDO: (keyof Pedido)[] = [
   "diasPlazo", "fechaEntregaReal", "precio", "precioConIva", "costeEnvio", "reserva",
-  "pagadoCompleto", "factura", "notasPedido", "montaje", "prioridad", "notaTapicero",
+  "pagadoCompleto", "factura", "notasPedido", "montaje", "notaTapicero",
   "fechaRecogida", "telaEstado", "terminadoTapicero", "esCanje", "formatos", "tipoColaboracion",
   // Hitos de producción (booleano + fecha)
   "telaPedida", "telaPedidaFecha", "telaRecibida", "telaRecibidaFecha",
