@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LogOut, Hammer, ChevronRight, ArrowLeft, Eye, Star } from "lucide-react";
+import { LogOut, Hammer, ChevronRight, ArrowLeft, Eye, Star, ChevronUp, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { tapiceroNombre, type Tapicero } from "@/lib/types";
@@ -88,6 +88,24 @@ function Panel() {
     return true;
   });
 
+  // Reordena (solo equipo): mueve un producto antes/después en la secuencia
+  // global de "en curso" y reescribe orden_produccion = 1..N.
+  async function mover(pedidoId: string, dir: "up" | "down") {
+    const flat = agruparPorCliente(activos).flatMap((g) => g.items);
+    const i = flat.findIndex((x) => x.id === pedidoId);
+    const j = dir === "up" ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= flat.length) return;
+    const nuevo = [...flat];
+    [nuevo[i], nuevo[j]] = [nuevo[j], nuevo[i]];
+    const updates = nuevo
+      .map((p, idx) => ({ p, orden: idx + 1 }))
+      .filter(({ p, orden }) => p.ordenProduccion !== orden)
+      .map(({ p, orden }) => supabase.from("pedidos").update({ orden_produccion: orden } as never).eq("id", p.id));
+    await Promise.all(updates);
+    void refetch();
+  }
+  const puedeOrdenar = esEquipo && !verEntregados;
+
   return (
     <Shell onSignOut={signOut} equipo={esEquipo} bannerNombre={esEquipo ? tapiceroNombre(tapiceroActual) : ""}>
       <div className="mx-auto max-w-2xl px-3 py-4">
@@ -125,7 +143,7 @@ function Panel() {
         ) : (
           <div className="space-y-4">
             {agruparPorCliente(lista).map((g) => (
-              <ClienteGrupo key={g.cliente} cliente={g.cliente} prioritario={g.prioritario} items={g.items} tapiceroSearch={esEquipo ? viendoId : undefined} onDone={refetch} />
+              <ClienteGrupo key={g.cliente} cliente={g.cliente} prioritario={g.prioritario} items={g.items} tapiceroSearch={esEquipo ? viendoId : undefined} onDone={refetch} onMover={puedeOrdenar ? mover : undefined} />
             ))}
           </div>
         )}
@@ -134,30 +152,35 @@ function Panel() {
   );
 }
 
-interface Grupo { cliente: string; items: PanelPedido[]; prioritario: boolean; minPrioridad: number; masProximo: string; }
+interface Grupo { cliente: string; items: PanelPedido[]; prioritario: boolean; minOrden: number; minPrioridad: number; masProximo: string; }
 
-// Agrupa por cliente. Ordena: primero prioridad alta, y dentro de cada nivel,
-// por la entrega más próxima (mayor retraso primero).
+// Orden efectivo de un producto: el orden manual si lo tiene; si no, va al final
+// (Infinity) y se ordena por prioridad y entrega.
+const ordenDe = (p: PanelPedido) => p.ordenProduccion ?? Infinity;
+
+// Agrupa por cliente. Ordena por: orden manual (1º, 2º…), luego prioridad alta,
+// luego la entrega más próxima. Un cliente sube con su producto mejor situado
+// (así el otro producto del mismo cliente "sube" con el prioritario).
 function agruparPorCliente(lista: PanelPedido[]): Grupo[] {
   const map = new Map<string, Grupo>();
   for (const p of lista) {
     const k = p.cliente || "Sin cliente";
-    const g = map.get(k) ?? { cliente: k, items: [], prioritario: false, minPrioridad: 3, masProximo: "9999" };
+    const g = map.get(k) ?? { cliente: k, items: [], prioritario: false, minOrden: Infinity, minPrioridad: 3, masProximo: "9999" };
     g.items.push(p);
     if (p.prioridad === 1) g.prioritario = true;
+    if (ordenDe(p) < g.minOrden) g.minOrden = ordenDe(p);
     if (p.prioridad < g.minPrioridad) g.minPrioridad = p.prioridad;
     if (p.fechaLimite && p.fechaLimite < g.masProximo) g.masProximo = p.fechaLimite;
     map.set(k, g);
   }
   const grupos = [...map.values()];
   for (const g of grupos) {
-    // Dentro del cliente: prioridad alta primero, luego lo que antes vence.
-    g.items.sort((a, b) => (a.prioridad - b.prioridad) || (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
+    g.items.sort((a, b) => (ordenDe(a) - ordenDe(b)) || (a.prioridad - b.prioridad) || (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
   }
-  return grupos.sort((a, b) => (a.minPrioridad - b.minPrioridad) || a.masProximo.localeCompare(b.masProximo));
+  return grupos.sort((a, b) => (a.minOrden - b.minOrden) || (a.minPrioridad - b.minPrioridad) || a.masProximo.localeCompare(b.masProximo));
 }
 
-function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch, onDone }: { cliente: string; prioritario: boolean; items: PanelPedido[]; tapiceroSearch?: string; onDone: () => void }) {
+function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch, onDone, onMover }: { cliente: string; prioritario: boolean; items: PanelPedido[]; tapiceroSearch?: string; onDone: () => void; onMover?: (id: string, dir: "up" | "down") => void }) {
   return (
     <div className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${prioritario ? "border-amber-300" : "border-slate-200"}`}>
       <div className={`flex items-center justify-between gap-2 border-b px-4 py-2.5 ${prioritario ? "border-amber-100 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
@@ -168,13 +191,13 @@ function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch, onDone }: {
         <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">{items.length} producto{items.length === 1 ? "" : "s"}</span>
       </div>
       <div className="divide-y divide-slate-100">
-        {items.map((p) => <ProductoRow key={p.id} p={p} tapiceroSearch={tapiceroSearch} onDone={onDone} />)}
+        {items.map((p) => <ProductoRow key={p.id} p={p} tapiceroSearch={tapiceroSearch} onDone={onDone} onMover={onMover} />)}
       </div>
     </div>
   );
 }
 
-function ProductoRow({ p, tapiceroSearch, onDone }: { p: PanelPedido; tapiceroSearch?: string; onDone: () => void }) {
+function ProductoRow({ p, tapiceroSearch, onDone, onMover }: { p: PanelPedido; tapiceroSearch?: string; onDone: () => void; onMover?: (id: string, dir: "up" | "down") => void }) {
   const c = diasColor(p.diasRestantes, p.entregado);
   const medidasNum = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
   const det = modeloDetalle(p.tipo, p.modelo);
@@ -185,26 +208,38 @@ function ProductoRow({ p, tapiceroSearch, onDone }: { p: PanelPedido; tapiceroSe
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   const prio = prioridadChip(p.prioridad);
   return (
-    <div>
-      <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}}
-        className="flex items-center gap-3 px-3 pt-3 active:bg-slate-50">
-        <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            {p.prioridad === 1 && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
-            <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
+    <div className="flex items-stretch">
+      <div className="min-w-0 flex-1">
+        <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}}
+          className="flex items-center gap-2.5 px-3 pt-3 active:bg-slate-50">
+          {p.ordenProduccion != null && (
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">{p.ordenProduccion}</span>
+          )}
+          <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              {p.prioridad === 1 && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
+              <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
+            </div>
+            <div className="text-xs text-slate-500">{medidas}</div>
+            <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
           </div>
-          <div className="text-xs text-slate-500">{medidas}</div>
-          <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
+            {prio && <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${prio.bg} ${prio.text}`}>{prio.label}</span>}
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
+        </Link>
+        {/* Acciones rápidas desde la propia card */}
+        <AccionesMini p={p} onDone={onDone} />
+      </div>
+      {/* Flechas de orden (solo equipo) */}
+      {onMover && (
+        <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100 px-1.5">
+          <button onClick={() => onMover(p.id, "up")} title="Subir" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><ChevronUp className="h-4 w-4" /></button>
+          <button onClick={() => onMover(p.id, "down")} title="Bajar" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><ChevronDown className="h-4 w-4" /></button>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
-          {prio && <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${prio.bg} ${prio.text}`}>{prio.label}</span>}
-        </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
-      </Link>
-      {/* Acciones rápidas desde la propia card */}
-      <AccionesMini p={p} onDone={onDone} />
+      )}
     </div>
   );
 }
