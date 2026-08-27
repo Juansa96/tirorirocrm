@@ -369,6 +369,7 @@ export type Database = {
           storage_path: string
           subido_por: string | null
           tipo: string
+          transportista: string | null
           url: string
         }
         Insert: {
@@ -379,6 +380,7 @@ export type Database = {
           storage_path: string
           subido_por?: string | null
           tipo: string
+          transportista?: string | null
           url: string
         }
         Update: {
@@ -389,6 +391,7 @@ export type Database = {
           storage_path?: string
           subido_por?: string | null
           tipo?: string
+          transportista?: string | null
           url?: string
         }
         Relationships: [
@@ -412,6 +415,7 @@ export type Database = {
           orden: number
           pedido_id: string
           tela_biblioteca_id: string | null
+          tela_coleccion: string | null
           tela_foto_url: string | null
           tipo_tela: string
         }
@@ -425,6 +429,7 @@ export type Database = {
           orden?: number
           pedido_id: string
           tela_biblioteca_id?: string | null
+          tela_coleccion?: string | null
           tela_foto_url?: string | null
           tipo_tela: string
         }
@@ -438,6 +443,7 @@ export type Database = {
           orden?: number
           pedido_id?: string
           tela_biblioteca_id?: string | null
+          tela_coleccion?: string | null
           tela_foto_url?: string | null
           tipo_tela?: string
         }
@@ -483,11 +489,14 @@ export type Database = {
           fecha_creacion_pedido: string
           fecha_entrega_real: string | null
           fecha_limite: string | null
+          fecha_recogida: string | null
           formatos: string[]
           id: string
           lead_id: string | null
           montaje: string | null
+          nota_tapicero: string | null
           notas_pedido: string | null
+          orden_produccion: number | null
           pagado_50: boolean
           pagado_completo: boolean
           pago_todo_al_final: boolean
@@ -496,6 +505,7 @@ export type Database = {
           pasos_tapicero: Json
           precio: number
           precio_con_iva: number | null
+          prioridad: number
           prioritario: boolean
           producto_lead_id: string | null
           recibir_daniel: boolean
@@ -545,11 +555,14 @@ export type Database = {
           fecha_creacion_pedido?: string
           fecha_entrega_real?: string | null
           fecha_limite?: string | null
+          fecha_recogida?: string | null
           formatos?: string[]
           id?: string
           lead_id?: string | null
           montaje?: string | null
+          nota_tapicero?: string | null
           notas_pedido?: string | null
+          orden_produccion?: number | null
           pagado_50?: boolean
           pagado_completo?: boolean
           pago_todo_al_final?: boolean
@@ -558,6 +571,7 @@ export type Database = {
           pasos_tapicero?: Json
           precio?: number
           precio_con_iva?: number | null
+          prioridad?: number
           prioritario?: boolean
           producto_lead_id?: string | null
           recibir_daniel?: boolean
@@ -607,11 +621,14 @@ export type Database = {
           fecha_creacion_pedido?: string
           fecha_entrega_real?: string | null
           fecha_limite?: string | null
+          fecha_recogida?: string | null
           formatos?: string[]
           id?: string
           lead_id?: string | null
           montaje?: string | null
+          nota_tapicero?: string | null
           notas_pedido?: string | null
+          orden_produccion?: number | null
           pagado_50?: boolean
           pagado_completo?: boolean
           pago_todo_al_final?: boolean
@@ -620,6 +637,7 @@ export type Database = {
           pasos_tapicero?: Json
           precio?: number
           precio_con_iva?: number | null
+          prioridad?: number
           prioritario?: boolean
           producto_lead_id?: string | null
           recibir_daniel?: boolean
@@ -817,6 +835,8 @@ export type Database = {
       }
       tapiceros: {
         Row: {
+          access_token: string | null
+          access_token_activo: boolean
           activo: boolean
           apellido: string
           created_at: string
@@ -825,6 +845,8 @@ export type Database = {
           orden: number
         }
         Insert: {
+          access_token?: string | null
+          access_token_activo?: boolean
           activo?: boolean
           apellido?: string
           created_at?: string
@@ -833,6 +855,8 @@ export type Database = {
           orden?: number
         }
         Update: {
+          access_token?: string | null
+          access_token_activo?: boolean
           activo?: boolean
           apellido?: string
           created_at?: string
