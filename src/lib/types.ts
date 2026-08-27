@@ -320,6 +320,8 @@ export interface Pedido {
   montaje: string;                  // 'colgar' | 'apoyar' | ''
   prioritario: boolean;             // legacy: destacado (estrella). La app usa `prioridad`.
   prioridad: number;                // 1 = Alta, 2 = Normal, 3 = Baja. El equipo la asigna.
+  ordenProduccion: number | null;   // orden manual de trabajo (1º, 2º…); null = sin orden
+  notaTapicero: string;             // comentario que SÍ ve el tapicero (dirección de tela, etc.)
   fechaRecogida: string;            // fecha prevista de recogida por Juan en el taller (YYYY-MM-DD)
   clienteNombre: string;            // nombre de cliente denormalizado (el tapicero no ve leads)
   tapiceroId: string;  // uuid del tapicero asignado actualmente, o "" si sin asignar

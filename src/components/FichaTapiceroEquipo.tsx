@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Flag, Truck, Image as ImageIcon, Calendar, AlertTriangle } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,8 +37,9 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
     actions.updatePedido(pedido.id, { telaEstado: estado, telaEstadoPor: "equipo", telaEstadoFecha: hoy });
   }
 
+  // Aviso por email (el tapicero ya VE el pedido en cuanto está asignado; esto
+  // solo le manda un correo de aviso).
   function enviarADaniel() {
-    if (pedido.enviadoTapicero) return;
     const faltan: string[] = [];
     if (!pedido.tapiceroId) faltan.push("tapicero asignado");
     if (!producto?.modelo && !producto?.tipo) faltan.push("forma/modelo");
@@ -72,17 +73,23 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
           <Hammer className="h-4 w-4" /> Ficha para el tapicero
         </div>
-        {pedido.enviadoTapicero ? (
+        {pedido.tapiceroId ? (
+          // Ya está asignado → el tapicero lo VE en su panel. Solo se ofrece
+          // avisar por email (opcional).
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Enviado {pedido.enviadoTapiceroFecha ? formatShortDate(pedido.enviadoTapiceroFecha.slice(0, 10)) : ""}
+              <CheckCircle2 className="h-3.5 w-3.5" /> Ya lo ve {tapiceroNombre(tapicero) || "el tapicero"} en su panel
             </span>
-            <button onClick={() => { if (confirm("¿Quitar del panel del tapicero?")) actions.updatePedido(pedido.id, { enviadoTapicero: false }); }} className="text-xs text-slate-500 underline hover:text-slate-700">quitar</button>
+            <button onClick={enviarADaniel} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
+              <Send className="h-3.5 w-3.5" /> Avisar por email
+            </button>
           </div>
         ) : (
-          <button onClick={enviarADaniel} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46]">
-            <Send className="h-4 w-4" /> Enviar a {tapiceroNombre(tapicero) || "tapicero"}
-          </button>
+          // Sin tapicero asignado → nadie lo ve. Se asigna en el bloque
+          // "Tapicero asignado" de arriba.
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+            Sin asignar · no lo ve nadie
+          </span>
         )}
       </div>
 
@@ -106,6 +113,9 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
           ))}
         </div>
       </div>
+
+      {/* Comentarios para el tapicero (esto SÍ lo ve; las notas internas no) */}
+      <ComentarioTapicero pedido={pedido} />
 
       {/* Telas según el tipo de producto */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -219,6 +229,49 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
       {producto && (
         <div className="mt-2 text-[11px] text-slate-400">{displayNombreProducto(producto.tipo, producto.modelo)}</div>
       )}
+    </div>
+  );
+}
+
+// Comentario para el tapicero: lo ÚNICO de texto que ve el tapicero (las notas
+// internas del pedido/producto no se le muestran). Con sugerencias rápidas.
+const SUGERENCIAS_TAPICERO = [
+  "Dirección de la tela: dibujo vertical",
+  "Dirección de la tela: rayas horizontales",
+  "Centrar el motivo",
+  "Ribete en contraste",
+  "Cuidado con el sentido del dibujo",
+  "Lleva cremallera",
+];
+function ComentarioTapicero({ pedido }: { pedido: Pedido }) {
+  const [nota, setNota] = useState(pedido.notaTapicero ?? "");
+  function guardar(v: string) {
+    if (v !== (pedido.notaTapicero ?? "")) void actions.updatePedido(pedido.id, { notaTapicero: v });
+  }
+  function añadir(s: string) {
+    const next = nota.trim() ? nota.trim() + "\n" + s : s;
+    setNota(next);
+    guardar(next);
+  }
+  return (
+    <div className="mb-3 rounded-lg border border-slate-200 bg-white p-2.5">
+      <div className="mb-1.5 text-xs font-medium text-slate-500">Comentarios para el tapicero <span className="text-slate-400">(esto sí lo ve)</span></div>
+      <textarea
+        value={nota}
+        onChange={(e) => setNota(e.target.value)}
+        onBlur={(e) => guardar(e.target.value)}
+        rows={2}
+        placeholder="Dirección de la tela, indicaciones de tapizado…"
+        className="w-full resize-none rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
+      />
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {SUGERENCIAS_TAPICERO.map((s) => (
+          <button key={s} type="button" onClick={() => añadir(s)}
+            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-100">
+            + {s}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,8 @@ export interface PanelPedido {
   cliente: string;
   prioritario: boolean;
   prioridad: number;   // 1 = Alta, 2 = Normal, 3 = Baja
+  ordenProduccion: number | null; // orden manual de trabajo (1º, 2º…)
+  notaTapicero: string;           // comentario para el tapicero (dirección de tela, etc.)
   tipo: string; modelo: string;
   ancho: number | null; alto: number | null; fondo: number | null;
   acabado: string; montaje: string; patas: string; notasProducto: string; notasPedido: string;
@@ -130,6 +132,8 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
         cliente: (p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "",
         prioritario: !!p.prioritario,
         prioridad: Number(p.prioridad) || 2,
+        ordenProduccion: p.orden_produccion != null ? Number(p.orden_produccion) : null,
+        notaTapicero: (p.nota_tapicero as string) ?? "",
         tipo: (prod.tipo as string) ?? "",
         modelo: (prod.modelo as string) ?? "",
         ancho: (prod.ancho as number | null) ?? null,

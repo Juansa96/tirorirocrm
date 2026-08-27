@@ -142,11 +142,12 @@ function FichaPanel() {
           </div>
         </section>
 
-        {/* Notas (si hay) */}
-        {(p.notasProducto || p.notasPedido) && (
+        {/* Comentarios para el tapicero (dirección de tela, etc.). NO se muestran
+            las notas internas del pedido/producto. */}
+        {p.notaTapicero && (
           <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-[13px] text-amber-900">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Notas</div>
-            <div className="whitespace-pre-wrap">{[p.notasProducto, p.notasPedido].filter(Boolean).join("\n")}</div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Indicaciones</div>
+            <div className="whitespace-pre-wrap">{p.notaTapicero}</div>
           </section>
         )}
 
@@ -220,9 +221,15 @@ function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void })
 // Telas adaptadas al tipo: solo los roles que aplican y tienen tela.
 function TelasProducto({ p, onZoom }: { p: PanelPedido; onZoom: (url: string, alt: string) => void }) {
   const roles = telasDeProducto(p.tipo);
+  // Se muestra un rol si es OBLIGATORIO (aunque falte la tela, para que se vea
+  // el hueco — p. ej. en cabecero: frontal + lateral + ribete siempre) o si
+  // tiene tela asignada. Los roles opcionales sin tela no se muestran.
   const cards = roles
     .map((r) => ({ r, tela: p.telas.find((t) => t.rol.toLowerCase() === r.rol.toLowerCase()) }))
-    .filter(({ r, tela }) => (tela && (tela.nombre || tela.fotoUrl || tela.mismaQueFrontal)) || (r.rol === "Frontal" && !!p.telaTexto));
+    .filter(({ r, tela }) => {
+      const tieneAlgo = !!(tela && (tela.nombre || tela.fotoUrl || tela.mismaQueFrontal)) || (r.rol === "Frontal" && !!p.telaTexto);
+      return !r.opcional || tieneAlgo;
+    });
 
   if (cards.length === 0) {
     return <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-3 text-center text-[11px] text-slate-400">Sin telas asignadas</div>;
@@ -241,8 +248,21 @@ function TelaCard({ label, tela, fallback, onZoom }: {
   label: string; tela: PanelTela | undefined; fallback?: string; onZoom: (url: string, alt: string) => void;
 }) {
   const misma = tela?.mismaQueFrontal;
-  const nombre = misma ? "Misma que la principal" : (tela?.nombre || fallback || "—");
+  const nombre = misma ? "Misma que la principal" : (tela?.nombre || fallback || "");
   const foto = tela?.fotoUrl;
+  const falta = !nombre && !foto;
+  // Hueco vacío evidente (en ámbar) para que se note que falta asignar la tela.
+  if (falta) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 p-2">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-amber-100 text-[9px] font-medium text-amber-700">Falta</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</div>
+          <div className="font-semibold text-amber-700">Falta asignar</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white p-2">
       {foto ? (
