@@ -92,10 +92,10 @@ function Usuarios() {
       <TapicerosSection tapiceros={tapiceros} />
 
       <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Usuarios de acceso (login)</div>
-      <p className="-mt-3 text-xs text-slate-400">Crea un login cuando el tapicero te dé su email. Mientras, ves su panel arriba con «Ver panel».</p>
+      <p className="-mt-3 text-xs text-slate-400">Crea logins del equipo o de tapiceros. Si un login aparece «Sin acceso», asígnale un rol en la tabla.</p>
 
-      {/* Alta de tapicero */}
-      <NuevoTapicero
+      {/* Alta de usuario */}
+      <NuevoUsuario
         abierto={creando}
         onAbrir={() => setCreando((v) => !v)}
         tapiceros={tapiceros}
