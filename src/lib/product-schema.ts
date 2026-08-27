@@ -181,11 +181,10 @@ export function buildProducto(
     color,
     relleno,
     patas,
-    // Default "vivo-simple" SOLO para tipos que realmente llevan vivo.
-    // cojin/pantalla/otro: NULL si no viene, nunca inventar acabado.
-    acabado: topAcabado
-      ? topAcabado
-      : (tipo === "cabecero" || tipo === "banco" || tipo === "puf" || tipo === "mesa" ? "vivo-simple" : null),
+    // Vivo/ribete NUNCA por defecto (punto 7): si el payload no trae acabado,
+    // se guarda NULL. El vivo es una opción que se añade a mano, nunca se
+    // inventa. No afecta a registros históricos (solo a altas nuevas).
+    acabado: topAcabado || null,
     coleccion_tela: topColeccion,
     cantidad,
     precio_unitario: precio,

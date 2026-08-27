@@ -1,50 +1,61 @@
-import { useRef, useState } from "react";
-import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Flag, Truck, Image as ImageIcon, Calendar, AlertTriangle } from "lucide-react";
+import { useRef } from "react";
+import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Flag, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 import { displayNombreProducto, telasDeProducto, PRIORIDAD_OPCIONES } from "@/lib/catalogo";
-import { FabricPicker, type TelaSel } from "@/components/FabricPicker";
+import { FabricPicker } from "@/components/FabricPicker";
+import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
 
-// Panel del EQUIPO dentro de la ficha del pedido: rellena todo lo que verá el
-// tapicero (prioridad, telas con foto adaptadas al tipo, montaje, estado de
-// tela, plantilla, imagen de referencia, etiqueta de envío, fecha de recogida)
-// y envía el pedido a su panel. El tapicero es SOLO LECTURA (RLS): solo puede
-// marcar "tela recibida" y "terminado" desde su panel.
-export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; producto: Producto | undefined }) {
-  const { pedidoTelas, pedidoArchivos, tapiceros } = useStore();
-  const telas = pedidoTelas.filter((t) => t.pedidoId === pedido.id);
+// Panel del EQUIPO dentro de la ficha del pedido. Trabaja sobre el BORRADOR
+// (nada se persiste hasta pulsar "Guardar" en la ficha): las telas y los campos
+// del tapicero (prioridad, montaje, estado de tela, comentario, recogida) se
+// editan en memoria. Los ARCHIVOS (plantilla, referencia, etiqueta) y el aviso
+// por email sí son acciones inmediatas (subidas / correos).
+export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, setTelas }: {
+  pedido: Pedido;
+  producto: Producto | undefined;
+  draft: Pedido;
+  patch: (p: Partial<Pedido>) => void;
+  telas: TelaDraft[];
+  setTelas: (updater: (prev: TelaDraft[]) => TelaDraft[]) => void;
+}) {
+  const { pedidoArchivos, tapiceros } = useStore();
   const roles = telasDeProducto(producto?.tipo);
-  const telaDe = (rol: string): TelaSel | null => {
-    const t = telas.find((x) => x.tipoTela === rol);
-    if (!t) return null;
-    return { nombreTela: t.nombreTela, telaFotoUrl: t.telaFotoUrl, telaBibliotecaId: t.telaBibliotecaId, telaColeccion: t.telaColeccion };
-  };
-  const mismaFrontal = (rol: string) => telas.find((x) => x.tipoTela === rol)?.mismaQueFrontal ?? false;
+  const telaDe = (rol: string) => telas.find((t) => t.tipoTela.toLowerCase() === rol.toLowerCase());
   const tapicero = tapiceros.find((t) => t.id === pedido.tapiceroId);
   const archivos = pedidoArchivos.filter((a) => a.pedidoId === pedido.id);
+
+  // Upsert / borrado de la tela de un rol dentro del borrador.
+  function upsertRol(rol: string, cambio: Partial<TelaDraft>) {
+    setTelas((prev) => {
+      const i = prev.findIndex((t) => t.tipoTela.toLowerCase() === rol.toLowerCase());
+      if (i === -1) return [...prev, { ...emptyTela(rol), ...cambio }];
+      const next = [...prev];
+      next[i] = { ...next[i], ...cambio };
+      return next;
+    });
+  }
+  function removeRol(rol: string) {
+    setTelas((prev) => prev.filter((t) => t.tipoTela.toLowerCase() !== rol.toLowerCase()));
+  }
 
   // Aviso de producto incompleto (para no mandar a producción algo a medias).
   const incompletos: string[] = [];
   if (!archivos.some((a) => a.tipo === "plantilla")) incompletos.push("plantilla de corte");
   if (!archivos.some((a) => a.tipo === "referencia")) incompletos.push("imagen de referencia");
-  if (!telas.some((t) => t.tipoTela === "Frontal" && t.nombreTela)) incompletos.push("tela principal");
-
-  function setTelaEstado(estado: string) {
-    const hoy = new Date().toISOString();
-    actions.updatePedido(pedido.id, { telaEstado: estado, telaEstadoPor: "equipo", telaEstadoFecha: hoy });
-  }
+  if (!telas.some((t) => t.tipoTela.toLowerCase() === "frontal" && t.nombreTela)) incompletos.push("tela principal");
 
   // Aviso por email (el tapicero ya VE el pedido en cuanto está asignado; esto
-  // solo le manda un correo de aviso).
+  // solo le manda un correo de aviso). Acción inmediata.
   function enviarADaniel() {
     const faltan: string[] = [];
     if (!pedido.tapiceroId) faltan.push("tapicero asignado");
     if (!producto?.modelo && !producto?.tipo) faltan.push("forma/modelo");
     if (!pedido.fechaLimite) faltan.push("fecha de entrega");
-    if (!telas.some((t) => t.tipoTela === "Frontal" && t.nombreTela)) faltan.push("tela principal");
+    if (!telas.some((t) => t.tipoTela.toLowerCase() === "frontal" && t.nombreTela)) faltan.push("tela principal");
     const ok = faltan.length === 0
       ? confirm("¿Enviar este pedido al panel de " + (tapiceroNombre(tapicero) || "el tapicero") + "?")
       : confirm("⚠️ Falta: " + faltan.join(", ") + ".\n¿Enviarlo igualmente al panel del tapicero?");
@@ -74,8 +85,6 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
           <Hammer className="h-4 w-4" /> Ficha para el tapicero
         </div>
         {pedido.tapiceroId ? (
-          // Ya está asignado → el tapicero lo VE en su panel. Solo se ofrece
-          // avisar por email (opcional).
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
               <CheckCircle2 className="h-3.5 w-3.5" /> Ya lo ve {tapiceroNombre(tapicero) || "el tapicero"} en su panel
@@ -85,8 +94,6 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
             </button>
           </div>
         ) : (
-          // Sin tapicero asignado → nadie lo ve. Se asigna en el bloque
-          // "Tapicero asignado" de arriba.
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
             Sin asignar · no lo ve nadie
           </span>
@@ -106,8 +113,8 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
         <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-500"><Flag className="h-3.5 w-3.5" /> Prioridad</div>
         <div className="flex gap-1.5">
           {PRIORIDAD_OPCIONES.map((o) => (
-            <button key={o.valor} onClick={() => actions.updatePedido(pedido.id, { prioridad: o.valor })}
-              className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${pedido.prioridad === o.valor ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
+            <button key={o.valor} onClick={() => patch({ prioridad: o.valor })}
+              className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${draft.prioridad === o.valor ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
               {o.label}
             </button>
           ))}
@@ -115,37 +122,63 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
       </div>
 
       {/* Comentarios para el tapicero (esto SÍ lo ve; las notas internas no) */}
-      <ComentarioTapicero pedido={pedido} />
+      <ComentarioTapicero value={draft.notaTapicero} onChange={(v) => patch({ notaTapicero: v })} />
 
-      {/* Telas según el tipo de producto */}
+      {/* Telas según el tipo de producto. Frontal siempre; lateral/ribete solo
+          si se añaden a mano (punto 7): no aparecen como hueco por defecto. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {roles.map(({ rol, label }) => (
-          <div key={rol} className="rounded-lg border border-slate-200 bg-white p-2.5">
-            <FabricPicker
-              label={label}
-              value={telaDe(rol)}
-              onSelect={(t) => actions.asignarTelaPedido(pedido.id, rol, { ...t, mismaQueFrontal: false })}
-            />
-            {rol !== "Frontal" && (
-              <label className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <input
-                  type="checkbox"
-                  checked={mismaFrontal(rol)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      const f = telaDe("Frontal");
-                      actions.asignarTelaPedido(pedido.id, rol, { nombreTela: f?.nombreTela ?? "", telaFotoUrl: f?.telaFotoUrl ?? "", telaBibliotecaId: f?.telaBibliotecaId ?? "", telaColeccion: f?.telaColeccion ?? "", mismaQueFrontal: true });
-                    } else {
-                      actions.asignarTelaPedido(pedido.id, rol, { nombreTela: "", telaFotoUrl: "", telaBibliotecaId: "", telaColeccion: "", mismaQueFrontal: false });
-                    }
-                  }}
-                  className="h-3.5 w-3.5 rounded border-slate-300"
-                />
-                Misma que la principal
-              </label>
-            )}
-          </div>
-        ))}
+        {roles.map(({ rol, label, opcional }) => {
+          const t = telaDe(rol);
+          const presente = !!t;
+          if (opcional && !presente) {
+            return (
+              <button key={rol} type="button" onClick={() => upsertRol(rol, {})}
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-white p-2.5 text-xs font-medium text-slate-500 hover:border-slate-400 hover:text-slate-700">
+                <Plus className="h-3.5 w-3.5" /> Añadir {label.toLowerCase()}
+              </button>
+            );
+          }
+          const esFrontal = rol.toLowerCase() === "frontal";
+          return (
+            <div key={rol} className="rounded-lg border border-slate-200 bg-white p-2.5">
+              <div className="flex items-start justify-between gap-1">
+                <div className="min-w-0 flex-1">
+                  <FabricPicker
+                    label={label}
+                    value={t ? { nombreTela: t.nombreTela, telaFotoUrl: t.telaFotoUrl, telaBibliotecaId: t.telaBibliotecaId, telaColeccion: t.telaColeccion } : null}
+                    onSelect={(sel) => upsertRol(rol, { nombreTela: sel.nombreTela, telaFotoUrl: sel.telaFotoUrl, telaBibliotecaId: sel.telaBibliotecaId ?? "", telaColeccion: sel.telaColeccion ?? "", mismaQueFrontal: false })}
+                  />
+                </div>
+                {/* Quitar la tela/foto enlazada (punto 9). Frontal se vacía; los
+                    opcionales se eliminan por completo. */}
+                {(t?.nombreTela || t?.telaFotoUrl || t?.mismaQueFrontal || (!esFrontal && presente)) && (
+                  <button type="button" title="Quitar tela" onClick={() => esFrontal ? upsertRol(rol, { nombreTela: "", telaFotoUrl: "", telaBibliotecaId: "", telaColeccion: "", mismaQueFrontal: false }) : removeRol(rol)}
+                    className="mt-5 shrink-0 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {!esFrontal && (
+                <label className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <input
+                    type="checkbox"
+                    checked={!!t?.mismaQueFrontal}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const f = telaDe("Frontal");
+                        upsertRol(rol, { nombreTela: f?.nombreTela ?? "", telaFotoUrl: f?.telaFotoUrl ?? "", telaBibliotecaId: f?.telaBibliotecaId ?? "", telaColeccion: f?.telaColeccion ?? "", mismaQueFrontal: true });
+                      } else {
+                        upsertRol(rol, { nombreTela: "", telaFotoUrl: "", telaBibliotecaId: "", telaColeccion: "", mismaQueFrontal: false });
+                      }
+                    }}
+                    className="h-3.5 w-3.5 rounded border-slate-300"
+                  />
+                  Misma que la principal
+                </label>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Montaje + estado de tela */}
@@ -154,8 +187,8 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
           <div className="mb-1.5 text-xs font-medium text-slate-500">Montaje</div>
           <div className="flex gap-2">
             {[["colgar", "Colgar en pared"], ["apoyar", "Apoyar en suelo"]].map(([v, lbl]) => (
-              <button key={v} onClick={() => actions.updatePedido(pedido.id, { montaje: pedido.montaje === v ? "" : v })}
-                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${pedido.montaje === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
+              <button key={v} onClick={() => patch({ montaje: draft.montaje === v ? "" : v })}
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${draft.montaje === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
                 {lbl}
               </button>
             ))}
@@ -165,8 +198,8 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
           <div className="mb-1.5 text-xs font-medium text-slate-500">Estado de la tela</div>
           <div className="flex gap-1.5">
             {[["pendiente", "Pendiente"], ["enviada", "Enviada"], ["recibida", "Recibida"]].map(([v, lbl]) => (
-              <button key={v} onClick={() => setTelaEstado(v)}
-                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${pedido.telaEstado === v ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 text-slate-600"}`}>
+              <button key={v} onClick={() => patch({ telaEstado: v })}
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${draft.telaEstado === v ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 text-slate-600"}`}>
                 {lbl}
               </button>
             ))}
@@ -178,13 +211,13 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
       <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
         <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-500"><Calendar className="h-3.5 w-3.5" /> Fecha prevista de recogida por Juan (taller)</div>
         <input
-          type="date" defaultValue={pedido.fechaRecogida} key={"fr-" + pedido.fechaRecogida}
-          onBlur={(e) => { if (e.target.value !== pedido.fechaRecogida) void actions.updatePedido(pedido.id, { fechaRecogida: e.target.value }); }}
+          type="date" value={draft.fechaRecogida || ""}
+          onChange={(e) => patch({ fechaRecogida: e.target.value })}
           className="rounded border border-slate-200 px-2 py-1 text-sm"
         />
       </div>
 
-      {/* Archivos: plantilla + imagen de referencia + etiqueta de envío */}
+      {/* Archivos: plantilla + imagen de referencia + etiqueta de envío (subida inmediata) */}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <ArchivoSlot pedidoId={pedido.id} tipo="plantilla" titulo="Plantilla de corte (PLT/PDF/SVG)" accept=".svg,.plt,application/pdf,.pdf" icon={<FileUp className="h-3.5 w-3.5" />} archivos={archivos.filter((a) => a.tipo === "plantilla")} />
         <ArchivoSlot pedidoId={pedido.id} tipo="referencia" titulo="Imagen de referencia del acabado" accept="image/*" icon={<ImageIcon className="h-3.5 w-3.5" />} archivos={archivos.filter((a) => a.tipo === "referencia")} />
@@ -209,19 +242,20 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
         </div>
       )}
 
-      {/* Estado de acciones del tapicero (con deshacer desde administración) */}
-      {(pedido.telaEstado === "recibida" || pedido.terminadoTapicero) && (
+      {/* Estado de acciones del tapicero (con deshacer desde administración).
+          Se refleja sobre el borrador; se persiste al Guardar. */}
+      {(draft.telaEstado === "recibida" || draft.terminadoTapicero) && (
         <div className="mt-3 space-y-1 rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-600">
-          {pedido.telaEstado === "recibida" && (
+          {draft.telaEstado === "recibida" && (
             <div className="flex items-center justify-between">
               <span>Tela recibida{pedido.telaEstadoFecha ? ` el ${formatShortDate(pedido.telaEstadoFecha.slice(0, 10))}` : ""}{pedido.telaEstadoPor ? ` por ${pedido.telaEstadoPor}` : ""}</span>
-              <button onClick={() => setTelaEstado("enviada")} className="underline hover:text-slate-800">deshacer</button>
+              <button onClick={() => patch({ telaEstado: "enviada" })} className="underline hover:text-slate-800">deshacer</button>
             </div>
           )}
-          {pedido.terminadoTapicero && (
+          {draft.terminadoTapicero && (
             <div className="flex items-center justify-between">
               <span>Terminado por <strong>{pedido.terminadoTapiceroPor || "tapicero"}</strong>{pedido.terminadoTapiceroFecha ? ` · ${formatShortDate(pedido.terminadoTapiceroFecha.slice(0, 10))}` : ""}</span>
-              <button onClick={() => actions.updatePedido(pedido.id, { terminadoTapicero: false })} className="underline hover:text-slate-800">deshacer</button>
+              <button onClick={() => patch({ terminadoTapicero: false })} className="underline hover:text-slate-800">deshacer</button>
             </div>
           )}
         </div>
@@ -235,6 +269,7 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
 
 // Comentario para el tapicero: lo ÚNICO de texto que ve el tapicero (las notas
 // internas del pedido/producto no se le muestran). Con sugerencias rápidas.
+// Controlado por el borrador (se guarda al pulsar "Guardar").
 const SUGERENCIAS_TAPICERO = [
   "Dirección de la tela: dibujo vertical",
   "Dirección de la tela: rayas horizontales",
@@ -243,23 +278,17 @@ const SUGERENCIAS_TAPICERO = [
   "Cuidado con el sentido del dibujo",
   "Lleva cremallera",
 ];
-function ComentarioTapicero({ pedido }: { pedido: Pedido }) {
-  const [nota, setNota] = useState(pedido.notaTapicero ?? "");
-  function guardar(v: string) {
-    if (v !== (pedido.notaTapicero ?? "")) void actions.updatePedido(pedido.id, { notaTapicero: v });
-  }
+function ComentarioTapicero({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   function añadir(s: string) {
-    const next = nota.trim() ? nota.trim() + "\n" + s : s;
-    setNota(next);
-    guardar(next);
+    const base = (value || "").trim();
+    onChange(base ? base + "\n" + s : s);
   }
   return (
     <div className="mb-3 rounded-lg border border-slate-200 bg-white p-2.5">
       <div className="mb-1.5 text-xs font-medium text-slate-500">Comentarios para el tapicero <span className="text-slate-400">(esto sí lo ve)</span></div>
       <textarea
-        value={nota}
-        onChange={(e) => setNota(e.target.value)}
-        onBlur={(e) => guardar(e.target.value)}
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
         rows={2}
         placeholder="Dirección de la tela, indicaciones de tapizado…"
         className="w-full resize-none rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none"

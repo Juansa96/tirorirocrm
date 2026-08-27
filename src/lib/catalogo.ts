@@ -167,14 +167,16 @@ export interface TelaRol {
 }
 
 const TELAS_POR_TIPO: Record<TipoProductoKey, TelaRol[]> = {
+  // Lateral y Vivo son OPCIONALES en todos los tipos (punto 7): solo aparecen
+  // si se han elegido a mano; nunca como hueco "por decidir" por defecto.
   cabecero: [
     { rol: "Frontal", label: "Tela frontal" },
-    { rol: "Lateral", label: "Tela lateral" },
-    { rol: "Vivo", label: "Tela de ribete" },
+    { rol: "Lateral", label: "Tela lateral", opcional: true },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
   ],
   cojin: [
     { rol: "Frontal", label: "Tela del cojín" },
-    { rol: "Vivo", label: "Tela de ribete" },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
   ],
   puf: [
     { rol: "Frontal", label: "Tela principal" },
