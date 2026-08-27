@@ -496,13 +496,20 @@ async function refetchTapiceros() {
 async function refetchTelasBiblioteca() {
   const { data, error } = await supabase.from("telas_biblioteca").select("*").order("nombre", { ascending: true });
   if (!error && data) {
-    const rows = (data as unknown as Record<string, unknown>[]).map((r): TelaBiblioteca => ({
-      id: r.id as string,
-      nombre: (r.nombre as string) ?? "",
-      fotoUrl: (r.foto_url as string) ?? "",
-      coleccion: (r.coleccion as string) ?? "otra",
-      origen: (r.origen as string) ?? "subida",
-    }));
+    const raw = data as unknown as Record<string, unknown>[];
+    // Bucket privado: se refirman las URLs guardadas (públicas antiguas o
+    // firmadas caducadas) antes de mostrarlas.
+    const firmadas = await refreshSignedUrls("telas", raw.map((r) => (r.foto_url as string) ?? ""));
+    const rows = raw.map((r): TelaBiblioteca => {
+      const url = (r.foto_url as string) ?? "";
+      return {
+        id: r.id as string,
+        nombre: (r.nombre as string) ?? "",
+        fotoUrl: firmadas.get(url) ?? url,
+        coleccion: (r.coleccion as string) ?? "otra",
+        origen: (r.origen as string) ?? "subida",
+      };
+    });
     state = { ...state, telasBiblioteca: rows }; emit();
   }
 }
