@@ -7,7 +7,7 @@ import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
-import { refreshSignedUrls, signPath } from "./storage-urls";
+import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 
 
 
@@ -1465,7 +1465,7 @@ export const actions = {
       const path = `telas/${crypto.randomUUID()}.jpg`;
       const { error: upErr } = await supabase.storage.from("telas").upload(path, blob, { contentType: "image/jpeg", upsert: false });
       if (upErr) { toast.error("No se pudo subir la foto de la tela."); return null; }
-      fotoUrl = supabase.storage.from("telas").getPublicUrl(path).data.publicUrl;
+      fotoUrl = await signPath("telas", path);
     }
     if (existente) {
       if (blob) await supabase.from("telas_biblioteca").update({ foto_url: fotoUrl } as never).eq("id", existente.id);
@@ -1506,7 +1506,7 @@ export const actions = {
     const path = `${pedidoId}/${tipo}/${crypto.randomUUID()}-${file.name}`;
     const { error: upErr } = await supabase.storage.from("pedido-archivos").upload(path, file, { upsert: false });
     if (upErr) { toast.error("No se pudo subir el archivo."); return; }
-    const url = supabase.storage.from("pedido-archivos").getPublicUrl(path).data.publicUrl;
+    const url = await signPath("pedido-archivos", path);
     const { error } = await supabase.from("pedido_archivos").insert({
       pedido_id: pedidoId, tipo, nombre: file.name, storage_path: path, url, subido_por: currentUser,
     } as never);
