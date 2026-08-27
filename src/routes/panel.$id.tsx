@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import {
-  ArrowLeft, Download, Scissors, Truck, Image as ImageIcon, X, ZoomIn, Camera, Printer, Flag,
+  ArrowLeft, Download, Scissors, Truck, Image as ImageIcon, X, ZoomIn, Camera, Printer,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
-  displayNombreProducto, telasDeProducto, etiquetaTela, prioridadLabel,
+  displayNombreProducto, telasDeProducto, etiquetaTela,
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
@@ -26,11 +26,6 @@ function plazoBadge(d: number, entregado: boolean) {
   if (d <= 3) return { bg: "bg-amber-100", text: "text-amber-700", label: d === 0 ? "Hoy" : `${d}d` };
   return { bg: "bg-emerald-100", text: "text-emerald-700", label: `${d}d` };
 }
-function prioridadBadge(prioridad: number) {
-  if (prioridad === 1) return { bg: "bg-rose-100", text: "text-rose-700" };
-  return { bg: "bg-slate-100", text: "text-slate-600" };
-}
-
 function FichaPanel() {
   const { id } = Route.useParams();
   const search = Route.useSearch();
@@ -51,7 +46,6 @@ function FichaPanel() {
 
   const medidas = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
   const plazo = plazoBadge(p.diasRestantes, p.entregado);
-  const prio = prioridadBadge(p.prioridad);
   const montaje = p.montaje === "colgar" ? "Colgar en pared" : p.montaje === "apoyar" ? "Apoyar en suelo" : "";
   const extras = [/tapete/i.test(p.patas) && "Tapetes suelo", /colgador/i.test(p.patas) && "Colgadores"].filter(Boolean) as string[];
 
@@ -84,9 +78,7 @@ function FichaPanel() {
           <section className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</h2>
-              <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none ${prio.bg} ${prio.text}`}>
-                <Flag className="h-3 w-3" /> {prioridadLabel(p.prioridad)}
-              </span>
+              {p.numero != null && <span className="inline-flex items-center whitespace-nowrap rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold leading-none text-white">Nº {p.numero}</span>}
             </div>
             <div className="flex gap-3">
               <div className="h-20 w-20 shrink-0 rounded-lg border border-slate-100 bg-slate-50 p-1.5">

@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
-import { maskApellido } from "@/lib/types";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 import { TELAS_WEB } from "@/lib/telas-web-data";
 
@@ -11,8 +10,6 @@ export interface PanelPedido {
   id: string;
   numero: number | null;
   cliente: string;
-  prioritario: boolean;
-  prioridad: number;   // 1 = Alta, 2 = Normal, 3 = Baja
   ordenProduccion: number | null; // orden manual de trabajo (1º, 2º…)
   notaTapicero: string;           // comentario para el tapicero (dirección de tela, etc.)
   tipo: string; modelo: string;
@@ -69,23 +66,29 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
 
   const cargar = useCallback(async () => {
     if (!tapiceroId) { setPedidos([]); return; }
-    // Muestra TODOS los pedidos asignados al tapicero (no solo los "enviados"),
-    // para que vea de una lo que ya tiene. El botón "Enviar a Daniel" queda
-    // solo para el aviso por email. Consulta directa (la RLS garantiza que el
-    // tapicero solo ve los suyos; el equipo, todos).
-    const { data: peds } = await supabase.from("pedidos").select("*").eq("tapicero_id", tapiceroId);
+    // Muestra TODOS los pedidos asignados al tapicero (no solo los "enviados").
+    // PRIVACIDAD (backend): al tapicero NO se le devuelven las columnas del
+    // nombre del cliente; se piden aparte ya recortadas por panel_cliente_nombres.
+    // El equipo recibe todo ("*"), incluido el nombre completo.
+    const COLS_TAPICERO = "id,numero,producto_lead_id,montaje,notas_pedido,nota_tapicero,orden_produccion,fecha_limite,fecha_recogida,enviado_tapicero_fecha,entregado,tela_estado,tela_estado_por,tela_estado_fecha,terminado_tapicero,terminado_tapicero_por,terminado_tapicero_fecha,tapicero_id";
+    const { data: peds } = await supabase.from("pedidos")
+      .select(esViewerElTapicero ? COLS_TAPICERO : "*")
+      .eq("tapicero_id", tapiceroId);
     const rows = (peds ?? []) as unknown as Record<string, unknown>[];
 
-    // Nombre del tapicero asignado (todos los pedidos son del mismo) y su flag
-    // de privacidad. Se selecciona "*" para no romper si la columna aún no
-    // existe en algún entorno.
-    const { data: tapRow } = await supabase.from("tapiceros").select("*").eq("id", tapiceroId).maybeSingle();
+    // Nombre del tapicero asignado (todos los pedidos son del mismo).
+    const { data: tapRow } = await supabase.from("tapiceros").select("nombre, apellido").eq("id", tapiceroId).maybeSingle();
     const tapiceroNombre = tapRow ? [tapRow.nombre as string, tapRow.apellido as string].filter(Boolean).join(" ") : "";
-    // Enmascara el apellido del cliente SOLO cuando quien mira es el propio
-    // tapicero y tiene el flag activado. El equipo ve el nombre completo.
-    const ocultarApellido = esViewerElTapicero && (tapRow as Record<string, unknown> | null)?.oculta_apellidos === true;
     const prodIds = rows.map((p) => p.producto_lead_id).filter(Boolean) as string[];
     const pedIds = rows.map((p) => p.id) as string[];
+
+    // Nombres de cliente recortados para el tapicero (el apellido completo no
+    // sale de la BD). El equipo usa los nombres que ya vienen en las filas.
+    const nombreById = new Map<string, string>();
+    if (esViewerElTapicero && pedIds.length) {
+      const { data: nombres } = await supabase.rpc("panel_cliente_nombres", { p_ids: pedIds });
+      for (const n of (nombres ?? []) as Array<{ id: string; nombre: string }>) nombreById.set(n.id, n.nombre ?? "");
+    }
 
     const [{ data: prods }, { data: telas }, { data: archivos }] = await Promise.all([
       prodIds.length ? supabase.from("productos_lead").select("*").in("id", prodIds) : Promise.resolve({ data: [] as never[] }),
@@ -136,13 +139,13 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         transportista: (a.transportista as string) ?? "",
         createdAt: (a.created_at as string) ?? "",
       }));
-      const nombreCliente = (p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "";
+      const nombreCliente = esViewerElTapicero
+        ? (nombreById.get(p.id as string) ?? "Cliente")
+        : ((p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "");
       return {
         id: p.id as string,
         numero: p.numero != null ? Number(p.numero) : null,
-        cliente: ocultarApellido ? maskApellido(nombreCliente) : nombreCliente,
-        prioritario: !!p.prioritario,
-        prioridad: Number(p.prioridad) || 2,
+        cliente: nombreCliente,
         ordenProduccion: p.orden_produccion != null ? Number(p.orden_produccion) : null,
         notaTapicero: (p.nota_tapicero as string) ?? "",
         tipo: (prod.tipo as string) ?? "",
