@@ -35,6 +35,18 @@ export interface Tapicero {
   orden: number;
   accessToken: string;        // token de acceso por enlace (vacío si no generado)
   accessTokenActivo: boolean; // el enlace está activo
+  ocultaApellidos: boolean;   // true = este tapicero ve solo la inicial del apellido del cliente
+}
+
+// Enmascara el apellido del cliente a la inicial: "Borja Gil Delgado" → "Borja G.".
+// Fallback de UI; el enmascarado real de la vista del tapicero se hace en el
+// backend (panel_pedidos / mask_apellido). Nombre solo (sin apellido) se deja igual.
+export function maskApellido(nombre: string): string {
+  const s = (nombre || "").trim();
+  if (!s) return s;
+  const partes = s.split(/\s+/);
+  if (partes.length < 2) return s;
+  return `${partes[0]} ${partes[1].charAt(0).toUpperCase()}.`;
 }
 
 // Nombre para mostrar en la UI. Hay dos "Daniel": SIEMPRE nombre + apellido
@@ -266,6 +278,7 @@ export interface AuditEntry {
 // ───────────── Pedidos ─────────────
 export interface Pedido {
   id: string;
+  numero: number | null;      // número único y correlativo del pedido (permanente); null = sin número
   productoLeadId: string;
   leadId: string;
   clienteNombreLibre: string;

@@ -2,10 +2,10 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo } from "./types";
-import { VENDEDORES, telasPorTipo, flujoPedido, normNombreTela } from "./types";
+import { VENDEDORES, flujoPedido, normNombreTela } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
-import { normalizarColeccionTela } from "./catalogo";
+import { normalizarColeccionTela, normalizeTipo, displayColeccionTela } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 
@@ -167,6 +167,7 @@ function mapProducto(r: Record<string, unknown>): Producto {
 function mapPedido(r: Record<string, unknown>): Pedido {
   return {
     id: r.id as string,
+    numero: r.numero != null ? Number(r.numero) : null,
     productoLeadId: r.producto_lead_id as string,
     leadId: (r.lead_id as string) ?? "",
     clienteNombreLibre: (r.cliente_nombre_libre as string) ?? "",
@@ -248,6 +249,31 @@ function mapPedidoTela(r: Record<string, unknown>): PedidoTela {
     telaColeccion: (r.tela_coleccion as string) ?? "",
     mismaQueFrontal: !!r.misma_que_frontal,
   };
+}
+
+// Filas de tela a sembrar en pedido_telas al crear un pedido desde un producto.
+// COPIA todas las telas que el producto ya tiene (frontal, lateral, vivo) para
+// que NADA se pierda en la conversión cliente → pedido (ver punto 8). Usa los
+// roles canónicos "Frontal"/"Lateral"/"Vivo" (los mismos que lee la ficha del
+// tapicero), no los nombres antiguos de telasPorTipo. Solo siembra filas con
+// contenido; la primera (Frontal) siempre existe para arrastrar la colección.
+function telasSeedDeProducto(prod: Producto): Array<{ tipo_tela: string; nombre_tela: string; tela_coleccion: string | null; estado: string; orden: number }> {
+  const tipo = normalizeTipo(prod.tipo);
+  const rows: Array<{ tipo_tela: string; nombre_tela: string; tela_coleccion: string | null; orden: number }> = [];
+  const frontalColeccion = prod.coleccionTela ? displayColeccionTela(prod.coleccionTela) : null;
+  rows.push({ tipo_tela: "Frontal", nombre_tela: (prod.tela || "").trim(), tela_coleccion: frontalColeccion, orden: 0 });
+  const push = (tipo_tela: string, nombre: string) => {
+    const n = (nombre || "").trim();
+    if (n) rows.push({ tipo_tela, nombre_tela: n, tela_coleccion: null, orden: rows.length });
+  };
+  if (tipo === "cabecero" || tipo === "banco" || tipo === "puf" || tipo === "otro") {
+    push("Lateral", prod.color);   // color guarda la tela lateral en estos tipos
+    push("Vivo", prod.relleno);    // relleno guarda la tela del vivo/ribete
+  } else if (tipo === "cojin") {
+    const p = prod.patas || "";
+    if (/^ribete:\s*/i.test(p)) push("Vivo", p.replace(/^ribete:\s*/i, ""));
+  }
+  return rows.map((r) => ({ ...r, estado: "Pedida" }));
 }
 
 let currentUser: string | null = null;
@@ -502,6 +528,7 @@ async function refetchTapiceros() {
       orden: Number(r.orden) || 0,
       accessToken: (r.access_token as string) ?? "",
       accessTokenActivo: r.access_token_activo !== false,
+      ocultaApellidos: r.oculta_apellidos === true,
     }));
     state = { ...state, tapiceros: rows }; emit();
   }
@@ -1154,16 +1181,10 @@ export const actions = {
       state = { ...state, pedidos: [pedido, ...state.pedidos] };
       emit();
     }
-    // Pre-rellena telas según el tipo del producto
-    const tipos = telasPorTipo(prod.tipo);
-    if (tipos.length > 0) {
-      const rows = tipos.map((t, i) => ({
-        pedido_id: pedido.id,
-        tipo_tela: t,
-        nombre_tela: i === 0 ? (prod.tela || "") : "",
-        estado: "Pedida",
-        orden: i,
-      }));
+    // Copia TODAS las telas del producto (frontal + lateral + vivo) para no
+    // perder nada en la conversión cliente → pedido (punto 8).
+    const rows = telasSeedDeProducto(prod).map((r) => ({ ...r, pedido_id: pedido.id }));
+    if (rows.length > 0) {
       await supabase.from("pedido_telas").insert(rows);
     }
     await syncLeadFromPedidos(prod.leadId);
@@ -1191,6 +1212,7 @@ export const actions = {
     let productoId = opts.productoId ?? null;
     let tipoProd = "";
     let telaSeed = "";
+    let prodExistente: Producto | null = null;
     if (!productoId && opts.nuevoProducto) {
       const { data: pd, error: pe } = await supabase.from("productos_lead").insert({
         lead_id: opts.leadId,
@@ -1208,6 +1230,7 @@ export const actions = {
       const existing = state.productos.find((p) => p.id === productoId);
       tipoProd = existing?.tipo ?? "";
       telaSeed = existing?.tela ?? "";
+      prodExistente = existing ?? null;
     }
     if (!productoId) { toast.error("Selecciona o crea un producto."); return null; }
 
@@ -1235,15 +1258,15 @@ export const actions = {
       state = { ...state, pedidos: [pedido, ...state.pedidos] };
       emit();
     }
-    const tipos = telasPorTipo(tipoProd);
-    if (tipos.length > 0) {
-      const rows = tipos.map((t, i) => ({
-        pedido_id: pedido.id,
-        tipo_tela: t,
-        nombre_tela: i === 0 ? telaSeed : "",
-        estado: "Pedida",
-        orden: i,
-      }));
+    // Si el pedido parte de un producto existente, copia todas sus telas
+    // (frontal + lateral + vivo). Si es un producto nuevo mínimo, siembra solo
+    // el frontal con la tela indicada.
+    const rows = prodExistente
+      ? telasSeedDeProducto(prodExistente).map((r) => ({ ...r, pedido_id: pedido.id }))
+      : (telaSeed || tipoProd)
+        ? [{ pedido_id: pedido.id, tipo_tela: "Frontal", nombre_tela: telaSeed, tela_coleccion: null, estado: "Pedida", orden: 0 }]
+        : [];
+    if (rows.length > 0) {
       await supabase.from("pedido_telas").insert(rows);
     }
     await syncLeadFromPedidos(opts.leadId);
@@ -1258,6 +1281,7 @@ export const actions = {
     emit();
     const dbPatch: Record<string, unknown> = {};
     const map: Record<string, string> = {
+      numero: "numero",
       diasPlazo: "dias_plazo",
       fechaEntregaReal: "fecha_entrega_real",
       pagado50: "pagado_50",
@@ -1322,6 +1346,33 @@ export const actions = {
     await syncLeadFromPedidos(leadId);
   },
 
+  // Edición MANUAL del número de pedido (solo admin desde la UI; la BD tiene un
+  // índice único como red de seguridad). Valida que no se duplique con ningún
+  // otro pedido (activo o acabado). Devuelve true si se guardó.
+  async actualizarNumeroPedido(id: string, numero: number): Promise<boolean> {
+    if (!Number.isInteger(numero) || numero < 1) { toast.error("El número debe ser un entero positivo."); return false; }
+    const actual = state.pedidos.find((p) => p.id === id);
+    if (!actual) return false;
+    if (actual.numero === numero) return true;
+    const choca = state.pedidos.find((p) => p.id !== id && p.numero === numero);
+    if (choca) {
+      toast.error(`El número ${numero} ya lo tiene ${choca.clienteNombre || choca.clienteNombreLibre || "otro pedido"}.`);
+      return false;
+    }
+    const prevState = state;
+    state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, numero } : p) };
+    emit();
+    const { error } = await supabase.from("pedidos").update({ numero } as never).eq("id", id);
+    if (error) {
+      state = prevState; emit();
+      // Colisión a nivel de BD (índice único) u otro error.
+      toast.error(/duplicate|unique/i.test(error.message) ? `El número ${numero} ya está en uso.` : "No se pudo cambiar el número.");
+      return false;
+    }
+    toast.success(`Número de pedido actualizado a ${numero}.`);
+    return true;
+  },
+
   // Reasigna el tapicero conservando el histórico por paso. Los pasos YA HECHOS
   // que aún no tengan sello se sellan con el tapicero SALIENTE (así "los
   // anteriores" mantienen quién los hizo); los pasos no hechos siguen al
@@ -1360,11 +1411,12 @@ export const actions = {
     await refetchPedidos();
     return true;
   },
-  async updateTapicero(id: string, patch: { nombre?: string; apellido?: string; activo?: boolean }) {
+  async updateTapicero(id: string, patch: { nombre?: string; apellido?: string; activo?: boolean; ocultaApellidos?: boolean }) {
     const db: Record<string, unknown> = {};
     if (patch.nombre !== undefined) db.nombre = patch.nombre.trim();
     if (patch.apellido !== undefined) db.apellido = patch.apellido.trim();
     if (patch.activo !== undefined) db.activo = patch.activo;
+    if (patch.ocultaApellidos !== undefined) db.oculta_apellidos = patch.ocultaApellidos;
     const prev = state;
     state = { ...state, tapiceros: state.tapiceros.map((t) => t.id === id ? { ...t, ...patch } : t) };
     emit();

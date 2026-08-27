@@ -136,12 +136,11 @@ export const EMPTY_PROD_STATE: ProdState = {
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
 
-// Preselección de "vivo-simple" al elegir tipo desde el CRM. Es una
-// comodidad visible y modificable, NO un default silencioso del endpoint.
-// Solo aplica a tipos que llevan vivo: cabecero, banco, puf, mesa.
-const TIPOS_CON_VIVO = new Set<ProdTipo>(["cabecero", "banco", "puf", "mesa"]);
-function acabadoDefault(tipo: ProdTipo): string {
-  return TIPOS_CON_VIVO.has(tipo) ? "vivo-simple" : "";
+// Punto 7: el vivo/ribete NUNCA se preselecciona. Al elegir tipo, el acabado
+// queda vacío; el operador lo añade a mano solo si lo quiere. (Antes se
+// preseleccionaba "vivo-simple" en cabecero/banco/puf/mesa.)
+function acabadoDefault(_tipo: ProdTipo): string {
+  return "";
 }
 
 
