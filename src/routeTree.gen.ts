@@ -20,6 +20,7 @@ import { Route as DuplicadosRouteImport } from './routes/duplicados'
 import { Route as DatosRouteImport } from './routes/datos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidosIndexRouteImport } from './routes/pedidos.index'
+import { Route as PanelIndexRouteImport } from './routes/panel.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as B2bIndexRouteImport } from './routes/b2b.index'
 import { Route as TTokenRouteImport } from './routes/t.$token'
@@ -95,6 +96,11 @@ const PedidosIndexRoute = PedidosIndexRouteImport.update({
   id: '/pedidos/',
   path: '/pedidos/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PanelIndexRoute = PanelIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PanelRoute,
 } as any)
 const ClientesIndexRoute = ClientesIndexRouteImport.update({
   id: '/clientes/',
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/t/$token': typeof TTokenRoute
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/panel/': typeof PanelIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -236,7 +243,6 @@ export interface FileRoutesByTo {
   '/datos': typeof DatosRoute
   '/duplicados': typeof DuplicadosRoute
   '/login': typeof LoginRoute
-  '/panel': typeof PanelRouteWithChildren
   '/perfil': typeof PerfilRoute
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
@@ -250,6 +256,7 @@ export interface FileRoutesByTo {
   '/t/$token': typeof TTokenRoute
   '/b2b': typeof B2bIndexRoute
   '/clientes': typeof ClientesIndexRoute
+  '/panel': typeof PanelIndexRoute
   '/pedidos': typeof PedidosIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -284,6 +291,7 @@ export interface FileRoutesById {
   '/t/$token': typeof TTokenRoute
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/panel/': typeof PanelIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -319,6 +327,7 @@ export interface FileRouteTypes {
     | '/t/$token'
     | '/b2b/'
     | '/clientes/'
+    | '/panel/'
     | '/pedidos/'
     | '/api/admin/usuarios'
     | '/api/public/bootstrap'
@@ -338,7 +347,6 @@ export interface FileRouteTypes {
     | '/datos'
     | '/duplicados'
     | '/login'
-    | '/panel'
     | '/perfil'
     | '/pipeline'
     | '/pipeline-b2b'
@@ -352,6 +360,7 @@ export interface FileRouteTypes {
     | '/t/$token'
     | '/b2b'
     | '/clientes'
+    | '/panel'
     | '/pedidos'
     | '/api/admin/usuarios'
     | '/api/public/bootstrap'
@@ -385,6 +394,7 @@ export interface FileRouteTypes {
     | '/t/$token'
     | '/b2b/'
     | '/clientes/'
+    | '/panel/'
     | '/pedidos/'
     | '/api/admin/usuarios'
     | '/api/public/bootstrap'
@@ -511,6 +521,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/pedidos/'
       preLoaderRoute: typeof PedidosIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/panel/': {
+      id: '/panel/'
+      path: '/'
+      fullPath: '/panel/'
+      preLoaderRoute: typeof PanelIndexRouteImport
+      parentRoute: typeof PanelRoute
     }
     '/clientes/': {
       id: '/clientes/'
@@ -657,10 +674,12 @@ declare module '@tanstack/react-router' {
 
 interface PanelRouteChildren {
   PanelIdRoute: typeof PanelIdRoute
+  PanelIndexRoute: typeof PanelIndexRoute
 }
 
 const PanelRouteChildren: PanelRouteChildren = {
   PanelIdRoute: PanelIdRoute,
+  PanelIndexRoute: PanelIndexRoute,
 }
 
 const PanelRouteWithChildren = PanelRoute._addFileChildren(PanelRouteChildren)
