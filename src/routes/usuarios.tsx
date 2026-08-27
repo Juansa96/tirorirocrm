@@ -46,7 +46,6 @@ function Usuarios() {
 
   if (!esEquipo) return null;
 
-  const tapiceroNombreById = (id: string) => tapiceroNombre(tapiceros.find((t) => t.id === id));
 
   async function resetPassword(u: UsuarioRow) {
     const pw = prompt(`Nueva contraseña para ${u.email} (mínimo 8 caracteres):`);
