@@ -7,6 +7,7 @@ import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
+import { refreshSignedUrls, signPath } from "./storage-urls";
 
 
 
