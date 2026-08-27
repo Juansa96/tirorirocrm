@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Download, PackageCheck, Ruler, Calendar, Scissors, Layers, Anchor, StickyNote, ImageOff } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { tipoLabelOf, displayModelo } from "@/lib/catalogo";
+import { displayNombreProducto } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
 import { usePanelPedidos, accionTapicero, type PanelPedido, type PanelTela } from "@/lib/panel-data";
@@ -38,7 +38,7 @@ function FichaPanel() {
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <Link to="/panel" search={backSearch} className="text-slate-500"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-lg font-bold text-slate-900">{tipoLabelOf(p.tipo)} {displayModelo(p.modelo)}</div>
+          <div className="truncate text-lg font-bold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</div>
           {p.cliente && <div className="truncate text-xs text-slate-500">Cliente: {p.cliente}</div>}
         </div>
       </header>

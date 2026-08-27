@@ -93,6 +93,59 @@ export function displayModelo(m: unknown): string {
   return typeof m === "string" ? m : "";
 }
 
+// ── Composición del nombre de producto (título del panel/fichas) ────────────
+// Muchos `modelo` (actuales e históricos) ya incluyen el nombre del tipo como
+// prefijo: "Puf (medida personalizada)", "Mesa (medida por decidir)",
+// "Almohadón (medida personalizada)", "Oyambre — 120 cm"…  Concatenar
+// `tipoLabelOf(tipo) + " " + modelo` duplica la palabra ("Puf Puf (medida…)").
+//
+// Estas dos funciones resuelven el título de forma GENÉRICA (sin parche por
+// tipo):
+//   · modeloDetalle()  → el modelo limpio de prefijo redundante y de los
+//                        placeholders vacíos ("(medida personalizada)", "Por
+//                        decidir", "Forma por decidir"). "" si no aporta nada.
+//   · displayNombreProducto() → el título para la cabecera: la etiqueta del
+//                        tipo una sola vez, seguida SOLO del nombre de forma/
+//                        modelo real (Calobra, Pregonda…). Los detalles que son
+//                        una medida (llevan dígitos: "60×60 cm", "120 cm") NO
+//                        van en el título: se muestran en su propia línea de
+//                        medidas. Así "Puf (medida personalizada)" → "Puf" y
+//                        "Cabecero Calobra" se mantiene.
+
+// Prefijo redundante = la palabra del tipo al principio del modelo (con sus
+// acentos y el separador "—"/":"/"-" que a veces la sigue, p. ej. "Oyambre — ").
+const PREFIJO_TIPO_MODELO_RE = /^(pufs?|mesas?|pantallas?|almohad[oó]n(?:es)?|coj[ií]n(?:es)?|cabeceros?|bancos?|oyambre)\b[\s—–:-]*/i;
+// Placeholder que, tras quitar el prefijo, no aporta información real.
+const MODELO_PLACEHOLDER_RE = /^\(?\s*(?:medidas?|formas?)\s+(?:personalizada|por decidir)\s*\)?$/i;
+
+export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
+  if (esModeloTBD(modelo)) return "";
+  const det = displayModelo(modelo).trim();
+  if (!det) return "";
+  const resto = det.replace(PREFIJO_TIPO_MODELO_RE, "").trim();
+  if (!resto) return "";                       // el modelo era solo el nombre del tipo
+  if (MODELO_PLACEHOLDER_RE.test(resto)) return "";
+  if (/^por decidir$/i.test(resto)) return "";
+  return resto;
+}
+
+// True si un detalle de modelo es en realidad una medida (lleva dígitos), como
+// "60×60×40 cm" o "120 cm". Se usa para NO meterlo en el título y, cuando no hay
+// columnas de medida, mostrarlo como línea de medidas.
+export function esDetalleMedida(det: string): boolean {
+  return /\d/.test(det);
+}
+
+export function displayNombreProducto(tipo: unknown, modelo: unknown): string {
+  const label = tipoLabelOf(tipo);
+  const det = modeloDetalle(tipo, modelo);
+  // Solo se añade al título el detalle que sea un NOMBRE (forma/modelo), no una
+  // medida: las medidas viven en su propia línea.
+  const nombreExtra = det && !esDetalleMedida(det) ? det : "";
+  const titulo = [label, nombreExtra].filter(Boolean).join(" ").trim();
+  return titulo || "Producto";
+}
+
 export function normalizeTipo(raw: unknown): TipoProductoKey | null {
   if (raw === null || raw === undefined) return null;
   const key = stripDiacritics(String(raw)).trim().toLowerCase();

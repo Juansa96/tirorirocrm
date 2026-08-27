@@ -23,7 +23,9 @@ const NAV: NavItem[] = [
   { to: "/clientes", label: "Clientes", icon: List },
   { to: "/datos", label: "Datos", icon: BarChart2 },
   { to: "/pedidos", label: "Pedidos", icon: Package },
-  { to: "/usuarios", label: "Usuarios", icon: Users, desktopOnly: true },
+  // Usuarios también en móvil: es la única vía para entrar al panel del
+  // tapicero desde el teléfono (antes era desktopOnly y quedaba inaccesible).
+  { to: "/usuarios", label: "Usuarios", icon: Users },
 ];
 
 const NAV_MOBILE = NAV.filter((n) => !n.desktopOnly);
@@ -216,12 +218,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-30 grid border-t border-slate-200 bg-white md:hidden"
+        style={{ gridTemplateColumns: `repeat(${NAV_MOBILE.length}, minmax(0, 1fr))` }}
+      >
         {NAV_MOBILE.map((item) => {
           const active = isActive(path, item);
           const Icon = item.icon;
           return (
-            <Link key={item.to} to={item.to} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium transition-colors ${active ? "text-[#1a1f36]" : "text-slate-500"}`}>
+            <Link key={item.to} to={item.to} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[10px] font-medium transition-colors ${active ? "text-[#1a1f36]" : "text-slate-500"}`}>
               <Icon className={`h-5 w-5 shrink-0 ${active ? "text-amber-500" : ""}`} />
               <span className="max-w-full truncate">{item.label}</span>
             </Link>

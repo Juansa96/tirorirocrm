@@ -4,7 +4,7 @@ import { LogOut, Hammer, ChevronRight, ArrowLeft, Eye, Star } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { tapiceroNombre, type Tapicero } from "@/lib/types";
-import { tipoLabelOf, displayModelo } from "@/lib/catalogo";
+import { displayNombreProducto, modeloDetalle, esDetalleMedida } from "@/lib/catalogo";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
 import { usePanelPedidos, type PanelPedido } from "@/lib/panel-data";
 
@@ -139,7 +139,12 @@ function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch }: { cliente
 
 function ProductoRow({ p, tapiceroSearch }: { p: PanelPedido; tapiceroSearch?: string }) {
   const c = diasColor(p.diasRestantes, p.entregado);
-  const medidas = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
+  const medidasNum = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
+  const det = modeloDetalle(p.tipo, p.modelo);
+  // Línea de medidas: las columnas numéricas si existen; si no, un detalle de
+  // modelo que sea una medida (p. ej. almohadón "45×45" sin columnas); si no,
+  // "Medida personalizada".
+  const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medida personalizada");
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   return (
     <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}}
@@ -148,17 +153,12 @@ function ProductoRow({ p, tapiceroSearch }: { p: PanelPedido; tapiceroSearch?: s
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           {p.prioritario && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
-          <span className="truncate font-semibold text-slate-900">{tipoLabelOf(p.tipo)} {displayModelo(p.modelo)}</span>
+          <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
         </div>
-        <div className="text-xs text-slate-500">{medidas ? medidas + " cm" : "—"}</div>
+        <div className="text-xs text-slate-500">{medidas}</div>
         <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
       </div>
-      {frontal?.fotoUrl
-        ? <img src={frontal.fotoUrl} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" title={frontal.nombre} />
-        : <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-slate-100 text-[9px] text-slate-400">sin foto</div>}
-      <div className="w-16 shrink-0 text-right">
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${c.bg} ${c.text}`}>{c.label}</span>
-      </div>
+      <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
       <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
     </Link>
   );
