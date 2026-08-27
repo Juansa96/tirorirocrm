@@ -217,6 +217,8 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     terminadoTapiceroFecha: (r.terminado_tapicero_fecha as string) ?? "",
     montaje: (r.montaje as string) ?? "",
     prioritario: !!r.prioritario,
+    prioridad: Number(r.prioridad) || 2,
+    fechaRecogida: (r.fecha_recogida as string) ?? "",
     clienteNombre: (r.cliente_nombre as string) ?? "",
     tapiceroId: (r.tapicero_id as string) ?? "",
     pasosTapicero: (r.pasos_tapicero && typeof r.pasos_tapicero === "object" ? r.pasos_tapicero : {}) as Record<string, string>,
@@ -241,6 +243,7 @@ function mapPedidoTela(r: Record<string, unknown>): PedidoTela {
     createdAt: (r.created_at as string) ?? "",
     telaFotoUrl: (r.tela_foto_url as string) ?? "",
     telaBibliotecaId: (r.tela_biblioteca_id as string) ?? "",
+    telaColeccion: (r.tela_coleccion as string) ?? "",
     mismaQueFrontal: !!r.misma_que_frontal,
   };
 }
@@ -495,6 +498,8 @@ async function refetchTapiceros() {
       apellido: (r.apellido as string) ?? "",
       activo: r.activo !== false,
       orden: Number(r.orden) || 0,
+      accessToken: (r.access_token as string) ?? "",
+      accessTokenActivo: r.access_token_activo !== false,
     }));
     state = { ...state, tapiceros: rows }; emit();
   }
@@ -551,6 +556,7 @@ async function refetchPedidoArchivos() {
         storagePath: path,
         url: firmadas.get(path) ?? ((r.url as string) ?? ""),
         subidoPor: (r.subido_por as string) ?? "",
+        transportista: (r.transportista as string) ?? "",
         createdAt: (r.created_at as string) ?? "",
       };
     });
@@ -1295,6 +1301,8 @@ export const actions = {
       terminadoTapiceroFecha: "terminado_tapicero_fecha",
       montaje: "montaje",
       prioritario: "prioritario",
+      prioridad: "prioridad",
+      fechaRecogida: "fecha_recogida",
       clienteNombre: "cliente_nombre",
       clienteNombreLibre: "cliente_nombre_libre",
       esCanje: "es_canje",
@@ -1358,6 +1366,28 @@ export const actions = {
     emit();
     const { error } = await supabase.from("tapiceros").update(db as never).eq("id", id);
     if (error) { state = prev; emit(); toast.error("No se pudo actualizar el tapicero."); }
+  },
+
+  // Genera (o regenera) el token de acceso por enlace del tapicero. El equipo
+  // puede actualizar tapiceros por RLS. Devuelve el token nuevo o "".
+  async generarEnlaceTapicero(id: string): Promise<string> {
+    const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "");
+    const { error } = await supabase.from("tapiceros")
+      .update({ access_token: token, access_token_activo: true } as never).eq("id", id);
+    if (error) { toast.error("No se pudo generar el enlace."); return ""; }
+    state = { ...state, tapiceros: state.tapiceros.map((t) => t.id === id ? { ...t, accessToken: token, accessTokenActivo: true } : t) };
+    emit();
+    return token;
+  },
+
+  // Revoca el enlace (borra el token). El enlace deja de funcionar al instante.
+  async revocarEnlaceTapicero(id: string) {
+    const prev = state;
+    state = { ...state, tapiceros: state.tapiceros.map((t) => t.id === id ? { ...t, accessToken: "", accessTokenActivo: false } : t) };
+    emit();
+    const { error } = await supabase.from("tapiceros")
+      .update({ access_token: null, access_token_activo: false } as never).eq("id", id);
+    if (error) { state = prev; emit(); toast.error("No se pudo revocar el enlace."); }
   },
 
   // "Media pagada (todos)": marca el 50% en los pedidos ACTUALES indicados.
@@ -1440,6 +1470,7 @@ export const actions = {
     if (patch.fechaRecibo !== undefined) dbPatch.fecha_recibo = patch.fechaRecibo || null;
     if (patch.telaFotoUrl !== undefined) dbPatch.tela_foto_url = patch.telaFotoUrl || null;
     if (patch.telaBibliotecaId !== undefined) dbPatch.tela_biblioteca_id = patch.telaBibliotecaId || null;
+    if (patch.telaColeccion !== undefined) dbPatch.tela_coleccion = patch.telaColeccion || null;
     if (patch.mismaQueFrontal !== undefined) dbPatch.misma_que_frontal = patch.mismaQueFrontal;
     const { error } = await supabase.from("pedido_telas").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); }
@@ -1483,12 +1514,13 @@ export const actions = {
 
   // Asigna la tela de un rol (Frontal/Lateral/Vivo) a un pedido. Crea la fila
   // en pedido_telas si no existe, o la actualiza.
-  async asignarTelaPedido(pedidoId: string, rol: string, tela: { nombreTela: string; telaFotoUrl: string; telaBibliotecaId?: string; mismaQueFrontal?: boolean }) {
+  async asignarTelaPedido(pedidoId: string, rol: string, tela: { nombreTela: string; telaFotoUrl: string; telaBibliotecaId?: string; telaColeccion?: string; mismaQueFrontal?: boolean }) {
     const existente = state.pedidoTelas.find((t) => t.pedidoId === pedidoId && t.tipoTela === rol);
     if (existente) {
       await actions.updatePedidoTela(existente.id, {
         nombreTela: tela.nombreTela, telaFotoUrl: tela.telaFotoUrl,
-        telaBibliotecaId: tela.telaBibliotecaId ?? "", mismaQueFrontal: !!tela.mismaQueFrontal,
+        telaBibliotecaId: tela.telaBibliotecaId ?? "", telaColeccion: tela.telaColeccion ?? "",
+        mismaQueFrontal: !!tela.mismaQueFrontal,
       });
       return;
     }
@@ -1496,19 +1528,23 @@ export const actions = {
     const { error } = await supabase.from("pedido_telas").insert({
       pedido_id: pedidoId, tipo_tela: rol, estado: "Pedida", orden,
       nombre_tela: tela.nombreTela, tela_foto_url: tela.telaFotoUrl || null,
-      tela_biblioteca_id: tela.telaBibliotecaId || null, misma_que_frontal: !!tela.mismaQueFrontal,
+      tela_biblioteca_id: tela.telaBibliotecaId || null, tela_coleccion: tela.telaColeccion || null,
+      misma_que_frontal: !!tela.mismaQueFrontal,
     } as never);
     if (error) toast.error("No se pudo asignar la tela.");
   },
 
-  // ───────── Archivos del pedido (plantilla / etiquetas CTT) ─────────
-  async subirArchivoPedido(pedidoId: string, tipo: "plantilla" | "etiqueta_ctt", file: File) {
+  // ───────── Archivos del pedido (plantilla / referencia / etiqueta de envío) ─────────
+  // La subida es solo del equipo (RLS lo garantiza). `transportista` solo aplica
+  // a la etiqueta de envío.
+  async subirArchivoPedido(pedidoId: string, tipo: "plantilla" | "etiqueta_ctt" | "etiqueta_envio" | "referencia", file: File, transportista?: string) {
     const path = `${pedidoId}/${tipo}/${crypto.randomUUID()}-${file.name}`;
     const { error: upErr } = await supabase.storage.from("pedido-archivos").upload(path, file, { upsert: false });
     if (upErr) { toast.error("No se pudo subir el archivo."); return; }
     const url = await signPath("pedido-archivos", path);
     const { error } = await supabase.from("pedido_archivos").insert({
       pedido_id: pedidoId, tipo, nombre: file.name, storage_path: path, url, subido_por: currentUser,
+      transportista: tipo === "etiqueta_envio" ? (transportista || null) : null,
     } as never);
     if (error) { toast.error("No se pudo guardar el archivo."); return; }
     await refetchPedidoArchivos();

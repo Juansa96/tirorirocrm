@@ -93,6 +93,135 @@ export function displayModelo(m: unknown): string {
   return typeof m === "string" ? m : "";
 }
 
+// ── Composición del nombre de producto (título del panel/fichas) ────────────
+// Muchos `modelo` (actuales e históricos) ya incluyen el nombre del tipo como
+// prefijo: "Puf (medida personalizada)", "Mesa (medida por decidir)",
+// "Almohadón (medida personalizada)", "Oyambre — 120 cm"…  Concatenar
+// `tipoLabelOf(tipo) + " " + modelo` duplica la palabra ("Puf Puf (medida…)").
+//
+// Estas dos funciones resuelven el título de forma GENÉRICA (sin parche por
+// tipo):
+//   · modeloDetalle()  → el modelo limpio de prefijo redundante y de los
+//                        placeholders vacíos ("(medida personalizada)", "Por
+//                        decidir", "Forma por decidir"). "" si no aporta nada.
+//   · displayNombreProducto() → el título para la cabecera: la etiqueta del
+//                        tipo una sola vez, seguida SOLO del nombre de forma/
+//                        modelo real (Calobra, Pregonda…). Los detalles que son
+//                        una medida (llevan dígitos: "60×60 cm", "120 cm") NO
+//                        van en el título: se muestran en su propia línea de
+//                        medidas. Así "Puf (medida personalizada)" → "Puf" y
+//                        "Cabecero Calobra" se mantiene.
+
+// Prefijo redundante = la palabra del tipo al principio del modelo (con sus
+// acentos y el separador "—"/":"/"-" que a veces la sigue, p. ej. "Oyambre — ").
+const PREFIJO_TIPO_MODELO_RE = /^(pufs?|mesas?|pantallas?|almohad[oó]n(?:es)?|coj[ií]n(?:es)?|cabeceros?|bancos?|oyambre)\b[\s—–:-]*/i;
+// Placeholder que, tras quitar el prefijo, no aporta información real.
+const MODELO_PLACEHOLDER_RE = /^\(?\s*(?:medidas?|formas?)\s+(?:personalizada|por decidir)\s*\)?$/i;
+
+export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
+  if (esModeloTBD(modelo)) return "";
+  const det = displayModelo(modelo).trim();
+  if (!det) return "";
+  const resto = det.replace(PREFIJO_TIPO_MODELO_RE, "").trim();
+  if (!resto) return "";                       // el modelo era solo el nombre del tipo
+  if (MODELO_PLACEHOLDER_RE.test(resto)) return "";
+  if (/^por decidir$/i.test(resto)) return "";
+  return resto;
+}
+
+// True si un detalle de modelo es en realidad una medida (lleva dígitos), como
+// "60×60×40 cm" o "120 cm". Se usa para NO meterlo en el título y, cuando no hay
+// columnas de medida, mostrarlo como línea de medidas.
+export function esDetalleMedida(det: string): boolean {
+  return /\d/.test(det);
+}
+
+// ── Prioridad del producto/pedido ───────────────────────────────────────────
+// 1 = Alta, 2 = Normal, 3 = Baja. El equipo la asigna; el tapicero solo la ve.
+export const PRIORIDAD_OPCIONES = [
+  { valor: 1, label: "Alta" },
+  { valor: 2, label: "Normal" },
+  { valor: 3, label: "Baja" },
+] as const;
+
+export function prioridadLabel(v: unknown): string {
+  const n = Number(v) || 2;
+  return PRIORIDAD_OPCIONES.find((o) => o.valor === n)?.label ?? "Normal";
+}
+
+// ── Telas por tipo de producto ──────────────────────────────────────────────
+// El almacén (pedido_telas.tipo_tela) usa siempre los roles "Frontal" / "Lateral"
+// / "Vivo" (compatibilidad con datos y con FabricPicker). Aquí se decide QUÉ
+// roles pide cada tipo y con qué ETIQUETA se muestran, adaptado al producto:
+//   · Cabecero → frontal + lateral + ribete.
+//   · Almohadón (cojin) → tela del cojín + ribete.
+//   · Puf / Banco → tela principal + ribete (opcional; el banco casi siempre
+//     lleva solo la principal).
+//   · Mesa → tela principal + ribete (opcional).
+//   · Pantalla → una sola tela.
+//   · Otro → genérico (frontal + lateral + ribete).
+export interface TelaRol {
+  rol: "Frontal" | "Lateral" | "Vivo"; // clave de almacenamiento (tipo_tela)
+  label: string;                        // etiqueta visible, según el tipo
+  opcional?: boolean;
+}
+
+const TELAS_POR_TIPO: Record<TipoProductoKey, TelaRol[]> = {
+  cabecero: [
+    { rol: "Frontal", label: "Tela frontal" },
+    { rol: "Lateral", label: "Tela lateral" },
+    { rol: "Vivo", label: "Tela de ribete" },
+  ],
+  cojin: [
+    { rol: "Frontal", label: "Tela del cojín" },
+    { rol: "Vivo", label: "Tela de ribete" },
+  ],
+  puf: [
+    { rol: "Frontal", label: "Tela principal" },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
+  ],
+  banco: [
+    { rol: "Frontal", label: "Tela principal" },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
+  ],
+  mesa: [
+    { rol: "Frontal", label: "Tela principal" },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
+  ],
+  pantalla: [
+    { rol: "Frontal", label: "Tela de la pantalla" },
+  ],
+  otro: [
+    { rol: "Frontal", label: "Tela principal" },
+    { rol: "Lateral", label: "Tela lateral", opcional: true },
+    { rol: "Vivo", label: "Tela de ribete", opcional: true },
+  ],
+};
+
+// Roles de tela que pide un tipo de producto. Tipos desconocidos → genérico
+// (frontal + lateral + ribete) para no ocultar nada por error.
+export function telasDeProducto(tipo: unknown): TelaRol[] {
+  const k = normalizeTipo(tipo);
+  return k ? TELAS_POR_TIPO[k] : TELAS_POR_TIPO.otro;
+}
+
+// Etiqueta visible de un rol de tela para un tipo dado (fallback genérico).
+export function etiquetaTela(tipo: unknown, rol: string): string {
+  const r = telasDeProducto(tipo).find((x) => x.rol.toLowerCase() === rol.toLowerCase());
+  if (r) return r.label;
+  return rol === "Frontal" ? "Tela frontal" : rol === "Lateral" ? "Tela lateral" : rol === "Vivo" ? "Tela de ribete" : rol;
+}
+
+export function displayNombreProducto(tipo: unknown, modelo: unknown): string {
+  const label = tipoLabelOf(tipo);
+  const det = modeloDetalle(tipo, modelo);
+  // Solo se añade al título el detalle que sea un NOMBRE (forma/modelo), no una
+  // medida: las medidas viven en su propia línea.
+  const nombreExtra = det && !esDetalleMedida(det) ? det : "";
+  const titulo = [label, nombreExtra].filter(Boolean).join(" ").trim();
+  return titulo || "Producto";
+}
+
 export function normalizeTipo(raw: unknown): TipoProductoKey | null {
   if (raw === null || raw === undefined) return null;
   const key = stripDiacritics(String(raw)).trim().toLowerCase();

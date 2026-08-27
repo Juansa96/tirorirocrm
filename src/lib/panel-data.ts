@@ -3,17 +3,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela } from "@/lib/catalogo";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 
-export interface PanelTela { rol: string; nombre: string; fotoUrl: string; mismaQueFrontal: boolean; }
-export interface PanelArchivo { id: string; tipo: string; nombre: string; url: string; createdAt: string; }
+export interface PanelTela { rol: string; nombre: string; fotoUrl: string; coleccion: string; mismaQueFrontal: boolean; }
+export interface PanelArchivo { id: string; tipo: string; nombre: string; url: string; transportista: string; createdAt: string; }
 export interface PanelPedido {
   id: string;
   cliente: string;
   prioritario: boolean;
+  prioridad: number;   // 1 = Alta, 2 = Normal, 3 = Baja
   tipo: string; modelo: string;
   ancho: number | null; alto: number | null; fondo: number | null;
-  acabado: string; montaje: string; notasProducto: string; notasPedido: string;
+  acabado: string; montaje: string; patas: string; notasProducto: string; notasPedido: string;
   telaTexto: string;   // tela del producto (texto), respaldo si no hay telas con foto
-  fechaLimite: string; fechaAsignacion: string; diasRestantes: number;
+  tapiceroNombre: string;
+  fechaLimite: string; fechaAsignacion: string; fechaRecogida: string; diasRestantes: number;
   entregado: boolean;
   telaEstado: string; telaEstadoPor: string; telaEstadoFecha: string;
   terminado: boolean; terminadoPor: string; terminadoFecha: string;
@@ -41,6 +43,11 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
     const { data: peds } = await supabase.from("pedidos").select("*")
       .eq("tapicero_id", tapiceroId);
     const rows = (peds ?? []) as unknown as Record<string, unknown>[];
+
+    // Nombre del tapicero asignado (todos los pedidos son del mismo). El tapicero
+    // puede leer su propia ficha; el equipo, todas.
+    const { data: tapRow } = await supabase.from("tapiceros").select("nombre, apellido").eq("id", tapiceroId).maybeSingle();
+    const tapiceroNombre = tapRow ? [tapRow.nombre as string, tapRow.apellido as string].filter(Boolean).join(" ") : "";
     const prodIds = rows.map((p) => p.producto_lead_id).filter(Boolean) as string[];
     const pedIds = rows.map((p) => p.id) as string[];
 
@@ -76,17 +83,20 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
         rol: (t.tipo_tela as string) ?? "",
         nombre: (t.nombre_tela as string) ?? "",
         fotoUrl: telasFirmadas.get((t.tela_foto_url as string) ?? "") ?? ((t.tela_foto_url as string) ?? ""),
+        coleccion: (t.tela_coleccion as string) ?? "",
         mismaQueFrontal: !!t.misma_que_frontal,
       }));
       const ar = (archByPedido.get(p.id as string) ?? []).map((a): PanelArchivo => ({
         id: a.id as string, tipo: (a.tipo as string) ?? "", nombre: (a.nombre as string) ?? "",
         url: archFirmados.get((a.storage_path as string) ?? "") ?? ((a.url as string) ?? ""),
+        transportista: (a.transportista as string) ?? "",
         createdAt: (a.created_at as string) ?? "",
       }));
       return {
         id: p.id as string,
         cliente: (p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "",
         prioritario: !!p.prioritario,
+        prioridad: Number(p.prioridad) || 2,
         tipo: (prod.tipo as string) ?? "",
         modelo: (prod.modelo as string) ?? "",
         ancho: (prod.ancho as number | null) ?? null,
@@ -94,11 +104,14 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
         fondo: (prod.fondo as number | null) ?? null,
         acabado: (prod.acabado as string) ?? "",
         telaTexto: [(prod.tela as string) || "", prod.coleccion_tela ? displayColeccionTela(prod.coleccion_tela as string) : ""].filter(Boolean).join(" · "),
+        tapiceroNombre,
         montaje: (p.montaje as string) ?? "",
+        patas: (prod.patas as string) ?? "",
         notasProducto: (prod.notas_producto as string) ?? "",
         notasPedido: (p.notas_pedido as string) ?? "",
         fechaLimite,
         fechaAsignacion: (p.enviado_tapicero_fecha as string) ?? "",
+        fechaRecogida: (p.fecha_recogida as string) ?? "",
         diasRestantes: diasHasta(fechaLimite),
         entregado: !!p.entregado,
         telaEstado: (p.tela_estado as string) ?? "pendiente",
@@ -138,6 +151,29 @@ export async function accionTapicero(op: "tela_recibida" | "terminado", pedidoId
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ op, pedidoId, valor }),
+  });
+  return res.ok;
+}
+
+// Sube (opcionalmente) una foto del producto terminado. La escritura pasa por
+// la ruta de servidor (el tapicero es solo-lectura en BD). La imagen se comprime
+// antes de enviarse en base64.
+export async function subirFotoTerminado(pedidoId: string, file: File): Promise<boolean> {
+  const { compressImage } = await import("@/lib/img");
+  const blob = await compressImage(file);
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+  const dataBase64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? "";
+  const res = await fetch("/api/tapicero/foto", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ pedidoId, filename: file.name || "foto.jpg", contentType: "image/jpeg", dataBase64 }),
   });
   return res.ok;
 }

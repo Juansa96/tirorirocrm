@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { displayNombreProducto } from "@/lib/catalogo";
 
 // "Enviar a Daniel": marca los pedidos como enviados al panel del tapicero y
 // encola UN email (agrupado por tapicero) con enlace a su ficha. Solo equipo.
@@ -64,7 +65,7 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
           const items = lista.map((p) => {
             const pr = prodById.get(p.producto_lead_id as string) ?? {};
             const medidas = [pr.ancho, pr.alto, pr.fondo].filter((d) => d != null && Number(d) > 0).join(" × ");
-            const titulo = `${esc(String(pr.tipo ?? "Producto"))} ${esc(String(pr.modelo ?? ""))}`.trim();
+            const titulo = esc(displayNombreProducto(pr.tipo, pr.modelo));
             const fecha = p.fecha_limite ? `entrega ${esc(String(p.fecha_limite))}` : "";
             const link = `${origin}/panel/${p.id}`;
             return `<tr><td style="padding:12px 0;border-bottom:1px solid #eee">
@@ -77,7 +78,7 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
           const n = lista.length;
           const primero = prodById.get(lista[0].producto_lead_id as string) ?? {};
           const subject = n === 1
-            ? `Nuevo pedido: ${String(primero.tipo ?? "")} ${String(primero.modelo ?? "")}`.trim()
+            ? `Nuevo pedido: ${displayNombreProducto(primero.tipo, primero.modelo)}`
             : `${n} pedidos nuevos para ti`;
           const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:-apple-system,Segoe UI,Roboto,sans-serif">
             <div style="max-width:520px;margin:0 auto;padding:24px 16px">

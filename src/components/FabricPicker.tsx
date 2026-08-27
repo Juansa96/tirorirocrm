@@ -7,6 +7,7 @@ export interface TelaSel {
   nombreTela: string;
   telaFotoUrl: string;
   telaBibliotecaId: string;
+  telaColeccion?: string;
 }
 
 // Selector de tela: busca en la biblioteca (web + subidas) y permite subir una
@@ -32,7 +33,7 @@ export function FabricPicker({ label, value, onSelect }: {
   }, [telasWeb, telasBiblioteca, q]);
 
   function elegir(t: TelaBiblioteca) {
-    onSelect({ nombreTela: t.nombre, telaFotoUrl: t.fotoUrl, telaBibliotecaId: t.origen === "subida" ? t.id : "" });
+    onSelect({ nombreTela: t.nombre, telaFotoUrl: t.fotoUrl, telaBibliotecaId: t.origen === "subida" ? t.id : "", telaColeccion: t.coleccion ?? "" });
     setAbierto(false); setQ("");
   }
 
