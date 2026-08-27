@@ -221,29 +221,32 @@ function TapicerosSection({ tapiceros }: { tapiceros: Tapicero[] }) {
   );
 }
 
-function NuevoTapicero({ abierto, onAbrir, tapiceros, onCreado }: {
+function NuevoUsuario({ abierto, onAbrir, tapiceros, onCreado }: {
   abierto: boolean; onAbrir: () => void;
   tapiceros: Tapicero[];
   onCreado: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rol, setRol] = useState("tapicero");
   const [tapiceroId, setTapiceroId] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   async function crear() {
-    if (!email || password.length < 8 || !tapiceroId) { toast.error("Email, contraseña (≥8) y tapicero son obligatorios."); return; }
+    if (!email || password.length < 8 || (rol === "tapicero" && !tapiceroId)) {
+      toast.error("Email, contraseña (≥8) y, si es tapicero, la persona son obligatorios."); return;
+    }
     setGuardando(true);
-    const res = await apiCall("POST", { op: "create", email, password, tapiceroId });
+    const res = await apiCall("POST", { op: "create", email, password, rol, tapiceroId });
     setGuardando(false);
-    if (res.ok) { toast.success("Usuario tapicero creado."); setEmail(""); setPassword(""); setTapiceroId(""); onCreado(); }
+    if (res.ok) { toast.success("Usuario creado."); setEmail(""); setPassword(""); setTapiceroId(""); onCreado(); }
     else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "No se pudo crear el usuario."); }
   }
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <button onClick={onAbrir} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3 py-2 text-sm font-medium text-white hover:bg-[#2a2f46]">
-        <Plus className="h-4 w-4" /> Nuevo usuario tapicero
+        <Plus className="h-4 w-4" /> Nuevo usuario
       </button>
       {abierto && (
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -256,14 +259,24 @@ function NuevoTapicero({ abierto, onAbrir, tapiceros, onCreado }: {
             <input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="contraseña" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-xs text-slate-500">Tapicero</span>
-            <select value={tapiceroId} onChange={(e) => setTapiceroId(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-              <option value="">— Elegir —</option>
-              {tapiceros.filter((t) => t.activo).map((t) => (
-                <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
-              ))}
+            <span className="mb-1 block text-xs text-slate-500">Rol</span>
+            <select value={rol} onChange={(e) => setRol(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+              <option value="tapicero">Tapicero</option>
+              <option value="equipo">Equipo</option>
+              <option value="admin">Admin</option>
             </select>
           </label>
+          {rol === "tapicero" && (
+            <label className="text-sm">
+              <span className="mb-1 block text-xs text-slate-500">Tapicero</span>
+              <select value={tapiceroId} onChange={(e) => setTapiceroId(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                <option value="">— Elegir —</option>
+                {tapiceros.filter((t) => t.activo).map((t) => (
+                  <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="flex items-end">
             <button onClick={() => void crear()} disabled={guardando} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
               {guardando ? "Creando…" : "Crear usuario"}
