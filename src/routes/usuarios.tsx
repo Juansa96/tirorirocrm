@@ -46,7 +46,6 @@ function Usuarios() {
 
   if (!esEquipo) return null;
 
-  const tapiceroNombreById = (id: string) => tapiceroNombre(tapiceros.find((t) => t.id === id));
 
   async function resetPassword(u: UsuarioRow) {
     const pw = prompt(`Nueva contraseña para ${u.email} (mínimo 8 caracteres):`);
@@ -60,6 +59,15 @@ function Usuarios() {
     const res = await apiCall("POST", { op: "activo", id: u.id, activo: !u.activo });
     if (res.ok) { toast.success(u.activo ? "Usuario desactivado." : "Usuario activado."); void cargar(); }
     else toast.error("No se pudo cambiar el estado.");
+  }
+
+  async function cambiarRol(u: UsuarioRow, rol: string, tapiceroId?: string) {
+    if (!rol) return;
+    const tid = tapiceroId ?? u.tapiceroId ?? "";
+    if (rol === "tapicero" && !tid) { toast.error("Elige primero un tapicero."); return; }
+    const res = await apiCall("POST", { op: "rol", id: u.id, rol, tapiceroId: tid });
+    if (res.ok) { toast.success("Rol actualizado."); void cargar(); }
+    else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "No se pudo cambiar el rol."); }
   }
 
   async function eliminar(u: UsuarioRow) {
@@ -84,10 +92,10 @@ function Usuarios() {
       <TapicerosSection tapiceros={tapiceros} />
 
       <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Usuarios de acceso (login)</div>
-      <p className="-mt-3 text-xs text-slate-400">Crea un login cuando el tapicero te dé su email. Mientras, ves su panel arriba con «Ver panel».</p>
+      <p className="-mt-3 text-xs text-slate-400">Crea logins del equipo o de tapiceros. Si un login aparece «Sin acceso», asígnale un rol en la tabla.</p>
 
-      {/* Alta de tapicero */}
-      <NuevoTapicero
+      {/* Alta de usuario */}
+      <NuevoUsuario
         abierto={creando}
         onAbrir={() => setCreando((v) => !v)}
         tapiceros={tapiceros}
@@ -116,12 +124,32 @@ function Usuarios() {
                 <tr key={u.id} className={u.activo ? "" : "bg-slate-50/60 text-slate-400"}>
                   <td className="px-4 py-2.5 font-medium">{u.email}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${u.rol === "tapicero" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                      {u.rol === "tapicero" ? "Tapicero" : u.rol === "admin" ? "Admin" : "Equipo"}
-                    </span>
+                    <select
+                      value={u.rol}
+                      onChange={(e) => void cambiarRol(u, e.target.value)}
+                      className={`rounded-lg border px-2 py-1 text-xs font-medium ${u.rol ? "border-slate-200 bg-white text-slate-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}
+                    >
+                      {!u.rol && <option value="">Sin acceso</option>}
+                      <option value="admin">Admin</option>
+                      <option value="equipo">Equipo</option>
+                      <option value="tapicero">Tapicero</option>
+                    </select>
                   </td>
-                  <td className="px-4 py-2.5 text-slate-600">{u.rol === "tapicero" ? (tapiceroNombreById(u.tapiceroId) || "—") : "—"}</td>
-                  <td className="px-4 py-2.5">{u.activo ? "Activo" : "Desactivado"}</td>
+                  <td className="px-4 py-2.5 text-slate-600">
+                    {u.rol === "tapicero" ? (
+                      <select
+                        value={u.tapiceroId}
+                        onChange={(e) => void cambiarRol(u, "tapicero", e.target.value)}
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+                      >
+                        <option value="">— Elegir —</option>
+                        {tapiceros.filter((t) => t.activo || t.id === u.tapiceroId).map((t) => (
+                          <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
+                        ))}
+                      </select>
+                    ) : "—"}
+                  </td>
+                  <td className="px-4 py-2.5">{u.rol ? (u.activo ? "Activo" : "Desactivado") : "Sin acceso"}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex justify-end gap-1.5">
                       <button onClick={() => void resetPassword(u)} title="Resetear contraseña" className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50">
@@ -193,29 +221,32 @@ function TapicerosSection({ tapiceros }: { tapiceros: Tapicero[] }) {
   );
 }
 
-function NuevoTapicero({ abierto, onAbrir, tapiceros, onCreado }: {
+function NuevoUsuario({ abierto, onAbrir, tapiceros, onCreado }: {
   abierto: boolean; onAbrir: () => void;
   tapiceros: Tapicero[];
   onCreado: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rol, setRol] = useState("tapicero");
   const [tapiceroId, setTapiceroId] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   async function crear() {
-    if (!email || password.length < 8 || !tapiceroId) { toast.error("Email, contraseña (≥8) y tapicero son obligatorios."); return; }
+    if (!email || password.length < 8 || (rol === "tapicero" && !tapiceroId)) {
+      toast.error("Email, contraseña (≥8) y, si es tapicero, la persona son obligatorios."); return;
+    }
     setGuardando(true);
-    const res = await apiCall("POST", { op: "create", email, password, tapiceroId });
+    const res = await apiCall("POST", { op: "create", email, password, rol, tapiceroId });
     setGuardando(false);
-    if (res.ok) { toast.success("Usuario tapicero creado."); setEmail(""); setPassword(""); setTapiceroId(""); onCreado(); }
+    if (res.ok) { toast.success("Usuario creado."); setEmail(""); setPassword(""); setTapiceroId(""); onCreado(); }
     else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "No se pudo crear el usuario."); }
   }
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <button onClick={onAbrir} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3 py-2 text-sm font-medium text-white hover:bg-[#2a2f46]">
-        <Plus className="h-4 w-4" /> Nuevo usuario tapicero
+        <Plus className="h-4 w-4" /> Nuevo usuario
       </button>
       {abierto && (
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -228,14 +259,24 @@ function NuevoTapicero({ abierto, onAbrir, tapiceros, onCreado }: {
             <input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="contraseña" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-xs text-slate-500">Tapicero</span>
-            <select value={tapiceroId} onChange={(e) => setTapiceroId(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-              <option value="">— Elegir —</option>
-              {tapiceros.filter((t) => t.activo).map((t) => (
-                <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
-              ))}
+            <span className="mb-1 block text-xs text-slate-500">Rol</span>
+            <select value={rol} onChange={(e) => setRol(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+              <option value="tapicero">Tapicero</option>
+              <option value="equipo">Equipo</option>
+              <option value="admin">Admin</option>
             </select>
           </label>
+          {rol === "tapicero" && (
+            <label className="text-sm">
+              <span className="mb-1 block text-xs text-slate-500">Tapicero</span>
+              <select value={tapiceroId} onChange={(e) => setTapiceroId(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                <option value="">— Elegir —</option>
+                {tapiceros.filter((t) => t.activo).map((t) => (
+                  <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="flex items-end">
             <button onClick={() => void crear()} disabled={guardando} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
               {guardando ? "Creando…" : "Crear usuario"}
