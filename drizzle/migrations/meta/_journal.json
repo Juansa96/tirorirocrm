@@ -8,6 +8,13 @@
       "when": 1787812467735,
       "tag": "0000_private_buckets_and_definer_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787838456145,
+      "tag": "0001_add_pedidos_cols_tapiceros_token",
+      "breakpoints": true
     }
   ]
 }
