@@ -1532,6 +1532,55 @@ export const actions = {
     if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); }
   },
 
+  // Guarda el CONJUNTO de telas de un pedido (diff create/update/delete) en una
+  // sola operación. Se usa por el guardado explícito de la ficha de pedido: las
+  // filas con `id` se actualizan, las nuevas se insertan y las que ya no están
+  // se borran. `orden` se reasigna por posición.
+  async guardarTelasPedido(pedidoId: string, rows: Array<{
+    id: string | null; tipoTela: string; nombreTela: string; estado: string;
+    fechaRecibo: string; telaFotoUrl: string; telaBibliotecaId: string;
+    telaColeccion: string; mismaQueFrontal: boolean;
+  }>): Promise<boolean> {
+    const existentes = state.pedidoTelas.filter((t) => t.pedidoId === pedidoId);
+    const keepIds = new Set(rows.filter((r) => r.id).map((r) => r.id as string));
+    try {
+      // Borrados
+      const aBorrar = existentes.filter((e) => !keepIds.has(e.id)).map((e) => e.id);
+      if (aBorrar.length > 0) {
+        const { error } = await supabase.from("pedido_telas").delete().in("id", aBorrar);
+        if (error) throw error;
+      }
+      // Altas / actualizaciones (por posición → orden)
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const payload = {
+          pedido_id: pedidoId,
+          tipo_tela: r.tipoTela,
+          nombre_tela: r.nombreTela,
+          estado: r.estado || "Pedida",
+          fecha_recibo: r.fechaRecibo || null,
+          tela_foto_url: r.telaFotoUrl || null,
+          tela_biblioteca_id: r.telaBibliotecaId || null,
+          tela_coleccion: r.telaColeccion || null,
+          misma_que_frontal: !!r.mismaQueFrontal,
+          orden: i,
+        };
+        if (r.id) {
+          const { error } = await supabase.from("pedido_telas").update(payload as never).eq("id", r.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("pedido_telas").insert(payload as never);
+          if (error) throw error;
+        }
+      }
+      await refetchPedidoTelas();
+      return true;
+    } catch (e) {
+      toast.error("Error al guardar las telas del pedido.");
+      return false;
+    }
+  },
+
   async deletePedidoTela(id: string) {
     const prevState = state;
     state = { ...state, pedidoTelas: state.pedidoTelas.filter((t) => t.id !== id) };

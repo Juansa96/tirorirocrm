@@ -158,8 +158,10 @@ function PedidosIndex() {
           <button
             onClick={() => {
               const rows = groups.flatMap((g) => g.items.map(({ pedido, producto, sem }) => ({
+                Numero: pedido.numero ?? "",
                 Cliente: g.nombre,
                 Producto: [producto?.tipo, displayModelo(producto?.modelo)].filter(Boolean).join(" "),
+                Cantidad: producto?.cantidad ?? 1,
                 Estado: pedido.estadoPedido,
                 Semaforo: sem.estado,
                 FechaCreacion: formatShortDate(pedido.fechaCreacionPedido),
@@ -322,6 +324,24 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
   // Pedidos a los que aún se les puede aplicar la media (no cobrados del todo)
   const pendientesMedia = items.filter((it) => estadoCobro(it.pedido) !== "Cobrado");
 
+  // Punto 6: nº TOTAL de productos (sumando cantidades reales, no nº de pedidos)
+  // y desglose por tipo canónico (almohadón/cojín cuentan juntos).
+  const { totalUnidades, desglose } = useMemo(() => {
+    const porTipo = new Map<string, number>();
+    let total = 0;
+    for (const it of items) {
+      const n = Math.max(1, it.producto?.cantidad || 1);
+      total += n;
+      const label = it.producto ? tipoLabelOf(it.producto.tipo) : "Producto";
+      porTipo.set(label, (porTipo.get(label) || 0) + n);
+    }
+    const desg = [...porTipo.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([l, n]) => `${n}× ${l}`)
+      .join(" · ");
+    return { totalUnidades: total, desglose: desg };
+  }, [items]);
+
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
@@ -333,7 +353,10 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
           ) : (
             <span className="truncate text-sm font-bold text-slate-900">{nombre}</span>
           )}
-          <span className="ml-2 text-xs text-slate-500">{items.length} producto{items.length === 1 ? "" : "s"}</span>
+          <span className="ml-2 text-xs text-slate-500" title={desglose}>
+            {totalUnidades} producto{totalUnidades === 1 ? "" : "s"}
+            {desglose && items.length > 0 && <span className="ml-1 text-slate-400">({desglose})</span>}
+          </span>
           {categoria && <span className={`ml-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${CAT_BADGE[categoria]}`}>{categoria}</span>}
           {!lead && <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</span>}
         </div>
@@ -439,8 +462,10 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
+              {pedido.numero != null && <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {pedido.numero}</span>}
               <h3 className="truncate text-sm font-semibold text-slate-900">
                 {producto ? `${tipoLabel}${displayModelo(producto.modelo) ? ` · ${displayModelo(producto.modelo)}` : ""}` : "Pedido"}
+                {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
               </h3>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -549,7 +574,9 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT }: {
     <tr className="border-t border-slate-100 hover:bg-slate-50/60">
       <td className="px-3 py-2 text-xs text-slate-700">
         <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-medium hover:text-[#1a4b5b] hover:underline">
+          {pedido.numero != null && <span className="mr-1.5 inline-flex items-center rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white align-middle">Nº {pedido.numero}</span>}
           {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "—"}
+          {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
         </Link>
         {producto?.ancho && producto?.alto && (
           <div className="text-[11px] text-slate-400">{producto.ancho}×{producto.alto}</div>
