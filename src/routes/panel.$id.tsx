@@ -36,7 +36,7 @@ function FichaPanel() {
   const search = Route.useSearch();
   const { esTapicero, esEquipo, tapiceroId: miTapiceroId } = useAuth();
   const viendoId = esTapicero ? miTapiceroId : (search.tapicero ?? "");
-  const { pedidos, refetch } = usePanelPedidos(viendoId || null);
+  const { pedidos, refetch } = usePanelPedidos(viendoId || null, esTapicero);
   const p = (pedidos ?? []).find((x) => x.id === id);
   const backSearch = esEquipo && viendoId ? { tapicero: viendoId } : {};
   const [zoom, setZoom] = useState<{ url: string; alt: string } | null>(null);

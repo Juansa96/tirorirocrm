@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
+import { maskApellido } from "@/lib/types";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 import { TELAS_WEB } from "@/lib/telas-web-data";
 
@@ -62,7 +63,7 @@ async function getTelasWeb(): Promise<Map<string, { foto: string; coleccion: str
 // Carga (y mantiene en tiempo real) los pedidos ENVIADOS de un tapicero, con su
 // producto, telas y archivos. Usa consultas directas (no el store del equipo);
 // la RLS garantiza que un tapicero solo obtiene los suyos.
-export function usePanelPedidos(tapiceroId: string | null | undefined) {
+export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerElTapicero = false) {
   const [pedidos, setPedidos] = useState<PanelPedido[] | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -70,17 +71,19 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
     if (!tapiceroId) { setPedidos([]); return; }
     // Muestra TODOS los pedidos asignados al tapicero (no solo los "enviados"),
     // para que vea de una lo que ya tiene. El botón "Enviar a Daniel" queda
-    // solo para el aviso por email.
-    // Los pedidos se leen por RPC (panel_pedidos): el enmascarado del apellido
-    // del cliente para el tapicero con oculta_apellidos se hace EN LA CONSULTA
-    // (SECURITY DEFINER), no aquí (punto 4). El equipo ve el nombre completo.
-    const { data: peds } = await supabase.rpc("panel_pedidos", { p_tapicero_id: tapiceroId });
+    // solo para el aviso por email. Consulta directa (la RLS garantiza que el
+    // tapicero solo ve los suyos; el equipo, todos).
+    const { data: peds } = await supabase.from("pedidos").select("*").eq("tapicero_id", tapiceroId);
     const rows = (peds ?? []) as unknown as Record<string, unknown>[];
 
-    // Nombre del tapicero asignado (todos los pedidos son del mismo). El tapicero
-    // puede leer su propia ficha; el equipo, todas.
-    const { data: tapRow } = await supabase.from("tapiceros").select("nombre, apellido").eq("id", tapiceroId).maybeSingle();
+    // Nombre del tapicero asignado (todos los pedidos son del mismo) y su flag
+    // de privacidad. Se selecciona "*" para no romper si la columna aún no
+    // existe en algún entorno.
+    const { data: tapRow } = await supabase.from("tapiceros").select("*").eq("id", tapiceroId).maybeSingle();
     const tapiceroNombre = tapRow ? [tapRow.nombre as string, tapRow.apellido as string].filter(Boolean).join(" ") : "";
+    // Enmascara el apellido del cliente SOLO cuando quien mira es el propio
+    // tapicero y tiene el flag activado. El equipo ve el nombre completo.
+    const ocultarApellido = esViewerElTapicero && (tapRow as Record<string, unknown> | null)?.oculta_apellidos === true;
     const prodIds = rows.map((p) => p.producto_lead_id).filter(Boolean) as string[];
     const pedIds = rows.map((p) => p.id) as string[];
 
@@ -133,10 +136,11 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
         transportista: (a.transportista as string) ?? "",
         createdAt: (a.created_at as string) ?? "",
       }));
+      const nombreCliente = (p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "";
       return {
         id: p.id as string,
         numero: p.numero != null ? Number(p.numero) : null,
-        cliente: (p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "",
+        cliente: ocultarApellido ? maskApellido(nombreCliente) : nombreCliente,
         prioritario: !!p.prioritario,
         prioridad: Number(p.prioridad) || 2,
         ordenProduccion: p.orden_produccion != null ? Number(p.orden_produccion) : null,
@@ -170,7 +174,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
     // Lo que antes vence, primero.
     out.sort((a, b) => (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
     setPedidos(out);
-  }, [tapiceroId]);
+  }, [tapiceroId, esViewerElTapicero]);
 
   useEffect(() => {
     void cargar();
