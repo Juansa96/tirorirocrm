@@ -44,6 +44,7 @@ function Panel() {
       setTapiceros(((data as unknown as Record<string, unknown>[]) ?? []).map((t) => ({
         id: t.id as string, nombre: (t.nombre as string) ?? "", apellido: (t.apellido as string) ?? "",
         activo: t.activo !== false, orden: Number(t.orden) || 0,
+        accessToken: (t.access_token as string) ?? "", accessTokenActivo: t.access_token_activo !== false,
       })));
     });
   }, [esEquipo]);

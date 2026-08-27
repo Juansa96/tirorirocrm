@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { Users, Plus, KeyRound, Power, RefreshCw, Trash2, Hammer, Eye } from "lucide-react";
+import { Users, Plus, KeyRound, Power, RefreshCw, Trash2, Hammer, Eye, Link2, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useStore, actions } from "@/lib/store";
@@ -196,6 +196,7 @@ function TapicerosSection({ tapiceros }: { tapiceros: Tapicero[] }) {
         {orden.map((t) => (
           <div key={t.id} className={`flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 ${t.activo ? "" : "bg-slate-50 text-slate-400"}`}>
             <span className="min-w-0 flex-1 truncate font-medium">{tapiceroNombre(t)}{!t.activo && " (inactivo)"}</span>
+            <EnlaceTapicero tapicero={t} />
             <Link to="/panel" search={{ tapicero: t.id }} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
               <Eye className="h-3.5 w-3.5" /> Ver panel
             </Link>
@@ -217,6 +218,53 @@ function TapicerosSection({ tapiceros }: { tapiceros: Tapicero[] }) {
           <Plus className="h-4 w-4" /> Añadir tapicero
         </button>
       </div>
+    </div>
+  );
+}
+
+// Enlace de acceso del tapicero (sin usuario/contraseña). Requiere que el
+// tapicero tenga ya un usuario de login (rol tapicero).
+function EnlaceTapicero({ tapicero }: { tapicero: Tapicero }) {
+  const [generando, setGenerando] = useState(false);
+  const tieneEnlace = !!tapicero.accessToken && tapicero.accessTokenActivo;
+
+  function urlDe(token: string) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/t/${token}`;
+  }
+  async function copiar(token: string) {
+    try { await navigator.clipboard.writeText(urlDe(token)); toast.success("Enlace copiado."); }
+    catch { toast.error("No se pudo copiar. Enlace: " + urlDe(token)); }
+  }
+  async function crear() {
+    setGenerando(true);
+    const token = await actions.generarEnlaceTapicero(tapicero.id);
+    setGenerando(false);
+    if (token) { await copiar(token); }
+  }
+
+  if (!tieneEnlace) {
+    return (
+      <button onClick={() => void crear()} disabled={generando} title="Crear enlace de acceso sin contraseña"
+        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+        <Link2 className="h-3.5 w-3.5" /> {generando ? "Creando…" : "Crear enlace"}
+      </button>
+    );
+  }
+  return (
+    <div className="inline-flex items-center gap-1">
+      <button onClick={() => void copiar(tapicero.accessToken)} title="Copiar enlace de acceso"
+        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+        <Copy className="h-3.5 w-3.5" /> Copiar enlace
+      </button>
+      <button onClick={() => { if (confirm("¿Regenerar el enlace? El anterior dejará de funcionar.")) void actions.generarEnlaceTapicero(tapicero.id).then((tk) => { if (tk) toast.success("Enlace nuevo generado y copiado."); }); }}
+        title="Regenerar" className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50">
+        <RefreshCw className="h-3.5 w-3.5" />
+      </button>
+      <button onClick={() => { if (confirm("¿Revocar el enlace de acceso?")) void actions.revocarEnlaceTapicero(tapicero.id); }}
+        title="Revocar enlace" className="rounded-lg border border-rose-200 p-1.5 text-rose-600 hover:bg-rose-50">
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

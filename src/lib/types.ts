@@ -33,6 +33,8 @@ export interface Tapicero {
   apellido: string;
   activo: boolean;
   orden: number;
+  accessToken: string;        // token de acceso por enlace (vacío si no generado)
+  accessTokenActivo: boolean; // el enlace está activo
 }
 
 // Nombre para mostrar en la UI. Hay dos "Daniel": SIEMPRE nombre + apellido

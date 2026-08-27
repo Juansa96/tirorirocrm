@@ -111,7 +111,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = useRouterState({ select: (s) => s.location.pathname });
 
-  const isPublic = path === "/login" || path === "/reset-password";
+  const isPublic = path === "/login" || path === "/reset-password" || path.startsWith("/t/");
   const enPanel = path === "/panel" || path.startsWith("/panel/");
 
   useEffect(() => {

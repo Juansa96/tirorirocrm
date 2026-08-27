@@ -498,6 +498,8 @@ async function refetchTapiceros() {
       apellido: (r.apellido as string) ?? "",
       activo: r.activo !== false,
       orden: Number(r.orden) || 0,
+      accessToken: (r.access_token as string) ?? "",
+      accessTokenActivo: r.access_token_activo !== false,
     }));
     state = { ...state, tapiceros: rows }; emit();
   }
@@ -1364,6 +1366,28 @@ export const actions = {
     emit();
     const { error } = await supabase.from("tapiceros").update(db as never).eq("id", id);
     if (error) { state = prev; emit(); toast.error("No se pudo actualizar el tapicero."); }
+  },
+
+  // Genera (o regenera) el token de acceso por enlace del tapicero. El equipo
+  // puede actualizar tapiceros por RLS. Devuelve el token nuevo o "".
+  async generarEnlaceTapicero(id: string): Promise<string> {
+    const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "");
+    const { error } = await supabase.from("tapiceros")
+      .update({ access_token: token, access_token_activo: true } as never).eq("id", id);
+    if (error) { toast.error("No se pudo generar el enlace."); return ""; }
+    state = { ...state, tapiceros: state.tapiceros.map((t) => t.id === id ? { ...t, accessToken: token, accessTokenActivo: true } : t) };
+    emit();
+    return token;
+  },
+
+  // Revoca el enlace (borra el token). El enlace deja de funcionar al instante.
+  async revocarEnlaceTapicero(id: string) {
+    const prev = state;
+    state = { ...state, tapiceros: state.tapiceros.map((t) => t.id === id ? { ...t, accessToken: "", accessTokenActivo: false } : t) };
+    emit();
+    const { error } = await supabase.from("tapiceros")
+      .update({ access_token: null, access_token_activo: false } as never).eq("id", id);
+    if (error) { state = prev; emit(); toast.error("No se pudo revocar el enlace."); }
   },
 
   // "Media pagada (todos)": marca el 50% en los pedidos ACTUALES indicados.
