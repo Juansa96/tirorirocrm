@@ -460,7 +460,12 @@ async function refetchPedidos() {
 }
 async function refetchPedidoTelas() {
   const { data, error } = await supabase.from("pedido_telas").select("*").order("orden", { ascending: true });
-  if (!error && data) { state = { ...state, pedidoTelas: (data as unknown as Record<string, unknown>[]).map(mapPedidoTela) }; emit(); }
+  if (!error && data) {
+    const raw = data as unknown as Record<string, unknown>[];
+    const firmadas = await refreshSignedUrls("telas", raw.map((r) => (r.tela_foto_url as string) ?? ""));
+    const rows = raw.map(mapPedidoTela).map((t) => ({ ...t, telaFotoUrl: firmadas.get(t.telaFotoUrl) ?? t.telaFotoUrl }));
+    state = { ...state, pedidoTelas: rows }; emit();
+  }
 }
 async function refetchCatalogo() {
   const { data, error } = await supabase.from("catalogo_productos").select("*").order("tipo", { ascending: true }).order("orden", { ascending: true });
