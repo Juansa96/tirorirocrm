@@ -334,7 +334,7 @@ function PipelineB2BView() {
   const hasSinProv = b2b.some((l) => !(l.provincia || "").trim());
 
   function setParam(key: keyof Search, value: string | undefined) {
-    navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, tab: "b2b", [key]: value || undefined }) });
+    navigate({ to: "/pipeline", search: (prev: Search) => ({ ...prev, tab: "b2b" as const, [key]: value || undefined }) });
   }
   function clearFilters() {
     navigate({ to: "/pipeline", search: { tab: "b2b" } });
