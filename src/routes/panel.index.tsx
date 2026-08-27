@@ -204,7 +204,7 @@ function ProductoRow({ p, tapiceroSearch, onDone, onMover }: { p: PanelPedido; t
   // Línea de medidas: las columnas numéricas si existen; si no, un detalle de
   // modelo que sea una medida (p. ej. almohadón "45×45" sin columnas); si no,
   // "Medida personalizada".
-  const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medida personalizada");
+  const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medidas sin poner");
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   const prio = prioridadChip(p.prioridad);
   return (

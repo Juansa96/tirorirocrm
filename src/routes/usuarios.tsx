@@ -36,10 +36,14 @@ function Usuarios() {
   // elegida: se muestra el selector de persona sin haber guardado todavía el rol.
   const [eligiendoTapicero, setEligiendoTapicero] = useState<Record<string, boolean>>({});
 
-  const cargar = useCallback(async () => {
-    const res = await apiCall("GET");
-    if (res.ok) { const d = await res.json(); setRows(d.usuarios ?? []); }
-    else { toast.error("No se pudo cargar la lista de usuarios."); setRows([]); }
+  const cargar = useCallback(async (avisar = false) => {
+    try {
+      const res = await apiCall("GET");
+      if (res.ok) { const d = await res.json(); setRows(d.usuarios ?? []); if (avisar) toast.success("Lista actualizada."); }
+      else { toast.error("No se pudo cargar la lista de usuarios."); setRows([]); }
+    } catch {
+      toast.error("Sin conexión al actualizar. Inténtalo de nuevo.");
+    }
   }, []);
 
   useEffect(() => {
@@ -86,7 +90,7 @@ function Usuarios() {
         <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
           <Users className="h-6 w-6 text-[#1a1f36]" /> Usuarios
         </h1>
-        <button onClick={() => void cargar()} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <button onClick={() => void cargar(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           <RefreshCw className="h-4 w-4" /> Actualizar
         </button>
       </div>

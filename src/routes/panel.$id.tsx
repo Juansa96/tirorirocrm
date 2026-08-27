@@ -91,16 +91,16 @@ function FichaPanel() {
               </div>
               <dl className="min-w-0 flex-1 space-y-1">
                 <Dato k="Producto" v={displayNombreProducto(p.tipo, p.modelo)} />
-                <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medida personalizada"} />
+                <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medidas sin poner"} />
                 <Dato k="Cliente" v={p.cliente || "—"} />
                 <Dato k="Tapicero" v={p.tapiceroNombre || "Sin asignar"} />
                 {montaje && <Dato k="Montaje" v={montaje} />}
               </dl>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2 text-[11px]">
-              <span className="text-slate-400">Entrega:</span>
+              <span className="text-slate-400">Entrega cliente:</span>
               <span className="font-semibold text-slate-700">{p.fechaLimite ? formatShortDate(p.fechaLimite) : "—"}</span>
-              <span className="ml-2 text-slate-400">Recogida:</span>
+              <span className="ml-2 text-slate-400">Lo recoge Juan:</span>
               <span className="font-semibold text-slate-700">{p.fechaRecogida ? formatShortDate(p.fechaRecogida) : "—"}</span>
             </div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -138,7 +138,7 @@ function FichaPanel() {
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Documentos</h2>
           <div className="grid gap-2 sm:grid-cols-2">
             <DocSlot icon={<Scissors className="h-4 w-4 text-slate-500" />} titulo="Plantilla de corte" archivos={plantilla} vacio="Sin plantilla subida" />
-            <DocSlot icon={<Truck className="h-4 w-4 text-slate-500" />} titulo="Etiqueta de envío" archivos={etiquetas} vacio="Sin etiqueta" mostrarTransportista />
+            <DocSlot icon={<Truck className="h-4 w-4 text-slate-500" />} titulo="Etiqueta de envío (lo recoge el transportista)" archivos={etiquetas} vacio="Sin etiqueta · lo recoge Juan" mostrarTransportista />
           </div>
         </section>
 

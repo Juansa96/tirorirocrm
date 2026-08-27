@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
+import { TELAS_WEB } from "@/lib/telas-web-data";
 
 export interface PanelTela { rol: string; nombre: string; fotoUrl: string; coleccion: string; mismaQueFrontal: boolean; }
 export interface PanelArchivo { id: string; tipo: string; nombre: string; url: string; transportista: string; createdAt: string; }
@@ -39,9 +40,11 @@ function normTela(s: string): string {
 let telasWebCache: Map<string, { foto: string; coleccion: string }> | null = null;
 async function getTelasWeb(): Promise<Map<string, { foto: string; coleccion: string }>> {
   if (telasWebCache) return telasWebCache;
-  const map = new Map<string, { foto: string; coleccion: string }>();
+  // Base: catálogo empaquetado (siempre disponible, sin depender de la red).
+  const map = new Map<string, { foto: string; coleccion: string }>(Object.entries(TELAS_WEB));
+  // Enriquecimiento: catálogo en vivo (por si se han añadido telas nuevas).
   try {
-    const res = await fetch("/api/public/telas", { cache: "force-cache" });
+    const res = await fetch("/api/public/telas", { cache: "no-cache" });
     if (res.ok) {
       const data = await res.json() as { telas?: Array<Record<string, unknown>> };
       for (const t of data.telas ?? []) {
@@ -50,7 +53,7 @@ async function getTelasWeb(): Promise<Map<string, { foto: string; coleccion: str
         if (nombre && foto) map.set(nombre, { foto, coleccion: String(t.coleccion ?? "") });
       }
     }
-  } catch { /* la web no responde: no pasa nada, se queda sin foto */ }
+  } catch { /* la web no responde: nos quedamos con el catálogo empaquetado */ }
   telasWebCache = map;
   return map;
 }
