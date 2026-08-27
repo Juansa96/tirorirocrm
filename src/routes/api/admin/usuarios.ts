@@ -68,7 +68,11 @@ export const Route = createFileRoute("/api/admin/usuarios")({
           const email = String(body?.email ?? "").trim().toLowerCase();
           const password = String(body?.password ?? "");
           const tapiceroId = String(body?.tapiceroId ?? "").trim();
-          if (!email || password.length < 8 || !tapiceroId) {
+          const rol = String(body?.rol ?? "tapicero");
+          if (!ROLES_VALIDOS.includes(rol as (typeof ROLES_VALIDOS)[number])) {
+            return json({ error: "Rol no válido" }, 400);
+          }
+          if (!email || password.length < 8 || (rol === "tapicero" && !tapiceroId)) {
             return json({ error: "Faltan datos (email, contraseña ≥ 8, tapicero)" }, 400);
           }
           const { data: created, error: cErr } = await supabaseAdmin.auth.admin.createUser({
@@ -76,7 +80,7 @@ export const Route = createFileRoute("/api/admin/usuarios")({
           });
           if (cErr || !created?.user) return json({ error: cErr?.message ?? "No se pudo crear el usuario" }, 400);
           const { error: pErr } = await supabaseAdmin.from("perfiles").insert({
-            id: created.user.id, rol: "tapicero", tapicero_id: tapiceroId, activo: true,
+            id: created.user.id, rol, tapicero_id: rol === "tapicero" ? tapiceroId : null, activo: true,
           });
           if (pErr) {
             // Rollback del usuario auth si el perfil falla.
@@ -84,6 +88,27 @@ export const Route = createFileRoute("/api/admin/usuarios")({
             return json({ error: "No se pudo crear el perfil: " + pErr.message }, 400);
           }
           return json({ ok: true, id: created.user.id }, 201);
+        }
+
+        // Asigna / cambia el rol de un usuario ya existente en auth (incluye
+        // cuentas sin perfil, que de otro modo quedarían sin acceso).
+        if (op === "rol") {
+          const id = String(body?.id ?? "");
+          const rol = String(body?.rol ?? "");
+          const tapiceroId = String(body?.tapiceroId ?? "").trim();
+          if (!id) return json({ error: "Falta id" }, 400);
+          if (!ROLES_VALIDOS.includes(rol as (typeof ROLES_VALIDOS)[number])) {
+            return json({ error: "Rol no válido" }, 400);
+          }
+          if (rol === "tapicero" && !tapiceroId) return json({ error: "Falta el tapicero" }, 400);
+          const { data: user, error: uErr } = await supabaseAdmin.auth.admin.getUserById(id);
+          if (uErr || !user?.user) return json({ error: "Usuario no encontrado" }, 404);
+          const { error } = await supabaseAdmin.from("perfiles").upsert({
+            id, rol, tapicero_id: rol === "tapicero" ? tapiceroId : null, activo: true,
+          }, { onConflict: "id" });
+          if (error) return json({ error: error.message }, 400);
+          await supabaseAdmin.auth.admin.updateUserById(id, { ban_duration: "none" });
+          return json({ ok: true });
         }
 
         if (op === "password") {
