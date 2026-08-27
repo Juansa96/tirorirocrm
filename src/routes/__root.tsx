@@ -182,9 +182,32 @@ function useErrorCapture() {
   }, []);
 }
 
+// Tras publicar, los "chunks" de las rutas cambian de hash. Un navegador que
+// tenía la app abierta de una versión anterior intenta cargar un chunk viejo al
+// navegar (p. ej. al abrir la ficha desde una card) y falla en silencio: la
+// navegación no ocurre. Vite emite `vite:preloadError` en ese caso; recargamos
+// una vez para traer la versión nueva. Guarda anti-bucle: como mucho una recarga
+// cada 15 s.
+function useReloadOnStaleChunk() {
+  useEffect(() => {
+    function onPreloadError(e: Event) {
+      e.preventDefault();
+      try {
+        const last = Number(sessionStorage.getItem("chunk_reload_ts") || "0");
+        if (Date.now() - last < 15000) return; // ya recargamos hace poco
+        sessionStorage.setItem("chunk_reload_ts", String(Date.now()));
+      } catch { /* sessionStorage no disponible: recargamos igual */ }
+      window.location.reload();
+    }
+    window.addEventListener("vite:preloadError", onPreloadError);
+    return () => window.removeEventListener("vite:preloadError", onPreloadError);
+  }, []);
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useErrorCapture();
+  useReloadOnStaleChunk();
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
