@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -360,28 +360,72 @@ export type Database = {
           },
         ]
       }
+      pedido_archivos: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string
+          pedido_id: string
+          storage_path: string
+          subido_por: string | null
+          tipo: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre: string
+          pedido_id: string
+          storage_path: string
+          subido_por?: string | null
+          tipo: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string
+          pedido_id?: string
+          storage_path?: string
+          subido_por?: string | null
+          tipo?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_archivos_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pedido_telas: {
         Row: {
           created_at: string
           estado: string
           fecha_recibo: string | null
           id: string
+          misma_que_frontal: boolean
           nombre_tela: string | null
           orden: number
           pedido_id: string
-          tipo_tela: string
-          tela_foto_url: string | null
           tela_biblioteca_id: string | null
-          misma_que_frontal: boolean
+          tela_foto_url: string | null
+          tipo_tela: string
         }
         Insert: {
           created_at?: string
           estado?: string
           fecha_recibo?: string | null
           id?: string
+          misma_que_frontal?: boolean
           nombre_tela?: string | null
           orden?: number
           pedido_id: string
+          tela_biblioteca_id?: string | null
+          tela_foto_url?: string | null
           tipo_tela: string
         }
         Update: {
@@ -389,13 +433,13 @@ export type Database = {
           estado?: string
           fecha_recibo?: string | null
           id?: string
+          misma_que_frontal?: boolean
           nombre_tela?: string | null
           orden?: number
           pedido_id?: string
-          tipo_tela?: string
-          tela_foto_url?: string | null
           tela_biblioteca_id?: string | null
-          misma_que_frontal?: boolean
+          tela_foto_url?: string | null
+          tipo_tela?: string
         }
         Relationships: [
           {
@@ -405,10 +449,18 @@ export type Database = {
             referencedRelation: "pedidos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pedido_telas_tela_biblioteca_id_fkey"
+            columns: ["tela_biblioteca_id"]
+            isOneToOne: false
+            referencedRelation: "telas_biblioteca"
+            referencedColumns: ["id"]
+          },
         ]
       }
       pedidos: {
         Row: {
+          cliente_nombre: string | null
           cliente_nombre_libre: string | null
           coste_envio: number
           creado_manualmente: boolean
@@ -419,6 +471,8 @@ export type Database = {
           entregado_fecha: string | null
           enviado_daniel: boolean
           enviado_daniel_fecha: string | null
+          enviado_tapicero: boolean
+          enviado_tapicero_fecha: string | null
           enviar_tela_daniel: boolean
           enviar_tela_daniel_fecha: string | null
           es_canje: boolean
@@ -432,6 +486,7 @@ export type Database = {
           formatos: string[]
           id: string
           lead_id: string | null
+          montaje: string | null
           notas_pedido: string | null
           pagado_50: boolean
           pagado_completo: boolean
@@ -439,19 +494,9 @@ export type Database = {
           pantalla_hecha: boolean
           pantalla_hecha_fecha: string | null
           pasos_tapicero: Json
-          enviado_tapicero: boolean
-          enviado_tapicero_fecha: string | null
-          tela_estado: string
-          tela_estado_por: string | null
-          tela_estado_fecha: string | null
-          terminado_tapicero: boolean
-          terminado_tapicero_por: string | null
-          terminado_tapicero_fecha: string | null
-          montaje: string | null
-          prioritario: boolean
-          cliente_nombre: string | null
           precio: number
           precio_con_iva: number | null
+          prioritario: boolean
           producto_lead_id: string | null
           recibir_daniel: boolean
           recibir_daniel_fecha: string | null
@@ -461,16 +506,23 @@ export type Database = {
           tapicero_id: string | null
           tapizado_hecho: boolean
           tapizado_hecho_fecha: string | null
+          tela_estado: string
+          tela_estado_fecha: string | null
+          tela_estado_por: string | null
           tela_pedida: boolean
           tela_pedida_fecha: string | null
           tela_recibida: boolean
           tela_recibida_fecha: string | null
           terminado_daniel: boolean
           terminado_daniel_fecha: string | null
+          terminado_tapicero: boolean
+          terminado_tapicero_fecha: string | null
+          terminado_tapicero_por: string | null
           tipo_colaboracion: string | null
           updated_at: string
         }
         Insert: {
+          cliente_nombre?: string | null
           cliente_nombre_libre?: string | null
           coste_envio?: number
           creado_manualmente?: boolean
@@ -481,6 +533,8 @@ export type Database = {
           entregado_fecha?: string | null
           enviado_daniel?: boolean
           enviado_daniel_fecha?: string | null
+          enviado_tapicero?: boolean
+          enviado_tapicero_fecha?: string | null
           enviar_tela_daniel?: boolean
           enviar_tela_daniel_fecha?: string | null
           es_canje?: boolean
@@ -494,6 +548,7 @@ export type Database = {
           formatos?: string[]
           id?: string
           lead_id?: string | null
+          montaje?: string | null
           notas_pedido?: string | null
           pagado_50?: boolean
           pagado_completo?: boolean
@@ -501,19 +556,9 @@ export type Database = {
           pantalla_hecha?: boolean
           pantalla_hecha_fecha?: string | null
           pasos_tapicero?: Json
-          enviado_tapicero?: boolean
-          enviado_tapicero_fecha?: string | null
-          tela_estado?: string
-          tela_estado_por?: string | null
-          tela_estado_fecha?: string | null
-          terminado_tapicero?: boolean
-          terminado_tapicero_por?: string | null
-          terminado_tapicero_fecha?: string | null
-          montaje?: string | null
-          prioritario?: boolean
-          cliente_nombre?: string | null
           precio?: number
           precio_con_iva?: number | null
+          prioritario?: boolean
           producto_lead_id?: string | null
           recibir_daniel?: boolean
           recibir_daniel_fecha?: string | null
@@ -523,16 +568,23 @@ export type Database = {
           tapicero_id?: string | null
           tapizado_hecho?: boolean
           tapizado_hecho_fecha?: string | null
+          tela_estado?: string
+          tela_estado_fecha?: string | null
+          tela_estado_por?: string | null
           tela_pedida?: boolean
           tela_pedida_fecha?: string | null
           tela_recibida?: boolean
           tela_recibida_fecha?: string | null
           terminado_daniel?: boolean
           terminado_daniel_fecha?: string | null
+          terminado_tapicero?: boolean
+          terminado_tapicero_fecha?: string | null
+          terminado_tapicero_por?: string | null
           tipo_colaboracion?: string | null
           updated_at?: string
         }
         Update: {
+          cliente_nombre?: string | null
           cliente_nombre_libre?: string | null
           coste_envio?: number
           creado_manualmente?: boolean
@@ -543,6 +595,8 @@ export type Database = {
           entregado_fecha?: string | null
           enviado_daniel?: boolean
           enviado_daniel_fecha?: string | null
+          enviado_tapicero?: boolean
+          enviado_tapicero_fecha?: string | null
           enviar_tela_daniel?: boolean
           enviar_tela_daniel_fecha?: string | null
           es_canje?: boolean
@@ -556,6 +610,7 @@ export type Database = {
           formatos?: string[]
           id?: string
           lead_id?: string | null
+          montaje?: string | null
           notas_pedido?: string | null
           pagado_50?: boolean
           pagado_completo?: boolean
@@ -563,19 +618,9 @@ export type Database = {
           pantalla_hecha?: boolean
           pantalla_hecha_fecha?: string | null
           pasos_tapicero?: Json
-          enviado_tapicero?: boolean
-          enviado_tapicero_fecha?: string | null
-          tela_estado?: string
-          tela_estado_por?: string | null
-          tela_estado_fecha?: string | null
-          terminado_tapicero?: boolean
-          terminado_tapicero_por?: string | null
-          terminado_tapicero_fecha?: string | null
-          montaje?: string | null
-          prioritario?: boolean
-          cliente_nombre?: string | null
           precio?: number
           precio_con_iva?: number | null
+          prioritario?: boolean
           producto_lead_id?: string | null
           recibir_daniel?: boolean
           recibir_daniel_fecha?: string | null
@@ -585,12 +630,18 @@ export type Database = {
           tapicero_id?: string | null
           tapizado_hecho?: boolean
           tapizado_hecho_fecha?: string | null
+          tela_estado?: string
+          tela_estado_fecha?: string | null
+          tela_estado_por?: string | null
           tela_pedida?: boolean
           tela_pedida_fecha?: string | null
           tela_recibida?: boolean
           tela_recibida_fecha?: string | null
           terminado_daniel?: boolean
           terminado_daniel_fecha?: string | null
+          terminado_tapicero?: boolean
+          terminado_tapicero_fecha?: string | null
+          terminado_tapicero_por?: string | null
           tipo_colaboracion?: string | null
           updated_at?: string
         }
@@ -653,80 +704,6 @@ export type Database = {
             columns: ["tapicero_id"]
             isOneToOne: false
             referencedRelation: "tapiceros"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      telas_biblioteca: {
-        Row: {
-          id: string
-          nombre: string
-          nombre_norm: string
-          foto_url: string | null
-          coleccion: string
-          origen: string
-          created_by: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          nombre: string
-          nombre_norm: string
-          foto_url?: string | null
-          coleccion?: string
-          origen?: string
-          created_by?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          nombre?: string
-          nombre_norm?: string
-          foto_url?: string | null
-          coleccion?: string
-          origen?: string
-          created_by?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
-      pedido_archivos: {
-        Row: {
-          id: string
-          pedido_id: string
-          tipo: string
-          nombre: string
-          storage_path: string
-          url: string
-          subido_por: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          pedido_id: string
-          tipo: string
-          nombre: string
-          storage_path: string
-          url: string
-          subido_por?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          pedido_id?: string
-          tipo?: string
-          nombre?: string
-          storage_path?: string
-          url?: string
-          subido_por?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pedido_archivos_pedido_id_fkey"
-            columns: ["pedido_id"]
-            isOneToOne: false
-            referencedRelation: "pedidos"
             referencedColumns: ["id"]
           },
         ]
@@ -838,6 +815,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tapiceros: {
+        Row: {
+          activo: boolean
+          apellido: string
+          created_at: string
+          id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          activo?: boolean
+          apellido?: string
+          created_at?: string
+          id?: string
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          activo?: boolean
+          apellido?: string
+          created_at?: string
+          id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: []
+      }
       tareas: {
         Row: {
           completada: boolean
@@ -879,30 +883,36 @@ export type Database = {
           },
         ]
       }
-      tapiceros: {
+      telas_biblioteca: {
         Row: {
-          activo: boolean
-          apellido: string
+          coleccion: string
           created_at: string
+          created_by: string | null
+          foto_url: string | null
           id: string
           nombre: string
-          orden: number
+          nombre_norm: string
+          origen: string
         }
         Insert: {
-          activo?: boolean
-          apellido?: string
+          coleccion?: string
           created_at?: string
+          created_by?: string | null
+          foto_url?: string | null
           id?: string
           nombre: string
-          orden?: number
+          nombre_norm: string
+          origen?: string
         }
         Update: {
-          activo?: boolean
-          apellido?: string
+          coleccion?: string
           created_at?: string
+          created_by?: string | null
+          foto_url?: string | null
           id?: string
           nombre?: string
-          orden?: number
+          nombre_norm?: string
+          origen?: string
         }
         Relationships: []
       }
@@ -920,6 +930,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      es_admin: { Args: never; Returns: boolean }
+      es_equipo: { Args: never; Returns: boolean }
+      mi_rol: { Args: never; Returns: string }
+      mi_tapicero_id: { Args: never; Returns: string }
       move_to_dlq: {
         Args: {
           dlq_name: string
