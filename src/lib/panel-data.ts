@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { displayColeccionTela } from "@/lib/catalogo";
+import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 
 export interface PanelTela { rol: string; nombre: string; fotoUrl: string; coleccion: string; mismaQueFrontal: boolean; }
@@ -26,6 +26,31 @@ function diasHasta(fecha: string): number {
   if (!fecha) return 9999;
   const ms = new Date(fecha + "T00:00:00").getTime() - Date.now();
   return Math.ceil(ms / 86400000);
+}
+
+// ── Catálogo de telas de la web (nombre → foto), para rellenar la foto de las
+// telas que ya están asignadas por nombre pero sin foto propia. Así el tapicero
+// ve la foto de la web sin que el equipo tenga que reasignar la tela.
+function normTela(s: string): string {
+  return stripDiacritics(s).trim().toLowerCase().replace(/\s+/g, " ");
+}
+let telasWebCache: Map<string, { foto: string; coleccion: string }> | null = null;
+async function getTelasWeb(): Promise<Map<string, { foto: string; coleccion: string }>> {
+  if (telasWebCache) return telasWebCache;
+  const map = new Map<string, { foto: string; coleccion: string }>();
+  try {
+    const res = await fetch("/api/public/telas", { cache: "force-cache" });
+    if (res.ok) {
+      const data = await res.json() as { telas?: Array<Record<string, unknown>> };
+      for (const t of data.telas ?? []) {
+        const nombre = normTela(String(t.nombre ?? ""));
+        const foto = String(t.foto ?? "");
+        if (nombre && foto) map.set(nombre, { foto, coleccion: String(t.coleccion ?? "") });
+      }
+    }
+  } catch { /* la web no responde: no pasa nada, se queda sin foto */ }
+  telasWebCache = map;
+  return map;
 }
 
 // Carga (y mantiene en tiempo real) los pedidos ENVIADOS de un tapicero, con su
@@ -71,21 +96,29 @@ export function usePanelPedidos(tapiceroId: string | null | undefined) {
     // Buckets privados: se firman las fotos de tela y los archivos del pedido.
     const telaRows = (telas as unknown as Record<string, unknown>[] ?? []);
     const archRows = (archivos as unknown as Record<string, unknown>[] ?? []);
-    const [telasFirmadas, archFirmados] = await Promise.all([
+    const [telasFirmadas, archFirmados, telasWeb] = await Promise.all([
       refreshSignedUrls("telas", telaRows.map((t) => (t.tela_foto_url as string) ?? "")),
       signPaths("pedido-archivos", archRows.map((a) => (a.storage_path as string) ?? "")),
+      getTelasWeb(),
     ]);
 
     const out: PanelPedido[] = rows.map((p) => {
       const prod = prodById.get(p.producto_lead_id as string) ?? {};
       const fechaLimite = (p.fecha_limite as string) ?? "";
-      const ts = (telasByPedido.get(p.id as string) ?? []).map((t): PanelTela => ({
-        rol: (t.tipo_tela as string) ?? "",
-        nombre: (t.nombre_tela as string) ?? "",
-        fotoUrl: telasFirmadas.get((t.tela_foto_url as string) ?? "") ?? ((t.tela_foto_url as string) ?? ""),
-        coleccion: (t.tela_coleccion as string) ?? "",
-        mismaQueFrontal: !!t.misma_que_frontal,
-      }));
+      const ts = (telasByPedido.get(p.id as string) ?? []).map((t): PanelTela => {
+        const nombre = (t.nombre_tela as string) ?? "";
+        const propia = telasFirmadas.get((t.tela_foto_url as string) ?? "") ?? ((t.tela_foto_url as string) ?? "");
+        // Si la tela no tiene foto propia pero su nombre está en el catálogo de
+        // la web, se usa la foto (y colección) de la web.
+        const web = !propia && nombre ? telasWeb.get(normTela(nombre)) : undefined;
+        return {
+          rol: (t.tipo_tela as string) ?? "",
+          nombre,
+          fotoUrl: propia || web?.foto || "",
+          coleccion: (t.tela_coleccion as string) || (web?.coleccion ?? ""),
+          mismaQueFrontal: !!t.misma_que_frontal,
+        };
+      });
       const ar = (archByPedido.get(p.id as string) ?? []).map((a): PanelArchivo => ({
         id: a.id as string, tipo: (a.tipo as string) ?? "", nombre: (a.nombre as string) ?? "",
         url: archFirmados.get((a.storage_path as string) ?? "") ?? ((a.url as string) ?? ""),

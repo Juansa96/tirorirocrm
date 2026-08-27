@@ -6,7 +6,8 @@ import { useAuth } from "@/lib/auth";
 import { tapiceroNombre, type Tapicero } from "@/lib/types";
 import { displayNombreProducto, modeloDetalle, esDetalleMedida } from "@/lib/catalogo";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
-import { usePanelPedidos, type PanelPedido } from "@/lib/panel-data";
+import { usePanelPedidos, accionTapicero, type PanelPedido } from "@/lib/panel-data";
+import { toast } from "sonner";
 
 interface Search { tapicero?: string; }
 
@@ -50,7 +51,7 @@ function Panel() {
   }, [esEquipo]);
 
   const viendoId = esTapicero ? miTapiceroId : (search.tapicero ?? "");
-  const { pedidos } = usePanelPedidos(viendoId || null);
+  const { pedidos, refetch } = usePanelPedidos(viendoId || null);
   const [verEntregados, setVerEntregados] = useState(false);
   // Filtro rápido: por estado de tela y por retraso.
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso">("todos");
@@ -124,7 +125,7 @@ function Panel() {
         ) : (
           <div className="space-y-4">
             {agruparPorCliente(lista).map((g) => (
-              <ClienteGrupo key={g.cliente} cliente={g.cliente} prioritario={g.prioritario} items={g.items} tapiceroSearch={esEquipo ? viendoId : undefined} />
+              <ClienteGrupo key={g.cliente} cliente={g.cliente} prioritario={g.prioritario} items={g.items} tapiceroSearch={esEquipo ? viendoId : undefined} onDone={refetch} />
             ))}
           </div>
         )}
@@ -156,7 +157,7 @@ function agruparPorCliente(lista: PanelPedido[]): Grupo[] {
   return grupos.sort((a, b) => (a.minPrioridad - b.minPrioridad) || a.masProximo.localeCompare(b.masProximo));
 }
 
-function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch }: { cliente: string; prioritario: boolean; items: PanelPedido[]; tapiceroSearch?: string }) {
+function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch, onDone }: { cliente: string; prioritario: boolean; items: PanelPedido[]; tapiceroSearch?: string; onDone: () => void }) {
   return (
     <div className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${prioritario ? "border-amber-300" : "border-slate-200"}`}>
       <div className={`flex items-center justify-between gap-2 border-b px-4 py-2.5 ${prioritario ? "border-amber-100 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
@@ -167,13 +168,13 @@ function ClienteGrupo({ cliente, prioritario, items, tapiceroSearch }: { cliente
         <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">{items.length} producto{items.length === 1 ? "" : "s"}</span>
       </div>
       <div className="divide-y divide-slate-100">
-        {items.map((p) => <ProductoRow key={p.id} p={p} tapiceroSearch={tapiceroSearch} />)}
+        {items.map((p) => <ProductoRow key={p.id} p={p} tapiceroSearch={tapiceroSearch} onDone={onDone} />)}
       </div>
     </div>
   );
 }
 
-function ProductoRow({ p, tapiceroSearch }: { p: PanelPedido; tapiceroSearch?: string }) {
+function ProductoRow({ p, tapiceroSearch, onDone }: { p: PanelPedido; tapiceroSearch?: string; onDone: () => void }) {
   const c = diasColor(p.diasRestantes, p.entregado);
   const medidasNum = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
   const det = modeloDetalle(p.tipo, p.modelo);
@@ -184,23 +185,52 @@ function ProductoRow({ p, tapiceroSearch }: { p: PanelPedido; tapiceroSearch?: s
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   const prio = prioridadChip(p.prioridad);
   return (
-    <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}}
-      className="flex items-center gap-3 px-3 py-3 active:bg-slate-50">
-      <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          {p.prioridad === 1 && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
-          <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
+    <div>
+      <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}}
+        className="flex items-center gap-3 px-3 pt-3 active:bg-slate-50">
+        <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {p.prioridad === 1 && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
+            <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
+          </div>
+          <div className="text-xs text-slate-500">{medidas}</div>
+          <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
         </div>
-        <div className="text-xs text-slate-500">{medidas}</div>
-        <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
-        {prio && <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${prio.bg} ${prio.text}`}>{prio.label}</span>}
-      </div>
-      <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
-    </Link>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
+          {prio && <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${prio.bg} ${prio.text}`}>{prio.label}</span>}
+        </div>
+        <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
+      </Link>
+      {/* Acciones rápidas desde la propia card */}
+      <AccionesMini p={p} onDone={onDone} />
+    </div>
+  );
+}
+
+// Botones "Tela recibida" / "Terminado" dentro de la card (fuera del enlace,
+// para no navegar al pulsarlos). Toggle: se pueden marcar y desmarcar.
+function AccionesMini({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const telaRecibida = p.telaEstado === "recibida";
+  async function marca(op: "tela_recibida" | "terminado", valor: boolean) {
+    setBusy(true);
+    const ok = await accionTapicero(op, p.id, valor);
+    setBusy(false);
+    if (ok) { toast.success("Hecho ✅"); void onDone(); } else toast.error("No se pudo guardar.");
+  }
+  return (
+    <div className="flex gap-2 px-3 pb-3 pt-2">
+      <button disabled={busy} onClick={() => marca("tela_recibida", !telaRecibida)}
+        className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold ${telaRecibida ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600"} disabled:opacity-50`}>
+        {telaRecibida ? "✓ Tela recibida" : "Tela recibida"}
+      </button>
+      <button disabled={busy} onClick={() => marca("terminado", !p.terminado)}
+        className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold ${p.terminado ? "border-slate-300 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"} disabled:opacity-50`}>
+        {p.terminado ? "✓ Terminado" : "Terminado"}
+      </button>
+    </div>
   );
 }
 

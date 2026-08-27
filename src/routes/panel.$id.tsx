@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import {
-  ArrowLeft, Download, PackageCheck, Ruler, Calendar, Scissors, User, Flag,
-  StickyNote, Truck, Image as ImageIcon, X, ZoomIn, Sofa, Anchor, Printer, Camera,
+  ArrowLeft, Download, Scissors, Truck, Image as ImageIcon, X, ZoomIn, Camera, Printer, Flag,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -21,17 +20,14 @@ export const Route = createFileRoute("/panel/$id")({
   component: FichaPanel,
 });
 
-// Badge de plazo/retraso (una sola pieza, legible en móvil).
 function plazoBadge(d: number, entregado: boolean) {
   if (entregado) return { bg: "bg-slate-100", text: "text-slate-500", label: "Entregado" };
   if (d < 0) return { bg: "bg-rose-100", text: "text-rose-700", label: `${Math.abs(d)}d tarde` };
   if (d <= 3) return { bg: "bg-amber-100", text: "text-amber-700", label: d === 0 ? "Hoy" : `${d}d` };
   return { bg: "bg-emerald-100", text: "text-emerald-700", label: `${d}d` };
 }
-
-function prioridadBadge(prioridad: number): { bg: string; text: string } {
+function prioridadBadge(prioridad: number) {
   if (prioridad === 1) return { bg: "bg-rose-100", text: "text-rose-700" };
-  if (prioridad === 3) return { bg: "bg-slate-100", text: "text-slate-500" };
   return { bg: "bg-slate-100", text: "text-slate-600" };
 }
 
@@ -43,7 +39,6 @@ function FichaPanel() {
   const { pedidos, refetch } = usePanelPedidos(viendoId || null);
   const p = (pedidos ?? []).find((x) => x.id === id);
   const backSearch = esEquipo && viendoId ? { tapicero: viendoId } : {};
-  // Imagen ampliada a pantalla completa (referencia / miniaturas de tela).
   const [zoom, setZoom] = useState<{ url: string; alt: string } | null>(null);
 
   if (pedidos === null) return <div className="min-h-screen bg-slate-50 p-8 text-center text-slate-400">Cargando…</div>;
@@ -57,181 +52,142 @@ function FichaPanel() {
   const medidas = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
   const plazo = plazoBadge(p.diasRestantes, p.entregado);
   const prio = prioridadBadge(p.prioridad);
+  const montaje = p.montaje === "colgar" ? "Colgar en pared" : p.montaje === "apoyar" ? "Apoyar en suelo" : "";
+  const extras = [/tapete/i.test(p.patas) && "Tapetes suelo", /colgador/i.test(p.patas) && "Colgadores"].filter(Boolean) as string[];
 
   const plantilla = p.archivos.filter((a) => a.tipo === "plantilla");
-  const referencia = p.archivos.filter((a) => a.tipo === "referencia");
   const etiquetas = p.archivos.filter((a) => a.tipo === "etiqueta_envio" || a.tipo === "etiqueta_ctt");
+  const referencia = p.archivos.filter((a) => a.tipo === "referencia");
   const fotosAcabado = p.archivos.filter((a) => a.tipo === "foto_terminado");
 
-  // Extras del producto (tapetes / colgadores) leídos de `patas`.
-  const llevaTapetes = /tapete/i.test(p.patas);
-  const llevaColgador = /colgador/i.test(p.patas);
-
   return (
-    <div className="min-h-screen bg-slate-50 pb-28 print:pb-0">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 print:static">
+    <div className="min-h-screen bg-slate-50 pb-24 print:pb-0">
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 print:static">
         <Link to="/panel" search={backSearch} className="text-slate-500 print:hidden"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-lg font-bold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</div>
-          {p.cliente && <div className="truncate text-xs text-slate-500">Cliente: {p.cliente}</div>}
+          <div className="truncate text-base font-bold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</div>
+          {p.cliente && <div className="truncate text-[11px] text-slate-500">{p.cliente}</div>}
         </div>
+        <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold leading-none ${plazo.bg} ${plazo.text}`}>{plazo.label}</span>
         <button type="button" onClick={() => window.print()} title="Imprimir / Guardar PDF"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 print:hidden">
-          <Printer className="h-4 w-4" /> <span className="hidden sm:inline">Imprimir</span>
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 print:hidden">
+          <Printer className="h-3.5 w-3.5" />
         </button>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
-        {/* 1 · Cabecera: cliente, producto, medidas, tapicero, prioridad, plazo */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${plazo.bg} ${plazo.text}`}>{plazo.label}</span>
-            <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold leading-none ${prio.bg} ${prio.text}`}>
-              <Flag className="h-3 w-3" /> Prioridad {prioridadLabel(p.prioridad)}
-            </span>
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Detalle icon={<Ruler className="h-4 w-4" />} label="Medidas" valor={medidas ? medidas + " cm" : "Medida personalizada"} />
-            <Detalle icon={<User className="h-4 w-4" />} label="Cliente" valor={p.cliente || "—"} />
-            <Detalle icon={<Sofa className="h-4 w-4" />} label="Producto" valor={displayNombreProducto(p.tipo, p.modelo)} />
-            <Detalle icon={<User className="h-4 w-4" />} label="Tapicero" valor={p.tapiceroNombre || "Sin asignar"} />
-          </div>
+      <main className="mx-auto max-w-4xl space-y-3 px-3 py-3 text-sm print:space-y-2 print:py-1">
+        <div className="grid gap-3 lg:grid-cols-2 print:grid-cols-2 print:gap-2">
+          {/* 1 · Producto: datos + forma (pequeña) */}
+          <section className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</h2>
+              <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none ${prio.bg} ${prio.text}`}>
+                <Flag className="h-3 w-3" /> {prioridadLabel(p.prioridad)}
+              </span>
+            </div>
+            <div className="flex gap-3">
+              <div className="h-20 w-20 shrink-0 rounded-lg border border-slate-100 bg-slate-50 p-1.5">
+                <SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" />
+              </div>
+              <dl className="min-w-0 flex-1 space-y-1">
+                <Dato k="Producto" v={displayNombreProducto(p.tipo, p.modelo)} />
+                <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medida personalizada"} />
+                <Dato k="Cliente" v={p.cliente || "—"} />
+                <Dato k="Tapicero" v={p.tapiceroNombre || "Sin asignar"} />
+                {montaje && <Dato k="Montaje" v={montaje} />}
+              </dl>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2 text-[11px]">
+              <span className="text-slate-400">Entrega:</span>
+              <span className="font-semibold text-slate-700">{p.fechaLimite ? formatShortDate(p.fechaLimite) : "—"}</span>
+              <span className="ml-2 text-slate-400">Recogida:</span>
+              <span className="font-semibold text-slate-700">{p.fechaRecogida ? formatShortDate(p.fechaRecogida) : "—"}</span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {extras.length === 0 ? (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">Sin extras</span>
+              ) : extras.map((e) => (
+                <span key={e} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">{e}</span>
+              ))}
+            </div>
+          </section>
+
+          {/* 2 · Tapizado: cómo debe quedar + telas */}
+          <section className="rounded-xl border border-slate-200 bg-white p-3">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tapizado</h2>
+            {referencia.length > 0 ? (
+              <button type="button" onClick={() => setZoom({ url: referencia[0].url, alt: "Cómo debe quedar" })}
+                className="group relative mb-2 block w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                <img src={referencia[0].url} alt="Cómo debe quedar" loading="lazy" className="max-h-44 w-full object-contain" />
+                <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white print:hidden">
+                  <ZoomIn className="h-3 w-3" /> Ampliar
+                </span>
+                <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">Cómo debe quedar</span>
+              </button>
+            ) : (
+              <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-400">
+                <ImageIcon className="h-3.5 w-3.5" /> Sin imagen de referencia
+              </div>
+            )}
+            <TelasProducto p={p} onZoom={(url, alt) => setZoom({ url, alt })} />
+          </section>
         </div>
 
-        {/* 2 · Forma del producto en trazo, grande */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="mx-auto h-44 w-auto" />
-        </div>
-
-        {/* 3 · Plantilla de corte */}
-        <Bloque titulo="Plantilla de corte" icon={<Scissors className="h-4 w-4" />}>
-          {plantilla.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">Sin plantilla subida</div>
-          ) : (
-            <div className="space-y-2">
-              {plantilla.map((a) => (
-                <a key={a.id} href={a.url} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-800 active:bg-slate-100">
-                  <Scissors className="h-5 w-5 text-slate-500" />
-                  <span className="min-w-0 flex-1 truncate">{a.nombre}</span>
-                  <Download className="h-4 w-4 text-blue-600" />
-                </a>
-              ))}
-            </div>
-          )}
-        </Bloque>
-
-        {/* 4 · Imagen de referencia del acabado (Gemini), ampliable */}
-        <Bloque titulo="Imagen de referencia del acabado" icon={<ImageIcon className="h-4 w-4" />}>
-          {referencia.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">Sin imagen de referencia</div>
-          ) : (
-            <div className="space-y-3">
-              {referencia.map((a) => (
-                <button key={a.id} type="button" onClick={() => setZoom({ url: a.url, alt: "Referencia del acabado" })}
-                  className="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                  <img src={a.url} alt="Referencia del acabado" loading="lazy" className="max-h-96 w-full object-contain" />
-                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white print:hidden">
-                    <ZoomIn className="h-3.5 w-3.5" /> Ampliar
-                  </span>
-                </button>
-              ))}
-              <p className="text-xs text-slate-500">Indica la dirección de la tela y cómo debe quedar el producto acabado.</p>
-            </div>
-          )}
-        </Bloque>
-
-        {/* 5 · Bloque de telas, adaptado al tipo de producto */}
-        <Bloque titulo="Telas" icon={<Sofa className="h-4 w-4" />}>
-          <TelasProducto p={p} onZoom={(url, alt) => setZoom({ url, alt })} />
-        </Bloque>
-
-        {/* 6 · Extras (tapetes / colgadores) */}
-        <Bloque titulo="Extras" icon={<Anchor className="h-4 w-4" />}>
-          <div className="flex flex-wrap gap-2">
-            {!llevaTapetes && !llevaColgador && (
-              <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-500">Sin extras</span>
-            )}
-            {llevaTapetes && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
-                <PackageCheck className="h-4 w-4" /> Tapetes para el suelo
-              </span>
-            )}
-            {llevaColgador && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
-                <Anchor className="h-4 w-4" /> Colgadores
-              </span>
-            )}
+        {/* 3 · Documentos */}
+        <section className="rounded-xl border border-slate-200 bg-white p-3">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Documentos</h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <DocSlot icon={<Scissors className="h-4 w-4 text-slate-500" />} titulo="Plantilla de corte" archivos={plantilla} vacio="Sin plantilla subida" />
+            <DocSlot icon={<Truck className="h-4 w-4 text-slate-500" />} titulo="Etiqueta de envío" archivos={etiquetas} vacio="Sin etiqueta" mostrarTransportista />
           </div>
-        </Bloque>
+        </section>
 
-        {/* 7 · Fechas */}
-        <Bloque titulo="Fechas" icon={<Calendar className="h-4 w-4" />}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Detalle icon={<Calendar className="h-4 w-4" />} label="Entrega al cliente"
-              valor={p.fechaLimite ? formatShortDate(p.fechaLimite) : "—"} />
-            <Detalle icon={<Truck className="h-4 w-4" />} label="Recogida por Juan (taller)"
-              valor={p.fechaRecogida ? formatShortDate(p.fechaRecogida) : "—"} />
-          </div>
-        </Bloque>
-
-        {/* 8 · Etiqueta de envío (solo lectura para el tapicero) */}
-        <Bloque titulo="Etiqueta de envío" icon={<Truck className="h-4 w-4" />}>
-          {etiquetas.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">Sin etiqueta de envío</div>
-          ) : (
-            <div className="space-y-2">
-              {etiquetas.map((a) => (
-                <a key={a.id} href={a.url} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-800 active:bg-slate-100">
-                  <Truck className="h-5 w-5 text-slate-500" />
-                  <span className="min-w-0 flex-1 truncate">{a.nombre}</span>
-                  {a.transportista && <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px] uppercase text-slate-600">{a.transportista}</span>}
-                  <Download className="h-4 w-4 text-blue-600" />
-                </a>
-              ))}
-            </div>
-          )}
-        </Bloque>
-
-        {/* Foto del producto terminado (opcional) */}
-        <Bloque titulo="Foto del producto terminado" icon={<Camera className="h-4 w-4" />}>
-          <FotoTerminado pedidoId={p.id} fotos={fotosAcabado} onDone={refetch} onZoom={(url) => setZoom({ url, alt: "Producto terminado" })} />
-        </Bloque>
-
-        {/* Notas */}
+        {/* Notas (si hay) */}
         {(p.notasProducto || p.notasPedido) && (
-          <div className="flex gap-2 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-            <StickyNote className="h-4 w-4 shrink-0" />
+          <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-[13px] text-amber-900">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Notas</div>
             <div className="whitespace-pre-wrap">{[p.notasProducto, p.notasPedido].filter(Boolean).join("\n")}</div>
-          </div>
+          </section>
         )}
 
-        {/* Histórico de acciones del tapicero */}
-        {(p.telaEstado === "recibida" || p.terminado) && (
-          <div className="space-y-1 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            {p.telaEstado === "recibida" && (
-              <div>Tela recibida{p.telaEstadoFecha ? ` el ${formatShortDate(p.telaEstadoFecha.slice(0, 10))}` : ""}{p.telaEstadoPor ? ` por ${p.telaEstadoPor}` : ""}.</div>
-            )}
-            {p.terminado && (
-              <div>Producto terminado{p.terminadoFecha ? ` el ${formatShortDate(p.terminadoFecha.slice(0, 10))}` : ""}{p.terminadoPor ? ` por ${p.terminadoPor}` : ""}.</div>
-            )}
+        {/* Histórico + foto del acabado (no salen en el PDF) */}
+        <section className="space-y-2 print:hidden">
+          {(p.telaEstado === "recibida" || p.terminado) && (
+            <div className="rounded-xl border border-slate-200 bg-white p-3 text-[13px] text-slate-600">
+              {p.telaEstado === "recibida" && (
+                <div>Tela recibida{p.telaEstadoFecha ? ` el ${formatShortDate(p.telaEstadoFecha.slice(0, 10))}` : ""}{p.telaEstadoPor ? ` por ${p.telaEstadoPor}` : ""}.</div>
+              )}
+              {p.terminado && (
+                <div>Terminado{p.terminadoFecha ? ` el ${formatShortDate(p.terminadoFecha.slice(0, 10))}` : ""}{p.terminadoPor ? ` por ${p.terminadoPor}` : ""}.</div>
+              )}
+            </div>
+          )}
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Camera className="h-3.5 w-3.5" /> Foto del acabado <span className="font-normal normal-case text-slate-400">(opcional)</span>
+            </div>
+            <FotoTerminado pedidoId={p.id} fotos={fotosAcabado} onDone={refetch} onZoom={(url) => setZoom({ url, alt: "Producto terminado" })} />
           </div>
-        )}
+        </section>
       </main>
 
-      {/* 9 · Acciones fijas abajo */}
       <AccionesTapicero p={p} onDone={refetch} />
 
-      {/* Lightbox */}
       {zoom && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setZoom(null)}>
-          <button type="button" aria-label="Cerrar" className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
-            <X className="h-5 w-5" />
-          </button>
+          <button type="button" aria-label="Cerrar" className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"><X className="h-5 w-5" /></button>
           <img src={zoom.url} alt={zoom.alt} className="max-h-full max-w-full rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
+    </div>
+  );
+}
+
+function Dato({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="w-20 shrink-0 text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
+      <dd className="min-w-0 flex-1 truncate font-semibold text-slate-800">{v || "—"}</dd>
     </div>
   );
 }
@@ -246,14 +202,14 @@ function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void })
   }
   const telaRecibida = p.telaEstado === "recibida";
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-3 print:hidden">
-      <div className="mx-auto flex max-w-2xl gap-2">
+    <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-2.5 print:hidden">
+      <div className="mx-auto flex max-w-4xl gap-2">
         <button disabled={busy} onClick={() => marca("tela_recibida", !telaRecibida)}
-          className={`flex-1 rounded-xl px-3 py-3.5 text-sm font-bold ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
+          className={`flex-1 rounded-xl px-3 py-3 text-sm font-bold ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
           {telaRecibida ? "✓ Tela recibida" : "He recibido la tela"}
         </button>
         <button disabled={busy} onClick={() => marca("terminado", !p.terminado)}
-          className={`flex-1 rounded-xl px-3 py-3.5 text-sm font-bold ${p.terminado ? "border border-slate-300 bg-slate-100 text-slate-600" : "bg-[#1a1f36] text-white"} disabled:opacity-50`}>
+          className={`flex-1 rounded-xl px-3 py-3 text-sm font-bold ${p.terminado ? "border border-slate-300 bg-slate-100 text-slate-600" : "bg-[#1a1f36] text-white"} disabled:opacity-50`}>
           {p.terminado ? "✓ Terminado" : "Pedido terminado"}
         </button>
       </div>
@@ -261,24 +217,18 @@ function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void })
   );
 }
 
-// Telas del producto, adaptadas al tipo: solo se muestran los roles que
-// aplican y que tienen tela asignada (no se deja el hueco vacío).
+// Telas adaptadas al tipo: solo los roles que aplican y tienen tela.
 function TelasProducto({ p, onZoom }: { p: PanelPedido; onZoom: (url: string, alt: string) => void }) {
   const roles = telasDeProducto(p.tipo);
   const cards = roles
     .map((r) => ({ r, tela: p.telas.find((t) => t.rol.toLowerCase() === r.rol.toLowerCase()) }))
-    // Frontal admite respaldo por texto (telaTexto) si no hay fila de tela.
-    .filter(({ r, tela }) => {
-      const tieneAlgo = tela && (tela.nombre || tela.fotoUrl || tela.mismaQueFrontal);
-      return tieneAlgo || (r.rol === "Frontal" && !!p.telaTexto);
-    });
+    .filter(({ r, tela }) => (tela && (tela.nombre || tela.fotoUrl || tela.mismaQueFrontal)) || (r.rol === "Frontal" && !!p.telaTexto));
 
   if (cards.length === 0) {
-    return <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">Sin telas asignadas</div>;
+    return <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-3 text-center text-[11px] text-slate-400">Sin telas asignadas</div>;
   }
-
   return (
-    <div className="grid grid-cols-1 gap-3">
+    <div className="space-y-2">
       {cards.map(({ r, tela }) => (
         <TelaCard key={r.rol} label={etiquetaTela(p.tipo, r.rol)} tela={tela}
           fallback={r.rol === "Frontal" ? p.telaTexto : undefined} onZoom={onZoom} />
@@ -291,30 +241,55 @@ function TelaCard({ label, tela, fallback, onZoom }: {
   label: string; tela: PanelTela | undefined; fallback?: string; onZoom: (url: string, alt: string) => void;
 }) {
   const misma = tela?.mismaQueFrontal;
-  const nombre = misma ? "Misma que el frontal" : (tela?.nombre || fallback || "—");
+  const nombre = misma ? "Misma que la principal" : (tela?.nombre || fallback || "—");
   const foto = tela?.fotoUrl;
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+    <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white p-2">
       {foto ? (
         <button type="button" onClick={() => onZoom(foto, nombre)} className="shrink-0">
-          <img src={foto} alt={nombre} loading="lazy" className="h-20 w-20 rounded-xl object-cover" />
+          <img src={foto} alt={nombre} loading="lazy" className="h-14 w-14 rounded-md object-cover" />
         </button>
       ) : (
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-300">
-          <Sofa className="h-6 w-6" />
-        </div>
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[9px] text-slate-400">Sin foto</div>
       )}
-      <div className="min-w-0">
-        <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</div>
-        <div className="truncate text-lg font-bold text-slate-900">{nombre}</div>
-        {!misma && tela?.coleccion && <div className="truncate text-xs text-slate-500">{tela.coleccion}</div>}
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</div>
+        <div className="truncate font-bold text-slate-900">{nombre}</div>
+        {!misma && tela?.coleccion && <div className="truncate text-[11px] text-slate-500">{tela.coleccion}</div>}
       </div>
     </div>
   );
 }
 
-// Foto (opcional) del acabado. La subida va por la ruta de servidor validada;
-// no bloquea el marcado de "terminado".
+function DocSlot({ icon, titulo, archivos, vacio, mostrarTransportista }: {
+  icon: React.ReactNode; titulo: string; vacio: string; mostrarTransportista?: boolean;
+  archivos: { id: string; nombre: string; url: string; transportista: string }[];
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-slate-500">{icon} {titulo}</div>
+      {archivos.length === 0 ? (
+        <div className="py-1 text-[11px] text-slate-400">{vacio}</div>
+      ) : (
+        <ul className="space-y-1">
+          {archivos.map((a) => (
+            <li key={a.id}>
+              <a href={a.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[13px] font-medium text-blue-600 hover:underline">
+                <Download className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{a.nombre}</span>
+                {mostrarTransportista && a.transportista && <span className="rounded bg-slate-200 px-1 py-0.5 text-[10px] uppercase text-slate-600">{a.transportista}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+interface PanelArchivoLike { id: string; url: string; }
+
+// Foto (opcional) del acabado, subida por el tapicero vía ruta de servidor.
 function FotoTerminado({ pedidoId, fotos, onDone, onZoom }: {
   pedidoId: string; fotos: PanelArchivoLike[]; onDone: () => void; onZoom: (url: string) => void;
 }) {
@@ -327,48 +302,18 @@ function FotoTerminado({ pedidoId, fotos, onDone, onZoom }: {
     if (ok) { toast.success("Foto subida ✅"); void onDone(); } else toast.error("No se pudo subir la foto.");
   }
   return (
-    <div>
-      {fotos.length > 0 && (
-        <div className="mb-3 grid grid-cols-3 gap-2">
-          {fotos.map((f) => (
-            <button key={f.id} type="button" onClick={() => onZoom(f.url)} className="overflow-hidden rounded-xl border border-slate-200">
-              <img src={f.url} alt="Producto terminado" loading="lazy" className="aspect-square w-full object-cover" />
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="flex items-center gap-2">
+      {fotos.map((f) => (
+        <button key={f.id} type="button" onClick={() => onZoom(f.url)} className="shrink-0 overflow-hidden rounded-md border border-slate-200">
+          <img src={f.url} alt="Producto terminado" loading="lazy" className="h-12 w-12 object-cover" />
+        </button>
+      ))}
       <button type="button" disabled={subiendo} onClick={() => ref.current?.click()}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 print:hidden">
-        <Camera className="h-4 w-4" /> {subiendo ? "Subiendo…" : fotos.length ? "Añadir otra foto" : "Subir foto del acabado"}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+        <Camera className="h-4 w-4" /> {subiendo ? "Subiendo…" : fotos.length ? "Añadir foto" : "Subir foto"}
       </button>
-      <span className="ml-2 text-xs text-slate-400 print:hidden">Opcional</span>
       <input ref={ref} type="file" accept="image/*" capture="environment" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void subir(f); if (ref.current) ref.current.value = ""; }} />
-    </div>
-  );
-}
-
-interface PanelArchivoLike { id: string; url: string; }
-
-function Bloque({ titulo, icon, children }: { titulo: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        <span className="text-slate-400">{icon}</span> {titulo}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Detalle({ icon, label, valor }: { icon: React.ReactNode; label: string; valor: string }) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="mt-0.5 text-slate-400">{icon}</span>
-      <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-wide text-slate-400">{label}</div>
-        <div className="text-sm font-semibold text-slate-800">{valor || "—"}</div>
-      </div>
     </div>
   );
 }
