@@ -32,6 +32,9 @@ function Usuarios() {
   const { tapiceros } = useStore();
   const [rows, setRows] = useState<UsuarioRow[] | null>(null);
   const [creando, setCreando] = useState(false);
+  // Usuarios a los que se les está pasando a "tapicero" y aún no tienen persona
+  // elegida: se muestra el selector de persona sin haber guardado todavía el rol.
+  const [eligiendoTapicero, setEligiendoTapicero] = useState<Record<string, boolean>>({});
 
   const cargar = useCallback(async () => {
     const res = await apiCall("GET");
@@ -125,8 +128,19 @@ function Usuarios() {
                   <td className="px-4 py-2.5 font-medium">{u.email}</td>
                   <td className="px-4 py-2.5">
                     <select
-                      value={u.rol}
-                      onChange={(e) => void cambiarRol(u, e.target.value)}
+                      value={eligiendoTapicero[u.id] ? "tapicero" : u.rol}
+                      onChange={(e) => {
+                        const nuevo = e.target.value;
+                        // Pasar a tapicero sin persona asignada: mostramos el
+                        // selector de persona y NO guardamos aún (se guarda al
+                        // elegirla). Evita el "Elige primero un tapicero".
+                        if (nuevo === "tapicero" && !u.tapiceroId) {
+                          setEligiendoTapicero((m) => ({ ...m, [u.id]: true }));
+                          return;
+                        }
+                        setEligiendoTapicero((m) => ({ ...m, [u.id]: false }));
+                        void cambiarRol(u, nuevo);
+                      }}
                       className={`rounded-lg border px-2 py-1 text-xs font-medium ${u.rol ? "border-slate-200 bg-white text-slate-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}
                     >
                       {!u.rol && <option value="">Sin acceso</option>}
@@ -136,10 +150,13 @@ function Usuarios() {
                     </select>
                   </td>
                   <td className="px-4 py-2.5 text-slate-600">
-                    {u.rol === "tapicero" ? (
+                    {(u.rol === "tapicero" || eligiendoTapicero[u.id]) ? (
                       <select
                         value={u.tapiceroId}
-                        onChange={(e) => void cambiarRol(u, "tapicero", e.target.value)}
+                        onChange={(e) => {
+                          setEligiendoTapicero((m) => ({ ...m, [u.id]: false }));
+                          void cambiarRol(u, "tapicero", e.target.value);
+                        }}
                         className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
                       >
                         <option value="">— Elegir —</option>
