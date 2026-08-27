@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   ArrowLeft, Download, PackageCheck, Ruler, Calendar, Scissors, User, Flag,
-  StickyNote, Truck, Image as ImageIcon, X, ZoomIn, Sofa, Anchor,
+  StickyNote, Truck, Image as ImageIcon, X, ZoomIn, Sofa, Anchor, Printer,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -67,13 +67,17 @@ function FichaPanel() {
   const llevaColgador = /colgador/i.test(p.patas);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
-        <Link to="/panel" search={backSearch} className="text-slate-500"><ArrowLeft className="h-5 w-5" /></Link>
+    <div className="min-h-screen bg-slate-50 pb-28 print:pb-0">
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 print:static">
+        <Link to="/panel" search={backSearch} className="text-slate-500 print:hidden"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="min-w-0 flex-1">
           <div className="truncate text-lg font-bold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</div>
           {p.cliente && <div className="truncate text-xs text-slate-500">Cliente: {p.cliente}</div>}
         </div>
+        <button type="button" onClick={() => window.print()} title="Imprimir / Guardar PDF"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 print:hidden">
+          <Printer className="h-4 w-4" /> <span className="hidden sm:inline">Imprimir</span>
+        </button>
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
@@ -126,7 +130,7 @@ function FichaPanel() {
                 <button key={a.id} type="button" onClick={() => setZoom({ url: a.url, alt: "Referencia del acabado" })}
                   className="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                   <img src={a.url} alt="Referencia del acabado" loading="lazy" className="max-h-96 w-full object-contain" />
-                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white">
+                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white print:hidden">
                     <ZoomIn className="h-3.5 w-3.5" /> Ampliar
                   </span>
                 </button>
@@ -236,7 +240,7 @@ function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void })
   }
   const telaRecibida = p.telaEstado === "recibida";
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-3">
+    <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-3 print:hidden">
       <div className="mx-auto flex max-w-2xl gap-2">
         <button disabled={busy} onClick={() => marca("tela_recibida", !telaRecibida)}
           className={`flex-1 rounded-xl px-3 py-3.5 text-sm font-bold ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>

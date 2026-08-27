@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Flag, Truck, Image as ImageIcon, Calendar } from "lucide-react";
+import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Flag, Truck, Image as ImageIcon, Calendar, AlertTriangle } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
@@ -25,6 +25,12 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
   const mismaFrontal = (rol: string) => telas.find((x) => x.tipoTela === rol)?.mismaQueFrontal ?? false;
   const tapicero = tapiceros.find((t) => t.id === pedido.tapiceroId);
   const archivos = pedidoArchivos.filter((a) => a.pedidoId === pedido.id);
+
+  // Aviso de producto incompleto (para no mandar a producción algo a medias).
+  const incompletos: string[] = [];
+  if (!archivos.some((a) => a.tipo === "plantilla")) incompletos.push("plantilla de corte");
+  if (!archivos.some((a) => a.tipo === "referencia")) incompletos.push("imagen de referencia");
+  if (!telas.some((t) => t.tipoTela === "Frontal" && t.nombreTela)) incompletos.push("tela principal");
 
   function setTelaEstado(estado: string) {
     const hoy = new Date().toISOString();
@@ -79,6 +85,14 @@ export function FichaTapiceroEquipo({ pedido, producto }: { pedido: Pedido; prod
           </button>
         )}
       </div>
+
+      {/* Aviso de producto incompleto */}
+      {incompletos.length > 0 && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-100/70 px-3 py-2 text-xs text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div><strong>Producto incompleto</strong> — falta: {incompletos.join(", ")}. Complétalo antes de mandar a producción.</div>
+        </div>
+      )}
 
       {/* Prioridad (la asigna el equipo; el tapicero solo la ve) */}
       <div className="mb-3 rounded-lg border border-slate-200 bg-white p-2.5">

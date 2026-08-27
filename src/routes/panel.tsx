@@ -51,6 +51,9 @@ function Panel() {
   const viendoId = esTapicero ? miTapiceroId : (search.tapicero ?? "");
   const { pedidos } = usePanelPedidos(viendoId || null);
   const [verEntregados, setVerEntregados] = useState(false);
+  // Filtro rápido: por estado de tela y por retraso.
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso">("todos");
+  const [soloRetrasados, setSoloRetrasados] = useState(false);
 
   const tapiceroActual = tapiceros.find((t) => t.id === viendoId);
 
@@ -75,7 +78,13 @@ function Panel() {
 
   const activos = (pedidos ?? []).filter((p) => !p.terminado && !p.entregado);
   const entregados = (pedidos ?? []).filter((p) => p.terminado || p.entregado);
-  const lista = verEntregados ? entregados : activos;
+  const base = verEntregados ? entregados : activos;
+  const lista = base.filter((p) => {
+    if (!verEntregados && filtroEstado === "pendiente_tela" && p.telaEstado === "recibida") return false;
+    if (!verEntregados && filtroEstado === "en_curso" && p.telaEstado !== "recibida") return false;
+    if (soloRetrasados && p.diasRestantes >= 0) return false;
+    return true;
+  });
 
   return (
     <Shell onSignOut={signOut} equipo={esEquipo} bannerNombre={esEquipo ? tapiceroNombre(tapiceroActual) : ""}>
@@ -87,11 +96,29 @@ function Panel() {
           </div>
         </div>
 
+        {/* Filtro rápido: estado de tela + retraso */}
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {!verEntregados && ([
+            ["todos", "Todos"],
+            ["pendiente_tela", "Pendiente de tela"],
+            ["en_curso", "Tela recibida"],
+          ] as const).map(([v, lbl]) => (
+            <button key={v} onClick={() => setFiltroEstado(v)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${filtroEstado === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+              {lbl}
+            </button>
+          ))}
+          <button onClick={() => setSoloRetrasados((v) => !v)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium ${soloRetrasados ? "border-rose-500 bg-rose-500 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+            Solo retrasados
+          </button>
+        </div>
+
         {pedidos === null ? (
           <div className="py-16 text-center text-slate-400">Cargando…</div>
         ) : lista.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-400">
-            {verEntregados ? "Nada terminado todavía." : "No tienes pedidos en curso. 🎉"}
+            {base.length === 0 ? (verEntregados ? "Nada terminado todavía." : "No tienes pedidos en curso. 🎉") : "Nada con este filtro."}
           </div>
         ) : (
           <div className="space-y-4">
