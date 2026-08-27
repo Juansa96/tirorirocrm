@@ -62,6 +62,15 @@ function Usuarios() {
     else toast.error("No se pudo cambiar el estado.");
   }
 
+  async function cambiarRol(u: UsuarioRow, rol: string, tapiceroId?: string) {
+    if (!rol) return;
+    const tid = tapiceroId ?? u.tapiceroId ?? "";
+    if (rol === "tapicero" && !tid) { toast.error("Elige primero un tapicero."); return; }
+    const res = await apiCall("POST", { op: "rol", id: u.id, rol, tapiceroId: tid });
+    if (res.ok) { toast.success("Rol actualizado."); void cargar(); }
+    else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "No se pudo cambiar el rol."); }
+  }
+
   async function eliminar(u: UsuarioRow) {
     if (!confirm(`¿Eliminar el usuario ${u.email}? Perderá el acceso definitivamente.`)) return;
     const res = await apiCall("POST", { op: "delete", id: u.id });
