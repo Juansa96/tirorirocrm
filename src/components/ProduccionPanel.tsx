@@ -147,21 +147,21 @@ export function ProduccionPanel() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-sm">
+              <table className="w-full min-w-0 text-sm md:min-w-[760px]">
                 <thead>
                   <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
-                    <th className="px-4 py-2 font-semibold">Cliente</th>
-                    <th className="px-4 py-2 font-semibold">Producto</th>
-                    <th className="px-4 py-2 font-semibold">Medidas</th>
-                    <th className="px-4 py-2 font-semibold">Tela</th>
-                    <th className="px-4 py-2 font-semibold">Entrega comprometida</th>
-                    <th className="px-4 py-2 font-semibold">Tapicero</th>
+                    <th className="px-3 py-2 font-semibold md:px-4">Cliente</th>
+                    <th className="px-3 py-2 font-semibold md:px-4">Producto</th>
+                    <th className="hidden px-4 py-2 font-semibold md:table-cell">Medidas</th>
+                    <th className="hidden px-4 py-2 font-semibold md:table-cell">Tela</th>
+                    <th className="px-3 py-2 font-semibold md:px-4">Entrega</th>
+                    <th className="px-3 py-2 font-semibold md:px-4">Tapicero</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {g.lineas.map(({ pedido, lead, producto }) => (
                     <tr key={pedido.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-2.5">
+                      <td className="px-3 py-2.5 md:px-4">
                         <div className="flex items-center gap-1.5">
                           {pedido.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {pedido.numero}</span>}
                           <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-medium text-slate-900 hover:text-blue-600">
@@ -169,13 +169,13 @@ export function ProduccionPanel() {
                           </Link>
                         </div>
                       </td>
-                      <td className="px-4 py-2.5 text-slate-700">
+                      <td className="px-3 py-2.5 text-slate-700 md:px-4">
                         {producto ? `${tipoLabelOf(producto.tipo)} · ${displayModelo(producto.modelo)}` : "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">{medidasOf(producto)}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{telaOf(producto)}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{pedido.fechaLimite ? formatShortDate(pedido.fechaLimite) : "—"}</td>
-                      <td className="px-4 py-2.5">
+                      <td className="hidden px-4 py-2.5 text-slate-600 md:table-cell">{medidasOf(producto)}</td>
+                      <td className="hidden px-4 py-2.5 text-slate-600 md:table-cell">{telaOf(producto)}</td>
+                      <td className="px-3 py-2.5 text-slate-600 md:px-4">{pedido.fechaLimite ? formatShortDate(pedido.fechaLimite) : "—"}</td>
+                      <td className="px-3 py-2.5 md:px-4">
                         <select
                           value={pedido.tapiceroId}
                           onChange={(e) => actions.reasignarTapicero(pedido.id, e.target.value)}

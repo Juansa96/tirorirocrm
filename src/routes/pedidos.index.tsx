@@ -468,12 +468,10 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
                 {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
               </h3>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
               <span className={`font-medium ${sem.estado === "rojo" && !pedido.entregado ? "text-rose-700" : "text-slate-600"}`}>{diasLabel}</span>
-              <span className="text-slate-400">·</span>
               <span className="text-slate-500">{formatShortDate(pedido.fechaLimite)}</span>
-              {totalT > 0 && (<><span className="text-slate-400">·</span><span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span></>)}
-              <span className="text-slate-400">·</span>
+              {totalT > 0 && <span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span>}
               <span className="font-semibold text-slate-700">{formatCurrency((pedido.precio || 0) + (pedido.costeEnvio || 0))}</span>
               <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${COBRO_BADGE[estadoCobro(pedido)]}`}>
                 {estadoCobro(pedido)}{pedidoPendiente(pedido) > 0 ? ` · falta ${formatCurrency(pedidoPendiente(pedido))}` : ""}
