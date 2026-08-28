@@ -30,7 +30,7 @@ function KpiCard({ icon: Icon, label, value, sub, badgeBg, iconColor, empty }: {
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
       </div>
-      <div className="mt-3 flex items-baseline gap-2">
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <div className={`text-2xl font-bold ${empty ? "text-slate-400" : "text-slate-900"}`}>{value}</div>
         {sub && <div className="text-xs text-slate-400">{sub}</div>}
       </div>
