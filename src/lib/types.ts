@@ -276,9 +276,17 @@ export interface AuditEntry {
 }
 
 // ───────────── Pedidos ─────────────
+// El número de pedido PUEDE repetirse (varios pedidos del mismo encargo).
+// Para distinguirlos se puede añadir una letra opcional: 12, 12A, 12B…
+export function numeroPedidoLabel(numero: number | null | undefined, sufijo?: string | null): string {
+  if (numero == null) return "";
+  return `${numero}${(sufijo ?? "").trim().toUpperCase()}`;
+}
+
 export interface Pedido {
   id: string;
-  numero: number | null;      // número único y correlativo del pedido (permanente); null = sin número
+  numero: number | null;      // número del pedido (correlativo, puede repetirse); null = sin número
+  numeroSufijo: string;       // letra opcional para diferenciar números repetidos ("A", "B"…)
   productoLeadId: string;
   leadId: string;
   clienteNombreLibre: string;
