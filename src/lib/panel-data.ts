@@ -10,6 +10,7 @@ export interface PanelArchivo { id: string; tipo: string; nombre: string; url: s
 export interface PanelPedido {
   id: string;
   numero: number | null;
+  numeroSufijo: string;
   cliente: string;
   ordenProduccion: number | null; // orden manual de trabajo (1º, 2º…)
   notaTapicero: string;           // comentario para el tapicero (dirección de tela, etc.)
@@ -71,7 +72,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
     // PRIVACIDAD (backend): al tapicero NO se le devuelven las columnas del
     // nombre del cliente; se piden aparte ya recortadas por panel_cliente_nombres.
     // El equipo recibe todo ("*"), incluido el nombre completo.
-    const COLS_TAPICERO = "id,numero,producto_lead_id,montaje,notas_pedido,nota_tapicero,orden_produccion,fecha_limite,fecha_recogida,enviado_tapicero_fecha,entregado,tela_estado,tela_estado_por,tela_estado_fecha,terminado_tapicero,terminado_tapicero_por,terminado_tapicero_fecha,tapicero_id";
+    const COLS_TAPICERO = "id,numero,numero_sufijo,producto_lead_id,montaje,notas_pedido,nota_tapicero,orden_produccion,fecha_limite,fecha_recogida,enviado_tapicero_fecha,entregado,tela_estado,tela_estado_por,tela_estado_fecha,terminado_tapicero,terminado_tapicero_por,terminado_tapicero_fecha,tapicero_id";
     const { data: peds } = await supabase.from("pedidos")
       .select(esViewerElTapicero ? COLS_TAPICERO : "*")
       .eq("tapicero_id", tapiceroId);
@@ -149,6 +150,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
       return {
         id: p.id as string,
         numero: p.numero != null ? Number(p.numero) : null,
+        numeroSufijo: (p.numero_sufijo as string) ?? "",
         cliente: nombreCliente,
         ordenProduccion: p.orden_produccion != null ? Number(p.orden_produccion) : null,
         notaTapicero: (p.nota_tapicero as string) ?? "",
