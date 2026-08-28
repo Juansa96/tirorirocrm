@@ -168,19 +168,19 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             <Package className="h-5 w-5 text-[#1a1f36]" />
             {/* Número de pedido: visible siempre; editable solo por admin (punto 2/3). */}
             {esEquipo ? (
-              <label className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-xs font-bold text-white">
+              <label className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">
                 Nº
                 <input
                   type="number" min={1}
                   value={draft.numero ?? ""}
                   onChange={(e) => guardarNumero(e.target.value)}
                   placeholder="—"
-                  className="w-14 rounded bg-slate-700 px-1 py-0.5 text-center text-xs font-bold text-white placeholder-slate-400 focus:bg-slate-600 focus:outline-none"
+                  className="w-14 rounded bg-indigo-500 px-1 py-0.5 text-center text-xs font-bold text-white placeholder-indigo-200 focus:bg-indigo-400 focus:outline-none"
                   title="Editar número de pedido (admin)"
                 />
               </label>
             ) : (
-              pedido.numero != null && <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-bold text-white">Nº {pedido.numero}</span>
+              pedido.numero != null && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">Nº {pedido.numero}</span>
             )}
             <h1 className="truncate text-xl font-bold sm:text-2xl">{lead?.nombre ?? pedido.clienteNombreLibre ?? "—"}</h1>
             {lead ? (
