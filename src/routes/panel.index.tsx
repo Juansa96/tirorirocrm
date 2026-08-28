@@ -315,15 +315,15 @@ function ClienteCard({ tramo, totalCliente, expandido, onToggle, tapiceroSearch,
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <div className="truncate font-bold text-slate-900">{tramo.cliente}</div>
+          <div className="break-words font-bold leading-tight text-slate-900 line-clamp-2">{tramo.cliente}</div>
           {otros > 0 && (
-            <div className="text-[11px] font-medium text-amber-600">
+            <div className="text-[11px] font-medium leading-tight text-amber-600">
               {otros} producto{otros === 1 ? "" : "s"} de este cliente en otra posición
             </div>
           )}
         </div>
         <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">
-          {tramo.items.length} producto{tramo.items.length === 1 ? "" : "s"}
+          {tramo.items.length}<span className="hidden sm:inline"> producto{tramo.items.length === 1 ? "" : "s"}</span>
         </span>
         {dnd && (
           <button onClick={onToggle} title={expandido ? "Contraer" : "Desplegar para mover un producto suelto"}
@@ -376,7 +376,7 @@ function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
         <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            {p.numero != null && <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {p.numero}</span>}
+            {p.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {p.numero}</span>}
             <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
           </div>
           <div className="text-xs text-slate-500">{medidas}</div>

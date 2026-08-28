@@ -163,7 +163,7 @@ export function ProduccionPanel() {
                     <tr key={pedido.id} className="hover:bg-slate-50">
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-1.5">
-                          {pedido.numero != null && <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {pedido.numero}</span>}
+                          {pedido.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {pedido.numero}</span>}
                           <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-medium text-slate-900 hover:text-blue-600">
                             {lead?.nombre || pedido.clienteNombreLibre || "—"}
                           </Link>

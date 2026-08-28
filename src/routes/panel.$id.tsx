@@ -60,7 +60,7 @@ function FichaPanel() {
         <Link to="/panel" search={backSearch} className="text-slate-500 print:hidden"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            {p.numero != null && <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {p.numero}</span>}
+            {p.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {p.numero}</span>}
             <div className="truncate text-base font-bold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</div>
           </div>
           {p.cliente && <div className="truncate text-[11px] text-slate-500">{p.cliente}</div>}
@@ -78,7 +78,7 @@ function FichaPanel() {
           <section className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</h2>
-              {p.numero != null && <span className="inline-flex items-center whitespace-nowrap rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold leading-none text-white">Nº {p.numero}</span>}
+              {p.numero != null && <span className="inline-flex items-center whitespace-nowrap rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-bold leading-none text-white">Nº {p.numero}</span>}
             </div>
             <div className="flex gap-3">
               <div className="h-20 w-20 shrink-0 rounded-lg border border-slate-100 bg-slate-50 p-1.5">
