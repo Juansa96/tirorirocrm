@@ -956,11 +956,8 @@ export type Database = {
       }
       es_admin: { Args: never; Returns: boolean }
       es_equipo: { Args: never; Returns: boolean }
-      mask_apellido: { Args: { full_name: string }; Returns: string }
       mi_rol: { Args: never; Returns: string }
       mi_tapicero_id: { Args: never; Returns: string }
-      panel_pedidos: { Args: { p_tapicero_id: string }; Returns: { [key: string]: unknown }[] }
-      panel_cliente_nombres: { Args: { p_ids: string[] }; Returns: { id: string; nombre: string }[] }
       move_to_dlq: {
         Args: {
           dlq_name: string
