@@ -168,6 +168,7 @@ function mapPedido(r: Record<string, unknown>): Pedido {
   return {
     id: r.id as string,
     numero: r.numero != null ? Number(r.numero) : null,
+    numeroSufijo: (r.numero_sufijo as string) ?? "",
     productoLeadId: r.producto_lead_id as string,
     leadId: (r.lead_id as string) ?? "",
     clienteNombreLibre: (r.cliente_nombre_libre as string) ?? "",
@@ -1282,6 +1283,7 @@ export const actions = {
     const dbPatch: Record<string, unknown> = {};
     const map: Record<string, string> = {
       numero: "numero",
+      numeroSufijo: "numero_sufijo",
       diasPlazo: "dias_plazo",
       fechaEntregaReal: "fecha_entrega_real",
       pagado50: "pagado_50",
@@ -1346,30 +1348,26 @@ export const actions = {
     await syncLeadFromPedidos(leadId);
   },
 
-  // Edición MANUAL del número de pedido (solo admin desde la UI; la BD tiene un
-  // índice único como red de seguridad). Valida que no se duplique con ningún
-  // otro pedido (activo o acabado). Devuelve true si se guardó.
-  async actualizarNumeroPedido(id: string, numero: number): Promise<boolean> {
+  // Edición MANUAL del número de pedido (solo equipo). El número PUEDE
+  // repetirse; para diferenciar dos pedidos con el mismo número se usa una
+  // letra opcional (sufijo): 12, 12A, 12B…
+  async actualizarNumeroPedido(id: string, numero: number, sufijo = ""): Promise<boolean> {
     if (!Number.isInteger(numero) || numero < 1) { toast.error("El número debe ser un entero positivo."); return false; }
+    const suf = sufijo.trim().toUpperCase();
+    if (suf && !/^[A-Z]{1,2}$/.test(suf)) { toast.error("La letra debe ser 1 o 2 letras (A-Z)."); return false; }
     const actual = state.pedidos.find((p) => p.id === id);
     if (!actual) return false;
-    if (actual.numero === numero) return true;
-    const choca = state.pedidos.find((p) => p.id !== id && p.numero === numero);
-    if (choca) {
-      toast.error(`El número ${numero} ya lo tiene ${choca.clienteNombre || choca.clienteNombreLibre || "otro pedido"}.`);
-      return false;
-    }
+    if (actual.numero === numero && (actual.numeroSufijo ?? "") === suf) return true;
     const prevState = state;
-    state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, numero } : p) };
+    state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, numero, numeroSufijo: suf } : p) };
     emit();
-    const { error } = await supabase.from("pedidos").update({ numero } as never).eq("id", id);
+    const { error } = await supabase.from("pedidos").update({ numero, numero_sufijo: suf || null } as never).eq("id", id);
     if (error) {
       state = prevState; emit();
-      // Colisión a nivel de BD (índice único) u otro error.
-      toast.error(/duplicate|unique/i.test(error.message) ? `El número ${numero} ya está en uso.` : "No se pudo cambiar el número.");
+      toast.error("No se pudo cambiar el número.");
       return false;
     }
-    toast.success(`Número de pedido actualizado a ${numero}.`);
+    toast.success(`Número de pedido actualizado a ${numero}${suf}.`);
     return true;
   },
 

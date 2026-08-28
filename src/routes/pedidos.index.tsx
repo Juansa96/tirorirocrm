@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { semaforoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
@@ -158,7 +158,7 @@ function PedidosIndex() {
           <button
             onClick={() => {
               const rows = groups.flatMap((g) => g.items.map(({ pedido, producto, sem }) => ({
-                Numero: pedido.numero ?? "",
+                Numero: numeroPedidoLabel(pedido.numero, pedido.numeroSufijo),
                 Cliente: g.nombre,
                 Producto: [producto?.tipo, displayModelo(producto?.modelo)].filter(Boolean).join(" "),
                 Cantidad: producto?.cantidad ?? 1,
@@ -462,7 +462,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
-              {pedido.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {pedido.numero}</span>}
+              {pedido.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(pedido.numero, pedido.numeroSufijo)}</span>}
               <h3 className="truncate text-sm font-semibold text-slate-900">
                 {producto ? `${tipoLabel}${displayModelo(producto.modelo) ? ` · ${displayModelo(producto.modelo)}` : ""}` : "Pedido"}
                 {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
@@ -572,7 +572,7 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT }: {
     <tr className="border-t border-slate-100 hover:bg-slate-50/60">
       <td className="px-3 py-2 text-xs text-slate-700">
         <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-medium hover:text-[#1a4b5b] hover:underline">
-          {pedido.numero != null && <span className="mr-1.5 inline-flex items-center rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white align-middle">Nº {pedido.numero}</span>}
+          {pedido.numero != null && <span className="mr-1.5 inline-flex items-center rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white align-middle">Nº {numeroPedidoLabel(pedido.numero, pedido.numeroSufijo)}</span>}
           {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "—"}
           {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
         </Link>

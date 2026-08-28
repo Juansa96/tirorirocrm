@@ -497,6 +497,7 @@ export type Database = {
           nota_tapicero: string | null
           notas_pedido: string | null
           numero: number | null
+          numero_sufijo: string | null
           orden_produccion: number | null
           pagado_50: boolean
           pagado_completo: boolean
@@ -564,6 +565,7 @@ export type Database = {
           nota_tapicero?: string | null
           notas_pedido?: string | null
           numero?: number | null
+          numero_sufijo?: string | null
           orden_produccion?: number | null
           pagado_50?: boolean
           pagado_completo?: boolean
@@ -631,6 +633,7 @@ export type Database = {
           nota_tapicero?: string | null
           notas_pedido?: string | null
           numero?: number | null
+          numero_sufijo?: string | null
           orden_produccion?: number | null
           pagado_50?: boolean
           pagado_completo?: boolean
@@ -1015,6 +1018,7 @@ export type Database = {
           nota_tapicero: string | null
           notas_pedido: string | null
           numero: number | null
+          numero_sufijo: string | null
           orden_produccion: number | null
           pagado_50: boolean
           pagado_completo: boolean

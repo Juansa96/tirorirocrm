@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Trash2, Plus, Package, ExternalLink, Save, Ruler } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { semaforoPedido, flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { displayNombreProducto, displayColeccionTela } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
@@ -60,7 +60,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
   const patch = useCallback((p: Partial<Pedido>) => setDraft((prev) => ({ ...prev, ...p })), []);
 
   const pedidoDirty = useMemo(
-    () => Object.keys(diffPedido(baseP, draft)).length > 0 || draft.numero !== baseP.numero,
+    () => Object.keys(diffPedido(baseP, draft)).length > 0 || draft.numero !== baseP.numero || (draft.numeroSufijo ?? "") !== (baseP.numeroSufijo ?? ""),
     [baseP, draft],
   );
   const telasDirty = useMemo(() => telasCambiadas(baseT, telasDraft), [baseT, telasDraft]);
@@ -110,14 +110,19 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
     if (Number.isFinite(n) && n > 0) setDraft((prev) => ({ ...prev, numero: n }));
   }
 
+  function guardarSufijo(v: string) {
+    const suf = v.replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase();
+    setDraft((prev) => ({ ...prev, numeroSufijo: suf }));
+  }
+
   async function guardar() {
     if (saving) return;
     setSaving(true);
     try {
       // 1) Número (validación de duplicado). No se permite dejarlo vacío desde aquí.
-      if (draft.numero !== baseP.numero && draft.numero != null) {
-        const ok = await actions.actualizarNumeroPedido(pedidoId, draft.numero);
-        if (!ok) { setDraft((prev) => ({ ...prev, numero: baseP.numero })); setSaving(false); return; }
+      if ((draft.numero !== baseP.numero || (draft.numeroSufijo ?? "") !== (baseP.numeroSufijo ?? "")) && draft.numero != null) {
+        const ok = await actions.actualizarNumeroPedido(pedidoId, draft.numero, draft.numeroSufijo ?? "");
+        if (!ok) { setDraft((prev) => ({ ...prev, numero: baseP.numero, numeroSufijo: baseP.numeroSufijo })); setSaving(false); return; }
       }
       // 2) Resto de campos del pedido
       const patchP = diffPedido(baseP, draft) as Record<string, unknown>;
@@ -178,9 +183,17 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
                   className="w-14 rounded bg-indigo-500 px-1 py-0.5 text-center text-xs font-bold text-white placeholder-indigo-200 focus:bg-indigo-400 focus:outline-none"
                   title="Editar número de pedido (admin)"
                 />
+                <input
+                  type="text" maxLength={2}
+                  value={draft.numeroSufijo ?? ""}
+                  onChange={(e) => guardarSufijo(e.target.value)}
+                  placeholder="A"
+                  className="w-8 rounded bg-indigo-500 px-1 py-0.5 text-center text-xs font-bold uppercase text-white placeholder-indigo-200 focus:bg-indigo-400 focus:outline-none"
+                  title="Letra opcional para diferenciar pedidos con el mismo número"
+                />
               </label>
             ) : (
-              pedido.numero != null && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">Nº {pedido.numero}</span>
+              pedido.numero != null && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">Nº {numeroPedidoLabel(pedido.numero, pedido.numeroSufijo)}</span>
             )}
             <h1 className="truncate text-xl font-bold sm:text-2xl">{lead?.nombre ?? pedido.clienteNombreLibre ?? "—"}</h1>
             {lead ? (

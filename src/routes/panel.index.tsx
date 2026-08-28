@@ -1,3 +1,4 @@
+import { numeroPedidoLabel } from "@/lib/types";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical } from "lucide-react";
@@ -376,7 +377,7 @@ function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
         <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-1.5">
-            {p.numero != null && <span className="mt-0.5 shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {p.numero}</span>}
+            {p.numero != null && <span className="mt-0.5 shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
             <span className="min-w-0 flex-1 font-semibold leading-tight text-slate-900 line-clamp-2">{displayNombreProducto(p.tipo, p.modelo)}</span>
           </div>
           <div className="mt-0.5 text-xs text-slate-500">{medidas}</div>
