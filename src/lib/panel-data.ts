@@ -87,7 +87,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
     const nombreById = new Map<string, string>();
     if (esViewerElTapicero && pedIds.length) {
       const { data: nombres } = await supabase.rpc("panel_cliente_nombres", { p_ids: pedIds });
-      for (const n of (nombres ?? []) as Array<{ id: string; nombre: string }>) nombreById.set(n.id, n.nombre ?? "");
+      for (const n of ((nombres ?? []) as unknown) as Array<{ id: string; nombre: string }>) nombreById.set(n.id, n.nombre ?? "");
     }
 
     const [{ data: prods }, { data: telas }, { data: archivos }] = await Promise.all([
