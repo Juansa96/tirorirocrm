@@ -29,6 +29,13 @@
       "when": 1787919840577,
       "tag": "0003_pedidos_numero_privacidad",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787919877334,
+      "tag": "0004_numero_hardening_privacidad",
+      "breakpoints": true
     }
   ]
 }
