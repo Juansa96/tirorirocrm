@@ -496,6 +496,7 @@ export type Database = {
           montaje: string | null
           nota_tapicero: string | null
           notas_pedido: string | null
+          numero: number | null
           orden_produccion: number | null
           pagado_50: boolean
           pagado_completo: boolean
@@ -562,6 +563,7 @@ export type Database = {
           montaje?: string | null
           nota_tapicero?: string | null
           notas_pedido?: string | null
+          numero?: number | null
           orden_produccion?: number | null
           pagado_50?: boolean
           pagado_completo?: boolean
@@ -628,6 +630,7 @@ export type Database = {
           montaje?: string | null
           nota_tapicero?: string | null
           notas_pedido?: string | null
+          numero?: number | null
           orden_produccion?: number | null
           pagado_50?: boolean
           pagado_completo?: boolean
@@ -842,6 +845,7 @@ export type Database = {
           created_at: string
           id: string
           nombre: string
+          oculta_apellidos: boolean
           orden: number
         }
         Insert: {
@@ -852,6 +856,7 @@ export type Database = {
           created_at?: string
           id?: string
           nombre: string
+          oculta_apellidos?: boolean
           orden?: number
         }
         Update: {
@@ -862,6 +867,7 @@ export type Database = {
           created_at?: string
           id?: string
           nombre?: string
+          oculta_apellidos?: boolean
           orden?: number
         }
         Relationships: []
@@ -974,6 +980,82 @@ export type Database = {
           id: string
           nombre: string
         }[]
+      }
+      panel_pedidos: {
+        Args: { p_tapicero_id: string }
+        Returns: {
+          cliente_nombre: string | null
+          cliente_nombre_libre: string | null
+          coste_envio: number
+          creado_manualmente: boolean
+          created_at: string
+          dias_plazo: number
+          empresa_id: string | null
+          entregado: boolean
+          entregado_fecha: string | null
+          enviado_daniel: boolean
+          enviado_daniel_fecha: string | null
+          enviado_tapicero: boolean
+          enviado_tapicero_fecha: string | null
+          enviar_tela_daniel: boolean
+          enviar_tela_daniel_fecha: string | null
+          es_canje: boolean
+          estado_pedido: string
+          estructura_hecha: boolean
+          estructura_hecha_fecha: string | null
+          factura: string | null
+          fecha_creacion_pedido: string
+          fecha_entrega_real: string | null
+          fecha_limite: string | null
+          fecha_recogida: string | null
+          formatos: string[]
+          id: string
+          lead_id: string | null
+          montaje: string | null
+          nota_tapicero: string | null
+          notas_pedido: string | null
+          numero: number | null
+          orden_produccion: number | null
+          pagado_50: boolean
+          pagado_completo: boolean
+          pago_todo_al_final: boolean
+          pantalla_hecha: boolean
+          pantalla_hecha_fecha: string | null
+          pasos_tapicero: Json
+          precio: number
+          precio_con_iva: number | null
+          prioridad: number
+          prioritario: boolean
+          producto_lead_id: string | null
+          recibir_daniel: boolean
+          recibir_daniel_fecha: string | null
+          reserva: number
+          solicitado_daniel: boolean
+          solicitado_daniel_fecha: string | null
+          tapicero_id: string | null
+          tapizado_hecho: boolean
+          tapizado_hecho_fecha: string | null
+          tela_estado: string
+          tela_estado_fecha: string | null
+          tela_estado_por: string | null
+          tela_pedida: boolean
+          tela_pedida_fecha: string | null
+          tela_recibida: boolean
+          tela_recibida_fecha: string | null
+          terminado_daniel: boolean
+          terminado_daniel_fecha: string | null
+          terminado_tapicero: boolean
+          terminado_tapicero_fecha: string | null
+          terminado_tapicero_por: string | null
+          tipo_colaboracion: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pedidos"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
