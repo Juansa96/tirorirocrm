@@ -956,6 +956,7 @@ export type Database = {
       }
       es_admin: { Args: never; Returns: boolean }
       es_equipo: { Args: never; Returns: boolean }
+      mask_apellido: { Args: { full_name: string }; Returns: string }
       mi_rol: { Args: never; Returns: string }
       mi_tapicero_id: { Args: never; Returns: string }
       move_to_dlq: {
@@ -966,6 +967,13 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      panel_cliente_nombres: {
+        Args: { p_ids: string[] }
+        Returns: {
+          id: string
+          nombre: string
+        }[]
       }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
