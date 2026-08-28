@@ -355,7 +355,7 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
           )}
           <span className="ml-2 text-xs text-slate-500" title={desglose}>
             {totalUnidades} producto{totalUnidades === 1 ? "" : "s"}
-            {desglose && items.length > 0 && <span className="ml-1 text-slate-400">({desglose})</span>}
+            {desglose && items.length > 0 && <span className="ml-1 hidden text-slate-400 sm:inline">({desglose})</span>}
           </span>
           {categoria && <span className={`ml-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${CAT_BADGE[categoria]}`}>{categoria}</span>}
           {!lead && <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Sin lead vinculado</span>}

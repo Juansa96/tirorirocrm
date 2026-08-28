@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
+import { maskApellido } from "@/lib/types";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 import { TELAS_WEB } from "@/lib/telas-web-data";
 
@@ -139,9 +140,12 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         transportista: (a.transportista as string) ?? "",
         createdAt: (a.created_at as string) ?? "",
       }));
+      // En el panel el apellido SIEMPRE se ve recortado ("Lucía L."): para el
+      // tapicero viene ya recortado del backend (RPC); para el equipo se recorta
+      // aquí. El nombre completo solo se ve fuera del panel (Pedidos, Clientes).
       const nombreCliente = esViewerElTapicero
         ? (nombreById.get(p.id as string) ?? "Cliente")
-        : ((p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "");
+        : maskApellido((p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "");
       return {
         id: p.id as string,
         numero: p.numero != null ? Number(p.numero) : null,

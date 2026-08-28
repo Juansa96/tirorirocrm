@@ -217,15 +217,18 @@ function TapicerosSection({ tapiceros }: { tapiceros: Tapicero[] }) {
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
         <Hammer className="h-4 w-4 text-[#1a1f36]" /> Tapiceros
       </div>
+      <p className="mb-3 flex items-center gap-1 text-[11px] text-slate-400">
+        <EyeOff className="h-3 w-3" /> Los tapiceros ven el apellido del cliente recortado (p. ej. «Borja G.»).
+      </p>
       <div className="space-y-2">
         {orden.map((t) => (
           <div key={t.id} className={`flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 ${t.activo ? "" : "bg-slate-50 text-slate-400"}`}>
-            <span className="min-w-0 flex-1 truncate font-medium">
+            {/* En móvil el nombre ocupa toda la fila; los botones bajan debajo. */}
+            <span className="w-full min-w-0 truncate font-medium sm:w-auto sm:flex-1">
               {tapiceroNombre(t)}{!t.activo && " (inactivo)"}
-              <span className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700" title="Los tapiceros ven solo el nombre y la inicial del apellido de los clientes"><EyeOff className="h-3 w-3" /> ve apellidos ocultos</span>
             </span>
             <EnlaceTapicero tapicero={t} />
             <Link to="/panel" search={{ tapicero: t.id }} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">

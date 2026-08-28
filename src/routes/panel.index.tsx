@@ -375,11 +375,11 @@ function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
         )}
         <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            {p.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {p.numero}</span>}
-            <span className="truncate font-semibold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
+          <div className="flex items-start gap-1.5">
+            {p.numero != null && <span className="mt-0.5 shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {p.numero}</span>}
+            <span className="min-w-0 flex-1 font-semibold leading-tight text-slate-900 line-clamp-2">{displayNombreProducto(p.tipo, p.modelo)}</span>
           </div>
-          <div className="text-xs text-slate-500">{medidas}</div>
+          <div className="mt-0.5 text-xs text-slate-500">{medidas}</div>
           <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
