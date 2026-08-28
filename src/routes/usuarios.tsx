@@ -135,11 +135,13 @@ function Usuarios() {
                       value={eligiendoTapicero[u.id] ? "tapicero" : u.rol}
                       onChange={(e) => {
                         const nuevo = e.target.value;
-                        // Pasar a tapicero sin persona asignada: mostramos el
-                        // selector de persona y NO guardamos aún (se guarda al
-                        // elegirla). Evita el "Elige primero un tapicero".
-                        if (nuevo === "tapicero" && !u.tapiceroId) {
-                          setEligiendoTapicero((m) => ({ ...m, [u.id]: true }));
+                        // Pasar a tapicero: si ya tiene persona vinculada, se
+                        // guarda directo; si no, se muestra el selector de persona
+                        // y NO se guarda aún (se guarda al elegirla). Nunca lanza
+                        // "Elige primero un tapicero" desde aquí.
+                        if (nuevo === "tapicero") {
+                          if (u.tapiceroId) { void cambiarRol(u, "tapicero", u.tapiceroId); }
+                          else { setEligiendoTapicero((m) => ({ ...m, [u.id]: true })); }
                           return;
                         }
                         setEligiendoTapicero((m) => ({ ...m, [u.id]: false }));
@@ -155,19 +157,24 @@ function Usuarios() {
                   </td>
                   <td className="px-4 py-2.5 text-slate-600">
                     {(u.rol === "tapicero" || eligiendoTapicero[u.id]) ? (
-                      <select
-                        value={u.tapiceroId}
-                        onChange={(e) => {
-                          setEligiendoTapicero((m) => ({ ...m, [u.id]: false }));
-                          void cambiarRol(u, "tapicero", e.target.value);
-                        }}
-                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
-                      >
-                        <option value="">— Elegir —</option>
-                        {tapiceros.filter((t) => t.activo || t.id === u.tapiceroId).map((t) => (
-                          <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
-                        ))}
-                      </select>
+                      tapiceros.filter((t) => t.activo || t.id === u.tapiceroId).length === 0 ? (
+                        <span className="text-xs text-amber-600">Crea antes un tapicero arriba ↑</span>
+                      ) : (
+                        <select
+                          value={u.tapiceroId}
+                          onChange={(e) => {
+                            const tid = e.target.value;
+                            if (!tid) return; // "— Elegir —": no hacer nada, mantener el selector
+                            void cambiarRol(u, "tapicero", tid);
+                          }}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+                        >
+                          <option value="">— Elegir persona —</option>
+                          {tapiceros.filter((t) => t.activo || t.id === u.tapiceroId).map((t) => (
+                            <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
+                          ))}
+                        </select>
+                      )
                     ) : "—"}
                   </td>
                   <td className="px-4 py-2.5">{u.rol ? (u.activo ? "Activo" : "Desactivado") : "Sin acceso"}</td>
