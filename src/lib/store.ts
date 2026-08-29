@@ -178,7 +178,6 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     fechaLimite: (r.fecha_limite as string) ?? "",
     fechaEntregaReal: (r.fecha_entrega_real as string) ?? "",
     pagado50: !!r.pagado_50,
-    pagoTodoAlFinal: !!r.pago_todo_al_final,
     creadoManualmente: !!r.creado_manualmente,
     estadoPedido: (r.estado_pedido as string) ?? "En proceso",
     telaPedida: !!r.tela_pedida,
@@ -219,8 +218,6 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     terminadoTapiceroPor: (r.terminado_tapicero_por as string) ?? "",
     terminadoTapiceroFecha: (r.terminado_tapicero_fecha as string) ?? "",
     montaje: (r.montaje as string) ?? "",
-    prioritario: !!r.prioritario,
-    prioridad: Number(r.prioridad) || 2,
     ordenProduccion: r.orden_produccion != null ? Number(r.orden_produccion) : null,
     notaTapicero: (r.nota_tapicero as string) ?? "",
     fechaRecogida: (r.fecha_recogida as string) ?? "",
@@ -858,23 +855,10 @@ export const actions = {
         if (error) console.warn("[updateLead] edad column not available yet:", error.message);
       });
     }
-    if (prevLead && currentUser) {
-      const isValorDerived = patch.valorProducto !== undefined || patch.valorEnvio !== undefined;
-      const entries: Record<string, unknown>[] = [];
-      for (const [key, newVal] of Object.entries(patch)) {
-        if (key === "valor" && isValorDerived) continue;
-        const oldVal = prevLead[key as keyof Lead];
-        if (String(oldVal) !== String(newVal)) {
-          entries.push({
-            tabla: "leads", lead_id: id, campo: key,
-            valor_anterior: String(oldVal ?? ""),
-            valor_nuevo: String(newVal ?? ""),
-            usuario: currentUser,
-          });
-        }
-      }
-      if (entries.length > 0) await supabase.from("audit_log").insert(entries as never);
-    }
+    // Historial: NO lo insertamos desde la app. La BD tiene un trigger
+    // (log_lead_changes) que registra cada cambio con el nombre real de la
+    // columna. Insertarlo también aquí duplicaba cada entrada (p. ej.
+    // "redSocial" y "red_social"). Se deja solo el trigger.
   },
 
   async setLeadEtapa(id: string, etapa: Etapa) {
@@ -1215,7 +1199,6 @@ export const actions = {
       cliente_nombre: leadDelPedido?.nombre ?? "",
       dias_plazo: opts.diasPlazo ?? 20,
       pagado_50: opts.pagado50,
-      pago_todo_al_final: opts.pagoTodoAlFinal,
       creado_manualmente: opts.creadoManualmente,
       precio,
       reserva,
@@ -1334,7 +1317,6 @@ export const actions = {
       diasPlazo: "dias_plazo",
       fechaEntregaReal: "fecha_entrega_real",
       pagado50: "pagado_50",
-      pagoTodoAlFinal: "pago_todo_al_final",
       telaPedida: "tela_pedida",
       telaPedidaFecha: "tela_pedida_fecha",
       telaRecibida: "tela_recibida",
@@ -1375,8 +1357,6 @@ export const actions = {
       terminadoTapiceroPor: "terminado_tapicero_por",
       terminadoTapiceroFecha: "terminado_tapicero_fecha",
       montaje: "montaje",
-      prioritario: "prioritario",
-      prioridad: "prioridad",
       ordenProduccion: "orden_produccion",
       notaTapicero: "nota_tapicero",
       fechaRecogida: "fecha_recogida",

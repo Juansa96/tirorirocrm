@@ -305,7 +305,6 @@ export interface Pedido {
   fechaLimite: string;        // YYYY-MM-DD
   fechaEntregaReal: string;
   pagado50: boolean;
-  pagoTodoAlFinal: boolean;
   creadoManualmente: boolean;
   estadoPedido: string;       // En proceso | Terminado | Entregado
   telaPedida: boolean;
@@ -349,8 +348,6 @@ export interface Pedido {
   terminadoTapiceroPor: string;
   terminadoTapiceroFecha: string;
   montaje: string;                  // 'colgar' | 'apoyar' | ''
-  prioritario: boolean;             // legacy: destacado (estrella). La app usa `prioridad`.
-  prioridad: number;                // 1 = Alta, 2 = Normal, 3 = Baja. El equipo la asigna.
   ordenProduccion: number | null;   // orden manual de trabajo (1º, 2º…); null = sin orden
   notaTapicero: string;             // comentario que SÍ ve el tapicero (dirección de tela, etc.)
   fechaRecogida: string;            // fecha prevista de recogida por Juan en el taller (YYYY-MM-DD)

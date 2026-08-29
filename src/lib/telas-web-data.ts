@@ -3,6 +3,12 @@
 // CRM para que las fotos de tela aparezcan sin depender de una llamada en vivo.
 // Regenerar cuando cambie el catálogo de la web.
 export const TELAS_WEB: Record<string, { foto: string; coleccion: string }> = {
+  // Añadida a mano (foto que faltaba). URL según el patrón de la web; si no
+  // cargara, subir la foto desde el selector de telas de la app.
+  "amarillo mostaza": {
+    "foto": "https://tirorirohome.com/telas/basicas/amarillo-mostaza.webp",
+    "coleccion": "basica"
+  },
   "arequipa beige": {
     "foto": "https://tirorirohome.com/telas/basicas/arequipa-beige.webp",
     "coleccion": "basica"
