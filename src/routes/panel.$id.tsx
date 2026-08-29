@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
-  displayNombreProducto, telasDeProducto, etiquetaTela,
+  displayNombreProducto, telasDeProducto, etiquetaTela, vivoLabel, tipoLlevaVivo, montajeEfectivo,
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
@@ -47,7 +47,8 @@ function FichaPanel() {
 
   const medidas = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
   const plazo = plazoBadge(p.diasRestantes, p.entregado);
-  const montaje = p.montaje === "colgar" ? "Colgar en pared" : p.montaje === "apoyar" ? "Apoyar en suelo" : "";
+  const montajeEf = montajeEfectivo(p.tipo, p.montaje);
+  const montaje = montajeEf === "colgar" ? "Colgar en pared" : montajeEf === "apoyar" ? "Apoyar en suelo" : "";
   const extras = [/tapete/i.test(p.patas) && "Tapetes suelo", /colgador/i.test(p.patas) && "Colgadores"].filter(Boolean) as string[];
 
   const plantilla = p.archivos.filter((a) => a.tipo === "plantilla");
@@ -74,6 +75,16 @@ function FichaPanel() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-3 px-3 py-3 text-sm print:space-y-2 print:py-1">
+        {/* Comentarios para el tapicero (dirección de tela, etc.) — lo más
+            importante, arriba del todo. NO se muestran las notas internas del
+            pedido/producto. */}
+        {p.notaTapicero && (
+          <section className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Indicaciones importantes</div>
+            <div className="whitespace-pre-wrap font-medium">{p.notaTapicero}</div>
+          </section>
+        )}
+
         <div className="grid gap-3 lg:grid-cols-2 print:grid-cols-2 print:gap-2">
           {/* 1 · Producto: datos + forma (pequeña) */}
           <section className="rounded-xl border border-slate-200 bg-white p-3">
@@ -90,6 +101,7 @@ function FichaPanel() {
                 <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medidas sin poner"} />
                 <Dato k="Cliente" v={p.cliente || "—"} />
                 <Dato k="Tapicero" v={p.tapiceroNombre || "Sin asignar"} />
+                {tipoLlevaVivo(p.tipo) && <Dato k="Vivo" v={vivoLabel(p.acabado)} />}
                 {montaje && <Dato k="Montaje" v={montaje} />}
               </dl>
             </div>
@@ -137,15 +149,6 @@ function FichaPanel() {
             <DocSlot icon={<Truck className="h-4 w-4 text-slate-500" />} titulo="Etiqueta de envío (lo recoge el transportista)" archivos={etiquetas} vacio="Sin etiqueta · lo recoge Juan" mostrarTransportista />
           </div>
         </section>
-
-        {/* Comentarios para el tapicero (dirección de tela, etc.). NO se muestran
-            las notas internas del pedido/producto. */}
-        {p.notaTapicero && (
-          <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-[13px] text-amber-900">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Indicaciones</div>
-            <div className="whitespace-pre-wrap">{p.notaTapicero}</div>
-          </section>
-        )}
 
         {/* Histórico + foto del acabado (no salen en el PDF) */}
         <section className="space-y-2 print:hidden">

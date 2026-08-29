@@ -4,7 +4,7 @@ import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
-import { displayNombreProducto, telasDeProducto } from "@/lib/catalogo";
+import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
@@ -108,8 +108,15 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
         </div>
       )}
 
-      {/* Comentarios para el tapicero (esto SÍ lo ve; las notas internas no) */}
-      <ComentarioTapicero value={draft.notaTapicero} onChange={(v) => patch({ notaTapicero: v })} />
+      {/* Comentarios para el tapicero (esto SÍ lo ve; las notas internas no).
+          Se le sugieren las notas del pedido y del producto para incluirlas a
+          mano si procede. */}
+      <ComentarioTapicero
+        value={draft.notaTapicero}
+        onChange={(v) => patch({ notaTapicero: v })}
+        notasPedido={draft.notasPedido}
+        notasProducto={producto?.notasProducto}
+      />
 
       {/* Telas según el tipo de producto. Frontal siempre; lateral/ribete solo
           si se añaden a mano (punto 7): no aparecen como hueco por defecto. */}
@@ -168,6 +175,26 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
         })}
       </div>
 
+      {/* Vivo / ribete del cabecero, banco o puf. Se especifica aquí (Sin vivo /
+          Vivo simple / Vivo doble) y lo ve el tapicero. Acción inmediata sobre
+          el producto (no pasa por el borrador). */}
+      {producto && tipoLlevaVivo(producto.tipo) && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
+          <div className="mb-1.5 text-xs font-medium text-slate-500">Vivo / ribete <span className="text-slate-400">(lo ve el tapicero · se guarda al instante)</span></div>
+          <div className="flex flex-wrap gap-2">
+            {([["", "Sin vivo"], ["vivo-simple", "Vivo simple"], ["vivo-doble", "Vivo doble"]] as const).map(([v, lbl]) => {
+              const activo = (producto.acabado || "") === v;
+              return (
+                <button key={v || "sin"} type="button" onClick={() => void actions.setProductoAcabado(producto.id, v)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Montaje + estado de tela */}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white p-2.5">
@@ -175,7 +202,7 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
           <div className="flex gap-2">
             {[["colgar", "Colgar en pared"], ["apoyar", "Apoyar en suelo"]].map(([v, lbl]) => (
               <button key={v} onClick={() => patch({ montaje: draft.montaje === v ? "" : v })}
-                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${draft.montaje === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${montajeEfectivo(producto?.tipo, draft.montaje) === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
                 {lbl}
               </button>
             ))}
@@ -265,11 +292,22 @@ const SUGERENCIAS_TAPICERO = [
   "Cuidado con el sentido del dibujo",
   "Lleva cremallera",
 ];
-function ComentarioTapicero({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function ComentarioTapicero({ value, onChange, notasPedido, notasProducto }: {
+  value: string; onChange: (v: string) => void;
+  notasPedido?: string; notasProducto?: string;
+}) {
   function añadir(s: string) {
     const base = (value || "").trim();
+    if (base.includes(s.trim())) return; // no duplicar si ya está incluido
     onChange(base ? base + "\n" + s : s);
   }
+  const yaIncluye = (s: string) => (value || "").includes((s || "").trim());
+  // Sugerencias derivadas de las notas del pedido y del producto (el equipo
+  // decide manualmente si incluirlas en lo que ve el tapicero).
+  const notas = [
+    { origen: "Nota del pedido", texto: (notasPedido || "").trim() },
+    { origen: "Nota del producto", texto: (notasProducto || "").trim() },
+  ].filter((n) => n.texto && !yaIncluye(n.texto));
   return (
     <div className="mb-3 rounded-lg border border-slate-200 bg-white p-2.5">
       <div className="mb-1.5 text-xs font-medium text-slate-500">Comentarios para el tapicero <span className="text-slate-400">(esto sí lo ve)</span></div>
@@ -280,6 +318,18 @@ function ComentarioTapicero({ value, onChange }: { value: string; onChange: (v: 
         placeholder="Dirección de la tela, indicaciones de tapizado…"
         className="w-full resize-none rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
       />
+      {notas.length > 0 && (
+        <div className="mt-2 space-y-1 rounded-lg border border-amber-200 bg-amber-50/60 p-2">
+          <div className="text-[11px] font-medium text-amber-700">Sugerencias (pulsa para añadirlas):</div>
+          {notas.map((n) => (
+            <button key={n.origen} type="button" onClick={() => añadir(n.texto)}
+              className="flex w-full items-start gap-1.5 rounded-md border border-amber-200 bg-white px-2 py-1 text-left text-[11px] text-slate-600 hover:bg-amber-100">
+              <Plus className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
+              <span><span className="font-medium text-amber-700">{n.origen}:</span> {n.texto}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="mt-1.5 flex flex-wrap gap-1">
         {SUGERENCIAS_TAPICERO.map((s) => (
           <button key={s} type="button" onClick={() => añadir(s)}

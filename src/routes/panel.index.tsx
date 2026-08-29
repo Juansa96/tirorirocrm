@@ -31,10 +31,14 @@ function diasColor(d: number, entregado: boolean) {
 // Orden efectivo de un producto: el orden manual si lo tiene; si no, al final.
 const ordenDe = (p: PanelPedido) => p.ordenProduccion ?? Infinity;
 
-// Lista plana ordenada: por orden manual (1º, 2º…) y, a igualdad, por entrega.
+// Lista plana ordenada: primero el orden manual (1º, 2º…) si lo hay; a igualdad,
+// por FECHA DE RECOGIDA por Juan en el taller (lo que antes se recoge, primero)
+// y, como último desempate, por la fecha de entrega al cliente.
 function ordenarFlat(lista: PanelPedido[]): PanelPedido[] {
   return [...lista].sort((a, b) =>
-    (ordenDe(a) - ordenDe(b)) || (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
+    (ordenDe(a) - ordenDe(b))
+    || (a.fechaRecogida || "9999").localeCompare(b.fechaRecogida || "9999")
+    || (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
 }
 
 // Agrupa productos CONSECUTIVOS del mismo cliente en "tramos" (cada tramo = una

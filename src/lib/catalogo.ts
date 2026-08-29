@@ -207,6 +207,35 @@ export function telasDeProducto(tipo: unknown): TelaRol[] {
   return k ? TELAS_POR_TIPO[k] : TELAS_POR_TIPO.otro;
 }
 
+// ── Vivo / acabado ─────────────────────────────────────────────────────────
+// Tipos de producto a los que aplica el vivo/ribete (cabecero, banco, puf).
+// Para el resto (mesa, pantalla, almohadón…) el concepto no aplica.
+export function tipoLlevaVivo(tipo: unknown): boolean {
+  const k = normalizeTipo(tipo);
+  return k === "cabecero" || k === "banco" || k === "puf";
+}
+
+// Etiqueta legible del acabado de vivo. Por defecto (sin acabado) es "Sin vivo"
+// —nunca "Vivo simple"—, tal y como se pidió. Solo se dice "Vivo simple/doble"
+// cuando está explícitamente elegido.
+export function vivoLabel(acabado: unknown): string {
+  const a = String(acabado ?? "");
+  if (a === "vivo-doble") return "Vivo doble";
+  if (a === "vivo-simple") return "Vivo simple";
+  return "Sin vivo";
+}
+
+// Montaje efectivo: los pufs y los bancos van, por defecto, "apoyados en el
+// suelo" (no colgados). Si aún no se ha elegido montaje, se asume "apoyar"
+// para esos tipos; el resto queda sin montaje hasta que se elija.
+export function montajeEfectivo(tipo: unknown, montaje: unknown): string {
+  const m = String(montaje ?? "");
+  if (m) return m;
+  const k = normalizeTipo(tipo);
+  if (k === "puf" || k === "banco") return "apoyar";
+  return "";
+}
+
 // Etiqueta visible de un rol de tela para un tipo dado (fallback genérico).
 export function etiquetaTela(tipo: unknown, rol: string): string {
   const r = telasDeProducto(tipo).find((x) => x.rol.toLowerCase() === rol.toLowerCase());
