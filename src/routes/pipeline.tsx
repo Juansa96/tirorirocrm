@@ -7,6 +7,7 @@ import {
   type Etapa, type EtapaB2B, type EtapaColab, type Lead,
 } from "@/lib/types";
 import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
+import { ClosedLostDialog } from "@/components/ClosedLostDialog";
 import { formatCurrency, dateLabel } from "@/lib/format";
 import { useTouchStageDrag } from "@/lib/stage-drag";
 import { sellerStyle } from "@/components/SellerBadge";
@@ -215,7 +216,15 @@ function PipelineB2C() {
   const filterVendedor = search.vendedor;
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<Etapa | null>(null);
-  const touchHandlers = useTouchStageDrag<Etapa>(setDragOver, setDraggingId, actions.setLeadEtapa);
+  const [perdidaLead, setPerdidaLead] = useState<string | null>(null);
+
+  // Al mover a "Closed Lost" se pide SIEMPRE el motivo (obligatorio); el resto
+  // se mueve directo.
+  const moveB2C = (leadId: string, etapa: Etapa) => {
+    if (etapa === "Closed Lost") setPerdidaLead(leadId);
+    else void actions.setLeadEtapa(leadId, etapa);
+  };
+  const touchHandlers = useTouchStageDrag<Etapa>(setDragOver, setDraggingId, moveB2C);
 
   const visibleEtapas = filterEtapa ? ETAPAS.filter((e) => e === filterEtapa) : ETAPAS;
   const hasFilter = !!(filterEtapa || filterVendedor);
@@ -263,7 +272,7 @@ function PipelineB2C() {
                 data-etapa={etapa}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
                 onDragLeave={() => setDragOver(null)}
-                onDrop={() => { if (draggingId) actions.setLeadEtapa(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
+                onDrop={() => { if (draggingId) moveB2C(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
                 className={`w-[78vw] shrink-0 snap-center rounded-xl border sm:w-[46vw] lg:w-auto lg:min-w-0 lg:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
               >
                 <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
@@ -296,6 +305,17 @@ function PipelineB2C() {
           })}
         </div>
       </div>
+
+      {perdidaLead && (
+        <ClosedLostDialog
+          onCancel={() => setPerdidaLead(null)}
+          onConfirm={(razon, comentario) => {
+            void actions.setLeadEtapa(perdidaLead, "Closed Lost");
+            void actions.addNota(perdidaLead, `[Closed Lost] ${razon}${comentario ? ` — ${comentario}` : ""}`);
+            setPerdidaLead(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -90,6 +90,16 @@ export const RAZONES_PERDIDA_COLAB = [
   "Otro",
 ] as const;
 
+// Motivos por los que un lead B2C se marca como "Closed Lost". Se pide SIEMPRE
+// (obligatorio) al pasar a esa etapa; el comentario/observaciones es opcional.
+export const RAZONES_PERDIDA_B2C = [
+  "Ilocalizable / No responde",
+  "Precio",
+  "Compró en la competencia",
+  "Duplicado / no cualificado",
+  "Solo pedía información",
+] as const;
+
 export const ETAPAS: EtapaB2C[] = [
   "Discovery",
   "Primer Contacto",
