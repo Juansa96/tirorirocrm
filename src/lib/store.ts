@@ -8,6 +8,7 @@ import { todayISO } from "./format";
 import { normalizarColeccionTela, normalizeTipo, displayColeccionTela } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
+import { TELAS_WEB } from "./telas-web-data";
 
 
 
@@ -554,21 +555,53 @@ async function refetchTelasBiblioteca() {
     state = { ...state, telasBiblioteca: rows }; emit();
   }
 }
+// Convierte un nombre normalizado ("arequipa beige") a un display bonito
+// ("Arequipa Beige") para el catálogo empaquetado (que solo guarda la clave
+// normalizada). El catálogo en vivo, si responde, trae el nombre real.
+function titleCaseTela(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Filas base a partir del catálogo EMPAQUETADO (siempre disponible, sin red):
+// así el selector de telas muestra todas las telas de la web con su foto al
+// instante, sin depender de que /api/public/telas responda.
+function telasWebEmpaquetadas(): TelaBiblioteca[] {
+  return Object.entries(TELAS_WEB).map(([norm, v]) => ({
+    id: "web:" + norm,
+    nombre: titleCaseTela(norm),
+    fotoUrl: v.foto,
+    coleccion: v.coleccion || "basica",
+    origen: "web",
+  }));
+}
+
 // Telas publicadas por la web (nombre + foto), leídas por el proxy del CRM.
+// Se siembra primero desde el catálogo empaquetado (para que aparezcan de
+// inmediato con foto) y luego se enriquece/actualiza con el catálogo en vivo.
 async function fetchTelasWeb() {
+  // Semilla inmediata desde el catálogo empaquetado.
+  const base = new Map<string, TelaBiblioteca>();
+  for (const t of telasWebEmpaquetadas()) base.set(normNombreTela(t.nombre), t);
+  state = { ...state, telasWeb: [...base.values()] }; emit();
   try {
     const res = await fetch("/api/public/telas", { cache: "no-cache" });
     if (!res.ok) return;
     const data = await res.json() as { telas?: Array<Record<string, unknown>> };
-    const rows: TelaBiblioteca[] = (data.telas ?? []).map((t) => ({
-      id: "web:" + String(t.id ?? t.nombre ?? ""),
-      nombre: String(t.nombre ?? ""),
-      fotoUrl: String(t.foto ?? ""),
-      coleccion: String(t.coleccion ?? "basica"),
-      origen: "web",
-    }));
-    state = { ...state, telasWeb: rows }; emit();
-  } catch { /* la web no responde: solo quedan las telas subidas */ }
+    // El catálogo en vivo pisa al empaquetado (nombre real + telas nuevas).
+    for (const t of data.telas ?? []) {
+      const nombre = String(t.nombre ?? "");
+      const foto = String(t.foto ?? "");
+      if (!nombre || !foto) continue;
+      base.set(normNombreTela(nombre), {
+        id: "web:" + String(t.id ?? nombre),
+        nombre,
+        fotoUrl: foto,
+        coleccion: String(t.coleccion ?? "basica"),
+        origen: "web",
+      });
+    }
+    state = { ...state, telasWeb: [...base.values()] }; emit();
+  } catch { /* la web no responde: quedan las telas empaquetadas + subidas */ }
 }
 async function refetchPedidoArchivos() {
   const { data, error } = await supabase.from("pedido_archivos").select("*").order("created_at", { ascending: false });
@@ -1060,6 +1093,19 @@ export const actions = {
     if (prev) await syncLeadValorFromProductos(prev.leadId);
   },
 
+  // Fija el acabado (tipo de vivo: "", "vivo-simple", "vivo-doble") de un
+  // producto de forma inmediata. Se usa desde la ficha del tapicero para poder
+  // especificar el vivo del cabecero/banco/puf sin abrir el editor completo.
+  async setProductoAcabado(id: string, acabado: string) {
+    const prev = state.productos.find((p) => p.id === id);
+    if (!prev) return;
+    const prevState = state;
+    state = { ...state, productos: state.productos.map((p) => p.id === id ? { ...p, acabado } : p) };
+    emit();
+    const { error } = await supabase.from("productos_lead").update({ acabado: acabado || null } as never).eq("id", id);
+    if (error) { state = prevState; emit(); toast.error("No se pudo actualizar el acabado."); }
+  },
+
   // Quita el tag "[posible-duplicado]" de las notas de un producto (falso
   // positivo tras revisarlo en la vista de duplicados).
   async desmarcarDuplicado(id: string) {
@@ -1284,6 +1330,7 @@ export const actions = {
     const map: Record<string, string> = {
       numero: "numero",
       numeroSufijo: "numero_sufijo",
+      fechaCreacionPedido: "fecha_creacion_pedido",
       diasPlazo: "dias_plazo",
       fechaEntregaReal: "fecha_entrega_real",
       pagado50: "pagado_50",
@@ -1345,6 +1392,9 @@ export const actions = {
     }
     const { error } = await supabase.from("pedidos").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); return; }
+    // La fecha límite la recalcula un trigger a partir de fecha_creacion + días
+    // de plazo. Si cambia alguna de las dos, refrescamos para traer la nueva.
+    if ("fechaCreacionPedido" in patch || "diasPlazo" in patch) await refetchPedidos();
     await syncLeadFromPedidos(leadId);
   },
 
@@ -1380,14 +1430,22 @@ export const actions = {
     if (!pedido) return;
     const saliente = pedido.tapiceroId;
     if (saliente === nuevoTapiceroId) return; // sin cambios
+    const producto = state.productos.find((pr) => pr.id === pedido.productoLeadId);
     const sellos: Record<string, string> = { ...(pedido.pasosTapicero || {}) };
     if (saliente) {
-      const producto = state.productos.find((pr) => pr.id === pedido.productoLeadId);
       for (const h of flujoPedido(producto?.tipo ?? "")) {
         if ((pedido[h.key] as boolean) && !sellos[h.key]) sellos[h.key] = saliente;
       }
     }
-    await actions.updatePedido(pedidoId, { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos });
+    const patch: Partial<Pedido> = { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos };
+    // Al ASIGNAR un tapicero (no al desasignar), la ruta de producción refleja
+    // que se le ha solicitado el pedido: se marca el paso "Solicitado a …" si el
+    // flujo lo tiene (todos salvo pantalla) y aún no estaba marcado.
+    if (nuevoTapiceroId && !pedido.solicitadoDaniel && flujoPedido(producto?.tipo ?? "").some((h) => h.key === "solicitadoDaniel")) {
+      patch.solicitadoDaniel = true;
+      patch.solicitadoDanielFecha = todayISO();
+    }
+    await actions.updatePedido(pedidoId, patch);
   },
 
   // ───────── Catálogo de tapiceros (gestión desde Usuarios) ─────────

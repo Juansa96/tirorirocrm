@@ -5,7 +5,7 @@ import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { numeroPedidoLabel, semaforoPedido, flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
-import { displayNombreProducto, displayColeccionTela } from "@/lib/catalogo";
+import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { telaToDraft, diffPedido, telasCambiadas, emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
@@ -239,7 +239,9 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} />
             {producto.color && <Info k="Tela lateral" v={producto.color} />}
             {producto.relleno && <Info k="Tela vivo/ribete" v={producto.relleno} />}
-            {producto.acabado && <Info k="Acabado" v={producto.acabado === "vivo-simple" ? "Vivo simple" : producto.acabado === "vivo-doble" ? "Vivo doble" : producto.acabado} />}
+            {tipoLlevaVivo(producto.tipo)
+              ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
+              : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
             {producto.patas && <Info k="Extras" v={producto.patas} />}
             {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
           </div>
@@ -252,8 +254,13 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Plazo</div>
           <div className="space-y-3">
             <div>
-              <div className="text-xs text-slate-500">Fecha de creación</div>
-              <div className="text-sm font-medium">{formatShortDate(pedido.fechaCreacionPedido.slice(0, 10))}</div>
+              <label className="text-xs text-slate-500">Fecha de creación</label>
+              <input
+                type="date" value={(draft.fechaCreacionPedido || "").slice(0, 10)}
+                onChange={(e) => patch({ fechaCreacionPedido: e.target.value })}
+                className="mt-1 block rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
+              />
+              <div className="mt-0.5 text-[11px] text-slate-400">Al cambiarla se recalcula la fecha límite (útil si aparece como atrasado sin serlo).</div>
             </div>
             <div>
               <label className="text-xs text-slate-500">Días de plazo</label>
@@ -373,6 +380,17 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
                       const today = new Date().toISOString().slice(0, 10);
                       const next = cascadaMarcado(hitos, index, e.target.checked, draft, today);
                       patch(next);
+                      // Al recibir/pedir la tela en la ruta de producción, se
+                      // arrastran las telas del pedido al mismo estado (para que
+                      // no haya que marcarlas una a una). También cubre el caso
+                      // en que la cascada marque estos pasos.
+                      if (next.telaRecibida === true) {
+                        setTelasDraft((prev) => prev.map((t) => ({ ...t, estado: "Recibida", fechaRecibo: t.fechaRecibo || today })));
+                      } else if (next.telaPedida === true) {
+                        setTelasDraft((prev) => prev.map((t) => ({ ...t, estado: "Pedida" })));
+                      } else if (h.key === "telaRecibida" && next.telaRecibida === false) {
+                        setTelasDraft((prev) => prev.map((t) => ({ ...t, estado: "Pedida", fechaRecibo: "" })));
+                      }
                     }}
                     className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
                   <span className={`font-medium ${checked ? "text-slate-900" : "text-slate-600"}`}>{hitoLabel(h.label, nombreDePaso(h.key))}</span>

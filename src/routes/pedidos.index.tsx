@@ -40,7 +40,7 @@ type EstadoFiltro = typeof ESTADO_OPTS[number];
 function PedidosIndex() {
   const { pedidos, leads, productos, pedidoTelas } = useStore();
   const [modo, setModo] = useState<"pedidos" | "produccion">("pedidos");
-  const [tab, setTab] = useState<"todos" | "normal" | "ab" | "influ">("normal");
+  const [tab, setTab] = useState<"todos" | "normal" | "ab" | "influ">("todos");
   const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
   const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
