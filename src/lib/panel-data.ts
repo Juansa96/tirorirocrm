@@ -92,6 +92,20 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
       for (const n of (nombres ?? []) as Array<{ id: string; nombre: string }>) nombreById.set(n.id, n.nombre ?? "");
     }
 
+    // Respaldo del nombre para el EQUIPO: si un pedido no tiene el nombre
+    // denormalizado (cliente_nombre / nombre libre), se resuelve desde el lead
+    // vinculado (el equipo sí puede leer leads). Evita "Sin cliente" en el panel
+    // cuando el pedido está vinculado a un cliente real (p. ej. tras conversión
+    // de lead sin denormalizar el nombre).
+    const leadNombreById = new Map<string, string>();
+    if (!esViewerElTapicero) {
+      const leadIds = [...new Set(rows.map((p) => p.lead_id).filter(Boolean) as string[])];
+      if (leadIds.length) {
+        const { data: ls } = await supabase.from("leads").select("id, nombre").in("id", leadIds);
+        for (const l of (ls ?? []) as Array<{ id: string; nombre: string }>) leadNombreById.set(l.id, l.nombre ?? "");
+      }
+    }
+
     const [{ data: prods }, { data: telas }, { data: archivos }] = await Promise.all([
       prodIds.length ? supabase.from("productos_lead").select("*").in("id", prodIds) : Promise.resolve({ data: [] as never[] }),
       pedIds.length ? supabase.from("pedido_telas").select("*").in("pedido_id", pedIds) : Promise.resolve({ data: [] as never[] }),
@@ -146,7 +160,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
       // aquí. El nombre completo solo se ve fuera del panel (Pedidos, Clientes).
       const nombreCliente = esViewerElTapicero
         ? (nombreById.get(p.id as string) ?? "Cliente")
-        : maskApellido((p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || "");
+        : maskApellido((p.cliente_nombre as string) || (p.cliente_nombre_libre as string) || leadNombreById.get(p.lead_id as string) || "");
       return {
         id: p.id as string,
         numero: p.numero != null ? Number(p.numero) : null,
