@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
-  Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Zap, Camera, ImagePlus,
+  Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
@@ -385,26 +385,6 @@ function ClienteDetalle() {
           </div>
         )}
 
-        {lead.etapa !== "Closed Won" && lead.etapa !== "Closed Lost" && (
-          <div className="mt-3">
-            <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
-              <Zap className="h-3.5 w-3.5 text-amber-500" />
-              Razón de urgencia / situación actual
-            </label>
-            <input
-              type="text"
-              defaultValue={lead.razonUrgencia}
-              key={lead.id + lead.razonUrgencia}
-              onBlur={(e) => {
-                if (e.target.value !== lead.razonUrgencia) {
-                  void actions.updateLead(lead.id, { razonUrgencia: e.target.value });
-                }
-              }}
-              placeholder="Ej: esperando confirmación de medidas, pendiente de envío de muestras…"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-            />
-          </div>
-        )}
         <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
           <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
             <input
@@ -779,11 +759,12 @@ function ClienteDetalle() {
 
       {/* Notas */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-1 flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-slate-500" />
-          <h2 className="text-base font-semibold">Notas</h2>
+          <h2 className="text-base font-semibold">Notas del cliente</h2>
           {leadNotas.length > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{leadNotas.length}</span>}
         </div>
+        <p className="mb-3 text-xs text-slate-400">Notas internas del cliente (comerciales). El tapicero NO las ve. Para lo que ve el tapicero usa «Comentarios para el tapicero» en el pedido.</p>
         <div className="mb-4 flex gap-2">
           <textarea
             placeholder="Escribe una nota…"

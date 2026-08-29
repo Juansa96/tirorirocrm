@@ -225,7 +225,7 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
       Ciudad: l.ciudad,
       Vendedor: vendorName(l.vendedor) || "",
       Etapa: l.etapa,
-      Producto: l.producto,
+      "Interes inicial": l.producto,
       Valor: l.valor || 0,
       Origen: l.origen,
       Etiquetas: (l.etiquetas ?? []).join(", "),

@@ -98,7 +98,7 @@ function FichaPanel() {
               </div>
               <dl className="min-w-0 flex-1 space-y-1">
                 <Dato k="Producto" v={displayNombreProducto(p.tipo, p.modelo)} />
-                <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medidas sin poner"} />
+                <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medidas sin especificar"} />
                 <Dato k="Cliente" v={p.cliente || "—"} />
                 <Dato k="Tapicero" v={p.tapiceroNombre || "Sin asignar"} />
                 {tipoLlevaVivo(p.tipo) && <Dato k="Vivo" v={vivoLabel(p.acabado)} />}

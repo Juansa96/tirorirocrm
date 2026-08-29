@@ -116,7 +116,10 @@ export function displayModelo(m: unknown): string {
 // acentos y el separador "—"/":"/"-" que a veces la sigue, p. ej. "Oyambre — ").
 const PREFIJO_TIPO_MODELO_RE = /^(pufs?|mesas?|pantallas?|almohad[oó]n(?:es)?|coj[ií]n(?:es)?|cabeceros?|bancos?|oyambre)\b[\s—–:-]*/i;
 // Placeholder que, tras quitar el prefijo, no aporta información real.
-const MODELO_PLACEHOLDER_RE = /^\(?\s*(?:medidas?|formas?)\s+(?:personalizada|por decidir)\s*\)?$/i;
+// Incluye "mis medidas" / "medidas propias" para que en NINGUNA vista (y en
+// especial la del tapicero) aparezca "Banco mis medidas" o "medida
+// personalizada": el nombre queda solo con el tipo/modelo real.
+const MODELO_PLACEHOLDER_RE = /^\(?\s*(?:mis\s+medidas|medidas?\s+propias|(?:medidas?|formas?)\s+(?:personalizada|por decidir))\s*\)?$/i;
 
 export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
   if (esModeloTBD(modelo)) return "";
@@ -134,19 +137,6 @@ export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
 // columnas de medida, mostrarlo como línea de medidas.
 export function esDetalleMedida(det: string): boolean {
   return /\d/.test(det);
-}
-
-// ── Prioridad del producto/pedido ───────────────────────────────────────────
-// 1 = Alta, 2 = Normal, 3 = Baja. El equipo la asigna; el tapicero solo la ve.
-export const PRIORIDAD_OPCIONES = [
-  { valor: 1, label: "Alta" },
-  { valor: 2, label: "Normal" },
-  { valor: 3, label: "Baja" },
-] as const;
-
-export function prioridadLabel(v: unknown): string {
-  const n = Number(v) || 2;
-  return PRIORIDAD_OPCIONES.find((o) => o.valor === n)?.label ?? "Normal";
 }
 
 // ── Telas por tipo de producto ──────────────────────────────────────────────

@@ -475,10 +475,10 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
 
       {/* Notas */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Notas del pedido</div>
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Notas del pedido <span className="font-normal normal-case text-slate-400">· internas (el tapicero NO las ve)</span></div>
         <textarea rows={3} value={draft.notasPedido || ""}
           onChange={(e) => patch({ notasPedido: e.target.value })}
-          placeholder="Notas internas sobre este pedido…"
+          placeholder="Logística, incidencias, acuerdos… (internas)"
           className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
       </div>
 

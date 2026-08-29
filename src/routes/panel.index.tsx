@@ -31,14 +31,33 @@ function diasColor(d: number, entregado: boolean) {
 // Orden efectivo de un producto: el orden manual si lo tiene; si no, al final.
 const ordenDe = (p: PanelPedido) => p.ordenProduccion ?? Infinity;
 
-// Lista plana ordenada: primero el orden manual (1º, 2º…) si lo hay; a igualdad,
-// por FECHA DE RECOGIDA por Juan en el taller (lo que antes se recoge, primero)
-// y, como último desempate, por la fecha de entrega al cliente.
+// Clave de ordenación de un producto: orden manual (1º, 2º…), luego fecha de
+// recogida por Juan y, por último, fecha de entrega al cliente.
+type Clave = [number, string, string];
+const claveDe = (p: PanelPedido): Clave => [ordenDe(p), p.fechaRecogida || "9999", p.fechaLimite || "9999"];
+function cmpClave(a: Clave, b: Clave): number {
+  if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;   // (evita Infinity - Infinity = NaN)
+  return a[1].localeCompare(b[1]) || a[2].localeCompare(b[2]);
+}
+const clienteDe = (p: PanelPedido) => p.cliente || "Sin cliente";
+
+// Lista plana ordenada MANTENIENDO JUNTOS todos los productos de un mismo
+// cliente. Los clientes se ordenan por su producto más urgente (menor clave);
+// dentro de cada cliente, sus productos van por esa misma clave. Así un cliente
+// nunca queda partido en la cola del taller.
 function ordenarFlat(lista: PanelPedido[]): PanelPedido[] {
-  return [...lista].sort((a, b) =>
-    (ordenDe(a) - ordenDe(b))
-    || (a.fechaRecogida || "9999").localeCompare(b.fechaRecogida || "9999")
-    || (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
+  const minPorCliente = new Map<string, Clave>();
+  for (const p of lista) {
+    const c = clienteDe(p);
+    const k = claveDe(p);
+    const cur = minPorCliente.get(c);
+    if (!cur || cmpClave(k, cur) < 0) minPorCliente.set(c, k);
+  }
+  return [...lista].sort((a, b) => {
+    const ca = clienteDe(a), cb = clienteDe(b);
+    if (ca !== cb) return cmpClave(minPorCliente.get(ca)!, minPorCliente.get(cb)!) || ca.localeCompare(cb);
+    return cmpClave(claveDe(a), claveDe(b));
+  });
 }
 
 // Agrupa productos CONSECUTIVOS del mismo cliente en "tramos" (cada tramo = una
@@ -353,7 +372,7 @@ function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
   const c = diasColor(p.diasRestantes, p.entregado);
   const medidasNum = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
   const det = modeloDetalle(p.tipo, p.modelo);
-  const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medidas sin poner");
+  const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medidas sin especificar");
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   const arrastrandoEste = dnd?.dragKind === "product" && dnd.dragKey === p.id;
   const encima = !!dnd && dnd.overId === p.id && dnd.dragKey !== p.id;
