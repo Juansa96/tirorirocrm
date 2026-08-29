@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { Plus, Clock, X, ChevronDown, List } from "lucide-react";
 import { useState } from "react";
 import { useStore, actions } from "@/lib/store";
@@ -14,6 +14,9 @@ interface Search {
 
 export const Route = createFileRoute("/pipeline-b2b")({
   head: () => ({ meta: [{ title: "Pipeline B2B — TiroCRM" }] }),
+  // Ruta duplicada: el B2B vive ahora SOLO en la pestaña B2B de /pipeline.
+  // Se redirige allí para no mantener dos pipelines B2B iguales.
+  beforeLoad: () => { throw redirect({ to: "/pipeline", search: { tab: "b2b" } }); },
   validateSearch: (s: Record<string, unknown>): Search => {
     const e = s.etapa as EtapaB2B | undefined;
     const a = s.asignado as string | undefined;

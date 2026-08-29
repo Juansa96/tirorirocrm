@@ -326,6 +326,11 @@ function ClienteDetalle() {
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <SellerBadge vendedor={lead.vendedor} />
+            {pedidos.some((p) => p.leadId === lead.id && p.entregado) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700" title="Este cliente ya recibió algún pedido: es un cliente recurrente.">
+                ★ Cliente recurrente
+              </span>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -508,7 +513,10 @@ function ClienteDetalle() {
           </div>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Valor estimado</div>
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Valor estimado</div>
+          {pedidos.some((p) => p.leadId === lead.id && !p.esCanje) && (
+            <p className="mb-3 text-[11px] text-slate-400">Estimación. El importe y el cobro reales están en <strong>Pedidos</strong> (esta cifra se recalcula desde ahí).</p>
+          )}
           <div className="space-y-3">
             <div>
               <div className="text-xs text-slate-500 mb-1">Producto</div>
@@ -592,33 +600,6 @@ function ClienteDetalle() {
           </div>
           {!showProdForm && (
             <div className="flex items-center gap-2">
-              {(() => {
-                const pendientes = leadProductos.filter((p) =>
-                  p.caracteristicasConfirmadas &&
-                  !pedidos.some((pd) => pd.productoLeadId === p.id) &&
-                  !(p.notasProducto || "").toLowerCase().includes("posible-duplicado")
-                );
-                if (pendientes.length === 0) return null;
-                return (
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`¿Crear ${pendientes.length} pedido(s) pendiente(s)?`)) return;
-                      for (const p of pendientes) {
-                        await actions.crearPedido({
-                          productoId: p.id,
-                          pagado50: lead.tipo === "INFLUENCER" ? false : p.pagado50,
-                          pagoTodoAlFinal: lead.tipo !== "INFLUENCER" && !p.pagado50,
-                          creadoManualmente: !p.pagado50,
-                          esCanje: lead.tipo === "INFLUENCER",
-                        });
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                  >
-                    <Package className="h-3.5 w-3.5" /> Crear pedidos pendientes ({pendientes.length})
-                  </button>
-                );
-              })()}
               <button onClick={() => setShowProdForm(true)} className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2a2f46]">
                 <Plus className="h-3.5 w-3.5" /> Añadir producto
               </button>
