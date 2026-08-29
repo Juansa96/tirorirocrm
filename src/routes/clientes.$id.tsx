@@ -7,6 +7,7 @@ import {
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
 import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
+import { ClosedLostDialog } from "@/components/ClosedLostDialog";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -260,7 +261,8 @@ function ClienteDetalle() {
       )}
 
       {/* Closed Won/Lost dialog */}
-      {closingEtapa && (
+      {/* Closed Won: motivo libre y opcional. */}
+      {closingEtapa === "Closed Won" && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center gap-2">
             <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold text-white" style={{ backgroundColor: ETAPA_COLORS[closingEtapa] }}>
@@ -272,7 +274,7 @@ function ClienteDetalle() {
             autoFocus
             value={closingReason}
             onChange={(e) => setClosingReason(e.target.value)}
-            placeholder={closingEtapa === "Closed Won" ? "¿Qué fue determinante para cerrar la venta?" : "¿Por qué se perdió este lead?"}
+            placeholder="¿Qué fue determinante para cerrar la venta?"
             rows={2}
             className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
           />
@@ -283,6 +285,19 @@ function ClienteDetalle() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Closed Lost: motivo OBLIGATORIO (una de las razones) + comentario opcional. */}
+      {closingEtapa === "Closed Lost" && (
+        <ClosedLostDialog
+          onCancel={() => setClosingEtapa(null)}
+          onConfirm={(razon, comentario) => {
+            void actions.setLeadEtapa(lead.id, "Closed Lost");
+            void actions.addNota(lead.id, `[Closed Lost] ${razon}${comentario ? ` — ${comentario}` : ""}`);
+            setClosingEtapa(null);
+            setClosingReason("");
+          }}
+        />
       )}
 
       {perdidaColab && (
