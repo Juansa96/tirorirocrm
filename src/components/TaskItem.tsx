@@ -20,15 +20,22 @@ export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props
     : status === "mañana" ? "text-blue-600"
     : "text-slate-500";
 
+  // Si la tarea no tiene cliente asociado, la descripción pasa a ser la línea
+  // principal (así no queda una tarjeta "medio vacía" con un guion suelto).
+  const hasCliente = !!clienteNombre.trim() && clienteNombre.trim() !== "—";
+  const primary = hasCliente ? clienteNombre : (tarea.descripcion || "Tarea");
+  const secondary = hasCliente ? tarea.descripcion : "";
+  const doneCls = tarea.completada ? "text-slate-400 line-through" : "";
+
   const content = (
-    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 transition-shadow duration-150 hover:shadow-md">
+    <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 transition-shadow duration-150 hover:shadow-md">
       {showCheckbox ? (
         <input
           type="checkbox"
           checked={tarea.completada}
           onChange={(e) => { e.stopPropagation(); onToggle?.(); }}
           onClick={(e) => e.stopPropagation()}
-          className="h-4 w-4 shrink-0 rounded border-slate-300 accent-emerald-600"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-emerald-600"
         />
       ) : (
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100">
@@ -36,20 +43,22 @@ export function TaskItem({ tarea, clienteNombre, showCheckbox, onToggle }: Props
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className={`truncate text-sm font-semibold ${tarea.completada ? "text-slate-400 line-through" : "text-slate-900"}`}>
-          {clienteNombre}
+        <div className={`text-sm font-semibold ${secondary ? "truncate" : "line-clamp-2"} ${tarea.completada ? "text-slate-400 line-through" : "text-slate-900"}`}>
+          {primary}
         </div>
-        <div className={`truncate text-xs ${tarea.completada ? "text-slate-400 line-through" : "text-slate-500"}`}>
-          {tarea.descripcion}
-        </div>
+        {secondary && (
+          <div className={`truncate text-xs ${tarea.completada ? "text-slate-400 line-through" : "text-slate-500"}`}>
+            {secondary}
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <div className={`flex items-center gap-1 text-xs font-medium ${fechaColor}`}>
-          {status === "vencida" && <AlertTriangle className="h-3 w-3" />}
+        <div className={`flex items-center gap-1 text-xs font-medium ${fechaColor} ${doneCls}`}>
+          {status === "vencida" && <AlertTriangle className="h-3 w-3 shrink-0" />}
           {dateLabel(tarea.fecha)}
           {tarea.hora && <span className="text-slate-400">· {tarea.hora}</span>}
         </div>
-        <SellerBadge vendedor={tarea.vendedor} />
+        {tarea.vendedor && <SellerBadge vendedor={tarea.vendedor} />}
       </div>
     </div>
   );

@@ -25,7 +25,9 @@ function KpiCard({ icon: Icon, label, value, sub, badgeBg, iconColor, empty }: {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow duration-150 hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
-        <div className="text-xs font-medium leading-tight text-slate-500">{label}</div>
+        {/* Altura fija (2 líneas) para que el icono y la cifra queden alineados
+            entre tarjetas aunque unas etiquetas ocupen 1 línea y otras 2. */}
+        <div className="flex min-h-[2.2em] items-start text-xs font-medium leading-tight text-slate-500">{label}</div>
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${badgeBg}`}>
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
@@ -323,10 +325,12 @@ function Dashboard() {
             <div className={`text-sm font-bold ${pedidosAtrasados.length > 0 ? "text-rose-800" : "text-amber-800"}`}>
               {pedidosAtrasados.length > 0
                 ? `${pedidosAtrasados.length} pedido${pedidosAtrasados.length > 1 ? "s" : ""} atrasado${pedidosAtrasados.length > 1 ? "s" : ""}`
-                : `${pedidosRiesgo.length} pedido${pedidosRiesgo.length > 1 ? "s" : ""} en riesgo`}
+                : `${pedidosRiesgo.length} pedido${pedidosRiesgo.length > 1 ? "s" : ""} termina${pedidosRiesgo.length > 1 ? "n" : ""} pronto`}
             </div>
             <div className={`text-xs ${pedidosAtrasados.length > 0 ? "text-rose-600" : "text-amber-600"}`}>
-              {pedidosRiesgo.length} pedido{pedidosRiesgo.length > 1 ? "s" : ""} fuera de la ruta ideal — revisa para evitar cuellos de botella
+              {pedidosAtrasados.length > 0
+                ? "Ya han pasado de su fecha de entrega — revísalos."
+                : "Les quedan 1-2 días de plazo — ojo para que dé tiempo."}
             </div>
           </div>
           <div className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
@@ -386,7 +390,7 @@ function Dashboard() {
           <div className="space-y-2">
             {tareasPendientes.map((t) => {
               const lead = leads.find((l) => l.id === t.leadId);
-              return <TaskItem key={t.id} tarea={t} clienteNombre={lead?.nombre ?? "—"} />;
+              return <TaskItem key={t.id} tarea={t} clienteNombre={lead?.nombre ?? ""} />;
             })}
           </div>
         )}
