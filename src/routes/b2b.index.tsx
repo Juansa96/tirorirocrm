@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Plus, ChevronRight, Search, Columns3, Building2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
@@ -9,6 +9,8 @@ import { DeleteLeadButton } from "@/components/DeleteLeadButton";
 
 export const Route = createFileRoute("/b2b/")({
   head: () => ({ meta: [{ title: "B2B — TiroCRM" }] }),
+  // Lista B2B duplicada: la buena es la pestaña B2B de /clientes. Se redirige.
+  beforeLoad: () => { throw redirect({ to: "/clientes", search: { tab: "b2b" } }); },
   component: B2BList,
 });
 

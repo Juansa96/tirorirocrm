@@ -724,6 +724,47 @@ async function syncLeadFromPedidos(leadId: string | null | undefined) {
   await supabase.from("leads").update(dbPatch as never).eq("id", leadId);
 }
 
+// Guarda contra recursión al sincronizar el precio entre producto y pedido
+// (evita que producto→pedido dispare pedido→producto y viceversa).
+let _syncingPrecio = false;
+
+// Propaga el precio de un PRODUCTO a sus pedidos: precio del pedido = precio
+// unitario × cantidad. Así, si cambias el precio en la ficha del producto, se
+// actualiza en el/los pedido(s) y en el valor del cliente.
+async function propagarPrecioProductoAPedidos(productoId: string, precioUnitario: number, cantidad: number) {
+  if (_syncingPrecio) return;
+  const total = Math.round((precioUnitario || 0) * (cantidad || 1) * 100) / 100;
+  const afectados = state.pedidos.filter((p) => p.productoLeadId === productoId && (p.precio || 0) !== total);
+  if (afectados.length === 0) return;
+  _syncingPrecio = true;
+  try {
+    state = { ...state, pedidos: state.pedidos.map((p) => p.productoLeadId === productoId ? { ...p, precio: total } : p) };
+    emit();
+    await Promise.all(afectados.map((p) => supabase.from("pedidos").update({ precio: total } as never).eq("id", p.id)));
+    for (const lid of new Set(afectados.map((p) => p.leadId).filter(Boolean))) await syncLeadFromPedidos(lid);
+  } finally { _syncingPrecio = false; }
+}
+
+// Propaga el precio de un PEDIDO a su producto: precio unitario = precio del
+// pedido ÷ cantidad. Así, si cambias el precio en el pedido, se refleja en la
+// ficha del producto.
+async function propagarPrecioPedidoAProducto(pedidoId: string) {
+  if (_syncingPrecio) return;
+  const ped = state.pedidos.find((p) => p.id === pedidoId);
+  if (!ped) return;
+  const prod = state.productos.find((pr) => pr.id === ped.productoLeadId);
+  if (!prod) return;
+  const cant = prod.cantidad || 1;
+  const nuevoUnit = Math.round(((ped.precio || 0) / cant) * 100) / 100;
+  if (prod.precioUnitario === nuevoUnit) return;
+  _syncingPrecio = true;
+  try {
+    state = { ...state, productos: state.productos.map((p) => p.id === prod.id ? { ...p, precioUnitario: nuevoUnit } : p) };
+    emit();
+    await supabase.from("productos_lead").update({ precio_unitario: nuevoUnit } as never).eq("id", prod.id);
+  } finally { _syncingPrecio = false; }
+}
+
 export const actions = {
   async addLead(
     input: Omit<Lead, "id" | "fechaCreacion" | "fechaEntradaEtapa" | "razonUrgencia">,
@@ -854,6 +895,19 @@ export const actions = {
       await supabase.from("leads").update({ edad: edadValue } as never).eq("id", id).then(({ error }) => {
         if (error) console.warn("[updateLead] edad column not available yet:", error.message);
       });
+    }
+    // Cobrado CONECTADO en ambos sentidos: si marcas el CLIENTE como cobrado (o
+    // lo desmarcas), se refleja en sus pedidos de venta (pagado completo). El
+    // sentido contrario (cobro de un pedido → cliente) ya lo hace
+    // syncLeadFromPedidos al editar el pedido.
+    if (patch.cobrado !== undefined && prevLead && patch.cobrado !== prevLead.cobrado) {
+      const suyos = state.pedidos.filter((p) => p.leadId === id && !p.esCanje && p.pagadoCompleto !== patch.cobrado);
+      if (suyos.length > 0) {
+        const valor = patch.cobrado;
+        state = { ...state, pedidos: state.pedidos.map((p) => (p.leadId === id && !p.esCanje) ? { ...p, pagadoCompleto: valor } : p) };
+        emit();
+        await Promise.all(suyos.map((p) => supabase.from("pedidos").update({ pagado_completo: valor } as never).eq("id", p.id)));
+      }
     }
     // Historial: NO lo insertamos desde la app. La BD tiene un trigger
     // (log_lead_changes) que registra cada cambio con el nombre real de la
@@ -1075,6 +1129,10 @@ export const actions = {
     }).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); return; }
     if (prev) await syncLeadValorFromProductos(prev.leadId);
+    // Si cambió el precio o la cantidad, se propaga al/los pedido(s) del producto.
+    if (prev && (prev.precioUnitario !== input.precioUnitario || prev.cantidad !== input.cantidad)) {
+      await propagarPrecioProductoAPedidos(id, input.precioUnitario, input.cantidad);
+    }
   },
 
   // Fija el acabado (tipo de vivo: "", "vivo-simple", "vivo-doble") de un
@@ -1136,10 +1194,9 @@ export const actions = {
     if (patch.pagado50 !== undefined) dbPatch.pagado_50 = patch.pagado50;
     const { error } = await supabase.from("productos_lead").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); return; }
-    // Auto-crear el pedido cuando quedan marcadas AMBAS casillas
-    // (características confirmadas + pagado 50%), si aún no existe pedido para
-    // este producto y no está marcado como posible duplicado.
-    await actions.autoCrearPedidoSiProcede(id);
+    // (Antes se creaba el pedido AUTOMÁTICAMENTE al marcar las 2 casillas. Se
+    // quitó para dejar solo 2 formas claras de crear pedido: el botón «Crear
+    // pedido» del producto y «Nuevo pedido» en Pedidos.)
   },
 
   // Crea el pedido automáticamente si el producto tiene las 2 casillas marcadas
@@ -1376,6 +1433,8 @@ export const actions = {
     // de plazo. Si cambia alguna de las dos, refrescamos para traer la nueva.
     if ("fechaCreacionPedido" in patch || "diasPlazo" in patch) await refetchPedidos();
     await syncLeadFromPedidos(leadId);
+    // Si cambió el precio del pedido, se refleja en la ficha del producto.
+    if ("precio" in patch) await propagarPrecioPedidoAProducto(id);
   },
 
   // Edición MANUAL del número de pedido (solo equipo). El número PUEDE
