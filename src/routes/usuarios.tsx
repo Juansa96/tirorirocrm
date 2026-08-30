@@ -71,10 +71,19 @@ function Usuarios() {
   async function cambiarRol(u: UsuarioRow, rol: string, tapiceroId?: string) {
     if (!rol) return;
     const tid = tapiceroId ?? u.tapiceroId ?? "";
-    if (rol === "tapicero" && !tid) { toast.error("Elige primero un tapicero."); return; }
+    // Pasar a "tapicero" sin persona vinculada NO es un error: en vez de
+    // bloquear, abrimos el selector de persona y guardamos al elegirla. Así un
+    // admin siempre puede dar el rol Tapicero a un login que ya existe.
+    if (rol === "tapicero" && !tid) {
+      setEligiendoTapicero((m) => ({ ...m, [u.id]: true }));
+      return;
+    }
     const res = await apiCall("POST", { op: "rol", id: u.id, rol, tapiceroId: tid });
-    if (res.ok) { toast.success("Rol actualizado."); void cargar(); }
-    else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "No se pudo cambiar el rol."); }
+    if (res.ok) {
+      toast.success("Rol actualizado.");
+      setEligiendoTapicero((m) => ({ ...m, [u.id]: false }));
+      void cargar();
+    } else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "No se pudo cambiar el rol."); }
   }
 
   async function eliminar(u: UsuarioRow) {
@@ -137,8 +146,8 @@ function Usuarios() {
                         const nuevo = e.target.value;
                         // Pasar a tapicero: si ya tiene persona vinculada, se
                         // guarda directo; si no, se muestra el selector de persona
-                        // y NO se guarda aún (se guarda al elegirla). Nunca lanza
-                        // "Elige primero un tapicero" desde aquí.
+                        // y NO se guarda aún (se guarda al elegirla). Nunca queda
+                        // en un callejón sin salida.
                         if (nuevo === "tapicero") {
                           if (u.tapiceroId) { void cambiarRol(u, "tapicero", u.tapiceroId); }
                           else { setEligiendoTapicero((m) => ({ ...m, [u.id]: true })); }
