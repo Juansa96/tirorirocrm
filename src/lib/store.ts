@@ -896,19 +896,10 @@ export const actions = {
         if (error) console.warn("[updateLead] edad column not available yet:", error.message);
       });
     }
-    // Cobrado CONECTADO en ambos sentidos: si marcas el CLIENTE como cobrado (o
-    // lo desmarcas), se refleja en sus pedidos de venta (pagado completo). El
-    // sentido contrario (cobro de un pedido → cliente) ya lo hace
-    // syncLeadFromPedidos al editar el pedido.
-    if (patch.cobrado !== undefined && prevLead && patch.cobrado !== prevLead.cobrado) {
-      const suyos = state.pedidos.filter((p) => p.leadId === id && !p.esCanje && p.pagadoCompleto !== patch.cobrado);
-      if (suyos.length > 0) {
-        const valor = patch.cobrado;
-        state = { ...state, pedidos: state.pedidos.map((p) => (p.leadId === id && !p.esCanje) ? { ...p, pagadoCompleto: valor } : p) };
-        emit();
-        await Promise.all(suyos.map((p) => supabase.from("pedidos").update({ pagado_completo: valor } as never).eq("id", p.id)));
-      }
-    }
+    // El check "Cobrado" del CLIENTE NO arrastra sus pedidos (decisión del
+    // cliente): marcar/desmarcar el cliente no toca el "pagado completo" de cada
+    // pedido. El sentido pedido → cliente sí sigue: cuando TODOS los pedidos de
+    // venta están cobrados, syncLeadFromPedidos marca el cliente como cobrado.
     // Historial: NO lo insertamos desde la app. La BD tiene un trigger
     // (log_lead_changes) que registra cada cambio con el nombre real de la
     // columna. Insertarlo también aquí duplicaba cada entrada (p. ej.
@@ -1307,31 +1298,6 @@ export const actions = {
     // (Antes se creaba el pedido AUTOMÁTICAMENTE al marcar las 2 casillas. Se
     // quitó para dejar solo 2 formas claras de crear pedido: el botón «Crear
     // pedido» del producto y «Nuevo pedido» en Pedidos.)
-  },
-
-  // Crea el pedido automáticamente si el producto tiene las 2 casillas marcadas
-  // y todavía no tiene pedido. Muestra un pop-up "Pedido creado → Ver pedido".
-  async autoCrearPedidoSiProcede(productoId: string) {
-    const prod = state.productos.find((p) => p.id === productoId);
-    if (!prod) return;
-    if (!prod.caracteristicasConfirmadas || !prod.pagado50) return;
-    if ((prod.notasProducto || "").toLowerCase().includes("posible-duplicado")) return;
-    if (state.pedidos.some((pd) => pd.productoLeadId === productoId)) return;
-    const pedido = await actions.crearPedido({
-      productoId,
-      pagado50: true,
-      pagoTodoAlFinal: false,
-      creadoManualmente: false,
-      silent: true,
-    });
-    if (!pedido) return;
-    toast.success("Pedido creado", {
-      duration: 10000,
-      action: {
-        label: "Ver pedido",
-        onClick: () => { window.location.assign(`/pedidos/${pedido.id}`); },
-      },
-    });
   },
 
   // ── PEDIDOS ──────────────────────────────────────────────────────

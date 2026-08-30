@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
   Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus,
@@ -189,6 +189,16 @@ function ClienteDetalle() {
     navigate({ to: "/clientes" });
   }
 
+  // Grupo de posibles duplicados de este cliente (memoizado: no se recalcula en
+  // cada render). Se declara aquí, antes del early-return, para no romper el
+  // orden de hooks.
+  const duplicados = useMemo(
+    () => (lead
+      ? (detectarDuplicados(leads, pedidos).find((g) => g.some((l) => l.id === lead.id)) ?? []).filter((l) => l.id !== lead.id)
+      : []),
+    [leads, pedidos, lead?.id],
+  );
+
   if (!lead) {
     return (
       <div className="py-12 text-center">
@@ -206,11 +216,9 @@ function ClienteDetalle() {
   const leadNotas = notas.filter((n) => n.leadId === lead.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const leadProductos = productos.filter((p) => p.leadId === lead.id);
 
-  // Cliente recurrente / duplicados
+  // Cliente recurrente (duplicados: ver el useMemo de arriba).
   const recurrente = esClienteRecurrente(lead, leads, pedidos);
   const yaEntregado = pedidos.some((p) => p.leadId === lead.id && p.entregado);
-  const duplicados = (detectarDuplicados(leads).find((g) => g.some((l) => l.id === lead.id)) ?? [])
-    .filter((l) => l.id !== lead.id);
 
   async function crearNuevoEncargo() {
     if (!lead) return;

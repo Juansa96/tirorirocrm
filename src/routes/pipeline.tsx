@@ -122,7 +122,7 @@ function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<t
       onClick={onNavigate}
       className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md"
     >
-      <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-1.5 top-1.5 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <DeleteLeadButton id={lead.id} variant="menu" />
       </div>
       <p className="truncate pr-6 text-[13px] font-semibold leading-snug text-slate-900">{lead.nombre}</p>
@@ -164,7 +164,7 @@ function LeadCardB2B({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: Retur
       onClick={onNavigate}
       className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md"
     >
-      <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-1.5 top-1.5 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <DeleteLeadButton id={lead.id} variant="menu" />
       </div>
       <p className="truncate pr-6 text-[13px] font-semibold leading-snug text-slate-900">{titulo}</p>
@@ -527,7 +527,7 @@ function LeadCardColab({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: Ret
       onClick={onNavigate}
       className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md"
     >
-      <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-1.5 top-1.5 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <DeleteLeadButton id={lead.id} variant="menu" />
       </div>
       <p className="truncate pr-6 text-[13px] font-semibold leading-snug text-slate-900">{lead.nombre}</p>

@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
@@ -38,7 +38,7 @@ const ESTADO_OPTS = ["Todos", "En proceso", "Terminado", "Entregado"] as const;
 type EstadoFiltro = typeof ESTADO_OPTS[number];
 
 function PedidosIndex() {
-  const { pedidos, leads, productos, pedidoTelas } = useStore();
+  const { pedidos, leads, productos, pedidoTelas, tapiceros } = useStore();
   const [modo, setModo] = useState<"pedidos" | "produccion">("pedidos");
   const [tab, setTab] = useState<"todos" | "normal" | "ab" | "influ">("todos");
   const [view, setView] = useState<"activos" | "archivo">("activos");
@@ -59,8 +59,9 @@ function PedidosIndex() {
     const tls = pedidoTelas.filter((t) => t.pedidoId === p.id);
     const totalT = tls.length;
     const okT = tls.filter((t) => t.estado === "Recibida").length;
-    return { pedido: p, lead, producto: prod, sem, prog, totalT, okT };
-  }), [pedidos, leads, productos, pedidoTelas]);
+    const nombreTapicero = tapiceroNombre(tapiceros.find((t) => t.id === p.tapiceroId));
+    return { pedido: p, lead, producto: prod, sem, prog, totalT, okT, nombreTapicero };
+  }), [pedidos, leads, productos, pedidoTelas, tapiceros]);
 
   // Colaboraciones (canje) — pedidos de influencer, van a su propia pestaña.
   const isCanje = ({ pedido, lead }: (typeof enriched)[number]) => pedido.esCanje || lead?.tipo === "INFLUENCER";
@@ -304,7 +305,7 @@ function PedidosIndex() {
   );
 }
 
-type EnrichedItem = { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number };
+type EnrichedItem = { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number; nombreTapicero: string };
 
 const CAT_BADGE: Record<string, string> = {
   "B2C": "bg-slate-100 text-slate-600",
@@ -407,7 +408,7 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
       {/* Móvil: tarjetas */}
       <div className="space-y-2 p-3 md:hidden">
         {items.map((it) => (
-          <PedidoCard key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} />
+          <PedidoCard key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} nombreTapicero={it.nombreTapicero} />
         ))}
       </div>
     </div>
@@ -432,14 +433,14 @@ const COBRO_BADGE: Record<string, string> = {
 
 // ──────────────────────────────────────────────────────────────────────────
 // Card móvil + bottom sheet de edición
-function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
+function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }: {
   pedido: Pedido; producto: Producto | undefined;
-  sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number;
+  sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number; nombreTapicero: string;
 }) {
   const [editing, setEditing] = useState(false);
   const c = SEM_COLOR[sem.estado];
   const tituloProducto = producto ? displayNombreProducto(producto.tipo, producto.modelo) : "Pedido";
-  const ritmo = mensajeRitmoPedido(pedido, producto?.tipo ?? "");
+  const ritmo = mensajeRitmoPedido(pedido, producto?.tipo ?? "", nombreTapicero);
   const diasLabel = pedido.entregado ? "Entregado" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d restantes` : `${Math.abs(sem.diasRestantes)}d de retraso`;
   const borderLeft = sem.estado === "verde" ? "border-l-emerald-500" : sem.estado === "ambar" ? "border-l-amber-500" : "border-l-rose-500";
   const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
