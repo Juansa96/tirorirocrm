@@ -16,7 +16,7 @@ import {
   ProductoForm, EMPTY_PROD_STATE, productoToState,
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
-import { displayColeccionTela, displayModelo, mismoTipo } from "@/lib/catalogo";
+import { displayColeccionTela, displayNombreProducto, modeloDetalle, mismoTipo } from "@/lib/catalogo";
 import { esClienteRecurrente, detectarDuplicados } from "@/lib/duplicados";
 
 export const Route = createFileRoute("/clientes/$id")({
@@ -92,10 +92,10 @@ function TareaRow({ tarea, clienteNombre }: { tarea: Tarea; clienteNombre: strin
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <button onClick={() => setEditing(true)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+        <button onClick={() => setEditing(true)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
           <Edit2 className="h-4 w-4" />
         </button>
-        <button onClick={() => { if (confirm("¿Eliminar esta tarea?")) actions.deleteTarea(tarea.id); }} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600">
+        <button onClick={() => { if (confirm("¿Eliminar esta tarea?")) actions.deleteTarea(tarea.id); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
@@ -587,7 +587,7 @@ function ClienteDetalle() {
                     return (
                       <div key={p.id} className="flex items-baseline justify-between gap-2 text-sm">
                         <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-slate-600">
-                          <span className="truncate">{displayModelo(p.modelo) || "Producto"}</span>
+                          <span className="truncate">{displayNombreProducto(p.tipo, p.modelo)}</span>
                           <FormaBadge modelo={p.modelo} />
                           {p.cantidad > 1 && <span className="text-slate-400">×{p.cantidad}</span>}
                         </span>
@@ -697,7 +697,9 @@ function ClienteDetalle() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {p.tipo && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">{TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}</span>}
-                        <span className="font-medium text-slate-900">{displayModelo(p.modelo) || "Producto"}</span>
+                        {/* Detalle de forma/modelo SIN el relleno "Forma personalizada -". Si
+                            no aporta nada y no hay tipo, se muestra "Producto". */}
+                        {(() => { const d = modeloDetalle(p.tipo, p.modelo); return d ? <span className="font-medium text-slate-900">{d}</span> : (!p.tipo ? <span className="font-medium text-slate-900">Producto</span> : null); })()}
                         <FormaBadge modelo={p.modelo} />
                         {(p.notasProducto || "").toLowerCase().includes("posible-duplicado") && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800" title="Detectado como posible duplicado. Revísalo y bórralo si procede.">
@@ -745,8 +747,8 @@ function ClienteDetalle() {
                       </div>
                     </div>
                     <div className="flex shrink-0 gap-1">
-                      <button onClick={() => setEditingProd(p.id)} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"><Edit2 className="h-4 w-4" /></button>
-                      <button onClick={() => { if (confirm("¿Eliminar este producto?")) actions.deleteProducto(p.id); }} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => setEditingProd(p.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-slate-700"><Edit2 className="h-4 w-4" /></button>
+                      <button onClick={() => { if (confirm("¿Eliminar este producto?")) actions.deleteProducto(p.id); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
                 </div>
@@ -837,8 +839,8 @@ function ClienteDetalle() {
                   <div className="flex items-start justify-between gap-2">
                     <p className="flex-1 whitespace-pre-wrap text-sm text-slate-800">{n.contenido}</p>
                     <div className="flex shrink-0 gap-1">
-                      <button onClick={() => { setEditingNota(n.id); setEditNotaText(n.contenido); }} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"><Edit2 className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => { if (confirm("¿Eliminar esta nota?")) actions.deleteNota(n.id); }} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => { setEditingNota(n.id); setEditNotaText(n.contenido); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-slate-700"><Edit2 className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => { if (confirm("¿Eliminar esta nota?")) actions.deleteNota(n.id); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
