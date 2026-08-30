@@ -61,7 +61,7 @@ const PRESET_LABEL: Record<RangoPreset, string> = {
 };
 
 function DineroPedidos() {
-  const { pedidos } = useStore();
+  const { pedidos, leads } = useStore();
   const [preset, setPreset] = useState<RangoPreset>("mes");
   const [desde, setDesde] = useState(() => rangoFechas("mes").desde);
   const [hasta, setHasta] = useState(() => rangoFechas("mes").hasta);
@@ -85,8 +85,14 @@ function DineroPedidos() {
     });
   }, [pedidos, desde, hasta]);
 
-  // Las colaboraciones de influencers (canje) no cuentan como venta/ingreso.
-  const resumen = useMemo(() => resumenCobro(filtrados, (p) => p.esCanje), [filtrados]);
+  // Las colaboraciones de influencers (canje) NO cuentan como venta/ingreso:
+  // se excluyen por su marca `esCanje` O por estar vinculadas a un cliente
+  // influencer (por si el pedido no llevara la marca). Igual criterio que la
+  // sección de Colaboraciones, para que el dinero del dashboard nunca sume canje.
+  const resumen = useMemo(() => {
+    const influencerIds = new Set(leads.filter((l) => l.tipo === "INFLUENCER").map((l) => l.id));
+    return resumenCobro(filtrados, (p) => p.esCanje || (!!p.leadId && influencerIds.has(p.leadId)));
+  }, [filtrados, leads]);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
