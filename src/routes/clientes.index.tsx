@@ -198,7 +198,7 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
 
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
 
-  const dupGroups = useMemo(() => detectarDuplicados(leads), [leads]);
+  const dupGroups = useMemo(() => detectarDuplicados(leads, pedidos), [leads, pedidos]);
 
   const productos = useMemo(() => Array.from(new Set(leads.map((l) => l.producto).filter(Boolean))), [leads]);
   const ciudades = useMemo(() => Array.from(new Set(leads.map((l) => l.ciudad).filter(Boolean))), [leads]);

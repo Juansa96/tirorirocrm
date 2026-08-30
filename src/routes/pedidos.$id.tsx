@@ -281,7 +281,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
                   </span>
                 )}
               </div>
-              {(() => { const ritmo = mensajeRitmoPedido(draft, producto?.tipo ?? ""); return ritmo ? (
+              {(() => { const ritmo = mensajeRitmoPedido(draft, producto?.tipo ?? "", tapiceroNombre(tapiceroAsignado)); return ritmo ? (
                 <div className="mt-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-500">💡 {ritmo}</div>
               ) : null; })()}
             </div>

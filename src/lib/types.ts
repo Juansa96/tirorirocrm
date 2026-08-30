@@ -559,14 +559,15 @@ export function semaforoPedido(p: Pedido, tipoProducto = "", hoyMs?: number): { 
  * ya, para que dé tiempo. Devuelve "" si va bien, si está entregado, o si ya
  * está atrasado de verdad (en ese caso manda la fecha, no el ritmo).
  */
-export function mensajeRitmoPedido(p: Pedido, tipoProducto = "", hoyMs?: number): string {
+export function mensajeRitmoPedido(p: Pedido, tipoProducto = "", nombreTapicero = "", hoyMs?: number): string {
   if (p.entregado) return "";
   const { hitoActual, hitoEsperado, diasRestantes } = semaforoPedido(p, tipoProducto, hoyMs);
   if (diasRestantes < 0) return "";           // ya atrasado: no hace falta el aviso de ritmo
   if (hitoEsperado <= hitoActual) return "";  // va al día o por delante
   const hitos = flujoPedido(tipoProducto);
   const idxEsperado = Math.min(hitos.length, hitoEsperado) - 1;
-  const labelEsperado = idxEsperado >= 0 ? hitos[idxEsperado].label : "";
+  // Usa el nombre del tapicero asignado en vez del "Daniel" cableado del flujo.
+  const labelEsperado = idxEsperado >= 0 ? hitoLabel(hitos[idxEsperado].label, nombreTapicero) : "";
   if (!labelEsperado) return "";
   return `Para llegar a tiempo ya deberías ir por «${labelEsperado}».`;
 }

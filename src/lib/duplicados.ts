@@ -15,16 +15,6 @@ export function normEmail(e: string | null | undefined): string {
   return (e ?? "").trim().toLowerCase();
 }
 
-/** Nombre: minúsculas, sin acentos, espacios colapsados. */
-export function normNombre(n: string | null | undefined): string {
-  return (n ?? "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/\s+/g, " ");
-}
-
 /**
  * Claves "fuertes" de un lead: teléfono y email normalizados. Solo estas
  * sirven para emparejar duplicados (el nombre solo puede coincidir por
@@ -45,7 +35,13 @@ export function clavesFuertes(l: Lead): string[] {
  * 2 o más leads (posibles duplicados). El grupo se ordena por antigüedad
  * (el más antiguo primero: candidato natural a "conservar").
  */
-export function detectarDuplicados(leads: Lead[]): Lead[][] {
+export function detectarDuplicados(leads: Lead[], pedidos: Pedido[] = []): Lead[][] {
+  // Un cliente que YA recibió algún pedido (entregado) es un cliente de siempre:
+  // si vuelve con un "nuevo encargo" se crea un lead nuevo con su mismo
+  // teléfono/email. Para que ese caso NO se marque como duplicado, los leads con
+  // alguna entrega quedan FUERA de la detección (no agrupan ni arrastran a nadie).
+  const entregados = new Set(pedidos.filter((p) => p.entregado).map((p) => p.leadId));
+
   // union-find sencillo por índice
   const parent = leads.map((_, i) => i);
   const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
@@ -53,6 +49,7 @@ export function detectarDuplicados(leads: Lead[]): Lead[][] {
 
   const porClave = new Map<string, number>();
   leads.forEach((l, i) => {
+    if (entregados.has(l.id)) return; // cliente ya entregado: no entra en duplicados
     for (const clave of clavesFuertes(l)) {
       const scoped = (l.tipo ?? "B2C") + "|" + clave;
       const prev = porClave.get(scoped);
