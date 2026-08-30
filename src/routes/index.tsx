@@ -24,9 +24,9 @@ function KpiCard({ icon: Icon, label, value, sub, badgeBg, iconColor, empty }: {
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow duration-150 hover:shadow-md">
-      <div className="flex items-start justify-between">
-        <div className="text-xs font-medium text-slate-500">{label}</div>
-        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${badgeBg}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-xs font-medium leading-tight text-slate-500">{label}</div>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${badgeBg}`}>
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
       </div>

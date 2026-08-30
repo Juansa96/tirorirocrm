@@ -7,7 +7,7 @@ import { numeroPedidoLabel, semaforoPedido, progresoPedido, flujoPedido, FORMATO
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
-import { displayModelo, tipoLabelOf } from "@/lib/catalogo";
+import { displayModelo, displayNombreProducto, tipoLabelOf } from "@/lib/catalogo";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
   const headers = Object.keys(rows[0] ?? {});
@@ -438,7 +438,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
 }) {
   const [editing, setEditing] = useState(false);
   const c = SEM_COLOR[sem.estado];
-  const tipoLabel = producto ? tipoLabelOf(producto.tipo) : "";
+  const tituloProducto = producto ? displayNombreProducto(producto.tipo, producto.modelo) : "Pedido";
   const diasLabel = pedido.entregado ? "Entregado" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d restantes` : `${Math.abs(sem.diasRestantes)}d de retraso`;
   const borderLeft = sem.estado === "verde" ? "border-l-emerald-500" : sem.estado === "ambar" ? "border-l-amber-500" : "border-l-rose-500";
   const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
@@ -464,7 +464,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${c.dot}`} />
               {pedido.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(pedido.numero, pedido.numeroSufijo)}</span>}
               <h3 className="truncate text-sm font-semibold text-slate-900">
-                {producto ? `${tipoLabel}${displayModelo(producto.modelo) ? ` · ${displayModelo(producto.modelo)}` : ""}` : "Pedido"}
+                {tituloProducto}
                 {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
               </h3>
             </div>
@@ -566,14 +566,14 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT }: {
   sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number;
 }) {
   const c = SEM_COLOR[sem.estado];
-  const tipoLabel = producto ? tipoLabelOf(producto.tipo) : "";
+  const tituloProducto = producto ? displayNombreProducto(producto.tipo, producto.modelo) : "—";
   const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
   return (
     <tr className="border-t border-slate-100 hover:bg-slate-50/60">
       <td className="px-3 py-2 text-xs text-slate-700">
         <Link to="/pedidos/$id" params={{ id: pedido.id }} className="font-medium hover:text-[#1a4b5b] hover:underline">
           {pedido.numero != null && <span className="mr-1.5 inline-flex items-center rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white align-middle">Nº {numeroPedidoLabel(pedido.numero, pedido.numeroSufijo)}</span>}
-          {producto ? `${tipoLabel}${producto.modelo ? ` · ${producto.modelo}` : ""}` : "—"}
+          {tituloProducto}
           {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
         </Link>
         {producto?.ancho && producto?.alto && (
