@@ -974,6 +974,116 @@ export const actions = {
     });
   },
 
+  // Fusiona dos clientes duplicados: reasigna TODO lo que cuelga del duplicado
+  // (productos, pedidos, tareas, notas, fotos, historial) al que se conserva,
+  // rellena en el conservado los campos de contacto que tuviera vacíos, y
+  // borra el duplicado. Pensado para cuando el mismo cliente aparece 2 veces.
+  async fusionarLeads(keepId: string, dropId: string) {
+    if (keepId === dropId) return;
+    const keep = state.leads.find((l) => l.id === keepId);
+    const drop = state.leads.find((l) => l.id === dropId);
+    if (!keep || !drop) { toast.error("No se encontró alguno de los clientes a fusionar."); return; }
+
+    // 1) Reasignar todo lo relacionado del duplicado → cliente a conservar.
+    const tablas = ["productos_lead", "pedidos", "tareas", "notas", "lead_fotos", "audit_log"] as const;
+    for (const t of tablas) {
+      const { error } = await supabase.from(t).update({ lead_id: keepId } as never).eq("lead_id", dropId);
+      if (error) { toast.error("Error al fusionar: " + error.message); return; }
+    }
+
+    // 2) Rellenar en el conservado los campos de contacto que estén vacíos.
+    const patch: Record<string, unknown> = {};
+    const patchLocal: Partial<Lead> = {};
+    const strFields: Array<[keyof Lead, string]> = [
+      ["email", "email"], ["telefono", "telefono"], ["ciudad", "ciudad"], ["provincia", "provincia"],
+      ["direccion", "direccion"], ["edad", "edad"], ["origen", "origen"], ["redSocial", "red_social"],
+      ["instagram", "instagram"], ["web", "web"], ["nif", "nif"], ["razonSocial", "razon_social"],
+      ["contactoNombre", "contacto_nombre"], ["contactoApellidos", "contacto_apellidos"], ["usuario", "usuario"],
+    ];
+    for (const [campo, col] of strFields) {
+      const actual = ((keep[campo] as string) ?? "").trim();
+      const otro = ((drop[campo] as string) ?? "").trim();
+      if (!actual && otro) { patch[col] = otro; (patchLocal as Record<string, unknown>)[campo] = otro; }
+    }
+    const etqUnion = Array.from(new Set([...(keep.etiquetas ?? []), ...(drop.etiquetas ?? [])]));
+    if (etqUnion.length !== (keep.etiquetas ?? []).length) { patch.etiquetas = etqUnion; patchLocal.etiquetas = etqUnion; }
+    if (Object.keys(patch).length > 0) {
+      suppressLead(keepId);
+      await supabase.from("leads").update(patch as never).eq("id", keepId);
+    }
+
+    // 3) Borrar el duplicado.
+    const { error: delErr } = await supabase.from("leads").delete().eq("id", dropId);
+    if (delErr) { toast.error("Error al eliminar el duplicado: " + delErr.message); return; }
+
+    // 4) Actualizar estado local.
+    state = {
+      ...state,
+      leads: state.leads.filter((l) => l.id !== dropId).map((l) => (l.id === keepId ? { ...l, ...patchLocal } : l)),
+      productos: state.productos.map((p) => (p.leadId === dropId ? { ...p, leadId: keepId } : p)),
+      pedidos: state.pedidos.map((p) => (p.leadId === dropId ? { ...p, leadId: keepId } : p)),
+      tareas: state.tareas.map((t) => (t.leadId === dropId ? { ...t, leadId: keepId } : t)),
+      notas: state.notas.map((n) => (n.leadId === dropId ? { ...n, leadId: keepId } : n)),
+      leadFotos: state.leadFotos.map((f) => (f.leadId === dropId ? { ...f, leadId: keepId } : f)),
+      audit: state.audit.map((a) => (a.leadId === dropId ? { ...a, leadId: keepId } : a)),
+    };
+    emit();
+
+    // 5) Recalcular valor y estado de cobro del cliente conservado.
+    await syncLeadValorFromProductos(keepId);
+    await syncLeadFromPedidos(keepId);
+    toast.success("Clientes fusionados.");
+  },
+
+  // Cliente recurrente: crea un NUEVO lead con los datos reutilizables del
+  // cliente de siempre (contacto, ciudad, vendedor…) pero empezando de cero en
+  // el pipeline. El interés inicial y los importes van en blanco: es un encargo
+  // nuevo. Se reconoce como recurrente porque comparte teléfono/email con un
+  // lead que ya tuvo entregas (ver esClienteRecurrente en duplicados.ts).
+  async nuevoEncargoRecurrente(origenId: string): Promise<Lead | null> {
+    const origen = state.leads.find((l) => l.id === origenId);
+    if (!origen) { toast.error("No se encontró el cliente."); return null; }
+    const tipo = origen.tipo ?? "B2C";
+    const etapaInicial: Etapa = tipo === "B2B" ? "Cliente potencial" : tipo === "INFLUENCER" ? "Contactado" : "Discovery";
+    const nuevo = await actions.addLead({
+      nombre: origen.nombre,
+      email: origen.email,
+      telefono: origen.telefono,
+      ciudad: origen.ciudad,
+      provincia: origen.provincia,
+      producto: "",
+      vendedor: origen.vendedor,
+      etapa: etapaInicial,
+      valor: 0,
+      origen: origen.origen,
+      redSocial: origen.redSocial,
+      fechaHold: "",
+      valorProducto: 0,
+      valorEnvio: 0,
+      edad: origen.edad,
+      clienteTipo: origen.clienteTipo,
+      etiquetas: [],
+      cobrado: false,
+      fechaCobro: "",
+      tipo,
+      razonSocial: origen.razonSocial,
+      nif: origen.nif,
+      contactoNombre: origen.contactoNombre,
+      contactoApellidos: origen.contactoApellidos,
+      contactoCargo: origen.contactoCargo,
+      direccion: origen.direccion,
+      web: origen.web,
+      instagram: origen.instagram,
+      notasB2b: "",
+      asignados: origen.asignados ?? [],
+      seguidores: origen.seguidores,
+      redPrincipal: origen.redPrincipal,
+      usuario: origen.usuario,
+    });
+    if (nuevo) toast.success("Nuevo encargo creado: empieza el pipeline desde el principio.");
+    return nuevo;
+  },
+
   async addTarea(input: Omit<Tarea, "id" | "completada">) {
     // Idempotencia: si ya existe una tarea idéntica creada en <10s, no insertar
     const recentDup = state.tareas.find((t) =>
