@@ -21,8 +21,10 @@ export const Route = createFileRoute("/panel/$id")({
   component: FichaPanel,
 });
 
-function plazoBadge(d: number, entregado: boolean) {
+// Días hacia la fecha de recogida por Juan (misma lógica que el panel).
+function plazoBadge(d: number, entregado: boolean, tieneRecogida: boolean) {
   if (entregado) return { bg: "bg-slate-100", text: "text-slate-500", label: "Entregado" };
+  if (!tieneRecogida) return { bg: "bg-slate-100", text: "text-slate-400", label: "Sin recogida" };
   if (d < 0) return { bg: "bg-rose-100", text: "text-rose-700", label: `${Math.abs(d)}d tarde` };
   if (d <= 3) return { bg: "bg-amber-100", text: "text-amber-700", label: d === 0 ? "Hoy" : `${d}d` };
   return { bg: "bg-emerald-100", text: "text-emerald-700", label: `${d}d` };
@@ -46,7 +48,7 @@ function FichaPanel() {
   );
 
   const medidas = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
-  const plazo = plazoBadge(p.diasRestantes, p.entregado);
+  const plazo = plazoBadge(p.diasRestantes, p.entregado, !!p.fechaRecogida);
   const montajeEf = montajeEfectivo(p.tipo, p.montaje);
   const montaje = montajeEf === "colgar" ? "Colgar en pared" : montajeEf === "apoyar" ? "Apoyar en suelo" : "";
   const extras = [/tapete/i.test(p.patas) && "Tapetes suelo", /colgador/i.test(p.patas) && "Colgadores"].filter(Boolean) as string[];

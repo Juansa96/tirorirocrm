@@ -20,9 +20,11 @@ export const Route = createFileRoute("/panel/")({
 
 const FIN = "__end__";
 
-// Color por días restantes: rojo si se pasa, ámbar si queda poco, verde si sobra.
-function diasColor(d: number, entregado: boolean) {
+// Días para que Juan RECOJA el producto: rojo si ya pasó, ámbar si queda poco,
+// verde si sobra. Sin fecha de recogida → gris "Sin recogida" (no un número).
+function diasColor(d: number, entregado: boolean, tieneRecogida: boolean) {
   if (entregado) return { bg: "bg-slate-100", text: "text-slate-500", label: "Entregado" };
+  if (!tieneRecogida) return { bg: "bg-slate-100", text: "text-slate-400", label: "Sin recogida" };
   if (d < 0) return { bg: "bg-rose-100", text: "text-rose-700", label: `${Math.abs(d)}d tarde` };
   if (d <= 3) return { bg: "bg-amber-100", text: "text-amber-700", label: d === 0 ? "Hoy" : `${d}d` };
   return { bg: "bg-emerald-100", text: "text-emerald-700", label: `${d}d` };
@@ -369,7 +371,7 @@ function ClienteCard({ tramo, totalCliente, expandido, onToggle, tapiceroSearch,
 function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
   p: PanelPedido; tapiceroSearch?: string; dnd?: DnD; arrastrarProducto: boolean;
 }) {
-  const c = diasColor(p.diasRestantes, p.entregado);
+  const c = diasColor(p.diasRestantes, p.entregado, !!p.fechaRecogida);
   const medidasNum = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
   const det = modeloDetalle(p.tipo, p.modelo);
   const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medidas sin especificar");

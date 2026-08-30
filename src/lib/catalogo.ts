@@ -120,13 +120,19 @@ const PREFIJO_TIPO_MODELO_RE = /^(pufs?|mesas?|pantallas?|almohad[oó]n(?:es)?|c
 // especial la del tapicero) aparezca "Banco mis medidas" o "medida
 // personalizada": el nombre queda solo con el tipo/modelo real.
 const MODELO_PLACEHOLDER_RE = /^\(?\s*(?:mis\s+medidas|medidas?\s+propias|(?:medidas?|formas?)\s+(?:personalizada|por decidir))\s*\)?$/i;
+// Prefijo "Forma personalizada / a medida / libre" que a veces encabeza el
+// modelo de un cabecero a medida (p. ej. "Forma personalizada - dos ondas").
+// Es ruido para el título: se quita para dejar SOLO la descripción real de la
+// forma. Si detrás no hay nada, el título queda solo con el tipo ("Cabecero").
+const FORMA_LIBRE_PREFIJO_RE = /^\(?\s*formas?\s+(?:personalizad[ao]s?|a\s+medida|libres?|otra)\s*\)?\s*[—–:.\-]*\s*/i;
 
 export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
   if (esModeloTBD(modelo)) return "";
   const det = displayModelo(modelo).trim();
   if (!det) return "";
-  const resto = det.replace(PREFIJO_TIPO_MODELO_RE, "").trim();
-  if (!resto) return "";                       // el modelo era solo el nombre del tipo
+  let resto = det.replace(PREFIJO_TIPO_MODELO_RE, "").trim();
+  resto = resto.replace(FORMA_LIBRE_PREFIJO_RE, "").trim(); // quita "Forma personalizada -"
+  if (!resto) return "";                       // el modelo era solo el nombre del tipo / "forma personalizada"
   if (MODELO_PLACEHOLDER_RE.test(resto)) return "";
   if (/^por decidir$/i.test(resto)) return "";
   return resto;
