@@ -517,12 +517,19 @@ export function progresoPedido(p: Pedido, tipoProducto: string): { hechos: numbe
   return { hechos, total: hitos.length, actualLabel };
 }
 
-// ───────────── Semáforo de ruta ideal ─────────────
+// ───────────── Semáforo de plazo ─────────────
 export type RutaEstado = "verde" | "ambar" | "rojo";
 
 /**
- * Reparte dias_plazo entre los hitos del flujo del pedido (según el tipo de
- * producto) y compara el hito real con el esperado para hoy.
+ * El color del pedido depende SOLO de la fecha límite real:
+ *   · rojo  → ya se ha pasado de la fecha (atrasado de verdad).
+ *   · ámbar → faltan 1 o 2 días (ojo, que termina el plazo).
+ *   · verde → aún hay margen (o ya está entregado).
+ *
+ * El ritmo de hitos (dónde "debería" ir el pedido según el plazo) YA NO pinta
+ * el pedido de rojo/ámbar: se devuelve como hitoEsperado/hitoActual para poder
+ * mostrar un mensajito informativo (ver mensajeRitmoPedido), pero nunca marca
+ * el pedido como retrasado por no ir marcando pasos.
  */
 export function semaforoPedido(p: Pedido, tipoProducto = "", hoyMs?: number): { estado: RutaEstado; hitoActual: number; hitoEsperado: number; diasRestantes: number } {
   const hitos = flujoPedido(tipoProducto);
@@ -538,18 +545,30 @@ export function semaforoPedido(p: Pedido, tipoProducto = "", hoyMs?: number): { 
   const diasRestantes = Math.ceil((fechaLim - ahora) / 86400000);
 
   let estado: RutaEstado = "verde";
-  if (p.entregado) {
-    estado = "verde";
-  } else if (ahora > fechaLim) {
-    estado = "rojo";
-  } else {
-    const gap = hitoEsperado - hitoActual;
-    if (gap <= 0) estado = "verde";
-    else if (gap === 1) estado = "ambar";
-    else estado = "rojo";
-  }
+  if (p.entregado) estado = "verde";
+  else if (ahora > fechaLim) estado = "rojo";     // pasado de fecha → atrasado
+  else if (diasRestantes <= 2) estado = "ambar";  // faltan 1-2 días → aviso
+  else estado = "verde";
 
   return { estado, hitoActual, hitoEsperado, diasRestantes };
+}
+
+/**
+ * Mensajito informativo de RITMO (no es un estado de retraso): si el pedido va
+ * por detrás de donde debería según el plazo, sugiere en qué paso debería estar
+ * ya, para que dé tiempo. Devuelve "" si va bien, si está entregado, o si ya
+ * está atrasado de verdad (en ese caso manda la fecha, no el ritmo).
+ */
+export function mensajeRitmoPedido(p: Pedido, tipoProducto = "", hoyMs?: number): string {
+  if (p.entregado) return "";
+  const { hitoActual, hitoEsperado, diasRestantes } = semaforoPedido(p, tipoProducto, hoyMs);
+  if (diasRestantes < 0) return "";           // ya atrasado: no hace falta el aviso de ritmo
+  if (hitoEsperado <= hitoActual) return "";  // va al día o por delante
+  const hitos = flujoPedido(tipoProducto);
+  const idxEsperado = Math.min(hitos.length, hitoEsperado) - 1;
+  const labelEsperado = idxEsperado >= 0 ? hitos[idxEsperado].label : "";
+  if (!labelEsperado) return "";
+  return `Para llegar a tiempo ya deberías ir por «${labelEsperado}».`;
 }
 
 // ───────────── Catálogo de productos ─────────────

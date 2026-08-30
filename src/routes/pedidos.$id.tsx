@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Trash2, Plus, Package, ExternalLink, Save, Ruler } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { numeroPedidoLabel, semaforoPedido, flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
@@ -273,7 +273,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             </div>
             <div>
               <div className="text-xs text-slate-500">Fecha límite</div>
-              <div className={`text-sm font-bold ${sem.diasRestantes < 0 ? "text-rose-700" : "text-slate-900"}`}>
+              <div className={`text-sm font-bold ${sem.diasRestantes < 0 && !draft.entregado ? "text-rose-700" : "text-slate-900"}`}>
                 {formatShortDate(pedido.fechaLimite)}
                 {!draft.entregado && (
                   <span className="ml-2 text-xs font-normal text-slate-500">
@@ -281,6 +281,9 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
                   </span>
                 )}
               </div>
+              {(() => { const ritmo = mensajeRitmoPedido(draft, producto?.tipo ?? ""); return ritmo ? (
+                <div className="mt-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-500">💡 {ritmo}</div>
+              ) : null; })()}
             </div>
             <div>
               <label className="text-xs text-slate-500">Fecha de entrega real</label>

@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { numeroPedidoLabel, semaforoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/pedidos/")({
 
 const SEM_COLOR: Record<RutaEstado, { bg: string; text: string; dot: string; label: string; border: string }> = {
   verde: { bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500", label: "A tiempo",  border: "border-emerald-200" },
-  ambar: { bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500",   label: "En riesgo", border: "border-amber-200" },
+  ambar: { bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500",   label: "Termina pronto", border: "border-amber-200" },
   rojo:  { bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500",    label: "Atrasado",  border: "border-rose-200" },
 };
 
@@ -439,6 +439,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
   const [editing, setEditing] = useState(false);
   const c = SEM_COLOR[sem.estado];
   const tituloProducto = producto ? displayNombreProducto(producto.tipo, producto.modelo) : "Pedido";
+  const ritmo = mensajeRitmoPedido(pedido, producto?.tipo ?? "");
   const diasLabel = pedido.entregado ? "Entregado" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d restantes` : `${Math.abs(sem.diasRestantes)}d de retraso`;
   const borderLeft = sem.estado === "verde" ? "border-l-emerald-500" : sem.estado === "ambar" ? "border-l-amber-500" : "border-l-rose-500";
   const pct = prog.total > 0 ? Math.round((prog.hechos / prog.total) * 100) : 0;
@@ -490,6 +491,9 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT }: {
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div className={`h-full rounded-full ${pedido.entregado ? "bg-emerald-500" : "bg-[#1a4b5b]"}`} style={{ width: `${pct}%` }} />
           </div>
+          {ritmo && (
+            <div className="mt-1.5 text-[11px] text-slate-400">💡 {ritmo}</div>
+          )}
         </div>
 
         <div className="grid grid-cols-3 border-t border-slate-100">
