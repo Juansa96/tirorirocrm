@@ -135,6 +135,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
     const out: PanelPedido[] = rows.map((p) => {
       const prod = prodById.get(p.producto_lead_id as string) ?? {};
       const fechaLimite = (p.fecha_limite as string) ?? "";
+      const fechaRecogida = (p.fecha_recogida as string) ?? "";
       const ts = (telasByPedido.get(p.id as string) ?? []).map((t): PanelTela => {
         const nombre = (t.nombre_tela as string) ?? "";
         const propia = telasFirmadas.get((t.tela_foto_url as string) ?? "") ?? ((t.tela_foto_url as string) ?? "");
@@ -182,8 +183,12 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         notasPedido: (p.notas_pedido as string) ?? "",
         fechaLimite,
         fechaAsignacion: (p.enviado_tapicero_fecha as string) ?? "",
-        fechaRecogida: (p.fecha_recogida as string) ?? "",
-        diasRestantes: diasHasta(fechaLimite),
+        fechaRecogida,
+        // Los "días" del panel cuentan hacia la fecha en que Juan pasa a
+        // RECOGER el producto (no la entrega final al cliente). Si aún no hay
+        // fecha de recogida, diasHasta("") = 9999 y la card muestra "Sin
+        // recogida" en vez de un número (ver diasColor/plazoBadge).
+        diasRestantes: diasHasta(fechaRecogida),
         entregado: !!p.entregado,
         telaEstado: (p.tela_estado as string) ?? "pendiente",
         telaEstadoPor: (p.tela_estado_por as string) ?? "",
