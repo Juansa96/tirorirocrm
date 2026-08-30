@@ -17,6 +17,7 @@ import {
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
 import { displayColeccionTela, displayModelo, mismoTipo } from "@/lib/catalogo";
+import { esClienteRecurrente, detectarDuplicados } from "@/lib/duplicados";
 
 export const Route = createFileRoute("/clientes/$id")({
   head: () => ({ meta: [{ title: "Cliente — TiroCRM" }] }),
@@ -205,6 +206,26 @@ function ClienteDetalle() {
   const leadNotas = notas.filter((n) => n.leadId === lead.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const leadProductos = productos.filter((p) => p.leadId === lead.id);
 
+  // Cliente recurrente / duplicados
+  const recurrente = esClienteRecurrente(lead, leads, pedidos);
+  const yaEntregado = pedidos.some((p) => p.leadId === lead.id && p.entregado);
+  const duplicados = (detectarDuplicados(leads).find((g) => g.some((l) => l.id === lead.id)) ?? [])
+    .filter((l) => l.id !== lead.id);
+
+  async function crearNuevoEncargo() {
+    if (!lead) return;
+    const nuevo = await actions.nuevoEncargoRecurrente(lead.id);
+    if (nuevo) navigate({ to: "/clientes/$id", params: { id: nuevo.id } });
+  }
+
+  async function fusionarCon(dupId: string) {
+    if (!lead) return;
+    const dup = leads.find((l) => l.id === dupId);
+    if (!dup) return;
+    if (!confirm(`Fusionar «${dup.nombre}» dentro de «${lead.nombre}».\n\nSe moverán aquí sus productos, pedidos, tareas, notas, fotos e historial, y se eliminará el duplicado. Esto no se puede deshacer. ¿Continuar?`)) return;
+    await actions.fusionarLeads(lead.id, dupId);
+  }
+
   const inp = "w-full rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none";
 
   // Closed Won/Lost confirmation dialog
@@ -326,20 +347,59 @@ function ClienteDetalle() {
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <SellerBadge vendedor={lead.vendedor} />
-            {pedidos.some((p) => p.leadId === lead.id && p.entregado) && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700" title="Este cliente ya recibió algún pedido: es un cliente recurrente.">
+            {recurrente && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700" title="Este cliente (o el mismo teléfono/email) ya recibió algún pedido: es un cliente recurrente.">
                 ★ Cliente recurrente
               </span>
             )}
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
+          {yaEntregado && (
+            <button
+              onClick={crearNuevoEncargo}
+              title="Crea un lead nuevo con los datos de este cliente para un encargo nuevo, empezando el pipeline desde el principio."
+              className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+            >
+              + Nuevo encargo
+            </button>
+          )}
           <DeleteLeadButton id={lead.id} redirectAfter />
           <button onClick={editing ? closeEditing : openEditing} className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46]">
             {editing ? "Hecho" : "Editar"}
           </button>
         </div>
       </div>
+
+      {/* Aviso de posibles duplicados (mismo teléfono o email) */}
+      {duplicados.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+            ⚠️ Posible duplicado ({duplicados.length})
+          </div>
+          <p className="mt-1 text-xs text-amber-800">
+            Este cliente comparte teléfono o email con {duplicados.length === 1 ? "otro registro" : "otros registros"}. Puedes fusionarlos: todo lo del duplicado (productos, pedidos, tareas, notas, fotos, historial) se moverá aquí y se eliminará el duplicado.
+          </p>
+          <div className="mt-3 space-y-2">
+            {duplicados.map((d) => (
+              <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                <div className="min-w-0">
+                  <Link to="/clientes/$id" params={{ id: d.id }} className="font-medium text-slate-900 hover:underline">{d.nombre || "Sin nombre"}</Link>
+                  <div className="text-xs text-slate-500">
+                    {[d.telefono, d.email].filter(Boolean).join(" · ") || "—"}
+                  </div>
+                </div>
+                <button
+                  onClick={() => fusionarCon(d.id)}
+                  className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                >
+                  Fusionar aquí
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bloque B2B (razón social, contacto, asignados) */}
       {lead.tipo === "B2B" && <B2BInfoPanel lead={lead} />}

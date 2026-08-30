@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useStore, nextPendingTaskFor } from "@/lib/store";
 import { VENDEDORES, vendorName, ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, type Etapa, type EtapaB2B } from "@/lib/types";
 import { formatCurrency, dateLabel, formatShortDate } from "@/lib/format";
+import { detectarDuplicados } from "@/lib/duplicados";
 
 import { SellerBadge } from "@/components/SellerBadge";
 import { StageBadge } from "@/components/StageBadge";
@@ -192,9 +193,12 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
   const [ciudad, setCiudad] = useState("");
   const [etiqueta, setEtiqueta] = useState("");
   const [etapaFiltro, setEtapaFiltro] = useState<Etapa | "">("");
+  const [dupOpen, setDupOpen] = useState(false);
   type SortKey = "fechaCreacion" | "nombre" | "vendedor" | "etapa" | "valor" | "ciudad" | "proximaAccion";
 
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+
+  const dupGroups = useMemo(() => detectarDuplicados(leads), [leads]);
 
   const productos = useMemo(() => Array.from(new Set(leads.map((l) => l.producto).filter(Boolean))), [leads]);
   const ciudades = useMemo(() => Array.from(new Set(leads.map((l) => l.ciudad).filter(Boolean))), [leads]);
@@ -313,6 +317,46 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
           <Plus className="h-4 w-4" /> {influencers ? "Nuevo influencer" : "Nuevo Lead"}
         </Link>
       </div>
+
+      {/* Aviso de posibles duplicados (mismo teléfono o email). La fusión se hace
+          desde la ficha de cada cliente. */}
+      {dupGroups.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+          <button
+            type="button"
+            onClick={() => setDupOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-amber-900"
+          >
+            <span>⚠️ {dupGroups.length} {dupGroups.length === 1 ? "posible duplicado" : "posibles duplicados"} detectados</span>
+            <span className="text-xs font-medium text-amber-700">{dupOpen ? "Ocultar" : "Ver"}</span>
+          </button>
+          {dupOpen && (
+            <div className="mt-3 space-y-2">
+              {dupGroups.map((g, i) => (
+                <div key={i} className="rounded-lg border border-amber-200 bg-white p-2">
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-amber-700">
+                    {g.length} registros parecidos · {[g[0].telefono, g[0].email].filter(Boolean).join(" · ") || "—"}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {g.map((l) => (
+                      <Link
+                        key={l.id}
+                        to="/clientes/$id"
+                        params={{ id: l.id }}
+                        className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                      >
+                        {l.nombre || "Sin nombre"}
+                        <ChevronRight className="h-3 w-3" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <p className="text-[11px] text-amber-700">Abre cualquiera de ellos para fusionarlos desde su ficha.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="relative col-span-2 md:col-span-1">
