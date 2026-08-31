@@ -404,7 +404,7 @@ function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-1.5">
             {p.numero != null && <span className="mt-0.5 shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
-            {p.cantidad > 1 && <span className="mt-0.5 shrink-0 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">×{p.cantidad} uds</span>}
+            <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${p.cantidad > 1 ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-500"}`}>×{p.cantidad} {p.cantidad === 1 ? "ud" : "uds"}</span>
             <span className="min-w-0 flex-1 font-semibold leading-tight text-slate-900 line-clamp-2">{displayNombreProducto(p.tipo, p.modelo)}</span>
           </div>
           <div className="mt-0.5 text-xs text-slate-500">{medidas}</div>
