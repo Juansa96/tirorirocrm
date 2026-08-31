@@ -248,6 +248,10 @@ function ClienteDetalle() {
     if (etapa === "Closed Won" || etapa === "Closed Lost") {
       setClosingEtapa(etapa);
       setClosingReason("");
+      if (etapa === "Closed Won") {
+        setVentaImporte(lead!.ventaImporte != null ? String(lead!.ventaImporte) : String(lead!.valor || ""));
+        setVentaFecha(lead!.ventaFecha || new Date().toISOString().slice(0, 10));
+      }
     } else {
       actions.setLeadEtapa(lead!.id, etapa);
     }
@@ -255,7 +259,16 @@ function ClienteDetalle() {
 
   async function confirmClose() {
     if (!closingEtapa || !lead) return;
-    await actions.setLeadEtapa(lead.id, closingEtapa);
+    if (closingEtapa === "Closed Won") {
+      const importe = parseFloat(ventaImporte.replace(",", "."));
+      await actions.updateLead(lead.id, {
+        etapa: "Closed Won",
+        ventaImporte: Number.isFinite(importe) ? importe : null,
+        ventaFecha: ventaFecha || "",
+      });
+    } else {
+      await actions.setLeadEtapa(lead.id, closingEtapa);
+    }
     if (closingReason.trim()) {
       await actions.addNota(lead.id, `[${closingEtapa}] ${closingReason.trim()}`);
     }
