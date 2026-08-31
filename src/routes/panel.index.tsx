@@ -158,6 +158,9 @@ function Panel() {
   const flat = ordenarFlat(conOrden(lista));
   flatRef.current = flat;
   const tramos = construirTramos(flat);
+  // Posición (1º, 2º…) de cada producto en la cola de trabajo, según el orden
+  // final ya calculado. Se muestra SIEMPRE, aunque no haya orden manual.
+  const posiciones = new Map(flat.map((p, i) => [p.id, i + 1]));
   // Nº de productos por cliente en toda la lista (para avisar de repartos).
   const totalPorCliente = new Map<string, number>();
   for (const p of flat) totalPorCliente.set(p.cliente || "Sin cliente", (totalPorCliente.get(p.cliente || "Sin cliente") || 0) + 1);
@@ -282,6 +285,7 @@ function Panel() {
               <ClienteCard
                 key={t.repId}
                 tramo={t}
+                posiciones={posiciones}
                 totalCliente={totalPorCliente.get(t.cliente) ?? t.items.length}
                 expandido={expandidos.has(t.cliente)}
                 onToggle={() => toggle(t.cliente)}
@@ -316,8 +320,8 @@ interface DnD {
   onProductGrip: (productId: string, e: React.PointerEvent) => void;
 }
 
-function ClienteCard({ tramo, totalCliente, expandido, onToggle, tapiceroSearch, dnd }: {
-  tramo: Tramo; totalCliente: number; expandido: boolean; onToggle: () => void;
+function ClienteCard({ tramo, posiciones, totalCliente, expandido, onToggle, tapiceroSearch, dnd }: {
+  tramo: Tramo; posiciones: Map<string, number>; totalCliente: number; expandido: boolean; onToggle: () => void;
   tapiceroSearch?: string; dnd?: DnD;
 }) {
   const otros = totalCliente - tramo.items.length; // productos de este cliente en otras posiciones
@@ -361,7 +365,7 @@ function ClienteCard({ tramo, totalCliente, expandido, onToggle, tapiceroSearch,
       </div>
       <div className="divide-y divide-slate-100">
         {tramo.items.map((p) => (
-          <ProductoRow key={p.id} p={p} tapiceroSearch={tapiceroSearch}
+          <ProductoRow key={p.id} p={p} posicion={posiciones.get(p.id) ?? 0} tapiceroSearch={tapiceroSearch}
             dnd={dnd} arrastrarProducto={!!dnd && expandido} />
         ))}
       </div>
@@ -369,8 +373,8 @@ function ClienteCard({ tramo, totalCliente, expandido, onToggle, tapiceroSearch,
   );
 }
 
-function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
-  p: PanelPedido; tapiceroSearch?: string; dnd?: DnD; arrastrarProducto: boolean;
+function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto }: {
+  p: PanelPedido; posicion: number; tapiceroSearch?: string; dnd?: DnD; arrastrarProducto: boolean;
 }) {
   const c = diasColor(p.diasRestantes, p.entregado, !!p.fechaRecogida);
   const medidasNum = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
@@ -397,8 +401,8 @@ function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
       )}
       <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}} draggable={false}
         className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-3 active:bg-slate-50">
-        {p.ordenProduccion != null && (
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">{p.ordenProduccion}</span>
+        {posicion > 0 && (
+          <span className="w-5 shrink-0 text-center text-xs font-semibold tabular-nums text-slate-400">{posicion}</span>
         )}
         <div className="h-12 w-12 shrink-0 rounded-lg bg-slate-50 p-1.5"><SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" /></div>
         <div className="min-w-0 flex-1">
