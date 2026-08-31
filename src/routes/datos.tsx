@@ -303,6 +303,19 @@ function DatosPage() {
   const sinEdad = filtered.filter(l => !l.edad).length;
 
   // ── Export CSV ────────────────────────────────────────────────────
+  function downloadCSV(rows: (string | number)[][], filename: string) {
+    const csv = rows
+      .map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function exportCSV() {
     const headers = ["Nombre","Email","Teléfono","Ciudad","Vendedor","Etapa","Origen","Valor Producto (€)","Valor Envío (€)","Valor Total (€)","Edad","Red Social","Fecha Creación"];
     const rows = filtered.map(l => [
@@ -310,16 +323,31 @@ function DatosPage() {
       l.etapa, l.origen, l.valorProducto, l.valorEnvio, l.valor,
       l.edad, l.redSocial, l.fechaCreacion,
     ]);
-    const csv = [headers, ...rows]
-      .map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `tirorirocrm_leads_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCSV([headers, ...rows], `tirorirocrm_leads_${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
+  // ── Export conversiones offline Google Ads ────────────────────────
+  // Columnas exactas y en este orden: gclid, venta_fecha, venta_importe, email, etapa.
+  // El rango de fechas se aplica sobre venta_fecha si existe; si no, sobre la
+  // fecha de creación del lead.
+  const adsLeads = leads.filter((l) => {
+    const ref = (l.ventaFecha || l.fechaCreacion || "").slice(0, 10);
+    if (!ref) return false;
+    if (adsDesde && ref < adsDesde) return false;
+    if (adsHasta && ref > adsHasta) return false;
+    return true;
+  });
+
+  function exportGoogleAdsCSV() {
+    const headers = ["gclid", "venta_fecha", "venta_importe", "email", "etapa"];
+    const rows = adsLeads.map((l) => [
+      l.gclid ?? "",
+      l.ventaFecha ?? "",
+      l.ventaImporte ?? "",
+      l.email ?? "",
+      l.etapa,
+    ]);
+    downloadCSV([headers, ...rows], `google_ads_conversiones_${adsDesde || "inicio"}_${adsHasta || "hoy"}.csv`);
   }
 
   const tooltipStyle = { fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" };
