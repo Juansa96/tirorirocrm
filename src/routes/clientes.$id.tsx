@@ -130,6 +130,8 @@ function ClienteDetalle() {
   // Closed Won/Lost reason dialog
   const [closingEtapa, setClosingEtapa] = useState<Etapa | null>(null);
   const [closingReason, setClosingReason] = useState("");
+  const [ventaImporte, setVentaImporte] = useState("");
+  const [ventaFecha, setVentaFecha] = useState("");
   // Motivo de pérdida para colaboraciones (influencer → "Perdido")
   const [perdidaColab, setPerdidaColab] = useState(false);
 
