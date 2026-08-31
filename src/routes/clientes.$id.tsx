@@ -322,6 +322,27 @@ function ClienteDetalle() {
             rows={2}
             className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
           />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">Importe de la venta (€)</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={ventaImporte}
+                onChange={(e) => setVentaImporte(e.target.value)}
+                placeholder="0,00"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">Fecha de la venta</label>
+              <input
+                type="date"
+                value={ventaFecha}
+                onChange={(e) => setVentaFecha(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+          </div>
           <div className="mt-3 flex gap-2 justify-end">
             <button onClick={() => setClosingEtapa(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
             <button onClick={confirmClose} className="rounded-lg px-3 py-1.5 text-sm font-medium text-white" style={{ backgroundColor: ETAPA_COLORS[closingEtapa] }}>
