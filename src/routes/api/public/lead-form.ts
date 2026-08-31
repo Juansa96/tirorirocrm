@@ -169,6 +169,13 @@ export const Route = createFileRoute("/api/public/lead-form")({
             ? Math.max(0, Number(valor_envio) || 0)
             : (isMadrid ? 40 : 60);
 
+          // Atribución de campaña: se guarda tal cual llega (o null si viene vacío).
+          const trackingCols: Record<string, string | null> = {};
+          for (const k of TRACKING_KEYS) {
+            const v = sanitize((parsed.data as Record<string, unknown>)[k], 500);
+            trackingCols[k] = v || null;
+          }
+
           const { data: lead, error: leadErr } = await supabaseAdmin.from("leads").insert({
             nombre: nombreClean,
             email: emailClean,
@@ -183,6 +190,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
             origen: sanitize(origen, 50) || "Formulario web",
             red_social: "",
             fecha_hold: null,
+            ...trackingCols,
             tipo: "B2C",
           }).select().single();
 
