@@ -389,6 +389,35 @@ function DatosPage() {
         </div>
       </div>
 
+      {/* Exportación de conversiones offline para Google Ads */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Conversiones Google Ads</div>
+        <p className="mb-3 text-xs text-slate-500">
+          CSV con las columnas gclid, venta_fecha, venta_importe, email y etapa. Filtra por fecha de venta (o de creación si el lead aún no tiene venta).
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-[11px] text-slate-500">Desde</label>
+            <input type="date" value={adsDesde} onChange={(e) => setAdsDesde(e.target.value)}
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] text-slate-500">Hasta</label>
+            <input type="date" value={adsHasta} onChange={(e) => setAdsHasta(e.target.value)}
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none" />
+          </div>
+          <button
+            onClick={exportGoogleAdsCSV}
+            disabled={adsLeads.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a3050] disabled:opacity-40"
+          >
+            <Download className="h-4 w-4" />
+            Exportar CSV ({adsLeads.length})
+          </button>
+        </div>
+      </div>
+
+
       {/* Filtros */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Filtros</div>
