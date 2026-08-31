@@ -106,6 +106,8 @@ function DatosPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [activePreset, setActivePreset] = useState("all");
+  const [adsDesde, setAdsDesde] = useState("");
+  const [adsHasta, setAdsHasta] = useState("");
 
   function applyPreset(p: string) {
     setActivePreset(p);
