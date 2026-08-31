@@ -551,6 +551,19 @@ function ClienteDetalle() {
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{lead.origen}</span>
               </div>
             )}
+            {CAMPANA_FIELDS.some((f) => String(lead[f.key] ?? "").trim()) && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Origen de campaña</div>
+                <dl className="space-y-1">
+                  {CAMPANA_FIELDS.filter((f) => String(lead[f.key] ?? "").trim()).map((f) => (
+                    <div key={f.key} className="flex items-baseline gap-2 text-xs">
+                      <dt className="shrink-0 font-mono text-slate-500">{f.label}</dt>
+                      <dd className="min-w-0 flex-1 break-all text-right font-medium text-slate-700">{String(lead[f.key])}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <Clock className="h-3.5 w-3.5" />
               <span>Creado: <strong className="text-slate-600">{lead.fechaCreacion ? formatDateTime(lead.fechaCreacion) : "—"}</strong></span>
