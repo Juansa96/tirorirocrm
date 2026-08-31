@@ -89,6 +89,17 @@ function mapLead(r: Record<string, unknown>): Lead {
     instagram: (r.instagram as string) ?? "",
     notasB2b: (r.notas_b2b as string) ?? "",
     asignados: Array.isArray(r.asignados) ? (r.asignados as string[]) : [],
+    gclid: (r.gclid as string) ?? "",
+    gbraid: (r.gbraid as string) ?? "",
+    wbraid: (r.wbraid as string) ?? "",
+    utmSource: (r.utm_source as string) ?? "",
+    utmMedium: (r.utm_medium as string) ?? "",
+    utmCampaign: (r.utm_campaign as string) ?? "",
+    utmTerm: (r.utm_term as string) ?? "",
+    fbclid: (r.fbclid as string) ?? "",
+    landingPath: (r.landing_path as string) ?? "",
+    ventaImporte: r.venta_importe === null || r.venta_importe === undefined ? null : Number(r.venta_importe),
+    ventaFecha: (r.venta_fecha as string) ?? "",
   };
 }
 
@@ -767,7 +778,9 @@ async function propagarPrecioPedidoAProducto(pedidoId: string) {
 
 export const actions = {
   async addLead(
-    input: Omit<Lead, "id" | "fechaCreacion" | "fechaEntradaEtapa" | "razonUrgencia">,
+    input: Omit<Lead, "id" | "fechaCreacion" | "fechaEntradaEtapa" | "razonUrgencia"
+      | "gclid" | "gbraid" | "wbraid" | "utmSource" | "utmMedium" | "utmCampaign"
+      | "utmTerm" | "fbclid" | "landingPath" | "ventaImporte" | "ventaFecha">,
     firstTask?: { descripcion: string; fecha: string; hora?: string },
   ): Promise<Lead | null> {
     const { data, error } = await supabase
@@ -862,6 +875,17 @@ export const actions = {
     if (patch.seguidores !== undefined) dbPatch.seguidores = patch.seguidores;
     if (patch.redPrincipal !== undefined) dbPatch.red_principal = patch.redPrincipal || null;
     if (patch.usuario !== undefined) dbPatch.usuario = patch.usuario || null;
+    if (patch.gclid !== undefined) dbPatch.gclid = patch.gclid || null;
+    if (patch.gbraid !== undefined) dbPatch.gbraid = patch.gbraid || null;
+    if (patch.wbraid !== undefined) dbPatch.wbraid = patch.wbraid || null;
+    if (patch.utmSource !== undefined) dbPatch.utm_source = patch.utmSource || null;
+    if (patch.utmMedium !== undefined) dbPatch.utm_medium = patch.utmMedium || null;
+    if (patch.utmCampaign !== undefined) dbPatch.utm_campaign = patch.utmCampaign || null;
+    if (patch.utmTerm !== undefined) dbPatch.utm_term = patch.utmTerm || null;
+    if (patch.fbclid !== undefined) dbPatch.fbclid = patch.fbclid || null;
+    if (patch.landingPath !== undefined) dbPatch.landing_path = patch.landingPath || null;
+    if (patch.ventaImporte !== undefined) dbPatch.venta_importe = patch.ventaImporte ?? null;
+    if (patch.ventaFecha !== undefined) dbPatch.venta_fecha = patch.ventaFecha || null;
 
     // edad se guarda por separado para que un fallo por columna inexistente
     // no impida guardar el resto de campos

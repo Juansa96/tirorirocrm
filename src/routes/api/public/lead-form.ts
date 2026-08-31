@@ -49,6 +49,12 @@ const productoSchema = z.object({
   config: configSchema.optional(),
 }).passthrough();
 
+// Campos de atribución de campaña que envía tirorirohome.com.
+const TRACKING_KEYS = [
+  "gclid", "gbraid", "wbraid", "utm_source", "utm_medium",
+  "utm_campaign", "utm_term", "fbclid", "landing_path",
+] as const;
+
 const bodySchema = z.object({
   nombre: z.string().trim().min(1).max(200),
   email: z.string().trim().email().max(254),
@@ -59,6 +65,15 @@ const bodySchema = z.object({
   valor_envio: z.coerce.number().min(0).max(100_000).optional(),
   productos: z.array(productoSchema).max(50).optional(),
   configurador: productoSchema.optional(),
+  gclid: z.string().trim().max(500).optional(),
+  gbraid: z.string().trim().max(500).optional(),
+  wbraid: z.string().trim().max(500).optional(),
+  utm_source: z.string().trim().max(200).optional(),
+  utm_medium: z.string().trim().max(200).optional(),
+  utm_campaign: z.string().trim().max(200).optional(),
+  utm_term: z.string().trim().max(200).optional(),
+  fbclid: z.string().trim().max(500).optional(),
+  landing_path: z.string().trim().max(500).optional(),
 }).passthrough();
 
 // Campos "conocidos" a nivel de producto — todo lo demás va a extras_no_mapeados.
@@ -154,6 +169,13 @@ export const Route = createFileRoute("/api/public/lead-form")({
             ? Math.max(0, Number(valor_envio) || 0)
             : (isMadrid ? 40 : 60);
 
+          // Atribución de campaña: se guarda tal cual llega (o null si viene vacío).
+          const trackingCols: Record<string, string | null> = {};
+          for (const k of TRACKING_KEYS) {
+            const v = sanitize((parsed.data as Record<string, unknown>)[k], 500);
+            trackingCols[k] = v || null;
+          }
+
           const { data: lead, error: leadErr } = await supabaseAdmin.from("leads").insert({
             nombre: nombreClean,
             email: emailClean,
@@ -168,6 +190,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
             origen: sanitize(origen, 50) || "Formulario web",
             red_social: "",
             fecha_hold: null,
+            ...trackingCols,
             tipo: "B2C",
           }).select().single();
 

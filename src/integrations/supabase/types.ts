@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -217,12 +217,16 @@ export type Database = {
           email: string | null
           etapa: string
           etiquetas: string[]
+          fbclid: string | null
           fecha_cobro: string | null
           fecha_creacion: string
           fecha_entrada_etapa: string
           fecha_hold: string | null
+          gbraid: string | null
+          gclid: string | null
           id: string
           instagram: string | null
+          landing_path: string | null
           nif: string | null
           nombre: string
           notas_b2b: string | null
@@ -238,10 +242,17 @@ export type Database = {
           tipo: string
           updated_at: string
           usuario: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
           valor: number
           valor_envio: number
           valor_producto: number
           vendedor: string
+          venta_fecha: string | null
+          venta_importe: number | null
+          wbraid: string | null
           web: string | null
         }
         Insert: {
@@ -258,12 +269,16 @@ export type Database = {
           email?: string | null
           etapa?: string
           etiquetas?: string[]
+          fbclid?: string | null
           fecha_cobro?: string | null
           fecha_creacion?: string
           fecha_entrada_etapa?: string
           fecha_hold?: string | null
+          gbraid?: string | null
+          gclid?: string | null
           id?: string
           instagram?: string | null
+          landing_path?: string | null
           nif?: string | null
           nombre: string
           notas_b2b?: string | null
@@ -279,10 +294,17 @@ export type Database = {
           tipo?: string
           updated_at?: string
           usuario?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
           valor?: number
           valor_envio?: number
           valor_producto?: number
           vendedor: string
+          venta_fecha?: string | null
+          venta_importe?: number | null
+          wbraid?: string | null
           web?: string | null
         }
         Update: {
@@ -299,12 +321,16 @@ export type Database = {
           email?: string | null
           etapa?: string
           etiquetas?: string[]
+          fbclid?: string | null
           fecha_cobro?: string | null
           fecha_creacion?: string
           fecha_entrada_etapa?: string
           fecha_hold?: string | null
+          gbraid?: string | null
+          gclid?: string | null
           id?: string
           instagram?: string | null
+          landing_path?: string | null
           nif?: string | null
           nombre?: string
           notas_b2b?: string | null
@@ -320,10 +346,17 @@ export type Database = {
           tipo?: string
           updated_at?: string
           usuario?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
           valor?: number
           valor_envio?: number
           valor_producto?: number
           vendedor?: string
+          venta_fecha?: string | null
+          venta_importe?: number | null
+          wbraid?: string | null
           web?: string | null
         }
         Relationships: []

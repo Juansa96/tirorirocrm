@@ -106,6 +106,8 @@ function DatosPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [activePreset, setActivePreset] = useState("all");
+  const [adsDesde, setAdsDesde] = useState("");
+  const [adsHasta, setAdsHasta] = useState("");
 
   function applyPreset(p: string) {
     setActivePreset(p);
@@ -303,6 +305,19 @@ function DatosPage() {
   const sinEdad = filtered.filter(l => !l.edad).length;
 
   // ── Export CSV ────────────────────────────────────────────────────
+  function downloadCSV(rows: (string | number)[][], filename: string) {
+    const csv = rows
+      .map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function exportCSV() {
     const headers = ["Nombre","Email","Teléfono","Ciudad","Vendedor","Etapa","Origen","Valor Producto (€)","Valor Envío (€)","Valor Total (€)","Edad","Red Social","Fecha Creación"];
     const rows = filtered.map(l => [
@@ -310,16 +325,31 @@ function DatosPage() {
       l.etapa, l.origen, l.valorProducto, l.valorEnvio, l.valor,
       l.edad, l.redSocial, l.fechaCreacion,
     ]);
-    const csv = [headers, ...rows]
-      .map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `tirorirocrm_leads_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCSV([headers, ...rows], `tirorirocrm_leads_${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
+  // ── Export conversiones offline Google Ads ────────────────────────
+  // Columnas exactas y en este orden: gclid, venta_fecha, venta_importe, email, etapa.
+  // El rango de fechas se aplica sobre venta_fecha si existe; si no, sobre la
+  // fecha de creación del lead.
+  const adsLeads = leads.filter((l) => {
+    const ref = (l.ventaFecha || l.fechaCreacion || "").slice(0, 10);
+    if (!ref) return false;
+    if (adsDesde && ref < adsDesde) return false;
+    if (adsHasta && ref > adsHasta) return false;
+    return true;
+  });
+
+  function exportGoogleAdsCSV() {
+    const headers = ["gclid", "venta_fecha", "venta_importe", "email", "etapa"];
+    const rows = adsLeads.map((l) => [
+      l.gclid ?? "",
+      l.ventaFecha ?? "",
+      l.ventaImporte ?? "",
+      l.email ?? "",
+      l.etapa,
+    ]);
+    downloadCSV([headers, ...rows], `google_ads_conversiones_${adsDesde || "inicio"}_${adsHasta || "hoy"}.csv`);
   }
 
   const tooltipStyle = { fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" };
@@ -358,6 +388,35 @@ function DatosPage() {
           </button>
         </div>
       </div>
+
+      {/* Exportación de conversiones offline para Google Ads */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Conversiones Google Ads</div>
+        <p className="mb-3 text-xs text-slate-500">
+          CSV con las columnas gclid, venta_fecha, venta_importe, email y etapa. Filtra por fecha de venta (o de creación si el lead aún no tiene venta).
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-[11px] text-slate-500">Desde</label>
+            <input type="date" value={adsDesde} onChange={(e) => setAdsDesde(e.target.value)}
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] text-slate-500">Hasta</label>
+            <input type="date" value={adsHasta} onChange={(e) => setAdsHasta(e.target.value)}
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none" />
+          </div>
+          <button
+            onClick={exportGoogleAdsCSV}
+            disabled={adsLeads.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#1a1f36] px-4 py-2 text-sm font-medium text-white hover:bg-[#2a3050] disabled:opacity-40"
+          >
+            <Download className="h-4 w-4" />
+            Exportar CSV ({adsLeads.length})
+          </button>
+        </div>
+      </div>
+
 
       {/* Filtros */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">

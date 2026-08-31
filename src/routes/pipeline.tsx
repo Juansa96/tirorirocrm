@@ -8,6 +8,7 @@ import {
 } from "@/lib/types";
 import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
 import { ClosedLostDialog } from "@/components/ClosedLostDialog";
+import { ClosedWonDialog } from "@/components/ClosedWonDialog";
 import { formatCurrency, dateLabel } from "@/lib/format";
 import { useTouchStageDrag } from "@/lib/stage-drag";
 import { sellerStyle } from "@/components/SellerBadge";
@@ -217,11 +218,13 @@ function PipelineB2C() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<Etapa | null>(null);
   const [perdidaLead, setPerdidaLead] = useState<string | null>(null);
+  const [ganadoLead, setGanadoLead] = useState<string | null>(null);
 
-  // Al mover a "Closed Lost" se pide SIEMPRE el motivo (obligatorio); el resto
-  // se mueve directo.
+  // Al mover a "Closed Lost" se pide SIEMPRE el motivo (obligatorio); a
+  // "Closed Won" se piden importe y fecha de venta; el resto se mueve directo.
   const moveB2C = (leadId: string, etapa: Etapa) => {
     if (etapa === "Closed Lost") setPerdidaLead(leadId);
+    else if (etapa === "Closed Won") setGanadoLead(leadId);
     else void actions.setLeadEtapa(leadId, etapa);
   };
   const touchHandlers = useTouchStageDrag<Etapa>(setDragOver, setDraggingId, moveB2C);
@@ -313,6 +316,17 @@ function PipelineB2C() {
             void actions.setLeadEtapa(perdidaLead, "Closed Lost");
             void actions.addNota(perdidaLead, `[Closed Lost] ${razon}${comentario ? ` — ${comentario}` : ""}`);
             setPerdidaLead(null);
+          }}
+        />
+      )}
+
+      {ganadoLead && (
+        <ClosedWonDialog
+          importeInicial={leads.find((l) => l.id === ganadoLead)?.valor ?? null}
+          onCancel={() => setGanadoLead(null)}
+          onConfirm={(ventaImporte, ventaFecha) => {
+            void actions.updateLead(ganadoLead, { etapa: "Closed Won", ventaImporte, ventaFecha });
+            setGanadoLead(null);
           }}
         />
       )}

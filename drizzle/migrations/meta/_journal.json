@@ -43,6 +43,13 @@
       "when": 1787925421167,
       "tag": "0005_pedidos_numero_repetible_sufijo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788163248285,
+      "tag": "0006_leads_campaign_tracking_venta",
+      "breakpoints": true
     }
   ]
 }

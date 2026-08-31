@@ -5,7 +5,7 @@ import {
   Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
+import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, CAMPANA_FIELDS, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
 import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
 import { ClosedLostDialog } from "@/components/ClosedLostDialog";
 import { formatCurrency, todayISO } from "@/lib/format";
@@ -130,6 +130,8 @@ function ClienteDetalle() {
   // Closed Won/Lost reason dialog
   const [closingEtapa, setClosingEtapa] = useState<Etapa | null>(null);
   const [closingReason, setClosingReason] = useState("");
+  const [ventaImporte, setVentaImporte] = useState("");
+  const [ventaFecha, setVentaFecha] = useState("");
   // Motivo de pérdida para colaboraciones (influencer → "Perdido")
   const [perdidaColab, setPerdidaColab] = useState(false);
 
@@ -246,6 +248,10 @@ function ClienteDetalle() {
     if (etapa === "Closed Won" || etapa === "Closed Lost") {
       setClosingEtapa(etapa);
       setClosingReason("");
+      if (etapa === "Closed Won") {
+        setVentaImporte(lead!.ventaImporte != null ? String(lead!.ventaImporte) : String(lead!.valor || ""));
+        setVentaFecha(lead!.ventaFecha || new Date().toISOString().slice(0, 10));
+      }
     } else {
       actions.setLeadEtapa(lead!.id, etapa);
     }
@@ -253,7 +259,16 @@ function ClienteDetalle() {
 
   async function confirmClose() {
     if (!closingEtapa || !lead) return;
-    await actions.setLeadEtapa(lead.id, closingEtapa);
+    if (closingEtapa === "Closed Won") {
+      const importe = parseFloat(ventaImporte.replace(",", "."));
+      await actions.updateLead(lead.id, {
+        etapa: "Closed Won",
+        ventaImporte: Number.isFinite(importe) ? importe : null,
+        ventaFecha: ventaFecha || "",
+      });
+    } else {
+      await actions.setLeadEtapa(lead.id, closingEtapa);
+    }
     if (closingReason.trim()) {
       await actions.addNota(lead.id, `[${closingEtapa}] ${closingReason.trim()}`);
     }
@@ -307,6 +322,27 @@ function ClienteDetalle() {
             rows={2}
             className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
           />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">Importe de la venta (€)</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={ventaImporte}
+                onChange={(e) => setVentaImporte(e.target.value)}
+                placeholder="0,00"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">Fecha de la venta</label>
+              <input
+                type="date"
+                value={ventaFecha}
+                onChange={(e) => setVentaFecha(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+          </div>
           <div className="mt-3 flex gap-2 justify-end">
             <button onClick={() => setClosingEtapa(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
             <button onClick={confirmClose} className="rounded-lg px-3 py-1.5 text-sm font-medium text-white" style={{ backgroundColor: ETAPA_COLORS[closingEtapa] }}>
@@ -549,6 +585,19 @@ function ClienteDetalle() {
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500">Origen:</span>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{lead.origen}</span>
+              </div>
+            )}
+            {CAMPANA_FIELDS.some((f) => String(lead[f.key] ?? "").trim()) && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Origen de campaña</div>
+                <dl className="space-y-1">
+                  {CAMPANA_FIELDS.filter((f) => String(lead[f.key] ?? "").trim()).map((f) => (
+                    <div key={f.key} className="flex items-baseline gap-2 text-xs">
+                      <dt className="shrink-0 font-mono text-slate-500">{f.label}</dt>
+                      <dd className="min-w-0 flex-1 break-all text-right font-medium text-slate-700">{String(lead[f.key])}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             )}
             <div className="flex items-center gap-2 text-xs text-slate-400">
