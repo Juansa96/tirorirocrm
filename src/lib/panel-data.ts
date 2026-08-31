@@ -15,6 +15,7 @@ export interface PanelPedido {
   ordenProduccion: number | null; // orden manual de trabajo (1º, 2º…)
   notaTapicero: string;           // comentario para el tapicero (dirección de tela, etc.)
   tipo: string; modelo: string;
+  cantidad: number;    // nº de unidades de este producto (p. ej. pufs que van de 2 en 2)
   ancho: number | null; alto: number | null; fondo: number | null;
   acabado: string; montaje: string; patas: string; notasProducto: string; notasPedido: string;
   telaTexto: string;   // tela del producto (texto), respaldo si no hay telas con foto
@@ -171,6 +172,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         notaTapicero: (p.nota_tapicero as string) ?? "",
         tipo: (prod.tipo as string) ?? "",
         modelo: (prod.modelo as string) ?? "",
+        cantidad: Math.max(1, Number(prod.cantidad) || 1),
         ancho: (prod.ancho as number | null) ?? null,
         alto: (prod.alto as number | null) ?? null,
         fondo: (prod.fondo as number | null) ?? null,

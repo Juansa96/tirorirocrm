@@ -1,7 +1,8 @@
 import { numeroPedidoLabel } from "@/lib/types";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical } from "lucide-react";
+import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical, Truck } from "lucide-react";
+import { formatWeekdayShort } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { tapiceroNombre, type Tapicero } from "@/lib/types";
@@ -403,12 +404,19 @@ function ProductoRow({ p, tapiceroSearch, dnd, arrastrarProducto }: {
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-1.5">
             {p.numero != null && <span className="mt-0.5 shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
+            {p.cantidad > 1 && <span className="mt-0.5 shrink-0 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">×{p.cantidad} uds</span>}
             <span className="min-w-0 flex-1 font-semibold leading-tight text-slate-900 line-clamp-2">{displayNombreProducto(p.tipo, p.modelo)}</span>
           </div>
           <div className="mt-0.5 text-xs text-slate-500">{medidas}</div>
           <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
+          {p.fechaRecogida && !p.entregado && (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium leading-none text-slate-500" title="Fecha en que Juan pasa a recoger el producto">
+              <Truck className="h-3 w-3 shrink-0 text-slate-400" />
+              Recoge {formatWeekdayShort(p.fechaRecogida)}
+            </span>
+          )}
           <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
         </div>
         <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
