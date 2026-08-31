@@ -89,6 +89,17 @@ function mapLead(r: Record<string, unknown>): Lead {
     instagram: (r.instagram as string) ?? "",
     notasB2b: (r.notas_b2b as string) ?? "",
     asignados: Array.isArray(r.asignados) ? (r.asignados as string[]) : [],
+    gclid: (r.gclid as string) ?? "",
+    gbraid: (r.gbraid as string) ?? "",
+    wbraid: (r.wbraid as string) ?? "",
+    utmSource: (r.utm_source as string) ?? "",
+    utmMedium: (r.utm_medium as string) ?? "",
+    utmCampaign: (r.utm_campaign as string) ?? "",
+    utmTerm: (r.utm_term as string) ?? "",
+    fbclid: (r.fbclid as string) ?? "",
+    landingPath: (r.landing_path as string) ?? "",
+    ventaImporte: r.venta_importe === null || r.venta_importe === undefined ? null : Number(r.venta_importe),
+    ventaFecha: (r.venta_fecha as string) ?? "",
   };
 }
 
