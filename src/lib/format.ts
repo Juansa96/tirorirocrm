@@ -37,6 +37,14 @@ export function formatShortDate(iso: string): string {
   return `${d.getDate()} ${MESES[d.getMonth()]}`;
 }
 
+// Fecha compacta con día de la semana, sin año: "vie 15 may".
+// Pensada para las cards del taller (fecha de recogida por Juan).
+export function formatWeekdayShort(iso: string): string {
+  const d = parseLocalDate(iso);
+  if (isNaN(d.getTime())) return "—";
+  return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}`;
+}
+
 export function formatLongDate(iso: string): string {
   const d = parseLocalDate(iso);
   const yy = String(d.getFullYear()).slice(-2);
