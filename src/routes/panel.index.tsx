@@ -97,7 +97,8 @@ function Panel() {
 
   const viendoId = esTapicero ? miTapiceroId : (search.tapicero ?? "");
   const { pedidos, refetch } = usePanelPedidos(viendoId || null, esTapicero);
-  const [verEntregados, setVerEntregados] = useState(false);
+  const [vista, setVista] = useState<"en_curso" | "por_recoger" | "terminados">("en_curso");
+  const enCurso = vista === "en_curso";
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso">("todos");
   const [soloRetrasados, setSoloRetrasados] = useState(false);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
@@ -137,18 +138,24 @@ function Panel() {
     );
   }
 
+  // Tres estados de un producto en el taller:
+  //  · En curso:    el tapicero aún lo está haciendo (ni terminado ni recogido).
+  //  · Por recoger: el tapicero lo marcó terminado, pendiente de que Juan lo
+  //                 recoja. Aquí Juan ve de un vistazo qué puede llevarse.
+  //  · Terminados:  ya recogido/entregado.
   const activos = (pedidos ?? []).filter((p) => !p.terminado && !p.entregado);
-  const entregados = (pedidos ?? []).filter((p) => p.terminado || p.entregado);
-  const base = verEntregados ? entregados : activos;
+  const porRecoger = (pedidos ?? []).filter((p) => p.terminado && !p.entregado);
+  const terminados = (pedidos ?? []).filter((p) => p.entregado);
+  const base = vista === "terminados" ? terminados : vista === "por_recoger" ? porRecoger : activos;
   const lista = base.filter((p) => {
-    if (!verEntregados && filtroEstado === "pendiente_tela" && p.telaEstado === "recibida") return false;
-    if (!verEntregados && filtroEstado === "en_curso" && p.telaEstado !== "recibida") return false;
+    if (enCurso && filtroEstado === "pendiente_tela" && p.telaEstado === "recibida") return false;
+    if (enCurso && filtroEstado === "en_curso" && p.telaEstado !== "recibida") return false;
     if (soloRetrasados && p.diasRestantes >= 0) return false;
     return true;
   });
 
   // Solo el equipo reordena, y solo en "En curso" sin filtros (secuencia global).
-  const puedeOrdenar = esEquipo && !verEntregados && filtroEstado === "todos" && !soloRetrasados;
+  const puedeOrdenar = esEquipo && enCurso && filtroEstado === "todos" && !soloRetrasados;
 
   const conOrden = (arr: PanelPedido[]) =>
     Object.keys(ordenOverride).length === 0
@@ -247,35 +254,45 @@ function Panel() {
   return (
     <Shell onSignOut={signOut} equipo={esEquipo} bannerNombre={esEquipo ? tapiceroNombre(tapiceroActual) : ""}>
       <div className="mx-auto max-w-2xl px-3 py-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
-            <button onClick={() => setVerEntregados(false)} className={`rounded-md px-3 py-1.5 font-medium ${!verEntregados ? "bg-slate-900 text-white" : "text-slate-600"}`}>En curso ({activos.length})</button>
-            <button onClick={() => setVerEntregados(true)} className={`rounded-md px-3 py-1.5 font-medium ${verEntregados ? "bg-slate-900 text-white" : "text-slate-600"}`}>Terminados ({entregados.length})</button>
-          </div>
-        </div>
-
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          {!verEntregados && ([
-            ["todos", "Todos"],
-            ["pendiente_tela", "Pendiente de tela"],
-            ["en_curso", "Tela recibida"],
-          ] as const).map(([v, lbl]) => (
-            <button key={v} onClick={() => setFiltroEstado(v)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium ${filtroEstado === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
-              {lbl}
+        <div className="mb-3 flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs sm:text-sm">
+          {([
+            ["en_curso", "En curso", activos.length],
+            ["por_recoger", "Por recoger", porRecoger.length],
+            ["terminados", "Terminados", terminados.length],
+          ] as const).map(([v, lbl, n]) => (
+            <button key={v} onClick={() => setVista(v)}
+              className={`flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-center font-medium ${vista === v ? "bg-slate-900 text-white" : "text-slate-600"}`}>
+              {lbl} ({n})
             </button>
           ))}
-          <button onClick={() => setSoloRetrasados((v) => !v)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${soloRetrasados ? "border-rose-500 bg-rose-500 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
-            Solo retrasados
-          </button>
         </div>
+
+        {enCurso && (
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            {([
+              ["todos", "Todos"],
+              ["pendiente_tela", "Pendiente de tela"],
+              ["en_curso", "Tela recibida"],
+            ] as const).map(([v, lbl]) => (
+              <button key={v} onClick={() => setFiltroEstado(v)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium ${filtroEstado === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+                {lbl}
+              </button>
+            ))}
+            <button onClick={() => setSoloRetrasados((v) => !v)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${soloRetrasados ? "border-rose-500 bg-rose-500 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+              Solo retrasados
+            </button>
+          </div>
+        )}
 
         {pedidos === null ? (
           <div className="py-16 text-center text-slate-400">Cargando…</div>
         ) : flat.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-400">
-            {base.length === 0 ? (verEntregados ? "Nada terminado todavía." : "No tienes pedidos en curso. 🎉") : "Nada con este filtro."}
+            {base.length === 0
+              ? (vista === "terminados" ? "Nada recogido todavía." : vista === "por_recoger" ? "Nada por recoger todavía." : "No tienes pedidos en curso. 🎉")
+              : "Nada con este filtro."}
           </div>
         ) : (
           <div className="space-y-3">
