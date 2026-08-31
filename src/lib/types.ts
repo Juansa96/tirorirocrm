@@ -219,7 +219,33 @@ export interface Lead {
   seguidores: number;         // nº de seguidores en la red principal
   redPrincipal: string;       // 'Instagram' | 'TikTok' | 'YouTube' | 'Otra'
   usuario: string;            // @usuario
+  // ── Origen de campaña (llega del formulario web) ──
+  gclid: string;
+  gbraid: string;
+  wbraid: string;
+  utmSource: string;
+  utmMedium: string;
+  utmCampaign: string;
+  utmTerm: string;
+  fbclid: string;
+  landingPath: string;
+  // ── Venta cerrada (Closed Won) ──
+  ventaImporte: number | null;
+  ventaFecha: string;         // YYYY-MM-DD o ""
 }
+
+// Campos de campaña, en el orden en que se muestran en la ficha.
+export const CAMPANA_FIELDS: { key: keyof Lead; label: string }[] = [
+  { key: "gclid", label: "gclid" },
+  { key: "gbraid", label: "gbraid" },
+  { key: "wbraid", label: "wbraid" },
+  { key: "utmSource", label: "utm_source" },
+  { key: "utmMedium", label: "utm_medium" },
+  { key: "utmCampaign", label: "utm_campaign" },
+  { key: "utmTerm", label: "utm_term" },
+  { key: "fbclid", label: "fbclid" },
+  { key: "landingPath", label: "landing_path" },
+];
 
 
 
