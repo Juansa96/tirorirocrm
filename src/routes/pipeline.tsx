@@ -316,6 +316,17 @@ function PipelineB2C() {
           }}
         />
       )}
+
+      {ganadoLead && (
+        <ClosedWonDialog
+          importeInicial={leads.find((l) => l.id === ganadoLead)?.valor ?? null}
+          onCancel={() => setGanadoLead(null)}
+          onConfirm={(ventaImporte, ventaFecha) => {
+            void actions.updateLead(ganadoLead, { etapa: "Closed Won", ventaImporte, ventaFecha });
+            setGanadoLead(null);
+          }}
+        />
+      )}
     </div>
   );
 }
