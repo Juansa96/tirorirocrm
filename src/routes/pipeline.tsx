@@ -8,6 +8,7 @@ import {
 } from "@/lib/types";
 import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
 import { ClosedLostDialog } from "@/components/ClosedLostDialog";
+import { ClosedWonDialog } from "@/components/ClosedWonDialog";
 import { formatCurrency, dateLabel } from "@/lib/format";
 import { useTouchStageDrag } from "@/lib/stage-drag";
 import { sellerStyle } from "@/components/SellerBadge";
