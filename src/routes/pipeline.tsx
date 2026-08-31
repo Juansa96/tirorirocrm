@@ -217,11 +217,13 @@ function PipelineB2C() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<Etapa | null>(null);
   const [perdidaLead, setPerdidaLead] = useState<string | null>(null);
+  const [ganadoLead, setGanadoLead] = useState<string | null>(null);
 
-  // Al mover a "Closed Lost" se pide SIEMPRE el motivo (obligatorio); el resto
-  // se mueve directo.
+  // Al mover a "Closed Lost" se pide SIEMPRE el motivo (obligatorio); a
+  // "Closed Won" se piden importe y fecha de venta; el resto se mueve directo.
   const moveB2C = (leadId: string, etapa: Etapa) => {
     if (etapa === "Closed Lost") setPerdidaLead(leadId);
+    else if (etapa === "Closed Won") setGanadoLead(leadId);
     else void actions.setLeadEtapa(leadId, etapa);
   };
   const touchHandlers = useTouchStageDrag<Etapa>(setDragOver, setDraggingId, moveB2C);
