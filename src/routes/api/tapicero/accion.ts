@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 // Acciones del tapicero sobre SUS pedidos (o del equipo sobre cualquiera).
 // El tapicero es solo-lectura a nivel de BD; estas escrituras pasan por aquí,
 // validando el token y la propiedad del pedido.
-//   POST { op: "tela_recibida" | "terminado", pedidoId, valor? }
+//   POST { op: "tela_recibida" | "iniciado" | "terminado" | "cambio_visto", pedidoId, valor? }
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
 export const Route = createFileRoute("/api/tapicero/accion")({
@@ -46,6 +46,24 @@ export const Route = createFileRoute("/api/tapicero/accion")({
           const { error } = await supabaseAdmin.from("pedidos").update({
             tela_estado: valor ? "recibida" : "enviada",
             tela_estado_por: por, tela_estado_fecha: ahora,
+          } as never).eq("id", pedidoId);
+          if (error) return json({ error: error.message }, 400);
+          return json({ ok: true });
+        }
+        if (op === "iniciado") {
+          const valor = body?.valor !== false; // por defecto true
+          const { error } = await supabaseAdmin.from("pedidos").update({
+            iniciado_tapicero: valor,
+            iniciado_tapicero_por: valor ? por : null,
+            iniciado_tapicero_fecha: valor ? ahora : null,
+          } as never).eq("id", pedidoId);
+          if (error) return json({ error: error.message }, 400);
+          return json({ ok: true });
+        }
+        if (op === "cambio_visto") {
+          // El tapicero da por vista la modificación (limpia el aviso).
+          const { error } = await supabaseAdmin.from("pedidos").update({
+            cambio_tras_envio: false,
           } as never).eq("id", pedidoId);
           if (error) return json({ error: error.message }, 400);
           return json({ ok: true });

@@ -100,7 +100,10 @@ function SubirTela({ onSubida }: { onSubida: (t: TelaBiblioteca) => void }) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
       <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre de tela nueva" className="min-w-[120px] flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm" />
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={() => void subir(true)} />
+      {/* Sin `capture`: en móvil/tablet el navegador ofrece cámara O galería;
+          en ordenador abre el explorador/Finder. Forzar la cámara impedía
+          elegir una foto ya guardada. */}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={() => void subir(true)} />
       <button type="button" disabled={!nombre.trim() || subiendo} onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-40">
         <Upload className="h-3.5 w-3.5" /> {subiendo ? "Subiendo…" : "Foto"}
       </button>
