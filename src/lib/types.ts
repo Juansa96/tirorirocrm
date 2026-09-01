@@ -370,9 +370,16 @@ export interface Pedido {
   telaEstado: string;               // 'pendiente' | 'enviada' | 'recibida'
   telaEstadoPor: string;            // quién marcó el último estado de tela
   telaEstadoFecha: string;
+  iniciadoTapicero: boolean;         // el tapicero ha empezado a fabricarlo
+  iniciadoTapiceroPor: string;
+  iniciadoTapiceroFecha: string;
   terminadoTapicero: boolean;
   terminadoTapiceroPor: string;
   terminadoTapiceroFecha: string;
+  // ── Aviso de cambios tras enviar al tapicero ──
+  cambioTrasEnvio: boolean;          // se cambió algo estando ya en manos del tapicero
+  cambioTrasEnvioFecha: string;
+  cambioTrasEnvioDetalle: string;    // texto legible de qué cambió
   montaje: string;                  // 'colgar' | 'apoyar' | ''
   ordenProduccion: number | null;   // orden manual de trabajo (1º, 2º…); null = sin orden
   notaTapicero: string;             // comentario que SÍ ve el tapicero (dirección de tela, etc.)
@@ -471,7 +478,7 @@ const FLUJO_PANTALLA: HitoDef[] = [
 ];
 
 const FLUJO_DANIEL: HitoDef[] = [
-  { key: "solicitadoDaniel", fechaKey: "solicitadoDanielFecha", label: "Solicitado a Daniel" },
+  { key: "solicitadoDaniel", fechaKey: "solicitadoDanielFecha", label: "Solicitar a Daniel" },
   { key: "telaPedida", fechaKey: "telaPedidaFecha", label: "Pedir tela" },
   { key: "telaRecibida", fechaKey: "telaRecibidaFecha", label: "Recibir tela" },
   { key: "enviarTelaDaniel", fechaKey: "enviarTelaDanielFecha", label: "Enviar tela a Daniel" },

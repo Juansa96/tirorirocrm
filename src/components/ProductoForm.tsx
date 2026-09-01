@@ -124,7 +124,10 @@ export interface ProdState {
 
 export const EMPTY_PROD_STATE: ProdState = {
   tipo: "",
-  forma: "", formaOtra: "", anchoCama: "150", anchoCamaCustom: "", altoCabecero: "100", altoCabeceroCustom: "", telaLateral: "", colgador: false,
+  // Medidas SIN preseleccionar: el CRM nunca "se saca de la manga" una medida.
+  // Arrancan en "Por decidir" (tbd → null) y se rellenan solas solo cuando el
+  // operador elige una opción estándar del catálogo.
+  forma: "", formaOtra: "", anchoCama: "tbd", anchoCamaCustom: "", altoCabecero: "tbd", altoCabeceroCustom: "", telaLateral: "", colgador: false,
   pufId: "", pufAnchoCustom: "", pufFondoCustom: "", pufAltoCustom: "", cantidadPuf: "1",
   mesaId: "", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   pantallaId: "", formaPantalla: "cilindro", pantallaAnchoCustom: "", pantallaAltoCustom: "",
@@ -132,7 +135,7 @@ export const EMPTY_PROD_STATE: ProdState = {
   tapetes: false,
   almohadonId: "", almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
   otroDescripcion: "", otroPorDecidir: false,
-  bancoMedida: "90", bancoLargoCustom: "",
+  bancoMedida: "tbd", bancoLargoCustom: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
 };
 

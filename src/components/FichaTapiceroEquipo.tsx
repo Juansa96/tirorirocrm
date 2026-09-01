@@ -258,12 +258,30 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
 
       {/* Estado de acciones del tapicero (con deshacer desde administración).
           Se refleja sobre el borrador; se persiste al Guardar. */}
-      {(draft.telaEstado === "recibida" || draft.terminadoTapicero) && (
+      {/* Aviso al equipo: cambió algo tras enviarlo y el tapicero aún no lo ha
+          dado por visto (por si ya lo había empezado). */}
+      {pedido.cambioTrasEnvio && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <strong>Modificado tras enviarlo</strong>
+            {pedido.cambioTrasEnvioDetalle ? ` — ${pedido.cambioTrasEnvioDetalle}.` : "."} Pendiente de que lo revise el tapicero.
+          </div>
+        </div>
+      )}
+
+      {(draft.telaEstado === "recibida" || draft.iniciadoTapicero || draft.terminadoTapicero) && (
         <div className="mt-3 space-y-1 rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-600">
           {draft.telaEstado === "recibida" && (
             <div className="flex items-center justify-between">
               <span>Tela recibida{pedido.telaEstadoFecha ? ` el ${formatShortDate(pedido.telaEstadoFecha.slice(0, 10))}` : ""}{pedido.telaEstadoPor ? ` por ${pedido.telaEstadoPor}` : ""}</span>
               <button onClick={() => patch({ telaEstado: "enviada" })} className="underline hover:text-slate-800">deshacer</button>
+            </div>
+          )}
+          {draft.iniciadoTapicero && (
+            <div className="flex items-center justify-between">
+              <span>En marcha{pedido.iniciadoTapiceroPor ? ` · empezado por ${pedido.iniciadoTapiceroPor}` : ""}{pedido.iniciadoTapiceroFecha ? ` · ${formatShortDate(pedido.iniciadoTapiceroFecha.slice(0, 10))}` : ""}</span>
+              <button onClick={() => patch({ iniciadoTapicero: false })} className="underline hover:text-slate-800">deshacer</button>
             </div>
           )}
           {draft.terminadoTapicero && (

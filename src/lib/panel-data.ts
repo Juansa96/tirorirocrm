@@ -23,7 +23,9 @@ export interface PanelPedido {
   fechaLimite: string; fechaAsignacion: string; fechaRecogida: string; diasRestantes: number;
   entregado: boolean;
   telaEstado: string; telaEstadoPor: string; telaEstadoFecha: string;
+  iniciado: boolean; iniciadoPor: string; iniciadoFecha: string;
   terminado: boolean; terminadoPor: string; terminadoFecha: string;
+  cambioTrasEnvio: boolean; cambioTrasEnvioFecha: string; cambioTrasEnvioDetalle: string;
   telas: PanelTela[]; archivos: PanelArchivo[];
 }
 
@@ -73,7 +75,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
     // PRIVACIDAD (backend): al tapicero NO se le devuelven las columnas del
     // nombre del cliente; se piden aparte ya recortadas por panel_cliente_nombres.
     // El equipo recibe todo ("*"), incluido el nombre completo.
-    const COLS_TAPICERO = "id,numero,numero_sufijo,producto_lead_id,montaje,notas_pedido,nota_tapicero,orden_produccion,fecha_limite,fecha_recogida,enviado_tapicero_fecha,entregado,tela_estado,tela_estado_por,tela_estado_fecha,terminado_tapicero,terminado_tapicero_por,terminado_tapicero_fecha,tapicero_id";
+    const COLS_TAPICERO = "id,numero,numero_sufijo,producto_lead_id,montaje,notas_pedido,nota_tapicero,orden_produccion,fecha_limite,fecha_recogida,enviado_tapicero_fecha,entregado,tela_estado,tela_estado_por,tela_estado_fecha,iniciado_tapicero,iniciado_tapicero_por,iniciado_tapicero_fecha,terminado_tapicero,terminado_tapicero_por,terminado_tapicero_fecha,cambio_tras_envio,cambio_tras_envio_fecha,cambio_tras_envio_detalle,tapicero_id";
     const { data: peds } = await supabase.from("pedidos")
       .select(esViewerElTapicero ? COLS_TAPICERO : "*")
       .eq("tapicero_id", tapiceroId);
@@ -195,9 +197,15 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         telaEstado: (p.tela_estado as string) ?? "pendiente",
         telaEstadoPor: (p.tela_estado_por as string) ?? "",
         telaEstadoFecha: (p.tela_estado_fecha as string) ?? "",
+        iniciado: !!p.iniciado_tapicero,
+        iniciadoPor: (p.iniciado_tapicero_por as string) ?? "",
+        iniciadoFecha: (p.iniciado_tapicero_fecha as string) ?? "",
         terminado: !!p.terminado_tapicero,
         terminadoPor: (p.terminado_tapicero_por as string) ?? "",
         terminadoFecha: (p.terminado_tapicero_fecha as string) ?? "",
+        cambioTrasEnvio: !!p.cambio_tras_envio,
+        cambioTrasEnvioFecha: (p.cambio_tras_envio_fecha as string) ?? "",
+        cambioTrasEnvioDetalle: (p.cambio_tras_envio_detalle as string) ?? "",
         telas: ts, archivos: ar,
       };
     });
@@ -222,7 +230,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
 }
 
 // Llama a la ruta de servidor para marcar tela recibida / terminado.
-export async function accionTapicero(op: "tela_recibida" | "terminado", pedidoId: string, valor = true): Promise<boolean> {
+export async function accionTapicero(op: "tela_recibida" | "iniciado" | "terminado" | "cambio_visto", pedidoId: string, valor = true): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token ?? "";
   const res = await fetch("/api/tapicero/accion", {

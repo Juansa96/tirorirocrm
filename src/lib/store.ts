@@ -225,9 +225,15 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     telaEstado: (r.tela_estado as string) ?? "pendiente",
     telaEstadoPor: (r.tela_estado_por as string) ?? "",
     telaEstadoFecha: (r.tela_estado_fecha as string) ?? "",
+    iniciadoTapicero: !!r.iniciado_tapicero,
+    iniciadoTapiceroPor: (r.iniciado_tapicero_por as string) ?? "",
+    iniciadoTapiceroFecha: (r.iniciado_tapicero_fecha as string) ?? "",
     terminadoTapicero: !!r.terminado_tapicero,
     terminadoTapiceroPor: (r.terminado_tapicero_por as string) ?? "",
     terminadoTapiceroFecha: (r.terminado_tapicero_fecha as string) ?? "",
+    cambioTrasEnvio: !!r.cambio_tras_envio,
+    cambioTrasEnvioFecha: (r.cambio_tras_envio_fecha as string) ?? "",
+    cambioTrasEnvioDetalle: (r.cambio_tras_envio_detalle as string) ?? "",
     montaje: (r.montaje as string) ?? "",
     ordenProduccion: r.orden_produccion != null ? Number(r.orden_produccion) : null,
     notaTapicero: (r.nota_tapicero as string) ?? "",
@@ -776,6 +782,39 @@ async function propagarPrecioPedidoAProducto(pedidoId: string) {
   } finally { _syncingPrecio = false; }
 }
 
+// Marca "cambio tras envío" en los pedidos indicados que ya estén en manos de
+// un tapicero (asignado y sin entregar → visible en su panel). Sirve para que
+// el tapicero se entere de que se ha cambiado algo por si ya lo había empezado.
+// No molesta a pedidos sin tapicero ni entregados.
+async function flagCambioPedidos(pedidoIds: string[], detalle: string) {
+  const ids = new Set(pedidoIds);
+  const afectados = state.pedidos.filter((p) => ids.has(p.id) && p.tapiceroId && !p.entregado);
+  if (afectados.length === 0) return;
+  const fecha = new Date().toISOString();
+  const afectadosIds = new Set(afectados.map((a) => a.id));
+  state = {
+    ...state,
+    pedidos: state.pedidos.map((p) => afectadosIds.has(p.id)
+      ? { ...p, cambioTrasEnvio: true, cambioTrasEnvioFecha: fecha, cambioTrasEnvioDetalle: detalle }
+      : p),
+  };
+  emit();
+  await supabase.from("pedidos").update({
+    cambio_tras_envio: true, cambio_tras_envio_fecha: fecha, cambio_tras_envio_detalle: detalle,
+  } as never).in("id", [...afectadosIds]);
+}
+
+// Campos del PEDIDO que, si cambian estando ya asignado a un tapicero, le
+// afectan (cómo/cuándo fabricar o recoger) y por tanto disparan el aviso.
+const CAMBIO_PEDIDO_LABELS: Partial<Record<keyof Pedido, string>> = {
+  montaje: "montaje",
+  notaTapicero: "indicaciones",
+  fechaRecogida: "fecha de recogida",
+  ordenProduccion: "orden de trabajo",
+  diasPlazo: "plazo de entrega",
+  fechaCreacionPedido: "plazo de entrega",
+};
+
 export const actions = {
   async addLead(
     input: Omit<Lead, "id" | "fechaCreacion" | "fechaEntradaEtapa" | "razonUrgencia"
@@ -1258,6 +1297,21 @@ export const actions = {
     if (prev && (prev.precioUnitario !== input.precioUnitario || prev.cantidad !== input.cantidad)) {
       await propagarPrecioProductoAPedidos(id, input.precioUnitario, input.cantidad);
     }
+    // Aviso al tapicero si cambia algo del producto de un pedido ya asignado.
+    if (prev) {
+      const cambios: string[] = [];
+      if (prev.ancho !== input.ancho || prev.alto !== input.alto || prev.fondo !== input.fondo) cambios.push("medidas");
+      if (prev.tela !== input.tela || prev.color !== input.color || prev.coleccionTela !== input.coleccionTela) cambios.push("tela");
+      if (prev.acabado !== input.acabado) cambios.push("acabado/vivo");
+      if (prev.tipo !== input.tipo || prev.modelo !== input.modelo) cambios.push("modelo");
+      if (prev.cantidad !== input.cantidad) cambios.push("cantidad");
+      if (prev.patas !== input.patas || prev.relleno !== input.relleno) cambios.push("extras");
+      if (prev.notasProducto !== input.notasProducto) cambios.push("notas");
+      if (cambios.length > 0) {
+        const ids = state.pedidos.filter((p) => p.productoLeadId === id).map((p) => p.id);
+        await flagCambioPedidos(ids, "Cambió en el producto: " + cambios.join(", "));
+      }
+    }
   },
 
   // Fija el acabado (tipo de vivo: "", "vivo-simple", "vivo-doble") de un
@@ -1463,7 +1517,26 @@ export const actions = {
 
   async updatePedido(id: string, patch: Partial<Pedido>) {
     const prevState = state;
-    const leadId = state.pedidos.find((p) => p.id === id)?.leadId;
+    const actual = state.pedidos.find((p) => p.id === id);
+    const leadId = actual?.leadId;
+    // Aviso de cambio tras envío: si el pedido ya está en manos de un tapicero
+    // y cambia algún campo que le afecta, se marca para que lo revise. No se
+    // dispara cuando el propio patch toca la marca (p. ej. al darla por vista).
+    if (actual?.tapiceroId && !actual.entregado && !("cambioTrasEnvio" in patch)) {
+      const labels = [...new Set(
+        (Object.keys(patch) as (keyof Pedido)[])
+          .filter((k) => CAMBIO_PEDIDO_LABELS[k] && actual[k] !== patch[k])
+          .map((k) => CAMBIO_PEDIDO_LABELS[k]!),
+      )];
+      if (labels.length > 0) {
+        patch = {
+          ...patch,
+          cambioTrasEnvio: true,
+          cambioTrasEnvioFecha: new Date().toISOString(),
+          cambioTrasEnvioDetalle: "Cambió: " + labels.join(", "),
+        };
+      }
+    }
     state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, ...patch } : p) };
     emit();
     const dbPatch: Record<string, unknown> = {};
@@ -1510,9 +1583,15 @@ export const actions = {
       telaEstado: "tela_estado",
       telaEstadoPor: "tela_estado_por",
       telaEstadoFecha: "tela_estado_fecha",
+      iniciadoTapicero: "iniciado_tapicero",
+      iniciadoTapiceroPor: "iniciado_tapicero_por",
+      iniciadoTapiceroFecha: "iniciado_tapicero_fecha",
       terminadoTapicero: "terminado_tapicero",
       terminadoTapiceroPor: "terminado_tapicero_por",
       terminadoTapiceroFecha: "terminado_tapicero_fecha",
+      cambioTrasEnvio: "cambio_tras_envio",
+      cambioTrasEnvioFecha: "cambio_tras_envio_fecha",
+      cambioTrasEnvioDetalle: "cambio_tras_envio_detalle",
       montaje: "montaje",
       ordenProduccion: "orden_produccion",
       notaTapicero: "nota_tapicero",
@@ -1576,14 +1655,16 @@ export const actions = {
         if ((pedido[h.key] as boolean) && !sellos[h.key]) sellos[h.key] = saliente;
       }
     }
-    const patch: Partial<Pedido> = { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos };
-    // Al ASIGNAR un tapicero (no al desasignar), la ruta de producción refleja
-    // que se le ha solicitado el pedido: se marca el paso "Solicitado a …" si el
-    // flujo lo tiene (todos salvo pantalla) y aún no estaba marcado.
-    if (nuevoTapiceroId && !pedido.solicitadoDaniel && flujoPedido(producto?.tipo ?? "").some((h) => h.key === "solicitadoDaniel")) {
-      patch.solicitadoDaniel = true;
-      patch.solicitadoDanielFecha = todayISO();
-    }
+    // Asignar un tapicero NO implica habérselo solicitado. Antes se marcaba
+    // automáticamente el paso "Solicitar a …" al asignar, lo que hacía que la
+    // ruta de producción dijera "solicitado" cuando solo estaba asignado. Ese
+    // paso ahora se marca a mano (o lo marca el propio tapicero al iniciarlo).
+    // Cambiar de tapicero deja el aviso de "cambio tras envío" a cero: el nuevo
+    // tapicero arranca en limpio (aún no ha visto nada que se le pueda cambiar).
+    const patch: Partial<Pedido> = {
+      tapiceroId: nuevoTapiceroId, pasosTapicero: sellos,
+      cambioTrasEnvio: false, cambioTrasEnvioFecha: "", cambioTrasEnvioDetalle: "",
+    };
     await actions.updatePedido(pedidoId, patch);
   },
 
@@ -1707,11 +1788,13 @@ export const actions = {
     const { error } = await supabase.from("pedido_telas").insert({
       pedido_id: pedidoId, tipo_tela: tipoTela, estado: "Pedida", orden,
     });
-    if (error) toast.error("Error al añadir la tela.");
+    if (error) { toast.error("Error al añadir la tela."); return; }
+    await flagCambioPedidos([pedidoId], "Cambió: telas del pedido");
   },
 
   async updatePedidoTela(id: string, patch: Partial<PedidoTela>) {
     const prevState = state;
+    const telaPrev = state.pedidoTelas.find((t) => t.id === id);
     state = { ...state, pedidoTelas: state.pedidoTelas.map((t) => t.id === id ? { ...t, ...patch } : t) };
     emit();
     const dbPatch: Record<string, unknown> = {};
@@ -1724,7 +1807,12 @@ export const actions = {
     if (patch.telaColeccion !== undefined) dbPatch.tela_coleccion = patch.telaColeccion || null;
     if (patch.mismaQueFrontal !== undefined) dbPatch.misma_que_frontal = patch.mismaQueFrontal;
     const { error } = await supabase.from("pedido_telas").update(dbPatch as never).eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); }
+    if (error) { state = prevState; emit(); toast.error("Error al actualizar la tela."); return; }
+    // Solo avisa si cambió la ESPECIFICACIÓN de la tela (nombre, foto, colección,
+    // rol o "misma que frontal"), no el mero progreso (estado/fecha de recibo).
+    const cambioSpec = ["tipoTela", "nombreTela", "telaFotoUrl", "telaColeccion", "mismaQueFrontal"]
+      .some((k) => (patch as Record<string, unknown>)[k] !== undefined && telaPrev && (patch as Record<string, unknown>)[k] !== (telaPrev as unknown as Record<string, unknown>)[k]);
+    if (cambioSpec && telaPrev) await flagCambioPedidos([telaPrev.pedidoId], "Cambió: telas del pedido");
   },
 
   // Guarda el CONJUNTO de telas de un pedido (diff create/update/delete) en una
@@ -1738,6 +1826,19 @@ export const actions = {
   }>): Promise<boolean> {
     const existentes = state.pedidoTelas.filter((t) => t.pedidoId === pedidoId);
     const keepIds = new Set(rows.filter((r) => r.id).map((r) => r.id as string));
+    // ¿Cambió realmente la especificación de telas? (para avisar al tapicero solo
+    // si hay cambio de verdad, no en cada guardado). Ignora estado/fecha (progreso).
+    const existById = new Map(existentes.map((e) => [e.id, e]));
+    const huboCambioTelas =
+      existentes.some((e) => !keepIds.has(e.id)) ||
+      rows.some((r) => {
+        if (!r.id) return true;
+        const e = existById.get(r.id);
+        if (!e) return true;
+        return e.tipoTela !== r.tipoTela || e.nombreTela !== r.nombreTela ||
+          e.telaFotoUrl !== r.telaFotoUrl || e.telaBibliotecaId !== r.telaBibliotecaId ||
+          e.telaColeccion !== r.telaColeccion || e.mismaQueFrontal !== r.mismaQueFrontal;
+      });
     try {
       // Borrados
       const aBorrar = existentes.filter((e) => !keepIds.has(e.id)).map((e) => e.id);
@@ -1769,6 +1870,7 @@ export const actions = {
         }
       }
       await refetchPedidoTelas();
+      if (huboCambioTelas) await flagCambioPedidos([pedidoId], "Cambió: telas del pedido");
       return true;
     } catch {
       toast.error("Error al guardar las telas del pedido.");
@@ -1778,10 +1880,12 @@ export const actions = {
 
   async deletePedidoTela(id: string) {
     const prevState = state;
+    const telaPrev = state.pedidoTelas.find((t) => t.id === id);
     state = { ...state, pedidoTelas: state.pedidoTelas.filter((t) => t.id !== id) };
     emit();
     const { error } = await supabase.from("pedido_telas").delete().eq("id", id);
-    if (error) { state = prevState; emit(); toast.error("Error al eliminar la tela."); }
+    if (error) { state = prevState; emit(); toast.error("Error al eliminar la tela."); return; }
+    if (telaPrev) await flagCambioPedidos([telaPrev.pedidoId], "Cambió: telas del pedido");
   },
 
   // ───────── Biblioteca de telas + telas por pedido (Fase 2) ─────────

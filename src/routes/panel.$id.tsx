@@ -77,6 +77,9 @@ function FichaPanel() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-3 px-3 py-3 text-sm print:space-y-2 print:py-1">
+        {/* Aviso de cambios hechos por el equipo después de enviar el pedido. */}
+        <AvisoCambio p={p} onDone={refetch} />
+
         {/* Comentarios para el tapicero (dirección de tela, etc.) — lo más
             importante, arriba del todo. NO se muestran las notas internas del
             pedido/producto. */}
@@ -196,7 +199,7 @@ function Dato({ k, v }: { k: string; v: string }) {
 
 function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
-  async function marca(op: "tela_recibida" | "terminado", valor = true) {
+  async function marca(op: "tela_recibida" | "iniciado" | "terminado", valor = true) {
     setBusy(true);
     const ok = await accionTapicero(op, p.id, valor);
     setBusy(false);
@@ -205,17 +208,49 @@ function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void })
   const telaRecibida = p.telaEstado === "recibida";
   return (
     <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-2.5 print:hidden">
-      <div className="mx-auto flex max-w-4xl gap-2">
+      <div className="mx-auto grid max-w-4xl grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => marca("tela_recibida", !telaRecibida)}
-          className={`flex-1 rounded-xl px-3 py-3 text-sm font-bold ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
+          className={`rounded-xl px-2 py-3 text-xs font-bold sm:text-sm ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
           {telaRecibida ? "✓ Tela recibida" : "He recibido la tela"}
         </button>
+        <button disabled={busy} onClick={() => marca("iniciado", !p.iniciado)}
+          className={`rounded-xl px-2 py-3 text-xs font-bold sm:text-sm ${p.iniciado ? "border border-amber-300 bg-amber-50 text-amber-700" : "bg-amber-500 text-white"} disabled:opacity-50`}>
+          {p.iniciado ? "✓ En marcha" : "Ya lo he empezado"}
+        </button>
         <button disabled={busy} onClick={() => marca("terminado", !p.terminado)}
-          className={`flex-1 rounded-xl px-3 py-3 text-sm font-bold ${p.terminado ? "border border-slate-300 bg-slate-100 text-slate-600" : "bg-[#1a1f36] text-white"} disabled:opacity-50`}>
+          className={`rounded-xl px-2 py-3 text-xs font-bold sm:text-sm ${p.terminado ? "border border-slate-300 bg-slate-100 text-slate-600" : "bg-[#1a1f36] text-white"} disabled:opacity-50`}>
           {p.terminado ? "✓ Terminado" : "Pedido terminado"}
         </button>
       </div>
     </div>
+  );
+}
+
+// Aviso destacado cuando el equipo ha cambiado algo del pedido DESPUÉS de estar
+// ya en el panel del tapicero. Le permite darlo por visto (limpia el aviso).
+function AvisoCambio({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  if (!p.cambioTrasEnvio) return null;
+  async function visto() {
+    setBusy(true);
+    const ok = await accionTapicero("cambio_visto", p.id);
+    setBusy(false);
+    if (ok) { toast.success("Entendido ✅"); void onDone(); } else toast.error("No se pudo guardar.");
+  }
+  return (
+    <section className="rounded-xl border-2 border-rose-300 bg-rose-50 p-3 text-[13px] text-rose-900 print:hidden">
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700">
+        <span aria-hidden>⚠️</span> Ojo: este pedido se ha modificado
+      </div>
+      <div className="font-medium">
+        El equipo ha cambiado algo{p.cambioTrasEnvioFecha ? ` el ${formatShortDate(p.cambioTrasEnvioFecha.slice(0, 10))}` : ""} después de enviártelo.
+        {p.cambioTrasEnvioDetalle ? ` ${p.cambioTrasEnvioDetalle}.` : ""} Revísalo por si ya lo habías empezado.
+      </div>
+      <button disabled={busy} onClick={() => void visto()}
+        className="mt-2 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
+        Ya lo he revisado
+      </button>
+    </section>
   );
 }
 

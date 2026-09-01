@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
@@ -399,7 +399,7 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
           </thead>
           <tbody>
             {items.map((it) => (
-              <PedidoRow key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} />
+              <PedidoRow key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} nombreTapicero={it.nombreTapicero} />
             ))}
           </tbody>
         </table>
@@ -486,7 +486,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }
         {/* Progreso de producción */}
         <div className="border-t border-slate-100 px-3.5 py-2.5">
           <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <span className="truncate font-medium">{pedido.entregado ? "Entregado" : prog.actualLabel}</span>
+            <span className="truncate font-medium">{pedido.entregado ? "Entregado" : hitoLabel(prog.actualLabel, nombreTapicero)}</span>
             <span className="ml-2 shrink-0 font-semibold">{prog.hechos}/{prog.total}</span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
@@ -566,9 +566,9 @@ function SheetField({ label, children }: { label: string; children: React.ReactN
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-function PedidoRow({ pedido, producto, sem, prog, totalT, okT }: {
+function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }: {
   pedido: Pedido; producto: Producto | undefined;
-  sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number;
+  sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number; nombreTapicero: string;
 }) {
   const c = SEM_COLOR[sem.estado];
   const tituloProducto = producto ? displayNombreProducto(producto.tipo, producto.modelo) : "—";
@@ -591,9 +591,9 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT }: {
         </Link>
       </td>
       <td className="px-3 py-2">
-        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="block min-w-[130px]" title={prog.actualLabel}>
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} className="block min-w-[130px]" title={hitoLabel(prog.actualLabel, nombreTapicero)}>
           <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <span className="truncate">{pedido.entregado ? "Entregado" : prog.actualLabel}</span>
+            <span className="truncate">{pedido.entregado ? "Entregado" : hitoLabel(prog.actualLabel, nombreTapicero)}</span>
             <span className="ml-1 shrink-0 font-semibold">{prog.hechos}/{prog.total}</span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
