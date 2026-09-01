@@ -29,7 +29,9 @@ export const Route = createFileRoute("/api/tapicero/accion")({
         if (!pedidoId) return json({ error: "Falta pedidoId" }, 400);
 
         // Carga el pedido y valida propiedad (el tapicero solo los suyos).
-        const { data: pedido } = await supabaseAdmin.from("pedidos").select("id, tapicero_id").eq("id", pedidoId).maybeSingle();
+        // `pasos_tapicero` (JSONB) guarda también los marcadores de iniciado /
+        // cambio (claves con prefijo "@"), sin necesidad de columnas nuevas.
+        const { data: pedido } = await supabaseAdmin.from("pedidos").select("id, tapicero_id, pasos_tapicero").eq("id", pedidoId).maybeSingle();
         if (!pedido) return json({ error: "Pedido no encontrado" }, 404);
         if (esTapicero && pedido.tapicero_id !== perfil.tapicero_id) return json({ error: "No es tu pedido" }, 403);
 
@@ -50,21 +52,23 @@ export const Route = createFileRoute("/api/tapicero/accion")({
           if (error) return json({ error: error.message }, 400);
           return json({ ok: true });
         }
+        // Marcadores dentro de pasos_tapicero (JSONB existente). Claves "@".
+        const pasosActuales = (pedido.pasos_tapicero && typeof pedido.pasos_tapicero === "object"
+          ? pedido.pasos_tapicero : {}) as Record<string, string>;
         if (op === "iniciado") {
           const valor = body?.valor !== false; // por defecto true
-          const { error } = await supabaseAdmin.from("pedidos").update({
-            iniciado_tapicero: valor,
-            iniciado_tapicero_por: valor ? por : null,
-            iniciado_tapicero_fecha: valor ? ahora : null,
-          } as never).eq("id", pedidoId);
+          const pasos = { ...pasosActuales };
+          if (valor) { pasos["@iniciado"] = ahora; pasos["@iniciadoPor"] = por; }
+          else { delete pasos["@iniciado"]; delete pasos["@iniciadoPor"]; }
+          const { error } = await supabaseAdmin.from("pedidos").update({ pasos_tapicero: pasos } as never).eq("id", pedidoId);
           if (error) return json({ error: error.message }, 400);
           return json({ ok: true });
         }
         if (op === "cambio_visto") {
           // El tapicero da por vista la modificación (limpia el aviso).
-          const { error } = await supabaseAdmin.from("pedidos").update({
-            cambio_tras_envio: false,
-          } as never).eq("id", pedidoId);
+          const pasos = { ...pasosActuales };
+          delete pasos["@cambio"]; delete pasos["@cambioDetalle"];
+          const { error } = await supabaseAdmin.from("pedidos").update({ pasos_tapicero: pasos } as never).eq("id", pedidoId);
           if (error) return json({ error: error.message }, 400);
           return json({ ok: true });
         }

@@ -134,10 +134,6 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
         patchP.terminadoTapiceroPor = "";
         patchP.terminadoTapiceroFecha = "";
       }
-      if (patchP.iniciadoTapicero === false) {
-        patchP.iniciadoTapiceroPor = "";
-        patchP.iniciadoTapiceroFecha = "";
-      }
       if (Object.keys(patchP).length > 0) await actions.updatePedido(pedidoId, patchP as Partial<Pedido>);
       // 3) Telas (diff create/update/delete)
       if (telasCambiadas(baseT, telasDraft)) {

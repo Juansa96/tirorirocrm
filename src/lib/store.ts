@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo } from "./types";
-import { VENDEDORES, flujoPedido, normNombreTela } from "./types";
+import { VENDEDORES, flujoPedido, normNombreTela, marcadoresTapicero, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela, normalizeTipo, displayColeccionTela } from "./catalogo";
@@ -177,6 +177,8 @@ function mapProducto(r: Record<string, unknown>): Producto {
 }
 
 function mapPedido(r: Record<string, unknown>): Pedido {
+  const pasos = (r.pasos_tapicero && typeof r.pasos_tapicero === "object" ? r.pasos_tapicero : {}) as Record<string, string>;
+  const marc = marcadoresTapicero(pasos);
   return {
     id: r.id as string,
     numero: r.numero != null ? Number(r.numero) : null,
@@ -225,22 +227,22 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     telaEstado: (r.tela_estado as string) ?? "pendiente",
     telaEstadoPor: (r.tela_estado_por as string) ?? "",
     telaEstadoFecha: (r.tela_estado_fecha as string) ?? "",
-    iniciadoTapicero: !!r.iniciado_tapicero,
-    iniciadoTapiceroPor: (r.iniciado_tapicero_por as string) ?? "",
-    iniciadoTapiceroFecha: (r.iniciado_tapicero_fecha as string) ?? "",
+    iniciadoTapicero: marc.iniciado,
+    iniciadoTapiceroPor: marc.iniciadoPor,
+    iniciadoTapiceroFecha: marc.iniciadoFecha,
     terminadoTapicero: !!r.terminado_tapicero,
     terminadoTapiceroPor: (r.terminado_tapicero_por as string) ?? "",
     terminadoTapiceroFecha: (r.terminado_tapicero_fecha as string) ?? "",
-    cambioTrasEnvio: !!r.cambio_tras_envio,
-    cambioTrasEnvioFecha: (r.cambio_tras_envio_fecha as string) ?? "",
-    cambioTrasEnvioDetalle: (r.cambio_tras_envio_detalle as string) ?? "",
+    cambioTrasEnvio: marc.cambioTrasEnvio,
+    cambioTrasEnvioFecha: marc.cambioTrasEnvioFecha,
+    cambioTrasEnvioDetalle: marc.cambioTrasEnvioDetalle,
     montaje: (r.montaje as string) ?? "",
     ordenProduccion: r.orden_produccion != null ? Number(r.orden_produccion) : null,
     notaTapicero: (r.nota_tapicero as string) ?? "",
     fechaRecogida: (r.fecha_recogida as string) ?? "",
     clienteNombre: (r.cliente_nombre as string) ?? "",
     tapiceroId: (r.tapicero_id as string) ?? "",
-    pasosTapicero: (r.pasos_tapicero && typeof r.pasos_tapicero === "object" ? r.pasos_tapicero : {}) as Record<string, string>,
+    pasosTapicero: pasos,
     createdAt: (r.created_at as string) ?? "",
     updatedAt: (r.updated_at as string) ?? "",
     empresaId: (r.empresa_id as string) ?? "",
@@ -782,44 +784,30 @@ async function propagarPrecioPedidoAProducto(pedidoId: string) {
   } finally { _syncingPrecio = false; }
 }
 
-// Columnas de las tareas nuevas (iniciado_* / cambio_tras_envio_*). Pueden no
-// existir todavía si la migración aún no se ha aplicado en la base de datos.
-// Se prueba UNA vez y se cachea; mientras no existan, el CRM NO las escribe (así
-// asignar tapicero / editar pedidos sigue funcionando). En cuanto la migración
-// esté aplicada (al recargar), se activan solas.
-const COLS_NUEVAS_PEDIDO = [
-  "iniciado_tapicero", "iniciado_tapicero_por", "iniciado_tapicero_fecha",
-  "cambio_tras_envio", "cambio_tras_envio_fecha", "cambio_tras_envio_detalle",
-] as const;
-let _colsNuevasOk: boolean | null = null;
-async function colsNuevasDisponibles(): Promise<boolean> {
-  if (_colsNuevasOk !== null) return _colsNuevasOk;
-  const { error } = await supabase.from("pedidos").select("cambio_tras_envio").limit(1);
-  _colsNuevasOk = !error;
-  return _colsNuevasOk;
-}
-
 // Marca "cambio tras envío" en los pedidos indicados que ya estén en manos de
 // un tapicero (asignado y sin entregar → visible en su panel). Sirve para que
 // el tapicero se entere de que se ha cambiado algo por si ya lo había empezado.
-// No molesta a pedidos sin tapicero ni entregados.
+// El marcador se guarda DENTRO de pasos_tapicero (columna que ya existe): no
+// necesita ninguna migración. No molesta a pedidos sin tapicero ni entregados.
 async function flagCambioPedidos(pedidoIds: string[], detalle: string) {
-  if (!(await colsNuevasDisponibles())) return; // migración aún no aplicada
   const ids = new Set(pedidoIds);
   const afectados = state.pedidos.filter((p) => ids.has(p.id) && p.tapiceroId && !p.entregado);
   if (afectados.length === 0) return;
   const fecha = new Date().toISOString();
-  const afectadosIds = new Set(afectados.map((a) => a.id));
+  // Se escribe pedido a pedido para fusionar en su pasos_tapicero sin pisar el
+  // histórico de pasos ni el marcador de "iniciado".
   state = {
     ...state,
-    pedidos: state.pedidos.map((p) => afectadosIds.has(p.id)
-      ? { ...p, cambioTrasEnvio: true, cambioTrasEnvioFecha: fecha, cambioTrasEnvioDetalle: detalle }
+    pedidos: state.pedidos.map((p) => afectados.some((a) => a.id === p.id)
+      ? { ...p, cambioTrasEnvio: true, cambioTrasEnvioFecha: fecha, cambioTrasEnvioDetalle: detalle,
+          pasosTapicero: { ...(p.pasosTapicero || {}), [PASO_CAMBIO]: fecha, [PASO_CAMBIO_DETALLE]: detalle } }
       : p),
   };
   emit();
-  await supabase.from("pedidos").update({
-    cambio_tras_envio: true, cambio_tras_envio_fecha: fecha, cambio_tras_envio_detalle: detalle,
-  } as never).in("id", [...afectadosIds]);
+  await Promise.all(afectados.map((a) => {
+    const pasos = { ...(a.pasosTapicero || {}), [PASO_CAMBIO]: fecha, [PASO_CAMBIO_DETALLE]: detalle };
+    return supabase.from("pedidos").update({ pasos_tapicero: pasos } as never).eq("id", a.id);
+  }));
 }
 
 // Campos del PEDIDO que, si cambian estando ya asignado a un tapicero, le
@@ -1538,9 +1526,10 @@ export const actions = {
     const actual = state.pedidos.find((p) => p.id === id);
     const leadId = actual?.leadId;
     // Aviso de cambio tras envío: si el pedido ya está en manos de un tapicero
-    // y cambia algún campo que le afecta, se marca para que lo revise. No se
-    // dispara cuando el propio patch toca la marca (p. ej. al darla por vista).
-    if (actual?.tapiceroId && !actual.entregado && !("cambioTrasEnvio" in patch)) {
+    // y cambia algún campo que le afecta, se marca (dentro de pasos_tapicero)
+    // para que lo revise. No se dispara si el patch ya toca pasos_tapicero
+    // (reasignación / marcado de pasos), para no pisarlo.
+    if (actual?.tapiceroId && !actual.entregado && !("pasosTapicero" in patch)) {
       const labels = [...new Set(
         (Object.keys(patch) as (keyof Pedido)[])
           .filter((k) => CAMBIO_PEDIDO_LABELS[k] && actual[k] !== patch[k])
@@ -1549,9 +1538,11 @@ export const actions = {
       if (labels.length > 0) {
         patch = {
           ...patch,
-          cambioTrasEnvio: true,
-          cambioTrasEnvioFecha: new Date().toISOString(),
-          cambioTrasEnvioDetalle: "Cambió: " + labels.join(", "),
+          pasosTapicero: {
+            ...(actual.pasosTapicero || {}),
+            [PASO_CAMBIO]: new Date().toISOString(),
+            [PASO_CAMBIO_DETALLE]: "Cambió: " + labels.join(", "),
+          },
         };
       }
     }
@@ -1601,15 +1592,9 @@ export const actions = {
       telaEstado: "tela_estado",
       telaEstadoPor: "tela_estado_por",
       telaEstadoFecha: "tela_estado_fecha",
-      iniciadoTapicero: "iniciado_tapicero",
-      iniciadoTapiceroPor: "iniciado_tapicero_por",
-      iniciadoTapiceroFecha: "iniciado_tapicero_fecha",
       terminadoTapicero: "terminado_tapicero",
       terminadoTapiceroPor: "terminado_tapicero_por",
       terminadoTapiceroFecha: "terminado_tapicero_fecha",
-      cambioTrasEnvio: "cambio_tras_envio",
-      cambioTrasEnvioFecha: "cambio_tras_envio_fecha",
-      cambioTrasEnvioDetalle: "cambio_tras_envio_detalle",
       montaje: "montaje",
       ordenProduccion: "orden_produccion",
       notaTapicero: "nota_tapicero",
@@ -1623,11 +1608,6 @@ export const actions = {
     for (const [k, v] of Object.entries(patch)) {
       const col = map[k];
       if (col) dbPatch[col] = v === "" ? null : v;
-    }
-    // Si la migración aún no está aplicada, no intentes escribir las columnas
-    // nuevas: harían fallar TODO el update (p. ej. al asignar un tapicero).
-    if (COLS_NUEVAS_PEDIDO.some((c) => c in dbPatch) && !(await colsNuevasDisponibles())) {
-      for (const c of COLS_NUEVAS_PEDIDO) delete dbPatch[c];
     }
     const { error } = await supabase.from("pedidos").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); return; }
@@ -1678,16 +1658,14 @@ export const actions = {
         if ((pedido[h.key] as boolean) && !sellos[h.key]) sellos[h.key] = saliente;
       }
     }
-    // Asignar un tapicero NO implica habérselo solicitado. Antes se marcaba
-    // automáticamente el paso "Solicitar a …" al asignar, lo que hacía que la
-    // ruta de producción dijera "solicitado" cuando solo estaba asignado. Ese
-    // paso ahora se marca a mano (o lo marca el propio tapicero al iniciarlo).
-    // Cambiar de tapicero deja el aviso de "cambio tras envío" a cero: el nuevo
-    // tapicero arranca en limpio (aún no ha visto nada que se le pueda cambiar).
-    const patch: Partial<Pedido> = {
-      tapiceroId: nuevoTapiceroId, pasosTapicero: sellos,
-      cambioTrasEnvio: false, cambioTrasEnvioFecha: "", cambioTrasEnvioDetalle: "",
-    };
+    // Cambiar de tapicero arranca en limpio para el nuevo: se borran los
+    // marcadores de "iniciado" y de "cambio tras envío" (que viven dentro de
+    // pasos_tapicero). Asignar NO implica "solicitado" (ese paso se marca a mano).
+    delete sellos[PASO_INICIADO];
+    delete sellos[PASO_INICIADO_POR];
+    delete sellos[PASO_CAMBIO];
+    delete sellos[PASO_CAMBIO_DETALLE];
+    const patch: Partial<Pedido> = { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos };
     await actions.updatePedido(pedidoId, patch);
   },
 

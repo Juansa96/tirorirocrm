@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
-import { maskApellido } from "@/lib/types";
+import { maskApellido, marcadoresTapicero } from "@/lib/types";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 import { TELAS_WEB } from "@/lib/telas-web-data";
 
@@ -75,11 +75,9 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
     // PRIVACIDAD (backend): al tapicero NO se le devuelven las columnas del
     // nombre del cliente; se piden aparte ya recortadas por panel_cliente_nombres.
     // El equipo recibe todo ("*"), incluido el nombre completo.
-    // OJO: solo columnas que existen SIEMPRE. Las columnas nuevas (iniciado_*,
-    // cambio_tras_envio_*) se piden aparte de forma tolerante (ver más abajo),
-    // para que el panel del tapicero NO se rompa si la migración aún no se ha
-    // aplicado en la base de datos.
-    const COLS_TAPICERO = "id,numero,numero_sufijo,producto_lead_id,montaje,notas_pedido,nota_tapicero,orden_produccion,fecha_limite,fecha_recogida,enviado_tapicero_fecha,entregado,tela_estado,tela_estado_por,tela_estado_fecha,terminado_tapicero,terminado_tapicero_por,terminado_tapicero_fecha,tapicero_id";
+    // `pasos_tapicero` (JSONB) incluye los marcadores de iniciado / cambio, así
+    // que no hacen falta columnas nuevas ni migraciones.
+    const COLS_TAPICERO = "id,numero,numero_sufijo,producto_lead_id,montaje,notas_pedido,nota_tapicero,orden_produccion,fecha_limite,fecha_recogida,enviado_tapicero_fecha,entregado,tela_estado,tela_estado_por,tela_estado_fecha,terminado_tapicero,terminado_tapicero_por,terminado_tapicero_fecha,pasos_tapicero,tapicero_id";
     const { data: peds } = await supabase.from("pedidos")
       .select(esViewerElTapicero ? COLS_TAPICERO : "*")
       .eq("tapicero_id", tapiceroId);
@@ -91,21 +89,6 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
     const prodIds = rows.map((p) => p.producto_lead_id).filter(Boolean) as string[];
     const pedIds = rows.map((p) => p.id) as string[];
 
-    // Columnas NUEVAS (iniciado_* / cambio_tras_envio_*) leídas aparte y de forma
-    // TOLERANTE: si la migración aún no está aplicada, la consulta falla pero el
-    // panel sigue cargando (las funciones "iniciar" / "aviso de cambio" quedan a
-    // cero hasta que existan las columnas). Para el EQUIPO ya vienen en "*".
-    const extraById = new Map<string, Record<string, unknown>>();
-    if (esViewerElTapicero) {
-      if (pedIds.length) {
-        const { data: extra } = await supabase.from("pedidos")
-          .select("id,iniciado_tapicero,iniciado_tapicero_por,iniciado_tapicero_fecha,cambio_tras_envio,cambio_tras_envio_fecha,cambio_tras_envio_detalle")
-          .in("id", pedIds);
-        for (const e of (extra ?? []) as unknown as Record<string, unknown>[]) extraById.set(e.id as string, e);
-      }
-    } else {
-      for (const p of rows) extraById.set(p.id as string, p);
-    }
 
     // Nombres de cliente recortados para el tapicero (el apellido completo no
     // sale de la BD). El equipo usa los nombres que ya vienen en las filas.
@@ -157,8 +140,10 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
 
     const out: PanelPedido[] = rows.map((p) => {
       const prod = prodById.get(p.producto_lead_id as string) ?? {};
-      // Campos nuevos (iniciado_* / cambio_*): del mapa tolerante; si no están, {}.
-      const ex = extraById.get(p.id as string) ?? ({} as Record<string, unknown>);
+      // Marcadores del tapicero (iniciado / cambio) derivados de pasos_tapicero.
+      const marc = marcadoresTapicero(
+        (p.pasos_tapicero && typeof p.pasos_tapicero === "object" ? p.pasos_tapicero : {}) as Record<string, string>,
+      );
       const fechaLimite = (p.fecha_limite as string) ?? "";
       const fechaRecogida = (p.fecha_recogida as string) ?? "";
       const ts = (telasByPedido.get(p.id as string) ?? []).map((t): PanelTela => {
@@ -219,15 +204,15 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         telaEstado: (p.tela_estado as string) ?? "pendiente",
         telaEstadoPor: (p.tela_estado_por as string) ?? "",
         telaEstadoFecha: (p.tela_estado_fecha as string) ?? "",
-        iniciado: !!ex.iniciado_tapicero,
-        iniciadoPor: (ex.iniciado_tapicero_por as string) ?? "",
-        iniciadoFecha: (ex.iniciado_tapicero_fecha as string) ?? "",
+        iniciado: marc.iniciado,
+        iniciadoPor: marc.iniciadoPor,
+        iniciadoFecha: marc.iniciadoFecha,
         terminado: !!p.terminado_tapicero,
         terminadoPor: (p.terminado_tapicero_por as string) ?? "",
         terminadoFecha: (p.terminado_tapicero_fecha as string) ?? "",
-        cambioTrasEnvio: !!ex.cambio_tras_envio,
-        cambioTrasEnvioFecha: (ex.cambio_tras_envio_fecha as string) ?? "",
-        cambioTrasEnvioDetalle: (ex.cambio_tras_envio_detalle as string) ?? "",
+        cambioTrasEnvio: marc.cambioTrasEnvio,
+        cambioTrasEnvioFecha: marc.cambioTrasEnvioFecha,
+        cambioTrasEnvioDetalle: marc.cambioTrasEnvioDetalle,
         telas: ts, archivos: ar,
       };
     });

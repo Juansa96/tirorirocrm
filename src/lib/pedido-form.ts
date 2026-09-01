@@ -42,7 +42,7 @@ export function emptyTela(tipoTela: string): TelaDraft {
 export const CAMPOS_EDITABLES_PEDIDO: (keyof Pedido)[] = [
   "fechaCreacionPedido", "diasPlazo", "fechaEntregaReal", "precio", "precioConIva", "costeEnvio", "reserva",
   "pagadoCompleto", "factura", "notasPedido", "montaje", "notaTapicero",
-  "fechaRecogida", "telaEstado", "iniciadoTapicero", "terminadoTapicero", "esCanje", "formatos", "tipoColaboracion",
+  "fechaRecogida", "telaEstado", "terminadoTapicero", "esCanje", "formatos", "tipoColaboracion",
   // Hitos de producción (booleano + fecha)
   "telaPedida", "telaPedidaFecha", "telaRecibida", "telaRecibidaFecha",
   "estructuraHecha", "estructuraHechaFecha", "tapizadoHecho", "tapizadoHechoFecha",

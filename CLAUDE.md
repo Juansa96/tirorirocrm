@@ -21,6 +21,22 @@ Notas:
   sincronizar.
 - Aun así, revisar el código con cuidado antes de fusionar.
 
+## Base de datos / migraciones (IMPORTANTE)
+
+Las migraciones SQL que se suben por GitHub a `supabase/migrations` **NO se
+aplican solas** en la base de datos del usuario con el flujo actual (Lovable
+sincroniza el código pero no ejecuta esas migraciones de forma fiable). Por eso,
+si una funcionalidad depende de una **columna nueva**, se rompe en producción
+("Error al actualizar…", "No se pudo guardar…", listas a 0) hasta que alguien
+aplica el SQL a mano.
+
+Regla: **evitar añadir columnas nuevas**. Para datos añadidos (marcadores,
+flags, estados…) reutilizar columnas que YA existen — en especial el JSONB
+`pedidos.pasos_tapicero`, que admite claves libres (usar prefijo `@` para
+distinguirlas de las claves de hito; ver `marcadoresTapicero` en
+`src/lib/types.ts`). Solo proponer una migración si es imprescindible, y en ese
+caso avisar explícitamente al usuario de que hay que aplicarla antes de publicar.
+
 ## Stack
 React + TypeScript + Tailwind, TanStack Router/Start, backend Lovable Cloud /
 Supabase. Gestor de paquetes: `bun` (`bun install`, `bun run build`).
