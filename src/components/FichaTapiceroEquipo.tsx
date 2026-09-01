@@ -281,7 +281,6 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
           {draft.iniciadoTapicero && (
             <div className="flex items-center justify-between">
               <span>En marcha{pedido.iniciadoTapiceroPor ? ` · empezado por ${pedido.iniciadoTapiceroPor}` : ""}{pedido.iniciadoTapiceroFecha ? ` · ${formatShortDate(pedido.iniciadoTapiceroFecha.slice(0, 10))}` : ""}</span>
-              <button onClick={() => patch({ iniciadoTapicero: false })} className="underline hover:text-slate-800">deshacer</button>
             </div>
           )}
           {draft.terminadoTapicero && (

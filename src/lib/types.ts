@@ -492,6 +492,32 @@ export function flujoPedido(tipoProducto: string): HitoDef[] {
   return esPantalla(tipoProducto) ? FLUJO_PANTALLA : FLUJO_DANIEL;
 }
 
+// ───────────── Marcadores del tapicero (sin columnas nuevas) ─────────────
+// "Iniciado" (el tapicero ha empezado) y "cambio tras envío" (el equipo cambió
+// algo ya en su panel) se guardan DENTRO de `pasos_tapicero` (JSONB que ya
+// existe en la BD), con claves reservadas con prefijo "@" que nunca chocan con
+// las claves de hito (camelCase). Así no hace falta ninguna migración.
+export const PASO_INICIADO = "@iniciado";           // valor: fecha ISO
+export const PASO_INICIADO_POR = "@iniciadoPor";    // valor: nombre
+export const PASO_CAMBIO = "@cambio";               // valor: fecha ISO
+export const PASO_CAMBIO_DETALLE = "@cambioDetalle";// valor: texto
+
+// Deriva los marcadores del tapicero a partir de `pasos_tapicero`.
+export function marcadoresTapicero(pasos: Record<string, string> | null | undefined): {
+  iniciado: boolean; iniciadoFecha: string; iniciadoPor: string;
+  cambioTrasEnvio: boolean; cambioTrasEnvioFecha: string; cambioTrasEnvioDetalle: string;
+} {
+  const p = pasos || {};
+  return {
+    iniciado: !!p[PASO_INICIADO],
+    iniciadoFecha: p[PASO_INICIADO] || "",
+    iniciadoPor: p[PASO_INICIADO_POR] || "",
+    cambioTrasEnvio: !!p[PASO_CAMBIO],
+    cambioTrasEnvioFecha: p[PASO_CAMBIO] || "",
+    cambioTrasEnvioDetalle: p[PASO_CAMBIO_DETALLE] || "",
+  };
+}
+
 // Etiqueta del hito personalizada con el tapicero asignado. Los pasos del
 // flujo llevan "Daniel" cableado (histórico); si el pedido tiene un tapicero
 // asignado, se sustituye por su nombre completo para no confundir a los dos
