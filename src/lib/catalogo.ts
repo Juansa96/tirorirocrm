@@ -157,7 +157,7 @@ export function esDetalleMedida(det: string): boolean {
 //   · Pantalla → una sola tela.
 //   · Otro → genérico (frontal + lateral + ribete).
 export interface TelaRol {
-  rol: "Frontal" | "Lateral" | "Vivo"; // clave de almacenamiento (tipo_tela)
+  rol: "Frontal" | "Lateral" | "Vivo" | "Superior"; // clave de almacenamiento (tipo_tela)
   label: string;                        // etiqueta visible, según el tipo
   opcional?: boolean;
 }
@@ -176,6 +176,7 @@ const TELAS_POR_TIPO: Record<TipoProductoKey, TelaRol[]> = {
   ],
   puf: [
     { rol: "Frontal", label: "Tela principal" },
+    { rol: "Superior", label: "Tela de la tapa", opcional: true },
     { rol: "Vivo", label: "Tela de ribete", opcional: true },
   ],
   banco: [
