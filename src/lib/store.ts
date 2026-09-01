@@ -782,11 +782,29 @@ async function propagarPrecioPedidoAProducto(pedidoId: string) {
   } finally { _syncingPrecio = false; }
 }
 
+// Columnas de las tareas nuevas (iniciado_* / cambio_tras_envio_*). Pueden no
+// existir todavía si la migración aún no se ha aplicado en la base de datos.
+// Se prueba UNA vez y se cachea; mientras no existan, el CRM NO las escribe (así
+// asignar tapicero / editar pedidos sigue funcionando). En cuanto la migración
+// esté aplicada (al recargar), se activan solas.
+const COLS_NUEVAS_PEDIDO = [
+  "iniciado_tapicero", "iniciado_tapicero_por", "iniciado_tapicero_fecha",
+  "cambio_tras_envio", "cambio_tras_envio_fecha", "cambio_tras_envio_detalle",
+] as const;
+let _colsNuevasOk: boolean | null = null;
+async function colsNuevasDisponibles(): Promise<boolean> {
+  if (_colsNuevasOk !== null) return _colsNuevasOk;
+  const { error } = await supabase.from("pedidos").select("cambio_tras_envio").limit(1);
+  _colsNuevasOk = !error;
+  return _colsNuevasOk;
+}
+
 // Marca "cambio tras envío" en los pedidos indicados que ya estén en manos de
 // un tapicero (asignado y sin entregar → visible en su panel). Sirve para que
 // el tapicero se entere de que se ha cambiado algo por si ya lo había empezado.
 // No molesta a pedidos sin tapicero ni entregados.
 async function flagCambioPedidos(pedidoIds: string[], detalle: string) {
+  if (!(await colsNuevasDisponibles())) return; // migración aún no aplicada
   const ids = new Set(pedidoIds);
   const afectados = state.pedidos.filter((p) => ids.has(p.id) && p.tapiceroId && !p.entregado);
   if (afectados.length === 0) return;
@@ -1605,6 +1623,11 @@ export const actions = {
     for (const [k, v] of Object.entries(patch)) {
       const col = map[k];
       if (col) dbPatch[col] = v === "" ? null : v;
+    }
+    // Si la migración aún no está aplicada, no intentes escribir las columnas
+    // nuevas: harían fallar TODO el update (p. ej. al asignar un tapicero).
+    if (COLS_NUEVAS_PEDIDO.some((c) => c in dbPatch) && !(await colsNuevasDisponibles())) {
+      for (const c of COLS_NUEVAS_PEDIDO) delete dbPatch[c];
     }
     const { error } = await supabase.from("pedidos").update(dbPatch as never).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el pedido."); return; }
