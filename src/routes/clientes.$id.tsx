@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
-  Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus, Hammer,
+  Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, CAMPANA_FIELDS, vendorName, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
@@ -16,7 +16,7 @@ import {
   ProductoForm, EMPTY_PROD_STATE, productoToState,
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
-import { PedidoProduccionEditor } from "@/components/PedidoProduccion";
+import { ProduccionProducto } from "@/components/PedidoProduccion";
 import { displayColeccionTela, displayNombreProducto, modeloDetalle, mismoTipo } from "@/lib/catalogo";
 import { esClienteRecurrente, detectarDuplicados } from "@/lib/duplicados";
 
@@ -125,8 +125,6 @@ function ClienteDetalle() {
   const [editNotaText, setEditNotaText] = useState("");
   const [showProdForm, setShowProdForm] = useState(false);
   const [editingProd, setEditingProd] = useState<string | null>(null);
-  // Producto cuyo panel de "Producción / tapicero" está desplegado (solo uno a la vez).
-  const [produccionProdId, setProduccionProdId] = useState<string | null>(null);
   // Conflict detection: banner when another user modifies this lead while we have it open
   const [conflictBanner, setConflictBanner] = useState(false);
   const lastSeenRemote = useRef<number | undefined>(undefined);
@@ -812,32 +810,13 @@ function ClienteDetalle() {
                     </div>
                   </div>
 
-                  {/* Producción / tapicero: asignación, recogida, telas y fotos
-                      (misma edición que en la ficha del pedido). Solo si ya existe
-                      un pedido para este producto. */}
-                  {(() => {
-                    const pedidosProd = pedidos.filter((pd) => pd.productoLeadId === p.id);
-                    if (pedidosProd.length === 0) return null;
-                    const abierto = produccionProdId === p.id;
-                    return (
-                      <div className="mt-3 border-t border-slate-200 pt-3">
-                        <button
-                          onClick={() => setProduccionProdId(abierto ? null : p.id)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                        >
-                          <Hammer className="h-3.5 w-3.5" /> {abierto ? "Ocultar producción / tapicero" : "Producción / tapicero"}
-                        </button>
-                        {abierto && (
-                          <div className="mt-3">
-                            {pedidosProd.length > 1 && (
-                              <div className="mb-2 text-[11px] text-slate-400">Este producto tiene varios pedidos; se muestra el primero. Abre los demás desde Pedidos.</div>
-                            )}
-                            <PedidoProduccionEditor pedidoId={pedidosProd[0].id} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  {/* Producción / tapicero (siempre visible): asignar tapicero,
+                      recogida, telas, fotos… igual que en la ficha del pedido. Si
+                      el producto aún no tiene pedido, se crea automáticamente al
+                      asignar el tapicero o al crear la ficha. */}
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <ProduccionProducto producto={p} esCanje={lead.tipo === "INFLUENCER"} />
+                  </div>
                 </div>
               )}
             </div>
