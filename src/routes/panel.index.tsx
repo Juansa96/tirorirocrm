@@ -9,6 +9,7 @@ import { tapiceroNombre, type Tapicero } from "@/lib/types";
 import { displayNombreProducto, modeloDetalle, esDetalleMedida } from "@/lib/catalogo";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
 import { usePanelPedidos, type PanelPedido } from "@/lib/panel-data";
+import { claveCola, cmpClaveCola, ordenPorDia, type ClaveCola } from "@/lib/orden-taller";
 import { toast } from "sonner";
 
 interface Search { tapicero?: string; }
@@ -31,35 +32,29 @@ function diasColor(d: number, entregado: boolean, tieneRecogida: boolean) {
   return { bg: "bg-emerald-100", text: "text-emerald-700", label: `${d}d` };
 }
 
-// Orden efectivo de un producto: el orden manual si lo tiene; si no, al final.
-const ordenDe = (p: PanelPedido) => p.ordenProduccion ?? Infinity;
-
-// Clave de ordenación de un producto: orden manual (1º, 2º…), luego fecha de
-// recogida por Juan y, por último, fecha de entrega al cliente.
-type Clave = [number, string, string];
-const claveDe = (p: PanelPedido): Clave => [ordenDe(p), p.fechaRecogida || "9999", p.fechaLimite || "9999"];
-function cmpClave(a: Clave, b: Clave): number {
-  if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;   // (evita Infinity - Infinity = NaN)
-  return a[1].localeCompare(b[1]) || a[2].localeCompare(b[2]);
-}
+// Clave de ordenación de un producto (ver src/lib/orden-taller.ts): manda la
+// fecha de recogida de Juan — y la de entrega si aún no hay recogida —, y el
+// orden manual solo desempata dentro de ese mismo día.
+const claveDe = (p: PanelPedido): ClaveCola => claveCola(p);
 const clienteDe = (p: PanelPedido) => p.cliente || "Sin cliente";
 
 // Lista plana ordenada MANTENIENDO JUNTOS todos los productos de un mismo
-// cliente. Los clientes se ordenan por su producto más urgente (menor clave);
-// dentro de cada cliente, sus productos van por esa misma clave. Así un cliente
-// nunca queda partido en la cola del taller.
+// cliente. Los clientes se ordenan por su producto más urgente (menor clave, o
+// sea: el que antes hay que tener listo para la recogida); dentro de cada
+// cliente, sus productos van por esa misma clave. Así un cliente nunca queda
+// partido en la cola del taller.
 function ordenarFlat(lista: PanelPedido[]): PanelPedido[] {
-  const minPorCliente = new Map<string, Clave>();
+  const minPorCliente = new Map<string, ClaveCola>();
   for (const p of lista) {
     const c = clienteDe(p);
     const k = claveDe(p);
     const cur = minPorCliente.get(c);
-    if (!cur || cmpClave(k, cur) < 0) minPorCliente.set(c, k);
+    if (!cur || cmpClaveCola(k, cur) < 0) minPorCliente.set(c, k);
   }
   return [...lista].sort((a, b) => {
     const ca = clienteDe(a), cb = clienteDe(b);
-    if (ca !== cb) return cmpClave(minPorCliente.get(ca)!, minPorCliente.get(cb)!) || ca.localeCompare(cb);
-    return cmpClave(claveDe(a), claveDe(b));
+    if (ca !== cb) return cmpClaveCola(minPorCliente.get(ca)!, minPorCliente.get(cb)!) || ca.localeCompare(cb);
+    return cmpClaveCola(claveDe(a), claveDe(b));
   });
 }
 
@@ -173,10 +168,22 @@ function Panel() {
   const totalPorCliente = new Map<string, number>();
   for (const p of flat) totalPorCliente.set(p.cliente || "Sin cliente", (totalPorCliente.get(p.cliente || "Sin cliente") || 0) + 1);
 
+  // Guarda el arrastre. El orden manual se numera POR DÍA de salida (recogida o,
+  // si no la hay, entrega): así la cola sigue mandándola la fecha y el arrastre
+  // decide el orden dentro de ese día. Si se suelta algo en un día que no es el
+  // suyo, vuelve a su sitio y se avisa (la fecha manda).
   async function guardarOrden(nuevoFlat: PanelPedido[]) {
-    setOrdenOverride(Object.fromEntries(nuevoFlat.map((p, i) => [p.id, i + 1])));
+    const nuevoOrden = ordenPorDia(nuevoFlat);
+    setOrdenOverride(Object.fromEntries(nuevoOrden));
+    const conNuevoOrden = nuevoFlat.map((p) => ({ ...p, ordenProduccion: nuevoOrden.get(p.id) ?? null }));
+    const resultado = ordenarFlat(conNuevoOrden);
+    if (resultado.some((p, i) => p.id !== nuevoFlat[i]?.id)) {
+      toast.info("La cola la manda la fecha de recogida: se ha colocado dentro de su día.");
+    }
     try {
-      await Promise.all(nuevoFlat.map((p, i) => supabase.from("pedidos").update({ orden_produccion: i + 1 } as never).eq("id", p.id)));
+      // Solo se escriben los pedidos cuyo orden cambia realmente.
+      const cambios = nuevoFlat.filter((p) => (p.ordenProduccion ?? null) !== (nuevoOrden.get(p.id) ?? null));
+      await Promise.all(cambios.map((p) => supabase.from("pedidos").update({ orden_produccion: nuevoOrden.get(p.id) ?? null } as never).eq("id", p.id)));
       await refetch();
     } catch { toast.error("No se pudo guardar el orden."); }
     setOrdenOverride({});
@@ -298,7 +305,7 @@ function Panel() {
           </div>
         ) : (
           <div className="space-y-3">
-            {puedeOrdenar && <p className="mb-1 px-1 text-xs text-slate-400">Arrastra ⠿ de la cabecera para mover el cliente entero. Despliega para arrastrar un producto suelto.</p>}
+            {puedeOrdenar && <p className="mb-1 px-1 text-xs text-slate-400">Ordenado por fecha de recogida (o de entrega si aún no hay recogida). Arrastra ⠿ de la cabecera para mover el cliente dentro de su día; despliega para arrastrar un producto suelto.</p>}
             {/* Zona de "soltar al final" */}
             {tramos.map((t) => (
               <ClienteCard

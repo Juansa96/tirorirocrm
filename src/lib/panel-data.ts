@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
 import { maskApellido, marcadoresTapicero } from "@/lib/types";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
+import { cmpCola } from "@/lib/orden-taller";
 import { TELAS_WEB } from "@/lib/telas-web-data";
 
 export interface PanelTela { rol: string; nombre: string; fotoUrl: string; coleccion: string; mismaQueFrontal: boolean; }
@@ -216,8 +217,9 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         telas: ts, archivos: ar,
       };
     });
-    // Lo que antes vence, primero.
-    out.sort((a, b) => (a.fechaLimite || "9999").localeCompare(b.fechaLimite || "9999"));
+    // Lo que antes sale del taller, primero: manda la fecha de recogida de Juan
+    // (y la de entrega si aún no hay recogida). Ver src/lib/orden-taller.ts.
+    out.sort(cmpCola);
     setPedidos(out);
   }, [tapiceroId, esViewerElTapicero]);
 
