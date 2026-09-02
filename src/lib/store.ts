@@ -1445,7 +1445,11 @@ export const actions = {
     leadId: string | null;
     clienteNombreLibre?: string;
     productoId?: string | null;
-    nuevoProducto?: { tipo: string; modelo: string };
+    // Producto nuevo COMPLETO (mismo formulario que en Clientes). Se acepta el
+    // objeto completo para que el pedido "beba" de todas las características
+    // (medidas, telas, acabado, extras…) y las telas se siembren igual que si
+    // partiese de un producto existente.
+    nuevoProducto?: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">;
     diasPlazo: number;
     precio: number;
     reserva: number;
@@ -1461,18 +1465,29 @@ export const actions = {
     let telaSeed = "";
     let prodExistente: Producto | null = null;
     if (!productoId && opts.nuevoProducto) {
+      const np = opts.nuevoProducto;
       const { data: pd, error: pe } = await supabase.from("productos_lead").insert({
         lead_id: opts.leadId,
-        tipo: opts.nuevoProducto.tipo,
-        modelo: opts.nuevoProducto.modelo,
-        cantidad: 1,
-        precio_unitario: opts.precio,
+        tipo: np.tipo, modelo: np.modelo,
+        ancho: np.ancho, alto: np.alto, fondo: np.fondo, tela: np.tela,
+        color: np.color, relleno: np.relleno, patas: np.patas,
+        acabado: np.acabado, coleccion_tela: normalizarColeccionTela(np.coleccionTela),
+        cantidad: np.cantidad || 1,
+        precio_unitario: np.precioUnitario || opts.precio,
+        notas_producto: np.notasProducto,
         caracteristicas_confirmadas: true,
         created_by: currentUser ?? "manual",
       }).select().single();
       if (pe || !pd) { toast.error("Error al crear el producto."); return null; }
-      productoId = (pd as Record<string, unknown>).id as string;
-      tipoProd = opts.nuevoProducto.tipo;
+      const nuevoProd = mapProducto(pd as Record<string, unknown>);
+      productoId = nuevoProd.id;
+      tipoProd = nuevoProd.tipo;
+      prodExistente = nuevoProd; // siembra TODAS las telas (frontal + lateral + vivo)
+      // Refleja el producto nuevo en el store para que aparezca en Clientes.
+      if (!state.productos.find((x) => x.id === nuevoProd.id)) {
+        state = { ...state, productos: [...state.productos, nuevoProd] };
+        emit();
+      }
     } else if (productoId) {
       const existing = state.productos.find((p) => p.id === productoId);
       tipoProd = existing?.tipo ?? "";

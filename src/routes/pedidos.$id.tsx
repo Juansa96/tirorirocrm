@@ -1,14 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Trash2, Plus, Package, ExternalLink, Save, Ruler } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Trash2, Package, ExternalLink, Save, Ruler, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
-import { telaToDraft, diffPedido, telasCambiadas, emptyTela, type TelaDraft } from "@/lib/pedido-form";
-import { toast } from "sonner";
+import { ProductoForm, productoToState } from "@/components/ProductoForm";
+import { TapiceroAsignado, RutaProduccion, TelasPedidoEditor } from "@/components/PedidoProduccion";
+import { usePedidoDraft } from "@/lib/use-pedido-draft";
 
 export const Route = createFileRoute("/pedidos/$id")({
   head: () => ({ meta: [{ title: "Pedido — TiroCRM" }] }),
@@ -38,121 +39,22 @@ function PedidoDetalle() {
 }
 
 function PedidoEditor({ pedidoId }: { pedidoId: string }) {
-  const { pedidos, leads, productos, pedidoTelas, tapiceros } = useStore();
   const { esEquipo } = useAuth();
   const navigate = useNavigate();
+  const { leads, productos, tapiceros } = useStore();
+  const api = usePedidoDraft(pedidoId);
+  const [editProd, setEditProd] = useState(false);
 
-  const pedido = pedidos.find((p) => p.id === pedidoId);
-  const lead = leads.find((l) => l.id === pedido?.leadId);
-  const producto = productos.find((pr) => pr.id === pedido?.productoLeadId);
-  const telasStore = useMemo(
-    () => pedidoTelas.filter((t) => t.pedidoId === pedidoId).sort((a, b) => a.orden - b.orden),
-    [pedidoTelas, pedidoId],
-  );
+  if (!api) return null; // borrado mientras se veía
+  const { pedido, draft, patch, telasDraft, setTelasDraft, dirty, saving, guardar, descartar, guardarNumero, guardarSufijo } = api;
 
-  // ── Borrador (guardado explícito, punto 1) ──────────────────────────────
-  const [draft, setDraft] = useState<Pedido>(() => pedido as Pedido);
-  const [telasDraft, setTelasDraft] = useState<TelaDraft[]>(() => telasStore.map(telaToDraft));
-  const [baseP, setBaseP] = useState<Pedido>(() => pedido as Pedido);
-  const [baseT, setBaseT] = useState<TelaDraft[]>(() => telasStore.map(telaToDraft));
-  const [saving, setSaving] = useState(false);
-
-  const patch = useCallback((p: Partial<Pedido>) => setDraft((prev) => ({ ...prev, ...p })), []);
-
-  const pedidoDirty = useMemo(
-    () => Object.keys(diffPedido(baseP, draft)).length > 0 || draft.numero !== baseP.numero || (draft.numeroSufijo ?? "") !== (baseP.numeroSufijo ?? ""),
-    [baseP, draft],
-  );
-  const telasDirty = useMemo(() => telasCambiadas(baseT, telasDraft), [baseT, telasDraft]);
-  const dirty = pedidoDirty || telasDirty;
-
-  // Refresca desde el store (cambios externos) SOLO cuando no hay cambios sin
-  // guardar, para no pisar lo que el usuario está editando.
-  useEffect(() => {
-    if (dirty || !pedido) return;
-    const freshT = telasStore.map(telaToDraft);
-    if (JSON.stringify(pedido) !== JSON.stringify(baseP) || JSON.stringify(freshT) !== JSON.stringify(baseT)) {
-      setBaseP(pedido); setDraft(pedido);
-      setBaseT(freshT); setTelasDraft(freshT);
-    }
-  }, [pedido, telasStore, dirty, baseP, baseT]);
-
-  // Aviso al cerrar/recargar la pestaña con cambios sin guardar.
-  useEffect(() => {
-    if (!dirty) return;
-    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
-    window.addEventListener("beforeunload", h);
-    return () => window.removeEventListener("beforeunload", h);
-  }, [dirty]);
-
-  if (!pedido) return null; // borrado mientras se veía → el handler navega fuera
+  const lead = leads.find((l) => l.id === pedido.leadId);
+  const producto = productos.find((pr) => pr.id === pedido.productoLeadId);
 
   const sem = semaforoPedido(draft, producto?.tipo ?? "");
   const c = SEM_COLOR[sem.estado];
   const hitos = flujoPedido(producto?.tipo ?? "");
   const tapiceroAsignado = tapiceros.find((t) => t.id === pedido.tapiceroId);
-  const tapiceroDePaso = (stepKey: string) => {
-    const selloId = pedido.pasosTapicero?.[stepKey];
-    return selloId ? tapiceros.find((x) => x.id === selloId) : tapiceroAsignado;
-  };
-  const nombreDePaso = (stepKey: string): string => tapiceroNombre(tapiceroDePaso(stepKey));
-  // Asignación de tapicero (principal y por paso): acción INMEDIATA (sella los
-  // pasos ya hechos). No pasa por el borrador.
-  const setPasoTapicero = (stepKey: string, tapiceroId: string) => {
-    const next = { ...(pedido.pasosTapicero || {}) };
-    if (tapiceroId) next[stepKey] = tapiceroId; else delete next[stepKey];
-    void actions.updatePedido(pedido.id, { pasosTapicero: next });
-  };
-  const tapicerosSeleccionables = tapiceros.filter((t) => t.activo || t.id === pedido.tapiceroId);
-
-  function guardarNumero(v: string) {
-    const n = parseInt(v, 10);
-    if (Number.isFinite(n) && n > 0) setDraft((prev) => ({ ...prev, numero: n }));
-  }
-
-  function guardarSufijo(v: string) {
-    const suf = v.replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase();
-    setDraft((prev) => ({ ...prev, numeroSufijo: suf }));
-  }
-
-  async function guardar() {
-    if (saving) return;
-    setSaving(true);
-    try {
-      // 1) Número (validación de duplicado). No se permite dejarlo vacío desde aquí.
-      if ((draft.numero !== baseP.numero || (draft.numeroSufijo ?? "") !== (baseP.numeroSufijo ?? "")) && draft.numero != null) {
-        const ok = await actions.actualizarNumeroPedido(pedidoId, draft.numero, draft.numeroSufijo ?? "");
-        if (!ok) { setDraft((prev) => ({ ...prev, numero: baseP.numero, numeroSufijo: baseP.numeroSufijo })); setSaving(false); return; }
-      }
-      // 2) Resto de campos del pedido
-      const patchP = diffPedido(baseP, draft) as Record<string, unknown>;
-      if (patchP.telaEstado !== undefined) {
-        patchP.telaEstadoPor = "equipo";
-        patchP.telaEstadoFecha = new Date().toISOString();
-      }
-      if (patchP.terminadoTapicero === false) {
-        patchP.terminadoTapiceroPor = "";
-        patchP.terminadoTapiceroFecha = "";
-      }
-      if (Object.keys(patchP).length > 0) await actions.updatePedido(pedidoId, patchP as Partial<Pedido>);
-      // 3) Telas (diff create/update/delete)
-      if (telasCambiadas(baseT, telasDraft)) {
-        const ok = await actions.guardarTelasPedido(pedidoId, telasDraft);
-        if (!ok) { setSaving(false); return; }
-      }
-      // 4) Nueva base = lo guardado
-      setBaseP({ ...draft });
-      setBaseT(telasDraft.map((t) => ({ ...t })));
-      toast.success("Pedido guardado.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function descartar() {
-    setDraft(baseP);
-    setTelasDraft(baseT.map((t) => ({ ...t })));
-  }
 
   function volver(e: React.MouseEvent) {
     if (dirty && !confirm("Tienes cambios sin guardar. ¿Salir sin guardar?")) { e.preventDefault(); }
@@ -171,7 +73,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Package className="h-5 w-5 text-[#1a1f36]" />
-            {/* Número de pedido: visible siempre; editable solo por admin (punto 2/3). */}
+            {/* Número de pedido: visible siempre; editable solo por admin. */}
             {esEquipo ? (
               <label className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">
                 Nº
@@ -212,6 +114,11 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             <span className={`h-2 w-2 rounded-full ${c.dot}`} />
             {c.label} · Hito real {sem.hitoActual}/{hitos.length} — esperado {sem.hitoEsperado}/{hitos.length}
           </div>
+          {pedido.iniciadoTapicero && !pedido.terminadoTapicero && !pedido.entregado && (
+            <div className="ml-2 mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">
+              En marcha{pedido.iniciadoTapiceroPor ? ` · ${pedido.iniciadoTapiceroPor}` : ""}
+            </div>
+          )}
         </div>
         <div className="flex shrink-0 gap-2">
           <button
@@ -227,24 +134,41 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
         </div>
       </div>
 
-      {/* Datos del producto (medidas, telas, acabado) — para que NADA quede
-          oculto al pasar de cliente a pedido (punto 8). */}
+      {/* Datos del producto — editable (mismo formulario que en Clientes). Al
+          guardar se actualiza el MISMO producto (se refleja en la ficha del
+          cliente) y se avisa al tapicero si ya estaba asignado. */}
       {producto && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><Ruler className="h-3.5 w-3.5" /> Datos del producto</div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
-            <Info k="Tipo" v={displayNombreProducto(producto.tipo, producto.modelo)} />
-            <Info k="Medidas" v={medidas ? medidas + " cm" : "—"} />
-            <Info k="Cantidad" v={String(producto.cantidad || 1)} />
-            <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} />
-            {producto.color && <Info k="Tela lateral" v={producto.color} />}
-            {producto.relleno && <Info k="Tela vivo/ribete" v={producto.relleno} />}
-            {tipoLlevaVivo(producto.tipo)
-              ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
-              : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
-            {producto.patas && <Info k="Extras" v={producto.patas} />}
-            {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><Ruler className="h-3.5 w-3.5" /> Datos del producto</div>
+            {!editProd && (
+              <button onClick={() => setEditProd(true)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                <Pencil className="h-3.5 w-3.5" /> Editar producto
+              </button>
+            )}
           </div>
+          {editProd ? (
+            <ProductoForm
+              initial={productoToState({ tipo: producto.tipo, modelo: producto.modelo, ancho: producto.ancho, alto: producto.alto, fondo: producto.fondo, tela: producto.tela, color: producto.color, relleno: producto.relleno, patas: producto.patas, acabado: producto.acabado, coleccionTela: producto.coleccionTela, cantidad: producto.cantidad, precioUnitario: producto.precioUnitario, notasProducto: producto.notasProducto })}
+              onSave={(updated) => { void actions.updateProducto(producto.id, updated); setEditProd(false); }}
+              onCancel={() => setEditProd(false)}
+              isEditing
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
+              <Info k="Tipo" v={displayNombreProducto(producto.tipo, producto.modelo)} />
+              <Info k="Medidas" v={medidas ? medidas + " cm" : "—"} />
+              <Info k="Cantidad" v={String(producto.cantidad || 1)} />
+              <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} />
+              {producto.color && <Info k="Tela lateral" v={producto.color} />}
+              {producto.relleno && <Info k="Tela vivo/ribete" v={producto.relleno} />}
+              {tipoLlevaVivo(producto.tipo)
+                ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
+                : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
+              {producto.patas && <Info k="Extras" v={producto.patas} />}
+              {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
+            </div>
+          )}
         </div>
       )}
 
@@ -348,130 +272,16 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
       </div>
 
       {/* Tapicero asignado (acción inmediata) */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Tapicero asignado</span>
-          <span className="font-normal normal-case text-slate-400">se guarda al instante</span>
-        </div>
-        <select
-          value={pedido.tapiceroId}
-          onChange={(e) => actions.reasignarTapicero(pedido.id, e.target.value)}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none sm:w-72"
-        >
-          <option value="">— Sin asignar —</option>
-          {tapicerosSeleccionables.map((t) => (
-            <option key={t.id} value={t.id}>{tapiceroNombre(t)}{!t.activo ? " (inactivo)" : ""}</option>
-          ))}
-        </select>
-      </div>
+      <TapiceroAsignado pedido={pedido} />
 
       {/* Ficha para el tapicero (borrador; se guarda con el botón Guardar) */}
       <FichaTapiceroEquipo pedido={pedido} producto={producto} draft={draft} patch={patch} telas={telasDraft} setTelas={setTelasDraft} />
 
-      {/* Hitos */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Ruta de producción</div>
-        <div className="space-y-2">
-          {hitos.map((h, index) => {
-            const checked = draft[h.key] as boolean;
-            const fecha = draft[h.fechaKey] as string;
-            return (
-              <div key={h.key} className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${checked ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-white"}`}>
-                <label className="flex flex-1 cursor-pointer items-center gap-2">
-                  <input type="checkbox" checked={checked}
-                    onChange={(e) => {
-                      const today = new Date().toISOString().slice(0, 10);
-                      const next = cascadaMarcado(hitos, index, e.target.checked, draft, today);
-                      patch(next);
-                      // Al recibir/pedir la tela en la ruta de producción, se
-                      // arrastran las telas del pedido al mismo estado (para que
-                      // no haya que marcarlas una a una). También cubre el caso
-                      // en que la cascada marque estos pasos.
-                      if (next.telaRecibida === true) {
-                        setTelasDraft((prev) => prev.map((t) => ({ ...t, estado: "Recibida", fechaRecibo: t.fechaRecibo || today })));
-                      } else if (next.telaPedida === true) {
-                        setTelasDraft((prev) => prev.map((t) => ({ ...t, estado: "Pedida" })));
-                      } else if (h.key === "telaRecibida" && next.telaRecibida === false) {
-                        setTelasDraft((prev) => prev.map((t) => ({ ...t, estado: "Pedida", fechaRecibo: "" })));
-                      }
-                    }}
-                    className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-                  <span className={`font-medium ${checked ? "text-slate-900" : "text-slate-600"}`}>{hitoLabel(h.label, nombreDePaso(h.key))}</span>
-                </label>
-                <select
-                  value={pedido.pasosTapicero?.[h.key] ?? ""}
-                  onChange={(e) => setPasoTapicero(h.key, e.target.value)}
-                  title="Tapicero de este paso (se guarda al instante)"
-                  className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 focus:border-slate-400 focus:outline-none"
-                >
-                  <option value="">Tapicero: {tapiceroNombre(tapiceroAsignado) || "sin asignar"}</option>
-                  {tapicerosSeleccionables.map((t) => (
-                    <option key={t.id} value={t.id}>{tapiceroNombre(t)}{!t.activo ? " (inactivo)" : ""}</option>
-                  ))}
-                </select>
-                {checked && (
-                  <input type="date" value={fecha || ""}
-                    onChange={(e) => patch({ [h.fechaKey]: e.target.value } as Partial<Pedido>)}
-                    className="rounded border border-slate-200 px-2 py-1 text-xs" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* Ruta de producción (hitos) */}
+      <RutaProduccion pedido={pedido} producto={producto} draft={draft} patch={patch} setTelasDraft={setTelasDraft} />
 
-      {/* Telas (lista completa: tipo / nombre / estado / fecha + foto). Borrador. */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Telas del pedido</div>
-          <button
-            onClick={() => setTelasDraft((prev) => [...prev, emptyTela("Otra")])}
-            className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-3 py-1 text-xs font-medium text-white hover:bg-[#2a2f46]"
-          >
-            <Plus className="h-3.5 w-3.5" /> Añadir tela
-          </button>
-        </div>
-        {telasDraft.length === 0 ? (
-          <div className="py-4 text-center text-sm text-slate-400">Sin telas registradas</div>
-        ) : (
-          <div className="space-y-2">
-            {telasDraft.map((t, i) => (
-              <div key={t.id ?? `new-${i}`} className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[48px_110px_1fr_120px_140px_auto] sm:items-center">
-                {t.telaFotoUrl ? (
-                  <img src={t.telaFotoUrl} alt="" className="h-10 w-10 rounded object-cover" />
-                ) : (
-                  <span className="hidden h-10 w-10 items-center justify-center rounded bg-slate-200 text-[9px] text-slate-400 sm:flex">sin foto</span>
-                )}
-                <input type="text" value={t.tipoTela}
-                  onChange={(e) => setTelasDraft((prev) => prev.map((x, j) => j === i ? { ...x, tipoTela: e.target.value } : x))}
-                  placeholder="Tipo"
-                  className="rounded border border-slate-200 bg-white px-2 py-1 text-sm font-medium" />
-                <input type="text" value={t.mismaQueFrontal ? "Misma que la principal" : t.nombreTela}
-                  disabled={t.mismaQueFrontal}
-                  onChange={(e) => setTelasDraft((prev) => prev.map((x, j) => j === i ? { ...x, nombreTela: e.target.value } : x))}
-                  placeholder="Nombre de la tela"
-                  className="rounded border border-slate-200 bg-white px-2 py-1 text-sm disabled:bg-slate-100 disabled:text-slate-500" />
-                <select value={t.estado}
-                  onChange={(e) => setTelasDraft((prev) => prev.map((x, j) => j === i ? { ...x, estado: e.target.value } : x))}
-                  className="rounded border border-slate-200 bg-white px-2 py-1 text-sm">
-                  <option value="Pedida">Pedida</option>
-                  <option value="Recibida">Recibida</option>
-                </select>
-                <input type="date" value={t.fechaRecibo || ""}
-                  onChange={(e) => setTelasDraft((prev) => prev.map((x, j) => j === i ? { ...x, fechaRecibo: e.target.value } : x))}
-                  className="rounded border border-slate-200 bg-white px-2 py-1 text-sm" />
-                <button
-                  onClick={() => setTelasDraft((prev) => prev.filter((_, j) => j !== i))}
-                  className="justify-self-end rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="mt-2 text-[11px] text-slate-400">Para buscar/enlazar fotos de tela usa los selectores por rol de la ficha del tapicero (arriba).</p>
-      </div>
+      {/* Telas del pedido (borrador) */}
+      <TelasPedidoEditor telasDraft={telasDraft} setTelasDraft={setTelasDraft} />
 
       {/* Colaboración (canje) */}
       <ColaboracionPanel draft={draft} patch={patch} lead={lead} />
@@ -485,7 +295,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
           className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
       </div>
 
-      {/* Barra fija de guardado (punto 1) */}
+      {/* Barra fija de guardado */}
       {dirty && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-amber-200 bg-amber-50/95 px-4 py-3 backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">

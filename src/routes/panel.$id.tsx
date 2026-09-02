@@ -2,7 +2,7 @@ import { numeroPedidoLabel } from "@/lib/types";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import {
-  ArrowLeft, Download, Scissors, Truck, Image as ImageIcon, X, ZoomIn, Camera, Printer,
+  ArrowLeft, Download, Scissors, Truck, Image as ImageIcon, X, ZoomIn, Camera, Printer, Pencil,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -69,7 +69,18 @@ function FichaPanel() {
           </div>
           {p.cliente && <div className="truncate text-[11px] text-slate-500">{p.cliente}</div>}
         </div>
+        {p.iniciado && !p.terminado && !p.entregado && (
+          <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold leading-none text-amber-700">En marcha</span>
+        )}
         <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold leading-none ${plazo.bg} ${plazo.text}`}>{plazo.label}</span>
+        {/* Editar (solo equipo): abre el editor completo del pedido. El tapicero
+            no lo ve — él solo pulsa los 3 botones de abajo. */}
+        {esEquipo && (
+          <Link to="/pedidos/$id" params={{ id: p.id }} title="Editar pedido (equipo)"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 print:hidden">
+            <Pencil className="h-3.5 w-3.5" /> Editar
+          </Link>
+        )}
         <button type="button" onClick={() => window.print()} title="Imprimir / Guardar PDF"
           className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 print:hidden">
           <Printer className="h-3.5 w-3.5" />
