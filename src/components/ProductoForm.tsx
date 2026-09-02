@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Check } from "lucide-react";
 import type { Producto } from "@/lib/types";
 import { CATALOG_TO_INTERNAL } from "@/lib/types";
@@ -606,15 +606,25 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
 
 // ── ProductoForm ──────────────────────────────────────────────────
 export function ProductoForm({
-  initial, onSave, onCancel, isEditing = false,
+  initial, onSave, onCancel, isEditing = false, onChange, hideActions = false,
 }: {
   initial: ProdState;
   onSave: (p: Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50">) => void;
   onCancel: () => void;
   isEditing?: boolean;
+  // Modo controlado: `onChange` recibe el estado actual del formulario en cada
+  // cambio (para que un contenedor gestione el guardado con su propio botón).
+  // `hideActions` oculta los botones Guardar/Cancelar propios del formulario.
+  onChange?: (state: ProdState) => void;
+  hideActions?: boolean;
 }) {
   const [f, setF] = useState<ProdState>(initial);
   const s = (patch: Partial<ProdState>) => setF(prev => ({ ...prev, ...patch }));
+  // Notifica al contenedor el estado actual (ref para no depender de la
+  // identidad de `onChange` ni provocar renders en bucle).
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => { onChangeRef.current?.(f); }, [f]);
   const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
   const btn = (active: boolean) => BTN_CLS(active);
   const section = SECTION_CLS;
@@ -1049,16 +1059,24 @@ export function ProductoForm({
         </div>
       )}
 
-      <div className="flex justify-end gap-2 pt-1">
-        <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancelar</button>
-        <button
-          type="button"
-          disabled={!f.tipo || (f.tipo === "otro" && !f.otroPorDecidir && !f.otroDescripcion.trim())}
-          onClick={() => onSave(prodStateToProducto(f))}
-          className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-40">
-          <Check className="mr-1 inline h-3.5 w-3.5" />Guardar producto
-        </button>
-      </div>
+      {!hideActions && (
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancelar</button>
+          <button
+            type="button"
+            disabled={!f.tipo || (f.tipo === "otro" && !f.otroPorDecidir && !f.otroDescripcion.trim())}
+            onClick={() => onSave(prodStateToProducto(f))}
+            className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46] disabled:opacity-40">
+            <Check className="mr-1 inline h-3.5 w-3.5" />Guardar producto
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+// ¿El estado del formulario es válido para guardar? (misma condición que el
+// botón interno "Guardar producto"). Útil en modo controlado (hideActions).
+export function prodStateValido(f: ProdState): boolean {
+  return !!f.tipo && !(f.tipo === "otro" && !f.otroPorDecidir && !f.otroDescripcion.trim());
 }

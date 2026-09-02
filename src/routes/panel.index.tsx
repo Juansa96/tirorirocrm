@@ -99,7 +99,7 @@ function Panel() {
   const { pedidos, refetch } = usePanelPedidos(viendoId || null, esTapicero);
   const [vista, setVista] = useState<"en_curso" | "por_recoger" | "terminados">("en_curso");
   const enCurso = vista === "en_curso";
-  const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso">("todos");
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso" | "empezados">("todos");
   const [soloRetrasados, setSoloRetrasados] = useState(false);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
 
@@ -150,6 +150,7 @@ function Panel() {
   const lista = base.filter((p) => {
     if (enCurso && filtroEstado === "pendiente_tela" && p.telaEstado === "recibida") return false;
     if (enCurso && filtroEstado === "en_curso" && p.telaEstado !== "recibida") return false;
+    if (enCurso && filtroEstado === "empezados" && !p.iniciado) return false;
     if (soloRetrasados && p.diasRestantes >= 0) return false;
     return true;
   });
@@ -273,6 +274,7 @@ function Panel() {
               ["todos", "Todos"],
               ["pendiente_tela", "Pendiente de tela"],
               ["en_curso", "Tela recibida"],
+              ["empezados", "Empezados"],
             ] as const).map(([v, lbl]) => (
               <button key={v} onClick={() => setFiltroEstado(v)}
                 className={`rounded-full border px-3 py-1 text-xs font-medium ${filtroEstado === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"}`}>

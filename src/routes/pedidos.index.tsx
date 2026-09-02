@@ -6,7 +6,7 @@ import { ProduccionPanel } from "@/components/ProduccionPanel";
 import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
-import { TIPOS_PRODUCTO } from "@/components/ProductoForm";
+import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto, prodStateValido, type ProdState } from "@/components/ProductoForm";
 import { displayModelo, displayNombreProducto, tipoLabelOf } from "@/lib/catalogo";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
@@ -37,6 +37,12 @@ const SEM_COLOR: Record<RutaEstado, { bg: string; text: string; dot: string; lab
 const ESTADO_OPTS = ["Todos", "En proceso", "Terminado", "Entregado"] as const;
 type EstadoFiltro = typeof ESTADO_OPTS[number];
 
+// "Empezado" = el tapicero pulsó "Ya lo he empezado" y aún no está terminado ni
+// entregado. Se usa para el filtro y la pegatina "En marcha".
+function pedidoEmpezado(p: Pedido): boolean {
+  return !!p.iniciadoTapicero && !p.terminadoTapicero && !p.entregado;
+}
+
 function PedidosIndex() {
   const { pedidos, leads, productos, pedidoTelas, tapiceros } = useStore();
   const [modo, setModo] = useState<"pedidos" | "produccion">("pedidos");
@@ -44,6 +50,7 @@ function PedidosIndex() {
   const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
   const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
+  const [soloEmpezados, setSoloEmpezados] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [, setNowTick] = useState(0);
   useEffect(() => {
@@ -126,6 +133,7 @@ function PedidosIndex() {
         const items = g.items.filter(({ pedido, producto, sem }) => {
           if (view === "activos" && pedido.entregado) return false;
           if (semF !== "todos" && sem.estado !== semF) return false;
+          if (soloEmpezados && !pedidoEmpezado(pedido)) return false;
           if (q) {
             const nombre = g.nombre.toLowerCase();
             const prodTxt = ((producto?.modelo || "") + " " + (producto?.tipo || "")).toLowerCase();
@@ -139,7 +147,7 @@ function PedidosIndex() {
       .sort((a, b) => view === "archivo"
         ? (b.oldest || "").localeCompare(a.oldest || "")
         : (a.oldest || "").localeCompare(b.oldest || ""));
-  }, [groupsAll, view, search, semF]);
+  }, [groupsAll, view, search, semF, soloEmpezados]);
 
   const totalPedidos = groups.reduce((s, g) => s + g.items.length, 0);
   const archivoCount = groupsAll.filter((g) => g.allEntregados).length;
@@ -284,6 +292,13 @@ function PedidosIndex() {
             </button>
           ))}
         </div>
+        <button
+          onClick={() => setSoloEmpezados((v) => !v)}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${soloEmpezados ? "border-amber-500 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+          title="Mostrar solo los pedidos que el tapicero ha empezado"
+        >
+          <Hammer className="h-3.5 w-3.5" /> Empezados
+        </button>
       </div>
 
       {/* Grupos por persona */}
@@ -471,6 +486,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }
               </h3>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
+              {pedidoEmpezado(pedido) && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">En marcha</span>}
               <span className={`font-medium ${sem.estado === "rojo" && !pedido.entregado ? "text-rose-700" : "text-slate-600"}`}>{diasLabel}</span>
               <span className="text-slate-500">{formatShortDate(pedido.fechaLimite)}</span>
               {totalT > 0 && <span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span>}
@@ -581,6 +597,7 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }:
           {tituloProducto}
           {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
         </Link>
+        {pedidoEmpezado(pedido) && <span className="ml-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 align-middle">En marcha</span>}
         {producto?.ancho && producto?.alto && (
           <div className="text-[11px] text-slate-400">{producto.ancho}×{producto.alto}</div>
         )}
@@ -674,16 +691,27 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const [empresaId, setEmpresaId] = useState<string>("");
   const [prodMode, setProdMode] = useState<"existente" | "nuevo">("nuevo");
   const [productoId, setProductoId] = useState<string>("");
-  const [tipo, setTipo] = useState<string>("cabecero");
-  const [modelo, setModelo] = useState("");
+  // Producto nuevo: MISMO formulario completo que en Clientes (características).
+  const [prodState, setProdState] = useState<ProdState>(EMPTY_PROD_STATE);
   const [diasPlazo, setDiasPlazo] = useState(20);
   const [precio, setPrecio] = useState(0);
+  const [precioTocado, setPrecioTocado] = useState(false);
   const [reserva, setReserva] = useState(0);
   const [costeEnvio, setCosteEnvio] = useState(0);
   const [formatos, setFormatos] = useState<string[]>([]);
   const [tipoColab, setTipoColab] = useState<string>("");
   const [tipoColabOtros, setTipoColabOtros] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // El precio del pedido se pre-rellena con el del producto nuevo (precio × cant)
+  // mientras el usuario no lo edite a mano.
+  function onProdStateChange(next: ProdState) {
+    setProdState(next);
+    if (prodMode === "nuevo" && !precioTocado) {
+      const cant = next.tipo === "puf" ? Number(next.cantidadPuf) || 1 : next.cantidad || 1;
+      setPrecio((next.precioUnitario || 0) * cant);
+    }
+  }
 
   const empresasB2B = useMemo(() => leads.filter((l) => l.tipo === "B2B"), [leads]);
 
@@ -706,14 +734,14 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
     if (mode === "libre" && !nombreLibre.trim()) return;
     if (mode === "b2b" && !empresaId) return;
     if (prodMode === "existente" && !productoId) return;
-    if (prodMode === "nuevo" && !tipo) return;
+    if (prodMode === "nuevo" && !prodStateValido(prodState)) return;
     setSaving(true);
     const finalLeadId = mode === "lead" || mode === "influ" ? leadId : mode === "b2b" ? empresaId : null;
     const created = await actions.crearPedidoManual({
       leadId: finalLeadId,
       clienteNombreLibre: mode === "libre" ? nombreLibre.trim() : "",
       productoId: prodMode === "existente" ? productoId : null,
-      nuevoProducto: prodMode === "nuevo" ? { tipo, modelo: modelo.trim() } : undefined,
+      nuevoProducto: prodMode === "nuevo" ? prodStateToProducto(prodState) : undefined,
       diasPlazo, precio, reserva, costeEnvio,
       empresaId: mode === "b2b" ? empresaId : undefined,
       esCanje: mode === "influ",
@@ -728,7 +756,7 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 md:items-start md:p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-t-2xl bg-white p-5 pb-8 shadow-2xl md:my-8 md:rounded-xl md:pb-5">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl rounded-t-2xl bg-white p-5 pb-8 shadow-2xl md:my-8 md:rounded-xl md:pb-5">
         <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200 md:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">Nuevo pedido</h2>
@@ -812,19 +840,23 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                 ))}
               </select>
             ) : (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-3 text-base md:py-1.5 md:text-sm">
-                  {TIPOS_PRODUCTO.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select>
-                <input value={modelo} onChange={(e) => setModelo(e.target.value)} placeholder="Modelo" className="rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" />
-              </div>
+              // Mismo formulario completo que en Clientes (tipo, forma, medidas,
+              // telas, acabado, extras, precio…). Sin sus botones: el pedido se
+              // crea con el botón "Crear pedido" de abajo.
+              <ProductoForm
+                initial={EMPTY_PROD_STATE}
+                hideActions
+                onChange={onProdStateChange}
+                onSave={() => {}}
+                onCancel={() => {}}
+              />
             )}
           </div>
 
           {/* Datos pedido */}
           <div className="grid grid-cols-2 gap-2">
             <Field label="Días de plazo"><input type="number" inputMode="numeric" min={1} value={diasPlazo} onChange={(e) => setDiasPlazo(parseInt(e.target.value) || 20)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
-            <Field label="Precio (€)"><input type="number" inputMode="decimal" step="0.01" value={precio} onChange={(e) => setPrecio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
+            <Field label="Precio (€)"><input type="number" inputMode="decimal" step="0.01" value={precio} onChange={(e) => { setPrecio(parseFloat(e.target.value) || 0); setPrecioTocado(true); }} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
             <Field label="Reserva (€)"><input type="number" inputMode="decimal" step="0.01" value={reserva} onChange={(e) => setReserva(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
             <Field label="Coste envío (€)"><input type="number" inputMode="decimal" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
           </div>
