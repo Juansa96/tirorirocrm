@@ -96,8 +96,13 @@ function mapLead(r: Record<string, unknown>): Lead {
     utmMedium: (r.utm_medium as string) ?? "",
     utmCampaign: (r.utm_campaign as string) ?? "",
     utmTerm: (r.utm_term as string) ?? "",
+    utmContent: (r.utm_content as string) ?? "",
+    utmPlacement: (r.utm_placement as string) ?? "",
+    utmId: (r.utm_id as string) ?? "",
     fbclid: (r.fbclid as string) ?? "",
     landingPath: (r.landing_path as string) ?? "",
+    landingPage: (r.landing_page as string) ?? "",
+    referrer: (r.referrer as string) ?? "",
     ventaImporte: r.venta_importe === null || r.venta_importe === undefined ? null : Number(r.venta_importe),
     ventaFecha: (r.venta_fecha as string) ?? "",
   };
@@ -927,8 +932,13 @@ export const actions = {
     if (patch.utmMedium !== undefined) dbPatch.utm_medium = patch.utmMedium || null;
     if (patch.utmCampaign !== undefined) dbPatch.utm_campaign = patch.utmCampaign || null;
     if (patch.utmTerm !== undefined) dbPatch.utm_term = patch.utmTerm || null;
+    if (patch.utmContent !== undefined) dbPatch.utm_content = patch.utmContent || null;
+    if (patch.utmPlacement !== undefined) dbPatch.utm_placement = patch.utmPlacement || null;
+    if (patch.utmId !== undefined) dbPatch.utm_id = patch.utmId || null;
     if (patch.fbclid !== undefined) dbPatch.fbclid = patch.fbclid || null;
     if (patch.landingPath !== undefined) dbPatch.landing_path = patch.landingPath || null;
+    if (patch.landingPage !== undefined) dbPatch.landing_page = patch.landingPage || null;
+    if (patch.referrer !== undefined) dbPatch.referrer = patch.referrer || null;
     if (patch.ventaImporte !== undefined) dbPatch.venta_importe = patch.ventaImporte ?? null;
     if (patch.ventaFecha !== undefined) dbPatch.venta_fecha = patch.ventaFecha || null;
 
