@@ -52,7 +52,8 @@ const productoSchema = z.object({
 // Campos de atribución de campaña que envía tirorirohome.com.
 const TRACKING_KEYS = [
   "gclid", "gbraid", "wbraid", "utm_source", "utm_medium",
-  "utm_campaign", "utm_term", "fbclid", "landing_path",
+  "utm_campaign", "utm_term", "utm_content", "utm_placement", "utm_id",
+  "fbclid", "landing_path", "landing_page", "referrer",
 ] as const;
 
 const bodySchema = z.object({
@@ -72,8 +73,13 @@ const bodySchema = z.object({
   utm_medium: z.string().trim().max(200).optional(),
   utm_campaign: z.string().trim().max(200).optional(),
   utm_term: z.string().trim().max(200).optional(),
+  utm_content: z.string().trim().max(200).optional(),
+  utm_placement: z.string().trim().max(200).optional(),
+  utm_id: z.string().trim().max(200).optional(),
   fbclid: z.string().trim().max(500).optional(),
   landing_path: z.string().trim().max(500).optional(),
+  landing_page: z.string().trim().max(500).optional(),
+  referrer: z.string().trim().max(500).optional(),
 }).passthrough();
 
 // Campos "conocidos" a nivel de producto — todo lo demás va a extras_no_mapeados.

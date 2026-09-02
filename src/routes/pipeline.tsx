@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useStore, actions, nextPendingTaskFor } from "@/lib/store";
 import {
   ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ASIGNADOS_B2B, vendorName,
-  type Etapa, type EtapaB2B, type EtapaColab, type Lead,
+  CANALES, CANAL_COLORS, canalOf,
+  type Etapa, type EtapaB2B, type EtapaColab, type Lead, type Canal,
 } from "@/lib/types";
 import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
 import { ClosedLostDialog } from "@/components/ClosedLostDialog";
@@ -27,6 +28,7 @@ interface Search {
   provincia?: string;
   q?: string;
   sort?: SortB2B;
+  canal?: Canal;
 }
 
 const SORTS_B2B: SortB2B[] = ["fecha_desc", "fecha_asc", "municipio_asc", "municipio_desc", "nombre_asc", "nombre_desc"];
@@ -41,6 +43,7 @@ export const Route = createFileRoute("/pipeline")({
     const m = typeof s.municipio === "string" ? s.municipio : undefined;
     const p = typeof s.provincia === "string" ? s.provincia : undefined;
     const q = typeof s.q === "string" ? s.q : undefined;
+    const c = typeof s.canal === "string" && (CANALES as readonly string[]).includes(s.canal) ? (s.canal as Canal) : undefined;
     const so = typeof s.sort === "string" && (SORTS_B2B as string[]).includes(s.sort) ? (s.sort as SortB2B) : undefined;
     return {
       ...(tab ? { tab } : {}),
@@ -50,6 +53,7 @@ export const Route = createFileRoute("/pipeline")({
       ...(m ? { municipio: m } : {}),
       ...(p ? { provincia: p } : {}),
       ...(q ? { q } : {}),
+      ...(c ? { canal: c } : {}),
       ...(so ? { sort: so } : {}),
     };
   },
@@ -132,8 +136,9 @@ function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<t
       ) : (
         <p className="mt-1.5 text-sm font-medium text-slate-300">—</p>
       )}
-      <div className="mt-1.5">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <PaidBadge leadId={lead.id} pedidos={pedidos} />
+        <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${CANAL_COLORS[canalOf(lead)]}`}>{canalOf(lead)}</span>
       </div>
       <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-500">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
@@ -215,6 +220,7 @@ function PipelineB2C() {
   const search = Route.useSearch();
   const filterEtapa = search.etapa && (ETAPAS as readonly string[]).includes(search.etapa) ? (search.etapa as Etapa) : undefined;
   const filterVendedor = search.vendedor;
+  const filterCanal = search.canal;
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<Etapa | null>(null);
   const [perdidaLead, setPerdidaLead] = useState<string | null>(null);
@@ -230,10 +236,14 @@ function PipelineB2C() {
   const touchHandlers = useTouchStageDrag<Etapa>(setDragOver, setDraggingId, moveB2C);
 
   const visibleEtapas = filterEtapa ? ETAPAS.filter((e) => e === filterEtapa) : ETAPAS;
-  const hasFilter = !!(filterEtapa || filterVendedor);
+  const hasFilter = !!(filterEtapa || filterVendedor || filterCanal);
 
   function setVendedor(v: string) {
     navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, vendedor: v || undefined }) });
+  }
+  function setCanal(v: string) {
+    const canal = (CANALES as readonly string[]).includes(v) ? (v as Canal) : undefined;
+    navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, canal }) });
   }
   function clearFilters() {
     navigate({ to: "/pipeline", search: {} });
@@ -251,6 +261,13 @@ function PipelineB2C() {
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           </div>
+          <div className="relative min-w-0 flex-1 sm:flex-initial">
+            <select value={filterCanal ?? ""} onChange={(e) => setCanal(e.target.value)} className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none">
+              <option value="">Todos los canales</option>
+              {CANALES.map((c) => (<option key={c} value={c}>{c}</option>))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          </div>
           {hasFilter && (
             <button onClick={clearFilters} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
               <X className="h-3 w-3" /> Quitar
@@ -265,7 +282,9 @@ function PipelineB2C() {
       <div className="-mx-4 overflow-x-auto px-4 pb-6 lg:mx-0 lg:px-0">
         <div className={`flex snap-x snap-mandatory gap-3 lg:snap-none ${filterEtapa ? "md:max-w-sm" : "lg:grid lg:grid-cols-6"}`}>
           {visibleEtapas.map((etapa) => {
-            const colLeads = leads.filter((l) => l.etapa === etapa && (!filterVendedor || !l.vendedor || l.vendedor === filterVendedor));
+            const colLeads = leads.filter((l) => l.etapa === etapa
+              && (!filterVendedor || !l.vendedor || l.vendedor === filterVendedor)
+              && (!filterCanal || canalOf(l) === filterCanal));
             const total = colLeads.reduce((s, l) => s + l.valor, 0);
             const isOver = dragOver === etapa;
             const color = ETAPA_COLORS[etapa];
