@@ -5,8 +5,8 @@
 //   · TelasPedidoEditor   — lista completa de telas del pedido (borrador)
 //   · PedidoProduccionEditor — editor autónomo (tapicero + ficha + hitos + telas
 //                              + barra de guardado) para embeber en Clientes.
-import type { Dispatch, SetStateAction } from "react";
-import { Plus, Trash2, Save } from "lucide-react";
+import { useState, type Dispatch, type SetStateAction } from "react";
+import { Plus, Trash2, Save, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
@@ -174,6 +174,80 @@ export function TelasPedidoEditor({ telasDraft, setTelasDraft }: {
 // Reúne el tapicero, la ficha del tapicero (telas por rol, recogida, montaje,
 // comentarios, archivos), la ruta de producción y las telas, con su propia
 // barra de guardado en línea (no fija) para no chocar con otras.
+// Ficha de producción de un PRODUCTO desde la ficha del cliente. Si el producto
+// ya tiene pedido, muestra el editor completo. Si NO tiene, permite asignar un
+// tapicero (o crear la ficha) y crea el pedido automáticamente en ese momento
+// —no solo por ver el producto—, tras lo cual aparece la ficha completa.
+export function ProduccionProducto({ producto, esCanje = false }: { producto: Producto; esCanje?: boolean }) {
+  const { pedidos, tapiceros } = useStore();
+  const [creando, setCreando] = useState(false);
+  const pedidosProd = pedidos.filter((p) => p.productoLeadId === producto.id);
+
+  async function crear(tapiceroId?: string) {
+    if (creando) return;
+    setCreando(true);
+    try {
+      const ped = await actions.crearPedidoManual({
+        leadId: producto.leadId,
+        productoId: producto.id,
+        diasPlazo: 20,
+        precio: (producto.precioUnitario || 0) * (producto.cantidad || 1),
+        reserva: 0,
+        costeEnvio: 0,
+        esCanje,
+      });
+      if (ped && tapiceroId) await actions.reasignarTapicero(ped.id, tapiceroId);
+    } finally {
+      setCreando(false);
+    }
+  }
+
+  if (pedidosProd.length > 0) {
+    return (
+      <div>
+        {pedidosProd.length > 1 && (
+          <div className="mb-2 text-[11px] text-slate-400">Este producto tiene varios pedidos; se muestra el primero. Abre los demás desde Pedidos.</div>
+        )}
+        <PedidoProduccionEditor pedidoId={pedidosProd[0].id} />
+      </div>
+    );
+  }
+
+  const seleccionables = tapiceros.filter((t) => t.activo);
+  return (
+    <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+        <Hammer className="h-4 w-4" /> Producción / tapicero
+      </div>
+      <p className="text-xs text-slate-500">
+        Aún no hay pedido para este producto. Al <strong>asignar un tapicero</strong> (o crear la ficha) se crea el pedido automáticamente y se activa la ficha completa (telas, montaje, recogida, plantilla…).
+      </p>
+      <div>
+        <div className="mb-1 text-xs font-medium text-slate-500">Tapicero asignado</div>
+        <select
+          value=""
+          disabled={creando}
+          onChange={(e) => { if (e.target.value) void crear(e.target.value); }}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none disabled:opacity-60 sm:w-72"
+        >
+          <option value="">{creando ? "Creando…" : "— Asignar tapicero —"}</option>
+          {seleccionables.map((t) => (
+            <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
+          ))}
+        </select>
+      </div>
+      <button
+        type="button"
+        disabled={creando}
+        onClick={() => void crear()}
+        className="text-xs font-medium text-slate-500 underline hover:text-slate-700 disabled:opacity-60"
+      >
+        o crear la ficha sin asignar tapicero todavía
+      </button>
+    </div>
+  );
+}
+
 export function PedidoProduccionEditor({ pedidoId }: { pedidoId: string }) {
   const { productos } = useStore();
   const api = usePedidoDraft(pedidoId);
