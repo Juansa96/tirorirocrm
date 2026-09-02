@@ -6,7 +6,7 @@ import { formatWeekdayShort } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { tapiceroNombre, type Tapicero } from "@/lib/types";
-import { displayNombreProducto, modeloDetalle, esDetalleMedida } from "@/lib/catalogo";
+import { displayNombreProducto, modeloDetalle, esDetalleMedida, pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL } from "@/lib/catalogo";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
 import { usePanelPedidos, type PanelPedido } from "@/lib/panel-data";
 import { claveCola, cmpClaveCola, ordenPorDia, type ClaveCola } from "@/lib/orden-taller";
@@ -436,6 +436,7 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto }: {
             {p.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
             <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${p.cantidad > 1 ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-500"}`}>×{p.cantidad} {p.cantidad === 1 ? "ud" : "uds"}</span>
             {p.cambioTrasEnvio && <span className="shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white">⚠️ Modificado</span>}
+            {pufTieneAlmacenaje(p.modelo) && <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">{PUF_ALMACENAJE_LABEL}</span>}
             {p.iniciado && !p.terminado && !p.entregado && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">En marcha</span>}
             <span className="w-full font-semibold leading-tight text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
           </div>
