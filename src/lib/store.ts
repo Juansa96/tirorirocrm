@@ -830,7 +830,9 @@ export const actions = {
   async addLead(
     input: Omit<Lead, "id" | "fechaCreacion" | "fechaEntradaEtapa" | "razonUrgencia"
       | "gclid" | "gbraid" | "wbraid" | "utmSource" | "utmMedium" | "utmCampaign"
-      | "utmTerm" | "fbclid" | "landingPath" | "ventaImporte" | "ventaFecha">,
+      | "utmTerm" | "utmContent" | "utmPlacement" | "utmId"
+      | "fbclid" | "landingPath" | "landingPage" | "referrer"
+      | "ventaImporte" | "ventaFecha">,
     firstTask?: { descripcion: string; fecha: string; hora?: string },
   ): Promise<Lead | null> {
     const { data, error } = await supabase
