@@ -7,6 +7,7 @@ import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, 
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto, prodStateValido, type ProdState } from "@/components/ProductoForm";
+import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
 import { displayModelo, displayNombreProducto, tipoLabelOf } from "@/lib/catalogo";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
@@ -860,6 +861,21 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
             <Field label="Reserva (€)"><input type="number" inputMode="decimal" step="0.01" value={reserva} onChange={(e) => setReserva(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
             <Field label="Coste envío (€)"><input type="number" inputMode="decimal" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
           </div>
+
+          {/* Sugerencia de envío para cabeceros (tamaño × Madrid/fuera) */}
+          {(() => {
+            const prodEnvio = prodMode === "nuevo" ? prodStateToProducto(prodState) : productos.find((p) => p.id === productoId);
+            if (!prodEnvio) return null;
+            return (
+              <SugerenciaEnvioCabecero
+                tipo={prodEnvio.tipo}
+                ancho={prodEnvio.ancho} alto={prodEnvio.alto}
+                ciudad={selectedLead?.ciudad} provincia={selectedLead?.provincia}
+                costeEnvio={costeEnvio}
+                onApply={(v) => setCosteEnvio(v)}
+              />
+            );
+          })()}
 
           {/* Colaboración (solo influencer / canje) */}
           {mode === "influ" && (

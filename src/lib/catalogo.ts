@@ -387,6 +387,33 @@ export const CABECERO_ANCHOS: CabeceroAnchoOpcion[] = [
 // (130 cm → +45€), igual que getHeightSurcharge en la web.
 export const CABECERO_ALTOS = ["100", "120", "130"] as const;
 
+// ── Recargo por cabecero "grande" ───────────────────────────────────────────
+// Un cabecero grande no cabe en el coche de reparto y obliga a contratar
+// transporte, así que lleva un recargo fijo. Aplica SOLO a cabeceros.
+// Condición (OR): el largo (ancho del cabecero) supera 180 cm, o el ancho
+// (alto del cabecero) supera 120 cm. Basta con que se cumpla una.
+export const CABECERO_RECARGO_GRANDE = 20;
+export function cabeceroEsGrande(ancho: number | null | undefined, alto: number | null | undefined): boolean {
+  return (ancho ?? 0) > 180 || (alto ?? 0) > 120;
+}
+
+// ── Envío de cabecero por tamaño × zona ─────────────────────────────────────
+// Tarifa del coste de envío según si el cabecero es grande y si la entrega es
+// en la Comunidad de Madrid o fuera. (Solo cabeceros; otros productos: manual.)
+//   pequeño + Madrid = 40 · pequeño + fuera = 60
+//   grande  + Madrid = 60 · grande  + fuera = 80
+export function envioCabecero(grande: boolean, madrid: boolean): number {
+  if (grande) return madrid ? 60 : 80;
+  return madrid ? 40 : 60;
+}
+
+// ¿La entrega es en la Comunidad de Madrid? Heurística por ciudad/provincia
+// (misma idea que el endpoint público del formulario web).
+export function esZonaMadrid(ciudad?: string | null, provincia?: string | null): boolean {
+  const s = `${provincia ?? ""} ${ciudad ?? ""}`.toLowerCase();
+  return /\bmadrid\b/.test(s);
+}
+
 // ── Pufs ──────────────────────────────────────────────────────────────────
 // Redesign completo: forma cuadrada / redonda con SKUs concretos.
 // El pack de 2 unidades desaparece.

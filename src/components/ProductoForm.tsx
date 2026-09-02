@@ -20,6 +20,8 @@ import {
   CABECERO_ALTOS as CABECERO_ALTOS_CAT,
   CABECERO_GROSOR_CM,
   CABECERO_VIVO_DOBLE_RECARGO,
+  CABECERO_RECARGO_GRANDE,
+  cabeceroEsGrande,
   PUF_OPCIONES,
   findPufById,
   MESA_OPCIONES,
@@ -120,6 +122,10 @@ export interface ProdState {
   _origAncho?: number | null;
   _origModelo?: string | null;
   _isEdit?: boolean;
+  // ¿El recargo de +20€ por cabecero grande está ya incluido en precioUnitario?
+  // Solo UI (no se guarda como columna): permite añadir/quitar el recargo al
+  // cruzar el umbral sin duplicarlo en round-trips de edición.
+  _recargoGrande?: boolean;
 }
 
 export const EMPTY_PROD_STATE: ProdState = {
@@ -137,6 +143,7 @@ export const EMPTY_PROD_STATE: ProdState = {
   otroDescripcion: "", otroPorDecidir: false,
   bancoMedida: "tbd", bancoLargoCustom: "",
   cantidad: 1, precioUnitario: 0, notasProducto: "",
+  _recargoGrande: false,
 };
 
 // Punto 7: el vivo/ribete NUNCA se preselecciona. Al elegir tipo, el acabado
@@ -352,6 +359,10 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.colgador = p.patas?.includes("Con colgador") ?? false;
     s.cantidad = p.cantidad;
+    // Al editar un cabecero grande asumimos que el precio guardado YA incluye el
+    // recargo de +20€ (se aplicó al crearlo, en el CRM o en la web). Así no se
+    // duplica al reabrir; si el usuario cambia las medidas, se ajusta solo.
+    s._recargoGrande = cabeceroEsGrande(p.ancho, p.alto);
   } else if (mismoTipo(p.tipo, "puf")) {
     const id = findCatalogIdByDims(PUF_OPCIONES, p.ancho, p.alto, p.fondo);
     s.pufId = id || (p.ancho ? "custom" : "");
@@ -625,6 +636,31 @@ export function ProductoForm({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   useEffect(() => { onChangeRef.current?.(f); }, [f]);
+
+  // ── Recargo +20€ por cabecero grande (auto + reversible) ──────────────────
+  // Medidas actuales del cabecero (largo = ancho del cabecero; ancho = alto).
+  const cabAncho = f.tipo === "cabecero"
+    ? (f.anchoCama === "tbd" ? null : f.anchoCama === "custom" ? (Number(f.anchoCamaCustom) || null) : (Number(f.anchoCama) || null))
+    : null;
+  const cabAlto = f.tipo === "cabecero"
+    ? (f.altoCabecero === "tbd" ? null : f.altoCabecero === "custom" ? (Number(f.altoCabeceroCustom) || null) : (Number(f.altoCabecero) || null))
+    : null;
+  const cabGrande = f.tipo === "cabecero" && cabeceroEsGrande(cabAncho, cabAlto);
+  // Al cruzar el umbral, suma/resta el recargo una sola vez. El precio sigue
+  // siendo editable a mano (el efecto solo actúa en la transición, no pisa
+  // ediciones manuales posteriores).
+  useEffect(() => {
+    if (f.tipo !== "cabecero") {
+      if (f._recargoGrande) setF(prev => ({ ...prev, _recargoGrande: false }));
+      return;
+    }
+    if (cabGrande && !f._recargoGrande) {
+      setF(prev => ({ ...prev, precioUnitario: (prev.precioUnitario || 0) + CABECERO_RECARGO_GRANDE, _recargoGrande: true }));
+    } else if (!cabGrande && f._recargoGrande) {
+      setF(prev => ({ ...prev, precioUnitario: Math.max(0, (prev.precioUnitario || 0) - CABECERO_RECARGO_GRANDE), _recargoGrande: false }));
+    }
+  }, [cabGrande, f.tipo, f._recargoGrande]);
+
   const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
   const btn = (active: boolean) => BTN_CLS(active);
   const section = SECTION_CLS;
@@ -667,7 +703,10 @@ export function ProductoForm({
                 <button
                   key={x.id}
                   type="button"
-                  onClick={() => s(patchPrecio(isEditing, { anchoCama: x.id }, x.precio))}
+                  // Al fijar el precio base (creación) reseteamos el flag del
+                  // recargo para que el efecto lo vuelva a sumar si sigue siendo
+                  // grande (evita perder los +20€ al elegir un ancho).
+                  onClick={() => s(isEditing ? { anchoCama: x.id } : { anchoCama: x.id, precioUnitario: x.precio, _recargoGrande: false })}
                   className={btn(f.anchoCama === x.id)}
                 >
                   {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
@@ -677,7 +716,7 @@ export function ProductoForm({
               <button type="button" onClick={() => s({ anchoCama: "tbd" })} className={btn(f.anchoCama === "tbd")}>Por decidir</button>
             </div>
             {f.anchoCama === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.anchoCamaCustom} onChange={e => s({ anchoCamaCustom: e.target.value })} placeholder="cm" min={60} max={300} />}
-            <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={anchoOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
+            <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={anchoOpt ? anchoOpt.precio + (cabGrande ? CABECERO_RECARGO_GRANDE : 0) : 0} onUpdate={v => s({ precioUnitario: v })} />
           </div>
           <div>
             <div className={section}>Alto del cabecero</div>
@@ -695,6 +734,11 @@ export function ProductoForm({
           <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
             Grosor <strong>{CABECERO_GROSOR_CM} cm</strong> (fijo)
           </div>
+          {cabGrande && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <strong>Cabecero grande</strong> (más de 180 cm de largo o más de 120 cm de alto — no cabe en coche): recargo de <strong>+{CABECERO_RECARGO_GRANDE}€</strong> {f._recargoGrande ? "incluido en el precio" : "pendiente"}. El precio es editable a mano abajo.
+            </div>
+          )}
           <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral />
           <div>
             <div className={section}>Acabado</div>

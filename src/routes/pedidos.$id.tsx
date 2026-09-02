@@ -9,6 +9,7 @@ import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo }
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { ProductoForm, productoToState } from "@/components/ProductoForm";
 import { TapiceroAsignado, RutaProduccion, TelasPedidoEditor } from "@/components/PedidoProduccion";
+import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
 import { usePedidoDraft } from "@/lib/use-pedido-draft";
 
 export const Route = createFileRoute("/pedidos/$id")({
@@ -241,6 +242,13 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
                 onChange={(e) => patch({ costeEnvio: parseFloat(e.target.value) || 0 })}
                 className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none" />
             </Field>
+            <SugerenciaEnvioCabecero
+              tipo={producto?.tipo ?? ""}
+              ancho={producto?.ancho} alto={producto?.alto}
+              ciudad={lead?.ciudad} provincia={lead?.provincia}
+              costeEnvio={draft.costeEnvio}
+              onApply={(v) => patch({ costeEnvio: v })}
+            />
             <Field label="Reserva (€)">
               <input type="number" step="0.01" value={draft.reserva}
                 onChange={(e) => patch({ reserva: parseFloat(e.target.value) || 0 })}
