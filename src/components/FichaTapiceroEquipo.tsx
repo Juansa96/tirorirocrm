@@ -4,7 +4,7 @@ import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
-import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo } from "@/lib/catalogo";
+import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
@@ -183,7 +183,9 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
           <div className="mb-1.5 text-xs font-medium text-slate-500">Vivo / ribete <span className="text-slate-400">(lo ve el tapicero · se guarda al instante)</span></div>
           <div className="flex flex-wrap gap-2">
             {([["", "Sin vivo"], ["vivo-simple", "Vivo simple"], ["vivo-doble", "Vivo doble"]] as const).map(([v, lbl]) => {
-              const activo = (producto.acabado || "") === v;
+              // "Sin vivo" cubre tanto el acabado vacío como el "liso" guardado
+              // desde el formulario de producto o desde la web.
+              const activo = v === "" ? esSinVivo(producto.acabado) : producto.acabado === v;
               return (
                 <button key={v || "sin"} type="button" onClick={() => void actions.setProductoAcabado(producto.id, v)}
                   className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>

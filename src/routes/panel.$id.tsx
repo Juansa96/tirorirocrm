@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import {
   displayNombreProducto, telasDeProducto, etiquetaTela, vivoLabel, tipoLlevaVivo, montajeEfectivo,
+  pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL,
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
@@ -51,7 +52,12 @@ function FichaPanel() {
   const plazo = plazoBadge(p.diasRestantes, p.entregado, !!p.fechaRecogida);
   const montajeEf = montajeEfectivo(p.tipo, p.montaje);
   const montaje = montajeEf === "colgar" ? "Colgar en pared" : montajeEf === "apoyar" ? "Apoyar en suelo" : "";
-  const extras = [/tapete/i.test(p.patas) && "Tapetes suelo", /colgador/i.test(p.patas) && "Colgadores"].filter(Boolean) as string[];
+  const extras = [
+    /tapete/i.test(p.patas) && "Tapetes suelo",
+    /colgador/i.test(p.patas) && "Colgadores",
+    // El almacenaje del puf viaja en el modelo ("… · Con almacenaje").
+    pufTieneAlmacenaje(p.modelo) && PUF_ALMACENAJE_LABEL,
+  ].filter(Boolean) as string[];
 
   const plantilla = p.archivos.filter((a) => a.tipo === "plantilla");
   const etiquetas = p.archivos.filter((a) => a.tipo === "etiqueta_envio" || a.tipo === "etiqueta_ctt");

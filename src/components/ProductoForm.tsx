@@ -24,6 +24,8 @@ import {
   cabeceroEsGrande,
   PUF_OPCIONES,
   findPufById,
+  PUF_ALMACENAJE_SUFIJO,
+  pufTieneAlmacenaje,
   MESA_OPCIONES,
   MESA_ALTO_FIJO,
   findMesaById,
@@ -66,12 +68,16 @@ export const PANTALLA_FORMAS = [
   { id: "rectangulo", name: "La Serrota — Rectangular" },
 ];
 
+// El cabecero también puede ir SIN vivo: cuesta lo mismo que el simple y hay
+// clientes que lo quieren liso. "liso" = sin vivo (mismo id que en pufs y en la
+// web), y nunca viene preseleccionado.
 export const FINISHES_CABECERO = [
+  { id: "liso",        name: "Sin vivo" },
   { id: "vivo-simple", name: "Vivo simple (incluido)" },
   { id: "vivo-doble",  name: `Vivo doble (+${CABECERO_VIVO_DOBLE_RECARGO}€)` },
 ];
 export const FINISHES_PUF = [
-  { id: "liso",        name: "Sin acabado" },
+  { id: "liso",        name: "Sin vivo" },
   { id: "vivo-simple", name: "Vivo simple (+15€)" },
 ];
 
@@ -100,6 +106,9 @@ export interface ProdState {
   telaLateral: string; colgador: boolean;
   // Puf: pufId ∈ PUF_OPCIONES.id | "custom" | "tbd" | ""
   pufId: string; pufAnchoCustom: string; pufFondoCustom: string; pufAltoCustom: string; cantidadPuf: string;
+  // Puf con almacenaje (hueco interior). Se guarda dentro de `modelo` —"… · Con
+  // almacenaje"— para no necesitar una columna nueva.
+  pufAlmacenaje: boolean;
   // Mesa: mesaId ∈ MESA_OPCIONES.id | "custom" | "tbd" | ""
   mesaId: string; mesaLargo: string; mesaAlto: string; mesaFondo: string; superficieMesa: string;
   // Pantalla: pantallaId ∈ PANTALLA_OPCIONES.id | "custom" | "tbd" | "";
@@ -134,7 +143,7 @@ export const EMPTY_PROD_STATE: ProdState = {
   // Arrancan en "Por decidir" (tbd → null) y se rellenan solas solo cuando el
   // operador elige una opción estándar del catálogo.
   forma: "", formaOtra: "", anchoCama: "tbd", anchoCamaCustom: "", altoCabecero: "tbd", altoCabeceroCustom: "", telaLateral: "", colgador: false,
-  pufId: "", pufAnchoCustom: "", pufFondoCustom: "", pufAltoCustom: "", cantidadPuf: "1",
+  pufId: "", pufAnchoCustom: "", pufFondoCustom: "", pufAltoCustom: "", cantidadPuf: "1", pufAlmacenaje: false,
   mesaId: "", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   pantallaId: "", formaPantalla: "cilindro", pantallaAnchoCustom: "", pantallaAltoCustom: "",
   tela: "", coleccionTela: "basic", acabado: "", telaVivo: "",
@@ -177,7 +186,9 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     fondo = f._isEdit
       ? (f._origFondo === null ? null : f._origFondo ?? null)
       : CABECERO_GROSOR_CM;
-    color = f.telaLateral; relleno = f.telaVivo;
+    // Si se elige "Sin vivo" a propósito, no se arrastra la tela de ribete que
+    // se hubiera elegido antes (el tapicero no debe cortar un vivo que no va).
+    color = f.telaLateral; relleno = f.acabado === "liso" ? "" : f.telaVivo;
     const tbdForma = f.forma === FORMA_POR_DECIDIR || !f.forma;
     const tbdAncho = f.anchoCama === "tbd";
     const tbdAlto = f.altoCabecero === "tbd";
@@ -201,7 +212,10 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
       modelo = opt.label;
       ancho = opt.ancho; fondo = opt.fondo; alto = opt.alto;
     }
-    color  = f.telaLateral; relleno = f.telaVivo;
+    // El almacenaje se marca en el propio modelo (sin columna nueva): así viaja
+    // solo a las listas del CRM, a la ficha y al panel del tapicero.
+    if (f.pufAlmacenaje) modelo = modelo ? `${modelo}${PUF_ALMACENAJE_SUFIJO}` : "Puf con almacenaje";
+    color  = f.telaLateral; relleno = f.acabado === "liso" ? "" : f.telaVivo;
     patas  = extras([f.tapetes && "Tapetes protectores (+5€)", f.pufId === "tbd" && "Tamaño por decidir"]);
   } else if (f.tipo === "mesa") {
     const opt = findMesaById(f.mesaId);
@@ -372,6 +386,7 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.pufFondoCustom = !id && p.fondo ? String(p.fondo) : "";
     s.pufAltoCustom  = !id && p.alto  ? String(p.alto)  : "";
     s.cantidadPuf = String(p.cantidad);
+    s.pufAlmacenaje = pufTieneAlmacenaje(p.modelo);
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
   } else if (mismoTipo(p.tipo, "mesa")) {
     const id = findCatalogIdByDims(MESA_OPCIONES, p.ancho, p.alto, p.fondo);
@@ -884,6 +899,16 @@ export function ProductoForm({
                 <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" className={inp} value={f.pufAltoCustom} onChange={e => s({ pufAltoCustom: e.target.value })} min={20} max={100} /></div>
               </div>
             )}
+          </div>
+          <div>
+            <div className={section}>Almacenaje</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => s({ pufAlmacenaje: false })} className={btn(!f.pufAlmacenaje)}>Sin almacenaje</button>
+              <button type="button" onClick={() => s({ pufAlmacenaje: true })} className={btn(f.pufAlmacenaje)}>Con almacenaje</button>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-400">
+              Vale para cualquier medida, cuadrada o redonda. El precio no cambia solo: ajústalo abajo si lleva recargo.
+            </p>
           </div>
           <div>
             <div className={section}>Cantidad</div>

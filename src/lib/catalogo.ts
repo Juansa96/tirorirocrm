@@ -125,6 +125,10 @@ const MODELO_PLACEHOLDER_RE = /^\(?\s*(?:mis\s+medidas|medidas?\s+propias|(?:med
 // Es ruido para el título: se quita para dejar SOLO la descripción real de la
 // forma. Si detrás no hay nada, el título queda solo con el tipo ("Cabecero").
 const FORMA_LIBRE_PREFIJO_RE = /^\(?\s*formas?\s+(?:personalizad[ao]s?|a\s+medida|libres?|otra)\s*\)?\s*[—–:.\-]*\s*/i;
+// Marca del puf con almacenaje al final del modelo. En el TÍTULO no hace falta
+// (el panel del tapicero la enseña como distintivo y como extra de la ficha),
+// así que se quita aquí para que no tape el placeholder de "medida por decidir".
+const PUF_ALMACENAJE_SUFIJO_RE = /\s*[·|-]?\s*con\s+almacenaje\s*$/i;
 
 export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
   if (esModeloTBD(modelo)) return "";
@@ -132,6 +136,7 @@ export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
   if (!det) return "";
   let resto = det.replace(PREFIJO_TIPO_MODELO_RE, "").trim();
   resto = resto.replace(FORMA_LIBRE_PREFIJO_RE, "").trim(); // quita "Forma personalizada -"
+  resto = resto.replace(PUF_ALMACENAJE_SUFIJO_RE, "").trim(); // quita "· Con almacenaje"
   if (!resto) return "";                       // el modelo era solo el nombre del tipo / "forma personalizada"
   if (MODELO_PLACEHOLDER_RE.test(resto)) return "";
   if (/^por decidir$/i.test(resto)) return "";
@@ -210,6 +215,13 @@ export function telasDeProducto(tipo: unknown): TelaRol[] {
 export function tipoLlevaVivo(tipo: unknown): boolean {
   const k = normalizeTipo(tipo);
   return k === "cabecero" || k === "banco" || k === "puf";
+}
+
+// "Sin vivo" se ha guardado de dos formas a lo largo del tiempo: acabado vacío
+// (nunca se eligió) y "liso" (se eligió "Sin vivo" en el CRM o en la web).
+export function esSinVivo(acabado: unknown): boolean {
+  const a = String(acabado ?? "");
+  return a !== "vivo-simple" && a !== "vivo-doble";
 }
 
 // Etiqueta legible del acabado de vivo. Por defecto (sin acabado) es "Sin vivo"
@@ -442,6 +454,18 @@ export const PUF_OPCIONES: PufOpcion[] = [
   { id: "red-50x40",     label: "Redondo Ø50 × 40 cm alto", forma: "redondo", ancho: 50, fondo: 50, alto: 40, precio: 185, premium: 55, vivo: 15, activo: true },
   { id: "red-60x40",     label: "Redondo Ø60 × 40 cm alto", forma: "redondo", ancho: 60, fondo: 60, alto: 40, precio: 240, premium: 70, vivo: 15, activo: true },
 ];
+
+// ── Puf con almacenaje ─────────────────────────────────────────────────────
+// El almacenaje (hueco interior bajo la tapa) no es una medida aparte: es
+// cualquiera de las medidas de arriba —cuadradas o redondas— marcada en el
+// propio `modelo` ("Cuadrado 50×50×40 cm · Con almacenaje"). Se guarda así a
+// propósito para no añadir una columna nueva a la base de datos.
+export const PUF_ALMACENAJE_LABEL = "Con almacenaje";
+export const PUF_ALMACENAJE_SUFIJO = ` · ${PUF_ALMACENAJE_LABEL}`;
+
+export function pufTieneAlmacenaje(modelo: unknown): boolean {
+  return /almacenaje/i.test(String(modelo ?? ""));
+}
 
 // ── Mesas de centro ────────────────────────────────────────────────────────
 // Ahora TODAS son cuadradas con altura fija 40 cm.
