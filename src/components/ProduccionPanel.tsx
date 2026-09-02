@@ -6,6 +6,7 @@ import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Lead, type Producto, type Tapicero } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
+import { cmpCola } from "@/lib/orden-taller";
 import { tipoLabelOf, displayModelo, displayColeccionTela } from "@/lib/catalogo";
 import { toast } from "sonner";
 
@@ -75,8 +76,10 @@ export function ProduccionPanel() {
       const sinAsignar = visibles.filter((p) => !p.tapiceroId);
       if (sinAsignar.length > 0) out.push({ tapicero: null, lineas: sinAsignar.map(lineaDe) });
     }
+    // Mismo orden que el panel del tapicero: manda la fecha de recogida de Juan
+    // (y la de entrega si aún no hay recogida). Ver src/lib/orden-taller.ts.
     for (const g of out) {
-      g.lineas.sort((a, b) => (a.pedido.fechaLimite || "9999").localeCompare(b.pedido.fechaLimite || "9999"));
+      g.lineas.sort((a, b) => cmpCola(a.pedido, b.pedido));
     }
     return out.filter((g) => g.lineas.length > 0);
   }, [pedidos, leads, productos, tapicerosSelect, soloEnCurso, tapiceroF]);
@@ -155,7 +158,8 @@ export function ProduccionPanel() {
                     <th className="px-3 py-2 font-semibold md:px-4">Producto</th>
                     <th className="hidden px-4 py-2 font-semibold md:table-cell">Medidas</th>
                     <th className="hidden px-4 py-2 font-semibold md:table-cell">Tela</th>
-                    <th className="px-3 py-2 font-semibold md:px-4">Entrega</th>
+                    <th className="px-3 py-2 font-semibold md:px-4">Recogida</th>
+                    <th className="hidden px-4 py-2 font-semibold md:table-cell">Entrega</th>
                     <th className="px-3 py-2 font-semibold md:px-4">Tapicero</th>
                   </tr>
                 </thead>
@@ -175,7 +179,8 @@ export function ProduccionPanel() {
                       </td>
                       <td className="hidden px-4 py-2.5 text-slate-600 md:table-cell">{medidasOf(producto)}</td>
                       <td className="hidden px-4 py-2.5 text-slate-600 md:table-cell">{telaOf(producto)}</td>
-                      <td className="px-3 py-2.5 text-slate-600 md:px-4">{pedido.fechaLimite ? formatShortDate(pedido.fechaLimite) : "—"}</td>
+                      <td className="px-3 py-2.5 text-slate-600 md:px-4">{pedido.fechaRecogida ? formatShortDate(pedido.fechaRecogida) : "—"}</td>
+                      <td className="hidden px-4 py-2.5 text-slate-600 md:table-cell">{pedido.fechaLimite ? formatShortDate(pedido.fechaLimite) : "—"}</td>
                       <td className="px-3 py-2.5 md:px-4">
                         <select
                           value={pedido.tapiceroId}
