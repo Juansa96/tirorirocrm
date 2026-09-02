@@ -128,7 +128,7 @@ const FORMA_LIBRE_PREFIJO_RE = /^\(?\s*formas?\s+(?:personalizad[ao]s?|a\s+medid
 // Marca del puf con almacenaje al final del modelo. En el TÍTULO no hace falta
 // (el panel del tapicero la enseña como distintivo y como extra de la ficha),
 // así que se quita aquí para que no tape el placeholder de "medida por decidir".
-const PUF_ALMACENAJE_SUFIJO_RE = /\s*[·|-]?\s*con\s+almacenaje\s*$/i;
+const PUF_ALMACENAJE_SUFIJO_RE = /\s*[·-]?\s*con\s+almacenaje\s*$/i;
 
 export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
   if (esModeloTBD(modelo)) return "";

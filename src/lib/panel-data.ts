@@ -63,11 +63,50 @@ async function getTelasWeb(): Promise<Map<string, { foto: string; coleccion: str
   return map;
 }
 
+// Columnas que ve el TAPICERO. No incluye las del nombre del cliente: esas se
+// piden aparte, ya recortadas, con `panel_cliente_nombres` (privacidad).
+const COLS_TAPICERO = [
+  "id", "numero", "numero_sufijo", "producto_lead_id", "montaje", "notas_pedido", "nota_tapicero",
+  "orden_produccion", "fecha_limite", "fecha_recogida", "enviado_tapicero_fecha", "entregado",
+  "tela_estado", "tela_estado_por", "tela_estado_fecha",
+  "terminado_tapicero", "terminado_tapicero_por", "terminado_tapicero_fecha",
+  "pasos_tapicero", "tapicero_id",
+];
+
+// Nombre de la columna que PostgREST dice que no existe ("column pedidos.x does
+// not exist" / 42703). Devuelve "" si el error es de otra cosa.
+function columnaInexistente(mensaje: string): string {
+  const m = /column\s+(?:"?[\w.]*?"?\.)?"?([a-z0-9_]+)"?\s+does not exist/i.exec(mensaje || "");
+  return m ? m[1] : "";
+}
+
+// Consulta los pedidos del tapicero TOLERANDO que a la base de datos publicada
+// le falte alguna columna nueva (las migraciones subidas a GitHub no siempre
+// están aplicadas; ver CLAUDE.md). Si PostgREST se queja de una columna, se
+// quita y se reintenta: el tapicero sigue viendo su trabajo, solo que sin ese
+// dato, en vez de quedarse con la lista a cero.
+async function selectTolerante(cols: string[], tapiceroId: string): Promise<{
+  rows: Record<string, unknown>[]; error: { message: string } | null;
+}> {
+  let actuales = [...cols];
+  for (let intento = 0; intento < cols.length; intento++) {
+    const { data, error } = await supabase.from("pedidos").select(actuales.join(",")).eq("tapicero_id", tapiceroId);
+    if (!error) return { rows: (data ?? []) as unknown as Record<string, unknown>[], error: null };
+    const falta = columnaInexistente(error.message);
+    if (!falta || !actuales.includes(falta)) return { rows: [], error };
+    console.warn(`[panel] la columna pedidos.${falta} no existe en la base de datos; se carga sin ella.`);
+    actuales = actuales.filter((c) => c !== falta);
+    if (actuales.length === 0) return { rows: [], error };
+  }
+  return { rows: [], error: { message: "No se han podido cargar los pedidos." } };
+}
+
 // Carga (y mantiene en tiempo real) los pedidos ENVIADOS de un tapicero, con su
 // producto, telas y archivos. Usa consultas directas (no el store del equipo);
 // la RLS garantiza que un tapicero solo obtiene los suyos.
 export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerElTapicero = false) {
   const [pedidos, setPedidos] = useState<PanelPedido[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cargar = useCallback(async () => {
@@ -78,11 +117,20 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
     // El equipo recibe todo ("*"), incluido el nombre completo.
     // `pasos_tapicero` (JSONB) incluye los marcadores de iniciado / cambio, así
     // que no hacen falta columnas nuevas ni migraciones.
-    const COLS_TAPICERO = "id,numero,numero_sufijo,producto_lead_id,montaje,notas_pedido,nota_tapicero,orden_produccion,fecha_limite,fecha_recogida,enviado_tapicero_fecha,entregado,tela_estado,tela_estado_por,tela_estado_fecha,terminado_tapicero,terminado_tapicero_por,terminado_tapicero_fecha,pasos_tapicero,tapicero_id";
-    const { data: peds } = await supabase.from("pedidos")
-      .select(esViewerElTapicero ? COLS_TAPICERO : "*")
-      .eq("tapicero_id", tapiceroId);
-    const rows = (peds ?? []) as unknown as Record<string, unknown>[];
+    const { rows, error: errPedidos } = esViewerElTapicero
+      ? await selectTolerante(COLS_TAPICERO, tapiceroId)
+      : await (async () => {
+          const { data, error } = await supabase.from("pedidos").select("*").eq("tapicero_id", tapiceroId);
+          return { rows: (data ?? []) as unknown as Record<string, unknown>[], error };
+        })();
+    // Si la consulta falla, NO se enseña "no tienes pedidos": se avisa del fallo
+    // y se deja la lista como estaba (un panel vacío por error engaña al taller).
+    if (errPedidos) {
+      setError(errPedidos.message || "No se han podido cargar los pedidos.");
+      setPedidos((prev) => prev ?? []);   // sale del "Cargando…" para poder enseñar el aviso
+      return;
+    }
+    setError(null);
 
     // Nombre del tapicero asignado (todos los pedidos son del mismo).
     const { data: tapRow } = await supabase.from("tapiceros").select("nombre, apellido").eq("id", tapiceroId).maybeSingle();
@@ -235,7 +283,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
     return () => { if (timer.current) clearTimeout(timer.current); void supabase.removeChannel(ch); };
   }, [tapiceroId, cargar]);
 
-  return { pedidos, refetch: cargar };
+  return { pedidos, error, refetch: cargar };
 }
 
 // Llama a la ruta de servidor para marcar tela recibida / terminado.

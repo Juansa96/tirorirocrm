@@ -91,7 +91,7 @@ function Panel() {
   }, [esEquipo]);
 
   const viendoId = esTapicero ? miTapiceroId : (search.tapicero ?? "");
-  const { pedidos, refetch } = usePanelPedidos(viendoId || null, esTapicero);
+  const { pedidos, error: errorCarga, refetch } = usePanelPedidos(viendoId || null, esTapicero);
   const [vista, setVista] = useState<"en_curso" | "por_recoger" | "terminados">("en_curso");
   const enCurso = vista === "en_curso";
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso" | "empezados">("todos");
@@ -183,7 +183,12 @@ function Panel() {
     try {
       // Solo se escriben los pedidos cuyo orden cambia realmente.
       const cambios = nuevoFlat.filter((p) => (p.ordenProduccion ?? null) !== (nuevoOrden.get(p.id) ?? null));
-      await Promise.all(cambios.map((p) => supabase.from("pedidos").update({ orden_produccion: nuevoOrden.get(p.id) ?? null } as never).eq("id", p.id)));
+      const res = await Promise.all(cambios.map((p) =>
+        supabase.from("pedidos").update({ orden_produccion: nuevoOrden.get(p.id) ?? null } as never).eq("id", p.id)));
+      // Supabase devuelve el fallo en `error`, no lo lanza: sin esto, un orden
+      // que no se ha guardado parecería guardado hasta recargar.
+      const fallo = res.find((r) => r.error)?.error;
+      if (fallo) toast.error("No se pudo guardar el orden: " + fallo.message);
       await refetch();
     } catch { toast.error("No se pudo guardar el orden."); }
     setOrdenOverride({});
@@ -295,7 +300,17 @@ function Panel() {
           </div>
         )}
 
-        {pedidos === null ? (
+        {errorCarga ? (
+          // Un panel vacío por un fallo de carga haría creer al taller que no
+          // tiene trabajo: se dice claramente que ha fallado y se puede reintentar.
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center">
+            <p className="text-sm font-medium text-rose-700">No se han podido cargar tus pedidos.</p>
+            <p className="mt-1 text-xs text-rose-600">{errorCarga}</p>
+            <button onClick={() => void refetch()} className="mt-3 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-100">
+              Reintentar
+            </button>
+          </div>
+        ) : pedidos === null ? (
           <div className="py-16 text-center text-slate-400">Cargando…</div>
         ) : flat.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-400">
