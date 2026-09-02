@@ -227,8 +227,13 @@ export interface Lead {
   utmMedium: string;
   utmCampaign: string;
   utmTerm: string;
+  utmContent: string;
+  utmPlacement: string;
+  utmId: string;
   fbclid: string;
   landingPath: string;
+  landingPage: string;
+  referrer: string;
   // ── Venta cerrada (Closed Won) ──
   ventaImporte: number | null;
   ventaFecha: string;         // YYYY-MM-DD o ""
@@ -243,9 +248,39 @@ export const CAMPANA_FIELDS: { key: keyof Lead; label: string }[] = [
   { key: "utmMedium", label: "utm_medium" },
   { key: "utmCampaign", label: "utm_campaign" },
   { key: "utmTerm", label: "utm_term" },
+  { key: "utmContent", label: "utm_content" },
+  { key: "utmPlacement", label: "utm_placement" },
+  { key: "utmId", label: "utm_id" },
   { key: "fbclid", label: "fbclid" },
   { key: "landingPath", label: "landing_path" },
+  { key: "landingPage", label: "landing_page" },
+  { key: "referrer", label: "referrer" },
 ];
+
+/* ── Canal derivado (no se guarda en BD, se calcula) ───────────── */
+export const CANALES = ["Meta Ads", "Google Ads", "Orgánico", "Directo"] as const;
+export type Canal = (typeof CANALES)[number];
+
+type CanalSource = Pick<Lead, "utmSource" | "gclid" | "referrer"> & Partial<Lead>;
+
+export function canalOf(lead: CanalSource): Canal {
+  const src = (lead.utmSource ?? "").trim().toLowerCase();
+  const hasUtm = !!(
+    src || (lead.utmMedium ?? "") || (lead.utmCampaign ?? "") ||
+    (lead.utmContent ?? "") || (lead.utmId ?? "") || (lead.utmTerm ?? "")
+  );
+  if (src === "meta" || src === "facebook" || src === "instagram" || (lead.fbclid ?? "").trim()) return "Meta Ads";
+  if ((lead.gclid ?? "").trim() || src === "google") return "Google Ads";
+  if ((lead.referrer ?? "").trim() && !hasUtm) return "Orgánico";
+  return "Directo";
+}
+
+export const CANAL_COLORS: Record<Canal, string> = {
+  "Meta Ads": "bg-blue-50 text-blue-700 border-blue-200",
+  "Google Ads": "bg-amber-50 text-amber-700 border-amber-200",
+  "Orgánico": "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "Directo": "bg-slate-100 text-slate-600 border-slate-200",
+};
 
 
 
