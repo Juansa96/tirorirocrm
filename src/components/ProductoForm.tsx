@@ -351,10 +351,12 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     else { s.forma = ""; }
     const a = p.ancho ? String(p.ancho) : "";
     const anchosStd = CABECERO_ANCHOS_CAT.map(x => x.id);
-    s.anchoCama = anchosStd.includes(a) ? a : (a ? "custom" : "150");
+    // Sin medida guardada (null = "Por decidir") ⇒ se mantiene "tbd", NO se
+    // inventa 150/100. Así al reeditar no aparecen medidas sin confirmar.
+    s.anchoCama = anchosStd.includes(a) ? a : (a ? "custom" : "tbd");
     s.anchoCamaCustom = anchosStd.includes(a) ? "" : a;
     const h = p.alto ? String(p.alto) : "";
-    s.altoCabecero = CABECERO_ALTOS.includes(h) ? h : (h ? "custom" : "100");
+    s.altoCabecero = CABECERO_ALTOS.includes(h) ? h : (h ? "custom" : "tbd");
     s.altoCabeceroCustom = CABECERO_ALTOS.includes(h) ? "" : h;
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.colgador = p.patas?.includes("Con colgador") ?? false;
@@ -405,8 +407,9 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
       .filter(o => o.id !== "custom" && o.id !== "60-doble" && o.ancho !== null)
       .map(o => String(o.ancho));
     const isDoble = /doble/i.test(p.modelo);
-    const isTbd = mismoModelo(p.modelo, "Oyambre — Por decidir") || /por decidir/i.test(p.modelo);
-    s.bancoMedida = isTbd ? "tbd" : (isDoble ? "60-doble" : (stdAnchos.includes(a) ? a : (a ? "custom" : "90")));
+    // Sin ancho guardado (null = "Por decidir") ⇒ "tbd", NO se inventa 90.
+    const isTbd = mismoModelo(p.modelo, "Oyambre — Por decidir") || /por decidir/i.test(p.modelo) || (!a && !isDoble);
+    s.bancoMedida = isTbd ? "tbd" : (isDoble ? "60-doble" : (stdAnchos.includes(a) ? a : (a ? "custom" : "tbd")));
     s.bancoLargoCustom = s.bancoMedida === "custom" ? a : "";
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.cantidad = p.cantidad;
