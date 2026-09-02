@@ -592,15 +592,33 @@ function ClienteDetalle() {
             )}
             {CAMPANA_FIELDS.some((f) => String(lead[f.key] ?? "").trim()) && (
               <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Origen de campaña</div>
-                <dl className="space-y-1">
-                  {CAMPANA_FIELDS.filter((f) => String(lead[f.key] ?? "").trim()).map((f) => (
-                    <div key={f.key} className="flex items-baseline gap-2 text-xs">
-                      <dt className="shrink-0 font-mono text-slate-500">{f.label}</dt>
-                      <dd className="min-w-0 flex-1 break-all text-right font-medium text-slate-700">{String(lead[f.key])}</dd>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Origen</span>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${CANAL_COLORS[canalOf(lead)]}`}>{canalOf(lead)}</span>
+                </div>
+                <dl className="mb-2 space-y-1">
+                  {[
+                    { label: "Campaña", value: lead.utmCampaign },
+                    { label: "Conjunto", value: lead.utmTerm },
+                    { label: "Anuncio", value: lead.utmContent },
+                  ].filter((x) => String(x.value ?? "").trim()).map((x) => (
+                    <div key={x.label} className="flex items-baseline gap-2 text-xs">
+                      <dt className="shrink-0 text-slate-500">{x.label}</dt>
+                      <dd className="min-w-0 flex-1 break-all text-right font-semibold text-slate-800">{x.value}</dd>
                     </div>
                   ))}
                 </dl>
+                <details>
+                  <summary className="cursor-pointer text-[11px] text-slate-400">Ver todos los parámetros</summary>
+                  <dl className="mt-2 space-y-1">
+                    {CAMPANA_FIELDS.filter((f) => String(lead[f.key] ?? "").trim()).map((f) => (
+                      <div key={f.key} className="flex items-baseline gap-2 text-xs">
+                        <dt className="shrink-0 font-mono text-slate-500">{f.label}</dt>
+                        <dd className="min-w-0 flex-1 break-all text-right font-medium text-slate-700">{String(lead[f.key])}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
               </div>
             )}
             <div className="flex items-center gap-2 text-xs text-slate-400">
