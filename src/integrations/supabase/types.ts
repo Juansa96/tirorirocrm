@@ -226,6 +226,7 @@ export type Database = {
           gclid: string | null
           id: string
           instagram: string | null
+          landing_page: string | null
           landing_path: string | null
           nif: string | null
           nombre: string
@@ -237,13 +238,17 @@ export type Database = {
           razon_urgencia: string | null
           red_principal: string | null
           red_social: string | null
+          referrer: string | null
           seguidores: number
           telefono: string | null
           tipo: string
           updated_at: string
           usuario: string | null
           utm_campaign: string | null
+          utm_content: string | null
+          utm_id: string | null
           utm_medium: string | null
+          utm_placement: string | null
           utm_source: string | null
           utm_term: string | null
           valor: number
@@ -278,6 +283,7 @@ export type Database = {
           gclid?: string | null
           id?: string
           instagram?: string | null
+          landing_page?: string | null
           landing_path?: string | null
           nif?: string | null
           nombre: string
@@ -289,13 +295,17 @@ export type Database = {
           razon_urgencia?: string | null
           red_principal?: string | null
           red_social?: string | null
+          referrer?: string | null
           seguidores?: number
           telefono?: string | null
           tipo?: string
           updated_at?: string
           usuario?: string | null
           utm_campaign?: string | null
+          utm_content?: string | null
+          utm_id?: string | null
           utm_medium?: string | null
+          utm_placement?: string | null
           utm_source?: string | null
           utm_term?: string | null
           valor?: number
@@ -330,6 +340,7 @@ export type Database = {
           gclid?: string | null
           id?: string
           instagram?: string | null
+          landing_page?: string | null
           landing_path?: string | null
           nif?: string | null
           nombre?: string
@@ -341,13 +352,17 @@ export type Database = {
           razon_urgencia?: string | null
           red_principal?: string | null
           red_social?: string | null
+          referrer?: string | null
           seguidores?: number
           telefono?: string | null
           tipo?: string
           updated_at?: string
           usuario?: string | null
           utm_campaign?: string | null
+          utm_content?: string | null
+          utm_id?: string | null
           utm_medium?: string | null
+          utm_placement?: string | null
           utm_source?: string | null
           utm_term?: string | null
           valor?: number

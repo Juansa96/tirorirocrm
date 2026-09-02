@@ -50,6 +50,13 @@
       "when": 1788163248285,
       "tag": "0006_leads_campaign_tracking_venta",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788377317733,
+      "tag": "0007_leads_utm_extra_cols",
+      "breakpoints": true
     }
   ]
 }
