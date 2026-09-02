@@ -242,7 +242,8 @@ function PipelineB2C() {
     navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, vendedor: v || undefined }) });
   }
   function setCanal(v: string) {
-    navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, canal: v || undefined }) });
+    const canal = (CANALES as readonly string[]).includes(v) ? (v as Canal) : undefined;
+    navigate({ to: "/pipeline", search: (prev: Record<string, unknown>) => ({ ...prev, canal }) });
   }
   function clearFilters() {
     navigate({ to: "/pipeline", search: {} });
