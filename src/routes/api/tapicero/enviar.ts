@@ -95,7 +95,10 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
           const { error: encErr } = await supabaseAdmin.rpc("enqueue_email", {
             queue_name: "transactional_emails",
             payload: {
-              run_id: crypto.randomUUID(), message_id: messageId, to, from: FROM, sender_domain: SENDER_DOMAIN,
+              // Sin run_id: la API de Lovable lo valida contra una ejecución real y
+              // rechazaba el uuid inventado ("Run not found or expired"), por lo que
+              // este aviso nunca había llegado a enviarse.
+              message_id: messageId, idempotency_key: messageId, to, from: FROM, sender_domain: SENDER_DOMAIN,
               subject, html, text, purpose: "transactional", label: "tapicero_asignacion", queued_at: ahora,
             },
           });

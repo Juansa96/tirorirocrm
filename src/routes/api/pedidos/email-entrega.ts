@@ -70,7 +70,9 @@ export const Route = createFileRoute("/api/pedidos/email-entrega")({
         const { error: encErr } = await supabaseAdmin.rpc("enqueue_email", {
           queue_name: "transactional_emails",
           payload: {
-            run_id: crypto.randomUUID(), message_id: messageId, to, from: ENTREGA_FROM, sender_domain: ENTREGA_SENDER_DOMAIN,
+            // Sin run_id: la API de Lovable lo valida contra una ejecución real y
+            // rechaza cualquier uuid inventado ("Run not found or expired").
+            message_id: messageId, idempotency_key: messageId, to, from: ENTREGA_FROM, sender_domain: ENTREGA_SENDER_DOMAIN,
             subject: asunto, html: htmlEmailEntrega(texto), text: plainEmailEntrega(texto),
             purpose: "transactional", label: ENTREGA_TEMPLATE, queued_at: ahora,
           },
