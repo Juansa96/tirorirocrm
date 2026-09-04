@@ -327,23 +327,28 @@ export const BANCO_OPCIONES: BancoOpcion[] = [
   { id: "custom",   label: "Mis medidas",   precio: 0,   premium: 0,   ancho: null, activo: true },
 ];
 
-// Medidas físicas por variante estándar. Fuente única de verdad — cualquier
-// valor por defecto para `fondo`/`alto` de un banco viene de aquí. Se aplica
-// SOLO cuando el payload no manda ese campo (payload manda si viene). Se
-// mantiene como mapa por-variante aunque hoy las 5 sean iguales: futuros
-// modelos con otro fondo se cambian aquí en una línea. "custom" no tiene
-// defaults (medidas propias del cliente).
+// Medidas físicas POR DEFECTO del banco. Alto y fondo son EDITABLES en el
+// formulario de producto (Clientes / Pedidos) y en el panel del tapicero: los
+// tres sitios escriben en las mismas columnas `alto` / `fondo` de
+// productos_lead, así que no hay copias que puedan desincronizarse. Estos
+// valores solo se usan para pre-rellenar un banco nuevo (o un payload de la
+// web que no mande alto/fondo).
+export const BANCO_ALTO_DEFECTO = 45;
+export const BANCO_FONDO_DEFECTO = 33;
+
+// Defaults por variante estándar (hoy todas iguales; se mantiene el mapa por si
+// un modelo futuro tiene otro fondo). "custom" no tiene defaults.
 export const BANCO_MEDIDAS_FISICAS: Record<string, { fondo: number; alto: number }> = {
-  "60":  { fondo: 33, alto: 45 },
-  "90":  { fondo: 33, alto: 45 },
-  "120": { fondo: 33, alto: 45 },
-  "150": { fondo: 33, alto: 45 },
-  "180": { fondo: 33, alto: 45 },
+  "60":  { fondo: BANCO_FONDO_DEFECTO, alto: BANCO_ALTO_DEFECTO },
+  "90":  { fondo: BANCO_FONDO_DEFECTO, alto: BANCO_ALTO_DEFECTO },
+  "120": { fondo: BANCO_FONDO_DEFECTO, alto: BANCO_ALTO_DEFECTO },
+  "150": { fondo: BANCO_FONDO_DEFECTO, alto: BANCO_ALTO_DEFECTO },
+  "180": { fondo: BANCO_FONDO_DEFECTO, alto: BANCO_ALTO_DEFECTO },
 };
 
-// Compatibilidad hacia atrás. Nuevos usos deben leer BANCO_MEDIDAS_FISICAS.
-export const BANCO_ALTO_FIJO = 45;
-export const BANCO_FONDO_FIJO = 33;
+// Compatibilidad hacia atrás (nombres antiguos). Ya no son "fijos".
+export const BANCO_ALTO_FIJO = BANCO_ALTO_DEFECTO;
+export const BANCO_FONDO_FIJO = BANCO_FONDO_DEFECTO;
 export const BANCO_VIVO_RECARGO = 30;
 
 // True si `raw` trae una variante presente pero desconocida (dispara nota).
@@ -371,7 +376,15 @@ export const CABECERO_GROSOR_CM = 8;
 export const CABECERO_ALTURA_BASE_CM = 100;
 export const CABECERO_SUPLEMENTO_10CM = 15;
 export const CABECERO_VIVO_DOBLE_RECARGO = 15;
-export const CABECERO_COLGADOR_RECARGO = 5;
+// Colgadores y tapetes protectores van INCLUIDOS en el precio base (antes
+// +5 € cada uno). No hay recargo.
+
+// Texto de extras (`productos_lead.patas`) para mostrar. Los productos
+// antiguos guardan "Tapetes protectores (+5€)" / "Con colgador (+5€)": el
+// registro no se toca, pero el "+5€" ya no es cierto y no se enseña.
+export function displayExtras(patas: string | null | undefined): string {
+  return (patas || "").replace(/\s*\(\+\s*5\s*€\)/g, "").trim();
+}
 
 export interface CabeceroAnchoOpcion {
   id: string;          // ancho como string, ej. "150"

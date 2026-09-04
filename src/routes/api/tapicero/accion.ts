@@ -5,6 +5,9 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 // El tapicero es solo-lectura a nivel de BD; estas escrituras pasan por aquí,
 // validando el token y la propiedad del pedido.
 //   POST { op: "tela_recibida" | "iniciado" | "terminado" | "cambio_visto", pedidoId, valor? }
+//   POST { op: "medidas", pedidoId, ancho?, alto?, fondo? }  → corrige las medidas
+//        del PRODUCTO del pedido (productos_lead.ancho/alto/fondo). Es la misma
+//        fila que editan Clientes y Pedidos: no hay copia en el pedido.
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
 export const Route = createFileRoute("/api/tapicero/accion")({
@@ -31,7 +34,7 @@ export const Route = createFileRoute("/api/tapicero/accion")({
         // Carga el pedido y valida propiedad (el tapicero solo los suyos).
         // `pasos_tapicero` (JSONB) guarda también los marcadores de iniciado /
         // cambio (claves con prefijo "@"), sin necesidad de columnas nuevas.
-        const { data: pedido } = await supabaseAdmin.from("pedidos").select("id, tapicero_id, pasos_tapicero").eq("id", pedidoId).maybeSingle();
+        const { data: pedido } = await supabaseAdmin.from("pedidos").select("id, tapicero_id, pasos_tapicero, producto_lead_id, entregado").eq("id", pedidoId).maybeSingle();
         if (!pedido) return json({ error: "Pedido no encontrado" }, 404);
         if (esTapicero && pedido.tapicero_id !== perfil.tapicero_id) return json({ error: "No es tu pedido" }, 403);
 
@@ -71,6 +74,34 @@ export const Route = createFileRoute("/api/tapicero/accion")({
           const { error } = await supabaseAdmin.from("pedidos").update({ pasos_tapicero: pasos } as never).eq("id", pedidoId);
           if (error) return json({ error: error.message }, 400);
           return json({ ok: true });
+        }
+        if (op === "medidas") {
+          // Medidas del producto (largo/ancho, alto, fondo) en cm. Cada campo
+          // es opcional: si no viene, no se toca; null/"" ⇒ sin especificar.
+          const prodId = (pedido as { producto_lead_id?: string | null }).producto_lead_id;
+          if (!prodId) return json({ error: "El pedido no tiene producto" }, 400);
+          const medida = (v: unknown): number | null | undefined => {
+            if (v === undefined) return undefined;
+            if (v === null || v === "") return null;
+            const n = Number(v);
+            if (!Number.isFinite(n) || n <= 0 || n > 500) return undefined;
+            return Math.round(n * 10) / 10;
+          };
+          const patch: Record<string, number | null> = {};
+          const ancho = medida(body?.ancho), alto = medida(body?.alto), fondo = medida(body?.fondo);
+          if (ancho !== undefined) patch.ancho = ancho;
+          if (alto !== undefined) patch.alto = alto;
+          if (fondo !== undefined) patch.fondo = fondo;
+          if (Object.keys(patch).length === 0) return json({ error: "Sin medidas válidas" }, 400);
+          const { error } = await supabaseAdmin.from("productos_lead").update(patch as never).eq("id", prodId);
+          if (error) return json({ error: error.message }, 400);
+          // Si lo corrige el EQUIPO desde el panel y el pedido sigue en el
+          // taller, se avisa al tapicero igual que al editar desde Pedidos.
+          if (esEquipo && pedido.tapicero_id && !(pedido as { entregado?: boolean }).entregado) {
+            const pasos = { ...pasosActuales, "@cambio": ahora, "@cambioDetalle": "Cambió en el producto: medidas" };
+            await supabaseAdmin.from("pedidos").update({ pasos_tapicero: pasos } as never).eq("id", pedidoId);
+          }
+          return json({ ok: true, medidas: patch });
         }
         if (op === "terminado") {
           const valor = body?.valor !== false;

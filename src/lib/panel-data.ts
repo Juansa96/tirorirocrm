@@ -279,6 +279,9 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, debounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "pedido_telas" }, debounced)
       .on("postgres_changes", { event: "*", schema: "public", table: "pedido_archivos" }, debounced)
+      // Medidas/tela del producto: si se corrigen en Clientes o Pedidos, el
+      // panel se refresca solo (mismo dato, sin copias).
+      .on("postgres_changes", { event: "*", schema: "public", table: "productos_lead" }, debounced)
       .subscribe();
     return () => { if (timer.current) clearTimeout(timer.current); void supabase.removeChannel(ch); };
   }, [tapiceroId, cargar]);
@@ -294,6 +297,20 @@ export async function accionTapicero(op: "tela_recibida" | "iniciado" | "termina
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ op, pedidoId, valor }),
+  });
+  return res.ok;
+}
+
+// Corrige las medidas del producto del pedido (cm) desde el panel. Escribe en
+// productos_lead.ancho/alto/fondo a través de la ruta de servidor: es la misma
+// fila que ven Clientes > Productos y Pedidos.
+export async function guardarMedidasTapicero(pedidoId: string, medidas: { ancho?: number | null; alto?: number | null; fondo?: number | null }): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? "";
+  const res = await fetch("/api/tapicero/accion", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ op: "medidas", pedidoId, ...medidas }),
   });
   return res.ok;
 }

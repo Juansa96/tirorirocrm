@@ -17,7 +17,7 @@ import {
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
 import { ProduccionProducto } from "@/components/PedidoProduccion";
-import { displayColeccionTela, displayNombreProducto, modeloDetalle, mismoTipo } from "@/lib/catalogo";
+import { displayColeccionTela, displayNombreProducto, modeloDetalle, mismoTipo, displayExtras } from "@/lib/catalogo";
 import { esClienteRecurrente, detectarDuplicados } from "@/lib/duplicados";
 
 export const Route = createFileRoute("/clientes/$id")({
@@ -794,7 +794,7 @@ function ClienteDetalle() {
                         {p.color && <span>Lateral: <strong>{p.color}</strong></span>}
                         {p.acabado && p.acabado !== "liso" && <span>Acabado: <strong>{p.acabado === "vivo-simple" ? "Vivo simple" : "Vivo doble"}</strong></span>}
                         {p.relleno && (mismoTipo(p.tipo, "cabecero") || mismoTipo(p.tipo, "puf")) && <span>Tela vivo: <strong>{p.relleno}</strong></span>}
-                        {p.patas && <span><strong>{p.patas}</strong></span>}
+                        {displayExtras(p.patas) && <span><strong>{displayExtras(p.patas)}</strong></span>}
                         <span>Cant: <strong>{p.cantidad}</strong></span>
                         {p.precioUnitario > 0 && <span>Precio: <strong>{formatCurrency(p.precioUnitario)}</strong></span>}
                         {p.precioUnitario > 0 && p.cantidad > 1 && <span>Total: <strong>{formatCurrency(p.precioUnitario * p.cantidad)}</strong></span>}
