@@ -10,6 +10,7 @@ import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { ProductoForm, productoToState } from "@/components/ProductoForm";
 import { TapiceroAsignado, RutaProduccion, TelasPedidoEditor } from "@/components/PedidoProduccion";
 import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
+import { EmailEntrega } from "@/components/EmailEntrega";
 import { usePedidoDraft } from "@/lib/use-pedido-draft";
 
 export const Route = createFileRoute("/pedidos/$id")({
@@ -287,6 +288,10 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
 
       {/* Ruta de producción (hitos) */}
       <RutaProduccion pedido={pedido} producto={producto} draft={draft} patch={patch} setTelasDraft={setTelasDraft} />
+
+      {/* Correo de entrega al cliente: solo cuando el pedido está ENTREGADO
+          (guardado), y solo lo ve el equipo. Nunca sale sin pulsar Enviar. */}
+      <EmailEntrega pedido={pedido} lead={lead} producto={producto} />
 
       {/* Telas del pedido (borrador) */}
       <TelasPedidoEditor telasDraft={telasDraft} setTelasDraft={setTelasDraft} />

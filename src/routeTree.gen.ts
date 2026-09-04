@@ -37,6 +37,7 @@ import { Route as ApiPublicTelasRouteImport } from './routes/api/public/telas'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
+import { Route as ApiPedidosEmailEntregaRouteImport } from './routes/api/pedidos/email-entrega'
 import { Route as ApiAdminUsuariosRouteImport } from './routes/api/admin/usuarios'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -182,6 +183,11 @@ const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   path: '/api/public/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPedidosEmailEntregaRoute = ApiPedidosEmailEntregaRouteImport.update({
+  id: '/api/pedidos/email-entrega',
+  path: '/api/pedidos/email-entrega',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminUsuariosRoute = ApiAdminUsuariosRouteImport.update({
   id: '/api/admin/usuarios',
   path: '/api/admin/usuarios',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/panel/': typeof PanelIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
+  '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/panel': typeof PanelIndexRoute
   '/pedidos': typeof PedidosIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
+  '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/panel/': typeof PanelIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
+  '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -330,6 +339,7 @@ export interface FileRouteTypes {
     | '/panel/'
     | '/pedidos/'
     | '/api/admin/usuarios'
+    | '/api/pedidos/email-entrega'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/panel'
     | '/pedidos'
     | '/api/admin/usuarios'
+    | '/api/pedidos/email-entrega'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/panel/'
     | '/pedidos/'
     | '/api/admin/usuarios'
+    | '/api/pedidos/email-entrega'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -430,6 +442,7 @@ export interface RootRouteChildren {
   ClientesIndexRoute: typeof ClientesIndexRoute
   PedidosIndexRoute: typeof PedidosIndexRoute
   ApiAdminUsuariosRoute: typeof ApiAdminUsuariosRoute
+  ApiPedidosEmailEntregaRoute: typeof ApiPedidosEmailEntregaRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
@@ -641,6 +654,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pedidos/email-entrega': {
+      id: '/api/pedidos/email-entrega'
+      path: '/api/pedidos/email-entrega'
+      fullPath: '/api/pedidos/email-entrega'
+      preLoaderRoute: typeof ApiPedidosEmailEntregaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/usuarios': {
       id: '/api/admin/usuarios'
       path: '/api/admin/usuarios'
@@ -704,6 +724,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientesIndexRoute: ClientesIndexRoute,
   PedidosIndexRoute: PedidosIndexRoute,
   ApiAdminUsuariosRoute: ApiAdminUsuariosRoute,
+  ApiPedidosEmailEntregaRoute: ApiPedidosEmailEntregaRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicCatalogRoute: ApiPublicCatalogRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
