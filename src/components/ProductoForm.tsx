@@ -12,9 +12,8 @@ import {
   MODELO_TBD,
   esModeloTBD,
   BANCO_OPCIONES,
-  BANCO_MEDIDAS_FISICAS,
-  BANCO_ALTO_FIJO,
-  BANCO_FONDO_FIJO,
+  BANCO_ALTO_DEFECTO,
+  BANCO_FONDO_DEFECTO,
   findBancoById,
   CABECERO_ANCHOS as CABECERO_ANCHOS_CAT,
   CABECERO_ALTOS as CABECERO_ALTOS_CAT,
@@ -120,7 +119,10 @@ export interface ProdState {
   almohadonId: string; almohadonMedidas: string; almohadonTela: string; almohadonRibete: string; almohadonSinRibete: boolean;
   // Otro: descripción libre o "Por decidir"
   otroDescripcion: string; otroPorDecidir: boolean;
-  bancoMedida: string; bancoLargoCustom: string;
+  // Banco: alto y fondo EDITABLES (vacío = sin especificar). Se guardan en las
+  // columnas `alto` / `fondo` del producto, las mismas que leen Pedidos y el
+  // panel del tapicero: una sola fuente de datos.
+  bancoMedida: string; bancoLargoCustom: string; bancoAlto: string; bancoFondo: string;
   cantidad: number; precioUnitario: number; notasProducto: string;
   // Snapshot de campos mutables al abrir en modo edición. Se usa para NO
   // sobreescribir valores históricos con defaults del catálogo (grosor 8 del
@@ -150,7 +152,7 @@ export const EMPTY_PROD_STATE: ProdState = {
   tapetes: false,
   almohadonId: "", almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
   otroDescripcion: "", otroPorDecidir: false,
-  bancoMedida: "tbd", bancoLargoCustom: "",
+  bancoMedida: "tbd", bancoLargoCustom: "", bancoAlto: String(BANCO_ALTO_DEFECTO), bancoFondo: String(BANCO_FONDO_DEFECTO),
   cantidad: 1, precioUnitario: 0, notasProducto: "",
   _recargoGrande: false,
 };
@@ -170,6 +172,12 @@ function acabadoDefault(_tipo: ProdTipo): string {
 //    inventan: si el usuario no lo eligió, se guarda vacío/null.
 //  - `precioUnitario` viene del state y NO se recalcula aquí; el reconciliador
 //    de V8 vive en el selector, con banner explícito.
+// "45" → 45; "" / "0" / texto → null (medida sin especificar).
+function parseMedida(v: string): number | null {
+  const n = Number(String(v ?? "").trim().replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId" | "createdAt" | "createdBy" | "caracteristicasConfirmadas" | "fechaConfirmacion" | "pagado50"> {
   let modelo = "", ancho: number | null = null, alto: number | null = null, fondo: number | null = null;
   let color = "", relleno = "", patas = "";
@@ -193,8 +201,8 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     const tbdAncho = f.anchoCama === "tbd";
     const tbdAlto = f.altoCabecero === "tbd";
     patas = extras([
-      f.colgador && "Con colgador (+5€)",
-      f.tapetes && "Tapetes protectores (+5€)",
+      f.colgador && "Con colgador",
+      f.tapetes && "Tapetes protectores",
       tbdForma && "Forma por decidir",
       (tbdAncho || tbdAlto) && `Medidas por decidir${tbdAncho && tbdAlto ? "" : tbdAncho ? " (ancho)" : " (alto)"}`,
     ]);
@@ -216,7 +224,9 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     // solo a las listas del CRM, a la ficha y al panel del tapicero.
     if (f.pufAlmacenaje) modelo = modelo ? `${modelo}${PUF_ALMACENAJE_SUFIJO}` : "Puf con almacenaje";
     color  = f.telaLateral; relleno = f.acabado === "liso" ? "" : f.telaVivo;
-    patas  = extras([f.tapetes && "Tapetes protectores (+5€)", f.pufId === "tbd" && "Tamaño por decidir"]);
+    // Los tapetes van incluidos: ya no hay casilla en pufs. Si un producto
+    // antiguo los tenía marcados, se conserva el dato (sin el "+5€").
+    patas  = extras([f.tapetes && "Tapetes protectores", f.pufId === "tbd" && "Tamaño por decidir"]);
   } else if (f.tipo === "mesa") {
     const opt = findMesaById(f.mesaId);
     if (f.mesaId === "tbd" || !f.mesaId) {
@@ -233,7 +243,7 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     }
     // La superficie se sigue guardando en `color` (contrato preexistente).
     color = MESA_SUPERFICIES.find(x => x.id === f.superficieMesa)?.name ?? "";
-    patas = extras([f.tapetes && "Tapetes protectores (+5€)"]);
+    patas = extras([f.tapetes && "Tapetes protectores"]);
   } else if (f.tipo === "pantalla") {
     const opt = findPantallaById(f.pantallaId);
     if (f.pantallaId === "tbd" || !f.pantallaId) {
@@ -249,33 +259,25 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     }
     // `relleno` guarda la forma (contrato preexistente).
     relleno = opt?.formaId ?? f.formaPantalla;
-    patas = extras([f.tapetes && "Tapetes protectores (+5€)", f.pantallaId === "tbd" && "Medida por decidir"]);
+    patas = extras([f.tapetes && "Tapetes protectores", f.pantallaId === "tbd" && "Medida por decidir"]);
   } else if (f.tipo === "banco") {
     const isTbd = f.bancoMedida === "tbd";
     const opt = isTbd ? undefined : findBancoById(f.bancoMedida);
-    const fis = BANCO_MEDIDAS_FISICAS[f.bancoMedida];
     const anchoCustom = f.bancoMedida === "custom" ? (Number(f.bancoLargoCustom) || null) : null;
     modelo = isTbd ? "Oyambre — Por decidir" : `Oyambre — ${opt?.label ?? f.bancoMedida}`;
     ancho = isTbd ? null : f.bancoMedida === "custom" ? anchoCustom : (opt?.ancho ?? null);
-    // Preserva alto/fondo históricos al editar: si el original era NULL,
-    // no escribimos el default del catálogo. En "tbd" no se conocen medidas.
-    if (isTbd) {
-      alto = f._isEdit ? (f._origAlto ?? null) : null;
-      fondo = f._isEdit ? (f._origFondo ?? null) : null;
-    } else if (f._isEdit) {
-      alto  = f._origAlto  === undefined ? (fis?.alto  ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO))  : f._origAlto;
-      fondo = f._origFondo === undefined ? (fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO)) : f._origFondo;
-    } else {
-      alto  = fis?.alto  ?? (f.bancoMedida === "custom" ? null : BANCO_ALTO_FIJO);
-      fondo = fis?.fondo ?? (f.bancoMedida === "custom" ? null : BANCO_FONDO_FIJO);
-    }
+    // Alto y fondo salen tal cual de los dos campos editables del formulario
+    // (por defecto 45 / 33 al crear). Vacío ⇒ NULL (sin especificar): un
+    // banco antiguo sin alto/fondo guardados no se rellena solo al reeditarlo.
+    alto  = parseMedida(f.bancoAlto);
+    fondo = parseMedida(f.bancoFondo);
     // `patas` NO recibe medidas físicas: alto/fondo van en sus columnas.
-    // Solo lleva lo que el operador introduce sobre las patas o el estado
-    // "medidas personalizadas / por decidir" cuando aplica.
+    // Los tapetes van incluidos (ya no hay casilla en bancos); si un producto
+    // antiguo los tenía marcados se conserva el dato, sin el "+5€".
     patas = extras([
       f.bancoMedida === "custom" && "A consultar (medidas personalizadas)",
       isTbd && "Medida por decidir",
-      f.tapetes && "Tapetes protectores (+5€)",
+      f.tapetes && "Tapetes protectores",
     ]);
     color = f.telaLateral; relleno = f.telaVivo;
   } else if (f.tipo === "almohadon") {
@@ -426,6 +428,10 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     const isTbd = mismoModelo(p.modelo, "Oyambre — Por decidir") || /por decidir/i.test(p.modelo) || (!a && !isDoble);
     s.bancoMedida = isTbd ? "tbd" : (isDoble ? "60-doble" : (stdAnchos.includes(a) ? a : (a ? "custom" : "tbd")));
     s.bancoLargoCustom = s.bancoMedida === "custom" ? a : "";
+    // Alto/fondo guardados tal cual; si el histórico no los tiene, el campo
+    // queda vacío (con el default como placeholder) y no se inventa nada.
+    s.bancoAlto  = p.alto  != null && p.alto  > 0 ? String(p.alto)  : "";
+    s.bancoFondo = p.fondo != null && p.fondo > 0 ? String(p.fondo) : "";
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
     s.cantidad = p.cantidad;
   }
@@ -440,15 +446,24 @@ const TELA_BTN = (active: boolean) =>
 
 export const TELA_POR_DECIDIR = "Por decidir";
 
-export function TelaSelect({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const [modo, setModo] = useState<"web" | "otro" | "tbd">(() => {
+// `mismaQuePrincipal`: añade un botón explícito "Misma que la principal"
+// (valor vacío). Se usa en telas secundarias (lateral) para que el operador
+// elija de forma consciente en vez de "dejar vacío".
+export function TelaSelect({ value, onChange, placeholder, mismaQuePrincipal = false }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; mismaQuePrincipal?: boolean;
+}) {
+  const [modo, setModo] = useState<"misma" | "web" | "otro" | "tbd">(() => {
     if (value === TELA_POR_DECIDIR) return "tbd";
     if (value !== "" && !TELAS_SUGERIDAS.includes(value)) return "otro";
+    if (value === "" && mismaQuePrincipal) return "misma";
     return "web";
   });
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
+        {mismaQuePrincipal && (
+          <button type="button" className={TELA_BTN(modo === "misma")} onClick={() => { setModo("misma"); onChange(""); }}>Misma que la principal</button>
+        )}
         <button type="button" className={TELA_BTN(modo === "web")} onClick={() => { setModo("web"); onChange(""); }}>Tela de la web</button>
         <button type="button" className={TELA_BTN(modo === "otro")} onClick={() => { setModo("otro"); onChange(""); }}>Otra tela</button>
         <button type="button" className={TELA_BTN(modo === "tbd")} onClick={() => { setModo("tbd"); onChange(TELA_POR_DECIDIR); }}>Por decidir</button>
@@ -466,6 +481,11 @@ export function TelaSelect({ value, onChange, placeholder }: { value: string; on
       {modo === "tbd" && (
         <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
           Tela pendiente de decidir — se puede editar más adelante
+        </div>
+      )}
+      {modo === "misma" && (
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          Se tapiza con la misma tela que la principal
         </div>
       )}
     </div>
@@ -497,8 +517,8 @@ function TelaSection({ tela, onTela, coleccionTela, onColeccion, telaLateral, on
       </div>
       {showLateral && (
         <div>
-          <div className={SECTION_CLS}>Tela lateral <span className="normal-case font-normal text-slate-400">(opcional, +15€ — vacío = igual que la principal)</span></div>
-          <TelaSelect value={telaLateral} onChange={onTelaLateral} placeholder="Dejar vacío si es la misma tela" />
+          <div className={SECTION_CLS}>Tela lateral</div>
+          <TelaSelect value={telaLateral} onChange={onTelaLateral} placeholder="Nombre de la tela lateral…" mismaQuePrincipal />
         </div>
       )}
     </div>
@@ -773,9 +793,10 @@ export function ProductoForm({
           <div>
             <div className={section}>Extras</div>
             <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.colgador} onChange={e => s({ colgador: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Colgador (+5€)</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.colgador} onChange={e => s({ colgador: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Colgador</label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores</label>
             </div>
+            <p className="mt-1.5 text-xs text-slate-400">Colgador y tapetes van incluidos en el precio.</p>
           </div>
         </>
         );
@@ -830,11 +851,22 @@ export function ProductoForm({
                 Medida pendiente de decidir — se puede editar más adelante
               </div>
             )}
-            {f.bancoMedida !== "tbd" && (
-              <div className="mt-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
-                Alto <strong>{BANCO_ALTO_FIJO} cm</strong> · Fondo <strong>{BANCO_FONDO_FIJO} cm</strong> {f.bancoMedida !== "custom" && "(fijos en medidas estándar)"}
+          </div>
+          <div>
+            <div className={section}>Alto y fondo</div>
+            <div className="grid grid-cols-2 gap-2 sm:max-w-xs">
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">Alto (cm)</label>
+                <input type="number" inputMode="decimal" className={inp} value={f.bancoAlto} onChange={e => s({ bancoAlto: e.target.value })} placeholder={String(BANCO_ALTO_DEFECTO)} min={10} max={120} />
               </div>
-            )}
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label>
+                <input type="number" inputMode="decimal" className={inp} value={f.bancoFondo} onChange={e => s({ bancoFondo: e.target.value })} placeholder={String(BANCO_FONDO_DEFECTO)} min={10} max={120} />
+              </div>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-400">
+              Por defecto {BANCO_ALTO_DEFECTO} × {BANCO_FONDO_DEFECTO} cm. Se pueden cambiar aquí, en el pedido o en el panel del tapicero: es el mismo dato en los tres sitios.
+            </p>
           </div>
 
           <TelaSection
@@ -846,13 +878,6 @@ export function ProductoForm({
             onTelaLateral={v => s({ telaLateral: v })}
             showLateral
           />
-          <div>
-            <div className={section}>Extras</div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" />
-              Tapetes protectores (+5€)
-            </label>
-          </div>
         </>
         );
       })()}
@@ -930,10 +955,6 @@ export function ProductoForm({
               <TelaSelect value={f.telaVivo} onChange={v => s({ telaVivo: v })} placeholder="Tela para el ribete…" />
             </div>
           )}
-          <div>
-            <div className={section}>Extras</div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
-          </div>
         </>
         );
       })()}
@@ -977,7 +998,7 @@ export function ProductoForm({
           </div>
           <div>
             <div className={section}>Extras</div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores</label>
           </div>
         </>
         );
@@ -1024,7 +1045,7 @@ export function ProductoForm({
           <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral={false} />
           <div>
             <div className={section}>Extras</div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores (+5€)</label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores</label>
           </div>
         </>
         );

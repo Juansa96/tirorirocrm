@@ -5,7 +5,7 @@ import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
-import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo } from "@/lib/catalogo";
+import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { ProductoForm, productoToState } from "@/components/ProductoForm";
 import { TapiceroAsignado, RutaProduccion, TelasPedidoEditor } from "@/components/PedidoProduccion";
@@ -166,7 +166,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
               {tipoLlevaVivo(producto.tipo)
                 ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
                 : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
-              {producto.patas && <Info k="Extras" v={producto.patas} />}
+              {displayExtras(producto.patas) && <Info k="Extras" v={displayExtras(producto.patas)} />}
               {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
             </div>
           )}

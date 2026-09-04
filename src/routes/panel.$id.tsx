@@ -7,11 +7,11 @@ import {
 import { useAuth } from "@/lib/auth";
 import {
   displayNombreProducto, telasDeProducto, etiquetaTela, vivoLabel, tipoLlevaVivo, montajeEfectivo,
-  pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL,
+  pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL, mismoTipo, BANCO_ALTO_DEFECTO, BANCO_FONDO_DEFECTO,
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
-import { usePanelPedidos, accionTapicero, subirFotoTerminado, type PanelPedido, type PanelTela } from "@/lib/panel-data";
+import { usePanelPedidos, accionTapicero, subirFotoTerminado, guardarMedidasTapicero, type PanelPedido, type PanelTela } from "@/lib/panel-data";
 import { toast } from "sonner";
 
 interface Search { tapicero?: string; }
@@ -120,19 +120,22 @@ function FichaPanel() {
               </div>
               <dl className="min-w-0 flex-1 space-y-1">
                 <Dato k="Producto" v={displayNombreProducto(p.tipo, p.modelo)} />
-                <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medidas sin especificar"} />
+                {mismoTipo(p.tipo, "banco")
+                  ? <Dato k="Medidas" v={medidasBancoLabel(p)} />
+                  : <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medidas sin especificar"} />}
                 <Dato k="Cliente" v={p.cliente || "—"} />
                 <Dato k="Tapicero" v={p.tapiceroNombre || "Sin asignar"} />
                 {tipoLlevaVivo(p.tipo) && <Dato k="Vivo" v={vivoLabel(p.acabado)} />}
                 {montaje && <Dato k="Montaje" v={montaje} />}
               </dl>
             </div>
+            {/* Solo la fecha de recogida: la entrega final al cliente no es
+                cosa del taller y no se muestra aquí. */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2 text-[11px]">
-              <span className="text-slate-400">Entrega cliente:</span>
-              <span className="font-semibold text-slate-700">{p.fechaLimite ? formatShortDate(p.fechaLimite) : "—"}</span>
-              <span className="ml-2 text-slate-400">Lo recoge Juan:</span>
+              <span className="text-slate-400">Lo recoge Juan:</span>
               <span className="font-semibold text-slate-700">{p.fechaRecogida ? formatShortDate(p.fechaRecogida) : "—"}</span>
             </div>
+            {mismoTipo(p.tipo, "banco") && <MedidasBanco p={p} onDone={refetch} />}
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {extras.length === 0 ? (
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">Sin extras</span>
@@ -201,6 +204,67 @@ function FichaPanel() {
           <img src={zoom.url} alt={zoom.alt} className="max-h-full max-w-full rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
+    </div>
+  );
+}
+
+// "120 × 45 × 33 cm" (largo × alto × fondo) para el banco; lo que falte, "?".
+function medidasBancoLabel(p: PanelPedido): string {
+  if (p.ancho == null && p.alto == null && p.fondo == null) return "Medidas sin especificar";
+  const f = (n: number | null) => (n != null && n > 0 ? String(n) : "?");
+  return `${f(p.ancho)} × ${f(p.alto)} × ${f(p.fondo)} cm (largo × alto × fondo)`;
+}
+
+// Medidas del banco editables desde el panel (tapicero o equipo). Escriben en
+// el MISMO producto que Clientes > Productos y Pedidos, vía ruta de servidor.
+function MedidasBanco({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const [largo, setLargo] = useState("");
+  const [alto, setAlto] = useState("");
+  const [fondo, setFondo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
+  const num = (v: string): number | null => { const n = Number(String(v).trim().replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
+  function abrir() {
+    setLargo(p.ancho != null && p.ancho > 0 ? String(p.ancho) : "");
+    setAlto(p.alto != null && p.alto > 0 ? String(p.alto) : "");
+    setFondo(p.fondo != null && p.fondo > 0 ? String(p.fondo) : "");
+    setAbierto(true);
+  }
+  async function guardar() {
+    setBusy(true);
+    const ok = await guardarMedidasTapicero(p.id, { ancho: num(largo), alto: num(alto), fondo: num(fondo) });
+    setBusy(false);
+    if (ok) { toast.success("Medidas guardadas ✅"); setAbierto(false); void onDone(); } else toast.error("No se pudieron guardar las medidas.");
+  }
+  if (!abierto) {
+    return (
+      <button type="button" onClick={abrir}
+        className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 print:hidden">
+        <Pencil className="h-3 w-3" /> Corregir medidas
+      </button>
+    );
+  }
+  return (
+    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 print:hidden">
+      <div className="grid grid-cols-3 gap-2">
+        <label className="text-[11px] text-slate-500">Largo (cm)
+          <input type="number" inputMode="decimal" className={inp} value={largo} onChange={(e) => setLargo(e.target.value)} placeholder="cm" min={10} max={400} />
+        </label>
+        <label className="text-[11px] text-slate-500">Alto (cm)
+          <input type="number" inputMode="decimal" className={inp} value={alto} onChange={(e) => setAlto(e.target.value)} placeholder={String(BANCO_ALTO_DEFECTO)} min={10} max={120} />
+        </label>
+        <label className="text-[11px] text-slate-500">Fondo (cm)
+          <input type="number" inputMode="decimal" className={inp} value={fondo} onChange={(e) => setFondo(e.target.value)} placeholder={String(BANCO_FONDO_DEFECTO)} min={10} max={120} />
+        </label>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button type="button" disabled={busy} onClick={() => void guardar()}
+          className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">{busy ? "Guardando…" : "Guardar medidas"}</button>
+        <button type="button" disabled={busy} onClick={() => setAbierto(false)}
+          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600">Cancelar</button>
+      </div>
+      <p className="mt-1.5 text-[11px] text-slate-400">Se guarda en el producto: lo verán igual en Clientes y en Pedidos.</p>
     </div>
   );
 }
