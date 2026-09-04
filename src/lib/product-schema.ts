@@ -18,6 +18,7 @@ import {
   BANCO_OYAMBRE_PRECIOS,
   BANCO_OPCIONES,
   BANCO_MEDIDAS_FISICAS,
+  MONTAJE_TEXTO,
   normalizarColeccionTela,
   esColeccionTelaInvalida,
   type TipoProductoKey,
@@ -107,7 +108,10 @@ export function buildProducto(
     ancho = num(config.anchoCama, 400) ?? num(config.ancho, 400);
     alto = num(config.altoCm, 300) ?? num(config.alto, 300);
     color = sanitize(config.telaLateral);
-    patas = config.colgador === "true" || config.colgador === true ? "Con colgador" : "";
+    // Montaje elegido en la web ('colgar' | 'apoyar'). Colgador y tapetes van
+    // incluidos en el precio: no se anotan como extra.
+    const montaje = String(config.montaje ?? "").toLowerCase();
+    patas = MONTAJE_TEXTO[montaje] ?? (config.colgador === "true" || config.colgador === true ? MONTAJE_TEXTO.colgar : "");
   } else if (tipo === "banco") {
     // Variante del banco tal cual llega en el payload. Si NO se reconoce en
     // el catálogo, NO se inventa "Oyambre" — se deja lo que venga como modelo
