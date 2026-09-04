@@ -5,7 +5,7 @@ import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela
 import { VENDEDORES, flujoPedido, normNombreTela, marcadoresTapicero, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
-import { normalizarColeccionTela, normalizeTipo, displayColeccionTela } from "./catalogo";
+import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 import { TELAS_WEB } from "./telas-web-data";
@@ -1329,6 +1329,17 @@ export const actions = {
         const ids = state.pedidos.filter((p) => p.productoLeadId === id).map((p) => p.id);
         await flagCambioPedidos(ids, "Cambió en el producto: " + cambios.join(", "));
       }
+      // El montaje del producto (texto en `patas`) manda sobre el del pedido:
+      // si cambia, se copia a todos sus pedidos para que no haya dos versiones.
+      const montajeNuevo = montajeDeExtras(input.patas);
+      if (montajeNuevo && montajeNuevo !== montajeDeExtras(prev.patas)) {
+        const afectados = state.pedidos.filter((p) => p.productoLeadId === id && p.montaje !== montajeNuevo);
+        if (afectados.length > 0) {
+          state = { ...state, pedidos: state.pedidos.map((p) => afectados.some((a) => a.id === p.id) ? { ...p, montaje: montajeNuevo } : p) };
+          emit();
+          await Promise.all(afectados.map((a) => supabase.from("pedidos").update({ montaje: montajeNuevo } as never).eq("id", a.id)));
+        }
+      }
     }
   },
 
@@ -1426,6 +1437,9 @@ export const actions = {
       producto_lead_id: prod.id,
       lead_id: prod.leadId,
       cliente_nombre: leadDelPedido?.nombre ?? "",
+      // Montaje elegido por el cliente (web o formulario de producto) → el
+      // pedido nace con él, que es lo que lee el panel del tapicero.
+      montaje: montajeDeExtras(prod.patas) || "",
       dias_plazo: opts.diasPlazo ?? 20,
       pagado_50: opts.pagado50,
       creado_manualmente: opts.creadoManualmente,
@@ -1511,6 +1525,7 @@ export const actions = {
     const insertPedido: Record<string, unknown> = {
       producto_lead_id: productoId,
       lead_id: opts.leadId,
+      montaje: montajeDeExtras(prodExistente?.patas) || "",
       cliente_nombre_libre: opts.clienteNombreLibre ?? "",
       cliente_nombre: opts.clienteNombreLibre || state.leads.find((l) => l.id === opts.leadId)?.nombre || "",
       dias_plazo: opts.diasPlazo,

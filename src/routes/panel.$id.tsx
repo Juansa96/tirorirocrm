@@ -52,9 +52,9 @@ function FichaPanel() {
   const plazo = plazoBadge(p.diasRestantes, p.entregado, !!p.fechaRecogida);
   const montajeEf = montajeEfectivo(p.tipo, p.montaje);
   const montaje = montajeEf === "colgar" ? "Colgar en pared" : montajeEf === "apoyar" ? "Apoyar en suelo" : "";
+  // Colgador y tapetes van siempre incluidos: no se listan como extra. El
+  // montaje (pared / suelo) sale en la línea "Montaje" de arriba.
   const extras = [
-    /tapete/i.test(p.patas) && "Tapetes suelo",
-    /colgador/i.test(p.patas) && "Colgadores",
     // El almacenaje del puf viaja en el modelo ("… · Con almacenaje").
     pufTieneAlmacenaje(p.modelo) && PUF_ALMACENAJE_LABEL,
   ].filter(Boolean) as string[];

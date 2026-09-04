@@ -14,6 +14,8 @@ import {
   BANCO_OPCIONES,
   BANCO_ALTO_DEFECTO,
   BANCO_FONDO_DEFECTO,
+  MONTAJE_TEXTO,
+  montajeDeExtras,
   findBancoById,
   CABECERO_ANCHOS as CABECERO_ANCHOS_CAT,
   CABECERO_ALTOS as CABECERO_ALTOS_CAT,
@@ -102,7 +104,11 @@ export interface ProdState {
   forma: string; formaOtra: string;
   anchoCama: string; anchoCamaCustom: string;
   altoCabecero: string; altoCabeceroCustom: string;
-  telaLateral: string; colgador: boolean;
+  telaLateral: string;
+  // Cabecero: cómo lo va a montar el cliente. Colgador y tapetes van incluidos
+  // en el precio; esto es solo información. Se guarda como texto en `patas` y
+  // al crear el pedido se copia a pedidos.montaje (lo que ve el tapicero).
+  montaje: "" | "colgar" | "apoyar";
   // Puf: pufId ∈ PUF_OPCIONES.id | "custom" | "tbd" | ""
   pufId: string; pufAnchoCustom: string; pufFondoCustom: string; pufAltoCustom: string; cantidadPuf: string;
   // Puf con almacenaje (hueco interior). Se guarda dentro de `modelo` —"… · Con
@@ -144,7 +150,7 @@ export const EMPTY_PROD_STATE: ProdState = {
   // Medidas SIN preseleccionar: el CRM nunca "se saca de la manga" una medida.
   // Arrancan en "Por decidir" (tbd → null) y se rellenan solas solo cuando el
   // operador elige una opción estándar del catálogo.
-  forma: "", formaOtra: "", anchoCama: "tbd", anchoCamaCustom: "", altoCabecero: "tbd", altoCabeceroCustom: "", telaLateral: "", colgador: false,
+  forma: "", formaOtra: "", anchoCama: "tbd", anchoCamaCustom: "", altoCabecero: "tbd", altoCabeceroCustom: "", telaLateral: "", montaje: "",
   pufId: "", pufAnchoCustom: "", pufFondoCustom: "", pufAltoCustom: "", cantidadPuf: "1", pufAlmacenaje: false,
   mesaId: "", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   pantallaId: "", formaPantalla: "cilindro", pantallaAnchoCustom: "", pantallaAltoCustom: "",
@@ -200,8 +206,10 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     const tbdForma = f.forma === FORMA_POR_DECIDIR || !f.forma;
     const tbdAncho = f.anchoCama === "tbd";
     const tbdAlto = f.altoCabecero === "tbd";
+    // Montaje como texto (ver montajeDeExtras). Colgador/tapetes no se anotan:
+    // van incluidos. Si un producto antiguo tenía tapetes marcados, se conserva.
     patas = extras([
-      f.colgador && "Con colgador",
+      f.montaje ? MONTAJE_TEXTO[f.montaje] : false,
       f.tapetes && "Tapetes protectores",
       tbdForma && "Forma por decidir",
       (tbdAncho || tbdAlto) && `Medidas por decidir${tbdAncho && tbdAlto ? "" : tbdAncho ? " (ancho)" : " (alto)"}`,
@@ -375,7 +383,8 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.altoCabecero = CABECERO_ALTOS.includes(h) ? h : (h ? "custom" : "tbd");
     s.altoCabeceroCustom = CABECERO_ALTOS.includes(h) ? "" : h;
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
-    s.colgador = p.patas?.includes("Con colgador") ?? false;
+    // "Con colgador" (histórico) ⇒ colgado a la pared.
+    s.montaje = montajeDeExtras(p.patas) || (p.patas?.includes("Con colgador") ? "colgar" : "");
     s.cantidad = p.cantidad;
     // Al editar un cabecero grande asumimos que el precio guardado YA incluye el
     // recargo de +20€ (se aplicó al crearlo, en el CRM o en la web). Así no se
@@ -791,12 +800,13 @@ export function ProductoForm({
             </div>
           )}
           <div>
-            <div className={section}>Extras</div>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.colgador} onChange={e => s({ colgador: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Colgador</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores</label>
+            <div className={section}>Montaje</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => s({ montaje: "colgar" })} className={btn(f.montaje === "colgar")}>{MONTAJE_TEXTO.colgar}</button>
+              <button type="button" onClick={() => s({ montaje: "apoyar" })} className={btn(f.montaje === "apoyar")}>{MONTAJE_TEXTO.apoyar}</button>
+              <button type="button" onClick={() => s({ montaje: "" })} className={btn(!f.montaje)}>Por decidir</button>
             </div>
-            <p className="mt-1.5 text-xs text-slate-400">Colgador y tapetes van incluidos en el precio.</p>
+            <p className="mt-1.5 text-xs text-slate-400">Colgador y tapetes protectores van incluidos en el precio; esto solo indica cómo lo quiere el cliente. Al crear el pedido pasa a la ficha del tapicero.</p>
           </div>
         </>
         );
@@ -996,10 +1006,6 @@ export function ProductoForm({
               {MESA_SUPERFICIES.map(x => <button key={x.id} type="button" onClick={() => s({ superficieMesa: x.id })} className={btn(f.superficieMesa === x.id)}>{x.name}</button>)}
             </div>
           </div>
-          <div>
-            <div className={section}>Extras</div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores</label>
-          </div>
         </>
         );
       })()}
@@ -1043,10 +1049,6 @@ export function ProductoForm({
             )}
           </div>
           <TelaSection tela={f.tela} onTela={v => s({ tela: v })} coleccionTela={f.coleccionTela} onColeccion={v => s({ coleccionTela: v })} telaLateral={f.telaLateral} onTelaLateral={v => s({ telaLateral: v })} showLateral={false} />
-          <div>
-            <div className={section}>Extras</div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={f.tapetes} onChange={e => s({ tapetes: e.target.checked })} className="h-4 w-4 accent-[#1a1f36]" /> Tapetes protectores</label>
-          </div>
         </>
         );
       })()}

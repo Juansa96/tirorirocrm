@@ -377,7 +377,28 @@ export const CABECERO_ALTURA_BASE_CM = 100;
 export const CABECERO_SUPLEMENTO_10CM = 15;
 export const CABECERO_VIVO_DOBLE_RECARGO = 15;
 // Colgadores y tapetes protectores van INCLUIDOS en el precio base (antes
-// +5 € cada uno). No hay recargo.
+// +5 € cada uno). No hay recargo. Lo que sí se anota es el MONTAJE que quiere
+// el cliente (colgado a la pared / apoyado en el suelo). Antes de que exista
+// pedido viaja en `productos_lead.patas` como texto; al crear el pedido se
+// copia a `pedidos.montaje` ('colgar' | 'apoyar'), que es lo que ve el panel.
+export const MONTAJE_TEXTO: Record<string, string> = {
+  colgar: "Colgado a la pared",
+  apoyar: "Apoyado en el suelo",
+};
+// 'colgar' | 'apoyar' | '' a partir del texto de extras del producto.
+export function montajeDeExtras(patas: string | null | undefined): "colgar" | "apoyar" | "" {
+  const s = stripDiacritics(patas || "").toLowerCase();
+  if (/colgad[oa] a la pared|montaje:\s*(pared|colgar)/.test(s)) return "colgar";
+  if (/apoyad[oa] en el suelo|montaje:\s*(suelo|apoyar)/.test(s)) return "apoyar";
+  return "";
+}
+// Quita cualquier texto de montaje de `patas` (para reemplazarlo sin duplicar).
+export function extrasSinMontaje(patas: string | null | undefined): string {
+  return (patas || "")
+    .split(" · ")
+    .filter((x) => !montajeDeExtras(x))
+    .join(" · ");
+}
 
 // Texto de extras (`productos_lead.patas`) para mostrar. Los productos
 // antiguos guardan "Tapetes protectores (+5€)" / "Con colgador (+5€)": el
@@ -396,14 +417,16 @@ export interface CabeceroAnchoOpcion {
   legacy?: boolean;
 }
 
+// Espejo de CABECERO_BASE de la web (src/data/pricing.ts). El precio base
+// INCLUYE colgador y tapetes (antes +5 € como extra): 285 → 290, etc.
 export const CABECERO_ANCHOS: CabeceroAnchoOpcion[] = [
-  { id: "90",  label: "90 cm",  ancho: 90,  precio: 285, premium: 60,  activo: true },
-  { id: "105", label: "105 cm", ancho: 105, precio: 315, premium: 65,  activo: true },
-  { id: "135", label: "135 cm", ancho: 135, precio: 360, premium: 80,  activo: true },
-  { id: "150", label: "150 cm", ancho: 150, precio: 400, premium: 90,  activo: true },
-  { id: "160", label: "160 cm", ancho: 160, precio: 435, premium: 100, activo: true },
-  { id: "180", label: "180 cm", ancho: 180, precio: 455, premium: 110, activo: true },
-  { id: "200", label: "200 cm", ancho: 200, precio: 485, premium: 115, activo: true },
+  { id: "90",  label: "90 cm",  ancho: 90,  precio: 290, premium: 60,  activo: true },
+  { id: "105", label: "105 cm", ancho: 105, precio: 320, premium: 65,  activo: true },
+  { id: "135", label: "135 cm", ancho: 135, precio: 365, premium: 80,  activo: true },
+  { id: "150", label: "150 cm", ancho: 150, precio: 405, premium: 90,  activo: true },
+  { id: "160", label: "160 cm", ancho: 160, precio: 440, premium: 100, activo: true },
+  { id: "180", label: "180 cm", ancho: 180, precio: 460, premium: 110, activo: true },
+  { id: "200", label: "200 cm", ancho: 200, precio: 490, premium: 115, activo: true },
 ];
 
 // Alturas seleccionables del cabecero (más "Otra altura" y "Por decidir" en la UI)
