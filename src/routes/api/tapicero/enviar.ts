@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { displayNombreProducto } from "@/lib/catalogo";
+import { obtenerTokenBaja } from "@/lib/email-baja.server";
 
 // "Enviar a Daniel": marca los pedidos como enviados al panel del tapicero y
 // encola UN email (agrupado por tapicero) con enlace a su ficha. Solo equipo.
@@ -91,6 +92,8 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
           const text = `Tienes ${n} pedido(s) nuevo(s). Abre tu panel: ${origin}/panel\n¿Dudas? Escribe a Juan: ${REPLY_TO}`;
 
           const messageId = crypto.randomUUID();
+          const unsubscribeToken = await obtenerTokenBaja(supabaseAdmin, to);
+          if (!unsubscribeToken) continue;
           await supabaseAdmin.from("email_send_log").insert({ message_id: messageId, template_name: "tapicero_asignacion", recipient_email: to, status: "pending" });
           const { error: encErr } = await supabaseAdmin.rpc("enqueue_email", {
             queue_name: "transactional_emails",
@@ -100,6 +103,7 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
               // este aviso nunca había llegado a enviarse.
               message_id: messageId, idempotency_key: messageId, to, from: FROM, sender_domain: SENDER_DOMAIN,
               subject, html, text, purpose: "transactional", label: "tapicero_asignacion", queued_at: ahora,
+              unsubscribe_token: unsubscribeToken,
             },
           });
           if (!encErr) emailsEncolados++;

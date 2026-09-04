@@ -5,6 +5,7 @@ import {
   ENTREGA_FROM, ENTREGA_SENDER_DOMAIN, ENTREGA_TEMPLATE, ETIQUETA_RESENA_PEDIDA,
 } from "@/lib/email-entrega";
 import { PASO_EMAIL_ENTREGA, PASO_EMAIL_ENTREGA_A, PASO_EMAIL_ENTREGA_POR } from "@/lib/types";
+import { obtenerTokenBaja, emailSuprimido } from "@/lib/email-baja.server";
 
 // Correo de entrega al cliente. Lo dispara alguien del EQUIPO desde la ficha
 // del pedido, después de revisar el texto: nunca sale solo.
@@ -51,6 +52,9 @@ export const Route = createFileRoute("/api/pedidos/email-entrega")({
         // (p. ej. un envío de prueba a la propia dirección).
         const to = String(body?.para ?? (lead as { email?: string } | null)?.email ?? "").trim().toLowerCase();
         if (!EMAIL_RE.test(to)) return json({ error: "El cliente no tiene un correo válido" }, 400);
+        if (await emailSuprimido(supabaseAdmin, to)) return json({ error: "Esta dirección se dio de baja de nuestros correos (o rebotó). No se envía." }, 400);
+        const unsubscribeToken = await obtenerTokenBaja(supabaseAdmin, to);
+        if (!unsubscribeToken) return json({ error: "No se pudo preparar el enlace de baja del correo" }, 500);
 
         const porDefecto = textoEmailEntrega({
           nombre: (lead as { nombre?: string } | null)?.nombre ?? "",
@@ -75,6 +79,7 @@ export const Route = createFileRoute("/api/pedidos/email-entrega")({
             message_id: messageId, idempotency_key: messageId, to, from: ENTREGA_FROM, sender_domain: ENTREGA_SENDER_DOMAIN,
             subject: asunto, html: htmlEmailEntrega(texto), text: plainEmailEntrega(texto),
             purpose: "transactional", label: ENTREGA_TEMPLATE, queued_at: ahora,
+            unsubscribe_token: unsubscribeToken,
           },
         });
         if (encErr) return json({ error: "No se pudo encolar el correo: " + encErr.message }, 500);
