@@ -415,6 +415,10 @@ export interface Pedido {
   cambioTrasEnvio: boolean;          // se cambió algo estando ya en manos del tapicero
   cambioTrasEnvioFecha: string;
   cambioTrasEnvioDetalle: string;    // texto legible de qué cambió
+  // ── Correo de entrega al cliente (marcadores en pasos_tapicero) ──
+  emailEntregaFecha: string;         // ISO del último envío, "" si no se ha enviado
+  emailEntregaA: string;
+  emailEntregaPor: string;
   montaje: string;                  // 'colgar' | 'apoyar' | ''
   ordenProduccion: number | null;   // orden manual de trabajo (1º, 2º…); null = sin orden
   notaTapicero: string;             // comentario que SÍ ve el tapicero (dirección de tela, etc.)
@@ -536,11 +540,16 @@ export const PASO_INICIADO = "@iniciado";           // valor: fecha ISO
 export const PASO_INICIADO_POR = "@iniciadoPor";    // valor: nombre
 export const PASO_CAMBIO = "@cambio";               // valor: fecha ISO
 export const PASO_CAMBIO_DETALLE = "@cambioDetalle";// valor: texto
+// Correo de entrega al cliente (lo envía el equipo desde la ficha del pedido).
+export const PASO_EMAIL_ENTREGA = "@emailEntrega";        // valor: fecha ISO del envío
+export const PASO_EMAIL_ENTREGA_A = "@emailEntregaA";     // valor: dirección
+export const PASO_EMAIL_ENTREGA_POR = "@emailEntregaPor"; // valor: quién lo envió
 
 // Deriva los marcadores del tapicero a partir de `pasos_tapicero`.
 export function marcadoresTapicero(pasos: Record<string, string> | null | undefined): {
   iniciado: boolean; iniciadoFecha: string; iniciadoPor: string;
   cambioTrasEnvio: boolean; cambioTrasEnvioFecha: string; cambioTrasEnvioDetalle: string;
+  emailEntregaFecha: string; emailEntregaA: string; emailEntregaPor: string;
 } {
   const p = pasos || {};
   return {
@@ -550,6 +559,9 @@ export function marcadoresTapicero(pasos: Record<string, string> | null | undefi
     cambioTrasEnvio: !!p[PASO_CAMBIO],
     cambioTrasEnvioFecha: p[PASO_CAMBIO] || "",
     cambioTrasEnvioDetalle: p[PASO_CAMBIO_DETALLE] || "",
+    emailEntregaFecha: p[PASO_EMAIL_ENTREGA] || "",
+    emailEntregaA: p[PASO_EMAIL_ENTREGA_A] || "",
+    emailEntregaPor: p[PASO_EMAIL_ENTREGA_POR] || "",
   };
 }
 
