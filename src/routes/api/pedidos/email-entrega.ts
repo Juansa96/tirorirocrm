@@ -9,7 +9,9 @@ import { obtenerTokenBaja, emailSuprimido } from "@/lib/email-baja.server";
 
 // Correo de entrega al cliente. Lo dispara alguien del EQUIPO desde la ficha
 // del pedido, después de revisar el texto: nunca sale solo.
-//   POST { pedidoId, asunto?, texto?, para? }
+//   POST { pedidoId, asunto?, mensaje?, para? }
+//   `mensaje` es solo la parte personal (saludo + dos párrafos); el resto del
+//   correo (pasos, premio, pie) lleva el diseño fijo de la web.
 // Encola el correo por la misma cola que el aviso al tapicero (enqueue_email +
 // email_send_log), deja constancia en pasos_tapicero (@emailEntrega…) y pone
 // la etiqueta "reseña pedida" al cliente. Sin columnas nuevas.
@@ -56,14 +58,15 @@ export const Route = createFileRoute("/api/pedidos/email-entrega")({
         const unsubscribeToken = await obtenerTokenBaja(supabaseAdmin, to);
         if (!unsubscribeToken) return json({ error: "No se pudo preparar el enlace de baja del correo" }, 500);
 
-        const porDefecto = textoEmailEntrega({
+        const datos = {
           nombre: (lead as { nombre?: string } | null)?.nombre ?? "",
           tipo: (prod as { tipo?: string } | null)?.tipo ?? "",
           modelo: (prod as { modelo?: string } | null)?.modelo ?? "",
           cantidad: Number((prod as { cantidad?: number } | null)?.cantidad) || 1,
-        });
+        };
+        const porDefecto = textoEmailEntrega(datos);
         const asunto = String(body?.asunto ?? "").trim().slice(0, 150) || porDefecto.asunto;
-        const texto = String(body?.texto ?? "").trim().slice(0, 6000) || porDefecto.texto;
+        const mensaje = String(body?.mensaje ?? body?.texto ?? "").trim().slice(0, 4000) || porDefecto.mensaje;
 
         const ahora = new Date().toISOString();
         const messageId = crypto.randomUUID();
@@ -77,7 +80,7 @@ export const Route = createFileRoute("/api/pedidos/email-entrega")({
             // Sin run_id: la API de Lovable lo valida contra una ejecución real y
             // rechaza cualquier uuid inventado ("Run not found or expired").
             message_id: messageId, idempotency_key: messageId, to, from: ENTREGA_FROM, sender_domain: ENTREGA_SENDER_DOMAIN,
-            subject: asunto, html: htmlEmailEntrega(texto), text: plainEmailEntrega(texto),
+            subject: asunto, html: htmlEmailEntrega(datos, mensaje), text: plainEmailEntrega(datos, mensaje),
             purpose: "transactional", label: ENTREGA_TEMPLATE, queued_at: ahora,
             unsubscribe_token: unsubscribeToken,
           },

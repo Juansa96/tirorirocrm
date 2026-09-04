@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatShortDate } from "@/lib/format";
-import { textoEmailEntrega, textoWhatsAppEntrega, ENTREGA_WHATSAPP_INTL, ENTREGA_FROM } from "@/lib/email-entrega";
+import { textoEmailEntrega, textoWhatsAppEntrega, htmlEmailEntrega, ENTREGA_WHATSAPP_INTL, ENTREGA_FROM } from "@/lib/email-entrega";
 import type { Lead, Pedido, Producto } from "@/lib/types";
 
 // Bloque "Correo de entrega" en la ficha del pedido. Solo aparece cuando el
@@ -13,12 +13,13 @@ import type { Lead, Pedido, Producto } from "@/lib/types";
 // WhatsApp, que abre el chat con el mensaje ya escrito.
 export function EmailEntrega({ pedido, lead, producto }: { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined }) {
   const { esEquipo } = useAuth();
-  const porDefecto = useMemo(() => textoEmailEntrega({
+  const datos = useMemo(() => ({
     nombre: lead?.nombre ?? "", tipo: producto?.tipo ?? "", modelo: producto?.modelo ?? "", cantidad: producto?.cantidad ?? 1,
   }), [lead?.nombre, producto?.tipo, producto?.modelo, producto?.cantidad]);
+  const porDefecto = useMemo(() => textoEmailEntrega(datos), [datos]);
   const [abierto, setAbierto] = useState(false);
   const [asunto, setAsunto] = useState(porDefecto.asunto);
-  const [texto, setTexto] = useState(porDefecto.texto);
+  const [mensaje, setMensaje] = useState(porDefecto.mensaje);
   const [para, setPara] = useState(lead?.email ?? "");
   const [busy, setBusy] = useState(false);
 
@@ -44,7 +45,7 @@ export function EmailEntrega({ pedido, lead, producto }: { pedido: Pedido; lead:
     const res = await fetch("/api/pedidos/email-entrega", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ pedidoId: pedido.id, asunto, texto, para: para.trim() }),
+      body: JSON.stringify({ pedidoId: pedido.id, asunto, mensaje, para: para.trim() }),
     });
     setBusy(false);
     if (res.ok) { toast.success("Correo de entrega enviado a " + para.trim()); setAbierto(false); }
@@ -64,7 +65,7 @@ export function EmailEntrega({ pedido, lead, producto }: { pedido: Pedido; lead:
         )}
       </div>
       <p className="mt-1.5 text-sm text-slate-600">
-        Da las gracias, pide la reseña en Google y una foto para Instagram, y ofrece el descuento del siguiente pedido. Se envía desde <span className="font-medium">{ENTREGA_FROM.replace(/<.*>/, "").trim()}</span> solo cuando pulses Enviar.
+        Con el diseño de la web (logo, foto y tipografías): da las gracias, pide la reseña en Google y una foto para Instagram, y ofrece el descuento del siguiente pedido. Se envía desde <span className="font-medium">{ENTREGA_FROM.replace(/<.*>/, "").trim()}</span> solo cuando pulses Enviar.
       </p>
 
       {!lead?.email && (
@@ -100,12 +101,17 @@ export function EmailEntrega({ pedido, lead, producto }: { pedido: Pedido; lead:
                 className="mt-1 w-full rounded border border-slate-200 px-2 py-2 text-sm focus:border-slate-400 focus:outline-none" />
             </label>
           </div>
-          <label className="block text-xs text-slate-500">Texto <span className="text-slate-400">(puedes cambiar lo que quieras; "[Escribir la reseña]" se convierte en botón)</span>
-            <textarea rows={16} value={texto} onChange={(e) => setTexto(e.target.value)}
+          <label className="block text-xs text-slate-500">Mensaje personal <span className="text-slate-400">(el resto del correo, con la reseña, la foto y el descuento, va fijo con el diseño de la web)</span>
+            <textarea rows={7} value={mensaje} onChange={(e) => setMensaje(e.target.value)}
               className="mt-1 w-full resize-y rounded border border-slate-200 px-3 py-2 font-serif text-[15px] leading-relaxed focus:border-slate-400 focus:outline-none" />
           </label>
+          <div>
+            <div className="mb-1 text-xs text-slate-500">Así le llegará</div>
+            <iframe title="Vista previa del correo" sandbox="" srcDoc={htmlEmailEntrega(datos, mensaje)}
+              className="h-[720px] w-full rounded-lg border border-slate-200 bg-[#F7F4EE]" />
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <button type="button" onClick={() => { setAsunto(porDefecto.asunto); setTexto(porDefecto.texto); }}
+            <button type="button" onClick={() => { setAsunto(porDefecto.asunto); setMensaje(porDefecto.mensaje); }}
               className="text-xs text-slate-500 underline hover:text-slate-800">Volver al texto por defecto</button>
             <button type="button" disabled={busy} onClick={() => void enviar()}
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
