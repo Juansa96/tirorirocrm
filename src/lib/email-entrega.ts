@@ -9,8 +9,8 @@
 // previa) y la ruta de servidor /api/pedidos/email-entrega (envío).
 //
 // Decisiones (se cambian aquí, en una línea):
-//   · Enlace de reseña: el mismo que usa la web. Cuando exista el enlace corto
-//     de Google Business (g.page/r/…/review), va aquí.
+//   · Enlace de reseña: el enlace corto de la ficha de Google Business
+//     (abre directamente el cuadro de escribir la reseña).
 //   · Premio: 10 % de descuento en el siguiente pedido.
 //   · Remitente: hola@notify.tirorirohome.com (dominio ya verificado). El
 //     sistema no permite "responder a", así que la dirección de contacto va en
@@ -35,7 +35,7 @@ export const ENTREGA_FROM = "Tiroriro Home <hola@notify.tirorirohome.com>";
 export const ENTREGA_SENDER_DOMAIN = "notify.tirorirohome.com";
 export const ENTREGA_TEMPLATE = "entrega_cliente"; // etiqueta en email_send_log
 // Titular del correo (se cambia aquí).
-export const ENTREGA_TITULAR = "Tu casa, un poco más tú.";
+export const ENTREGA_TITULAR = "Ojalá te guste tanto como a nosotros.";
 export const ETIQUETA_RESENA_PEDIDA = "reseña pedida";
 
 // Foto del correo según el tipo de producto entregado.
