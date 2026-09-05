@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ArrowLeft, Trash2, Package, ExternalLink, Save, Ruler, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, tablaHistorialProducto, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, tablaHistorialProducto, tablaHistorialPedido, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
@@ -230,9 +230,10 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Pago y factura</div>
           <div className="space-y-3 text-sm">
             <Field label="Precio (€)">
-              <input type="number" step="0.01" value={draft.precio}
+              <input type="number" inputMode="decimal" step="0.01" value={draft.precio}
                 onChange={(e) => patch({ precio: parseFloat(e.target.value) || 0 })}
                 className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none" />
+              <Antes tabla={tablaHistorialPedido(pedido.id)} campos={["precio_pedido"]} className="mt-1" />
             </Field>
             {lead?.clienteTipo === "partner_ab" && (
               <Field label="Precio con IVA (€)">

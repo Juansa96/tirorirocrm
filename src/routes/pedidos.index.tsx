@@ -628,11 +628,13 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }:
           {pedido.entregado ? "OK" : sem.diasRestantes >= 0 ? `${sem.diasRestantes}d` : `${Math.abs(sem.diasRestantes)}d tarde`}
         </span>
       </td>
-      <td className="px-3 py-2 text-right">
-        <NumberCell value={pedido.precio} onSave={(v) => actions.updatePedido(pedido.id, { precio: v })} />
+      {/* Precio y envío se editan en la ficha del pedido (un solo sitio): la
+          celda enlaza a ella en vez de editarse al pasar el ratón. */}
+      <td className="px-3 py-2 text-right tabular-nums">
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} title="Editar en la ficha del pedido" className="rounded px-1 py-0.5 text-sm text-slate-800 hover:bg-slate-100 hover:underline">{formatCurrency(pedido.precio || 0)}</Link>
       </td>
-      <td className="px-3 py-2 text-right">
-        <NumberCell value={pedido.costeEnvio} onSave={(v) => actions.updatePedido(pedido.id, { costeEnvio: v })} />
+      <td className="px-3 py-2 text-right tabular-nums">
+        <Link to="/pedidos/$id" params={{ id: pedido.id }} title="Editar en la ficha del pedido" className="rounded px-1 py-0.5 text-sm text-slate-600 hover:bg-slate-100 hover:underline">{formatCurrency(pedido.costeEnvio || 0)}</Link>
       </td>
       <td className="px-3 py-2">
         <div className="flex flex-col items-center gap-1">
@@ -663,22 +665,6 @@ function CheckCell({ value, onChange }: { value: boolean; onChange: (v: boolean)
     >
       <Check className="h-3.5 w-3.5" />
     </button>
-  );
-}
-
-function NumberCell({ value, onSave }: { value: number; onSave: (v: number) => void }) {
-  return (
-    <input
-      type="number"
-      step="0.01"
-      defaultValue={value}
-      key={value}
-      onBlur={(e) => {
-        const v = parseFloat(e.target.value) || 0;
-        if (v !== value) onSave(v);
-      }}
-      className="w-20 rounded border border-transparent bg-transparent px-1 py-0.5 text-right text-sm hover:border-slate-200 focus:border-slate-400 focus:bg-white focus:outline-none"
-    />
   );
 }
 

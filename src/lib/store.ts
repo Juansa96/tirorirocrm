@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo } from "./types";
-import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
+import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller, medidasEtiquetadas } from "./catalogo";
@@ -740,11 +740,15 @@ async function syncLeadFromPedidos(leadId: string | null | undefined) {
   if (valorEnvio !== lead.valorEnvio) dbPatch.valor_envio = valorEnvio;
   if (valor !== lead.valor) dbPatch.valor = valor;
   if (cobrado !== lead.cobrado) { dbPatch.cobrado = cobrado; dbPatch.fecha_cobro = fechaCobro || null; }
+  // El importe de la venta (Closed Won) se rellena desde los pedidos: una sola
+  // cifra, en vez de una copia editable aparte que se quedaba atrás.
+  const ventaImporte = lead.etapa === "Closed Won" ? valor : lead.ventaImporte;
+  if (ventaImporte !== lead.ventaImporte) dbPatch.venta_importe = ventaImporte;
   if (Object.keys(dbPatch).length === 0) return;
 
   state = {
     ...state,
-    leads: state.leads.map((l) => l.id === leadId ? { ...l, valorProducto, valorEnvio, valor, cobrado, fechaCobro } : l),
+    leads: state.leads.map((l) => l.id === leadId ? { ...l, valorProducto, valorEnvio, valor, cobrado, fechaCobro, ventaImporte } : l),
   };
   emit();
   suppressLead(leadId);
@@ -758,16 +762,27 @@ let _syncingPrecio = false;
 // Propaga el precio de un PRODUCTO a sus pedidos: precio del pedido = precio
 // unitario × cantidad. Así, si cambias el precio en la ficha del producto, se
 // actualiza en el/los pedido(s) y en el valor del cliente.
+// Regla de dinero: el pedido manda en cuanto existe. Con UN pedido, el precio
+// del producto y el del pedido son la misma cifra y se copian en las dos
+// direcciones. Con VARIOS pedidos del mismo producto no se reparte el total a
+// ciegas (antes cada pedido recibía el total completo y el cliente sumaba el
+// doble): cada pedido conserva su precio y el producto refleja la suma.
 async function propagarPrecioProductoAPedidos(productoId: string, precioUnitario: number, cantidad: number) {
   if (_syncingPrecio) return;
   const total = Math.round((precioUnitario || 0) * (cantidad || 1) * 100) / 100;
-  const afectados = state.pedidos.filter((p) => p.productoLeadId === productoId && (p.precio || 0) !== total);
+  const pedidosProd = state.pedidos.filter((p) => p.productoLeadId === productoId);
+  if (pedidosProd.length > 1) {
+    toast.info("Este producto tiene varios pedidos: el precio se cambia en cada pedido.");
+    return;
+  }
+  const afectados = pedidosProd.filter((p) => (p.precio || 0) !== total);
   if (afectados.length === 0) return;
   _syncingPrecio = true;
   try {
     state = { ...state, pedidos: state.pedidos.map((p) => p.productoLeadId === productoId ? { ...p, precio: total } : p) };
     emit();
     await Promise.all(afectados.map((p) => supabase.from("pedidos").update({ precio: total } as never).eq("id", p.id)));
+    for (const p of afectados) await registrarCambio(tablaHistorialPedido(p.id), p.leadId, "precio_pedido", `${p.precio ?? 0} €`, `${total} €`);
     for (const lid of new Set(afectados.map((p) => p.leadId).filter(Boolean))) await syncLeadFromPedidos(lid);
   } finally { _syncingPrecio = false; }
 }
@@ -782,13 +797,17 @@ async function propagarPrecioPedidoAProducto(pedidoId: string) {
   const prod = state.productos.find((pr) => pr.id === ped.productoLeadId);
   if (!prod) return;
   const cant = prod.cantidad || 1;
-  const nuevoUnit = Math.round(((ped.precio || 0) / cant) * 100) / 100;
+  // Con varios pedidos del producto, el producto refleja la suma de todos.
+  const totalPedidos = state.pedidos.filter((p) => p.productoLeadId === prod.id).reduce((s, p) => s + (p.precio || 0), 0);
+  const nuevoUnit = Math.round((totalPedidos / cant) * 100) / 100;
   if (prod.precioUnitario === nuevoUnit) return;
   _syncingPrecio = true;
   try {
+    const antes = prod.precioUnitario;
     state = { ...state, productos: state.productos.map((p) => p.id === prod.id ? { ...p, precioUnitario: nuevoUnit } : p) };
     emit();
     await supabase.from("productos_lead").update({ precio_unitario: nuevoUnit } as never).eq("id", prod.id);
+    await registrarCambio(tablaHistorialProducto(prod.id), prod.leadId, "precio_producto", `${antes ?? 0} €`, `${nuevoUnit} €`);
   } finally { _syncingPrecio = false; }
 }
 
@@ -1479,6 +1498,7 @@ export const actions = {
       if (normNombreTela(prev.color) !== normNombreTela(input.color)) await registrarCambio(tabla, prev.leadId, "tela_lateral", prev.color, input.color);
       if (normNombreTela(prev.relleno) !== normNombreTela(input.relleno)) await registrarCambio(tabla, prev.leadId, "tela_vivo", prev.relleno, input.relleno);
       const mAntes = montajeDeExtras(prev.patas), mDespues = montajeDeExtras(input.patas);
+      if (prev.precioUnitario !== input.precioUnitario) await registrarCambio(tabla, prev.leadId, "precio_producto", `${prev.precioUnitario ?? 0} €`, `${input.precioUnitario ?? 0} €`);
       if (mAntes !== mDespues) await registrarCambio(tabla, prev.leadId, "montaje", mAntes === "colgar" ? "colgado a la pared" : mAntes === "apoyar" ? "apoyado en el suelo" : "por decidir", mDespues === "colgar" ? "colgado a la pared" : mDespues === "apoyar" ? "apoyado en el suelo" : "por decidir");
       const rolesCambiados = ([
         (prev.tela !== input.tela || prev.coleccionTela !== input.coleccionTela) && "Frontal",
@@ -1835,8 +1855,12 @@ export const actions = {
     // de plazo. Si cambia alguna de las dos, refrescamos para traer la nueva.
     if ("fechaCreacionPedido" in patch || "diasPlazo" in patch) await refetchPedidos();
     await syncLeadFromPedidos(leadId);
-    // Si cambió el precio del pedido, se refleja en la ficha del producto.
-    if ("precio" in patch) await propagarPrecioPedidoAProducto(id);
+    // Si cambió el precio del pedido, queda en el historial y se refleja en la
+    // ficha del producto.
+    if ("precio" in patch && actual && (actual.precio || 0) !== (patch.precio || 0)) {
+      await registrarCambio(tablaHistorialPedido(id), leadId ?? null, "precio_pedido", `${actual.precio ?? 0} €`, `${patch.precio ?? 0} €`);
+      await propagarPrecioPedidoAProducto(id);
+    }
   },
 
   // Edición MANUAL del número de pedido (solo equipo). El número PUEDE
