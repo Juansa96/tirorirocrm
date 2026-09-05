@@ -545,6 +545,15 @@ export const PASO_EMAIL_ENTREGA = "@emailEntrega";        // valor: fecha ISO de
 export const PASO_EMAIL_ENTREGA_A = "@emailEntregaA";     // valor: dirección
 export const PASO_EMAIL_ENTREGA_POR = "@emailEntregaPor"; // valor: quién lo envió
 
+// Motivo corto de un aviso de cambio ("Cambió en el producto: medidas" →
+// "medidas"), para pintarlo como chip discreto en el panel.
+export function motivoCambio(detalle: string | null | undefined): string {
+  const d = String(detalle ?? "").trim();
+  if (!d) return "";
+  const i = d.lastIndexOf(":");
+  return (i >= 0 ? d.slice(i + 1) : d).trim().replace(/\.$/, "");
+}
+
 // Deriva los marcadores del tapicero a partir de `pasos_tapicero`.
 export function marcadoresTapicero(pasos: Record<string, string> | null | undefined): {
   iniciado: boolean; iniciadoFecha: string; iniciadoPor: string;

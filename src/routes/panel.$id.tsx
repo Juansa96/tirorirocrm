@@ -1,4 +1,4 @@
-import { numeroPedidoLabel } from "@/lib/types";
+import { numeroPedidoLabel, motivoCambio } from "@/lib/types";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import {
@@ -7,7 +7,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import {
   displayNombreProducto, telasDeProducto, etiquetaTela, vivoLabel, tipoLlevaVivo, montajeEfectivo,
-  pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL, mismoTipo, BANCO_ALTO_DEFECTO, BANCO_FONDO_DEFECTO,
+  pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL, medidasEtiquetadas, camposMedida,
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
@@ -48,7 +48,7 @@ function FichaPanel() {
     </div>
   );
 
-  const medidas = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
+  const med = medidasEtiquetadas(p.tipo, p.modelo, p.ancho, p.alto, p.fondo);
   const plazo = plazoBadge(p.diasRestantes, p.entregado, !!p.fechaRecogida);
   const montajeEf = montajeEfectivo(p.tipo, p.montaje);
   const montaje = montajeEf === "colgar" ? "Colgar en pared" : montajeEf === "apoyar" ? "Apoyar en suelo" : "";
@@ -120,9 +120,9 @@ function FichaPanel() {
               </div>
               <dl className="min-w-0 flex-1 space-y-1">
                 <Dato k="Producto" v={displayNombreProducto(p.tipo, p.modelo)} />
-                {mismoTipo(p.tipo, "banco")
-                  ? <Dato k="Medidas" v={medidasBancoLabel(p)} />
-                  : <Dato k="Medidas" v={medidas ? medidas + " cm" : "Medidas sin especificar"} />}
+                <Dato k="Medidas" wrap v={med.texto} vacio={med.faltan.length > 0 ? `Faltan: ${med.faltan.join(", ")}` : "Sin especificar"} />
+                {med.texto && med.faltan.length > 0 && <Dato k="" v="" vacio={`Falta: ${med.faltan.join(", ")}`} />}
+                {med.extra && <Dato k="" wrap v={med.extra} />}
                 <Dato k="Cliente" v={p.cliente || "—"} />
                 <Dato k="Tapicero" v={p.tapiceroNombre || "Sin asignar"} />
                 {tipoLlevaVivo(p.tipo) && <Dato k="Vivo" v={vivoLabel(p.acabado)} />}
@@ -135,14 +135,14 @@ function FichaPanel() {
               <span className="text-slate-400">Lo recoge Juan:</span>
               <span className="font-semibold text-slate-700">{p.fechaRecogida ? formatShortDate(p.fechaRecogida) : "—"}</span>
             </div>
-            {mismoTipo(p.tipo, "banco") && <MedidasBanco p={p} onDone={refetch} />}
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {extras.length === 0 ? (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">Sin extras</span>
-              ) : extras.map((e) => (
-                <span key={e} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">{e}</span>
-              ))}
-            </div>
+            <MedidasEditor p={p} onDone={refetch} />
+            {extras.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {extras.map((e) => (
+                  <span key={e} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">{e}</span>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* 2 · Tapizado: cómo debe quedar + telas */}
@@ -208,72 +208,13 @@ function FichaPanel() {
   );
 }
 
-// "120 × 45 × 33 cm" (largo × alto × fondo) para el banco; lo que falte, "?".
-function medidasBancoLabel(p: PanelPedido): string {
-  if (p.ancho == null && p.alto == null && p.fondo == null) return "Medidas sin especificar";
-  const f = (n: number | null) => (n != null && n > 0 ? String(n) : "?");
-  return `${f(p.ancho)} × ${f(p.alto)} × ${f(p.fondo)} cm (largo × alto × fondo)`;
-}
-
-// Medidas del banco editables desde el panel (tapicero o equipo). Escriben en
-// el MISMO producto que Clientes > Productos y Pedidos, vía ruta de servidor.
-function MedidasBanco({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
-  const [abierto, setAbierto] = useState(false);
-  const [largo, setLargo] = useState("");
-  const [alto, setAlto] = useState("");
-  const [fondo, setFondo] = useState("");
-  const [busy, setBusy] = useState(false);
-  const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
-  const num = (v: string): number | null => { const n = Number(String(v).trim().replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
-  function abrir() {
-    setLargo(p.ancho != null && p.ancho > 0 ? String(p.ancho) : "");
-    setAlto(p.alto != null && p.alto > 0 ? String(p.alto) : "");
-    setFondo(p.fondo != null && p.fondo > 0 ? String(p.fondo) : "");
-    setAbierto(true);
-  }
-  async function guardar() {
-    setBusy(true);
-    const ok = await guardarMedidasTapicero(p.id, { ancho: num(largo), alto: num(alto), fondo: num(fondo) });
-    setBusy(false);
-    if (ok) { toast.success("Medidas guardadas ✅"); setAbierto(false); void onDone(); } else toast.error("No se pudieron guardar las medidas.");
-  }
-  if (!abierto) {
-    return (
-      <button type="button" onClick={abrir}
-        className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 print:hidden">
-        <Pencil className="h-3 w-3" /> Corregir medidas
-      </button>
-    );
-  }
-  return (
-    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 print:hidden">
-      <div className="grid grid-cols-3 gap-2">
-        <label className="text-[11px] text-slate-500">Largo (cm)
-          <input type="number" inputMode="decimal" className={inp} value={largo} onChange={(e) => setLargo(e.target.value)} placeholder="cm" min={10} max={400} />
-        </label>
-        <label className="text-[11px] text-slate-500">Alto (cm)
-          <input type="number" inputMode="decimal" className={inp} value={alto} onChange={(e) => setAlto(e.target.value)} placeholder={String(BANCO_ALTO_DEFECTO)} min={10} max={120} />
-        </label>
-        <label className="text-[11px] text-slate-500">Fondo (cm)
-          <input type="number" inputMode="decimal" className={inp} value={fondo} onChange={(e) => setFondo(e.target.value)} placeholder={String(BANCO_FONDO_DEFECTO)} min={10} max={120} />
-        </label>
-      </div>
-      <div className="mt-2 flex gap-2">
-        <button type="button" disabled={busy} onClick={() => void guardar()}
-          className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">{busy ? "Guardando…" : "Guardar medidas"}</button>
-        <button type="button" disabled={busy} onClick={() => setAbierto(false)}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600">Cancelar</button>
-      </div>
-      <p className="mt-1.5 text-[11px] text-slate-400">Se guarda en el producto: lo verán igual en Clientes y en Pedidos.</p>
-    </div>
-  );
-}
-
-function Dato({ k, v }: { k: string; v: string }) {
+function Dato({ k, v, vacio = "—", wrap = false }: { k: string; v: string; vacio?: string; wrap?: boolean }) {
   return (
     <div className="flex gap-2">
       <dt className="w-20 shrink-0 text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
-      <dd className="min-w-0 flex-1 truncate font-semibold text-slate-800">{v || "—"}</dd>
+      {v
+        ? <dd className={`min-w-0 flex-1 font-semibold text-slate-800 ${wrap ? "" : "truncate"}`}>{v}</dd>
+        : <dd className="min-w-0 flex-1"><span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">{vacio}</span></dd>}
     </div>
   );
 }
@@ -288,7 +229,7 @@ function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void })
   }
   const telaRecibida = p.telaEstado === "recibida";
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-2.5 print:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] print:hidden">
       <div className="mx-auto grid max-w-4xl grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => marca("tela_recibida", !telaRecibida)}
           className={`rounded-xl px-2 py-3 text-xs font-bold sm:text-sm ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
@@ -307,6 +248,64 @@ function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void })
   );
 }
 
+// Medidas editables desde el panel (tapicero o equipo), para TODOS los tipos y
+// con las etiquetas de cada uno (ancho/alto, largo/alto/fondo, Ø/alto…).
+// Escriben en el MISMO producto que Clientes > Productos y Pedidos, vía ruta de
+// servidor. Si lo corrige el equipo, el tapicero recibe el aviso de cambio.
+function MedidasEditor({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
+  const campos = camposMedida(p.tipo, p.modelo, { ancho: p.ancho, fondo: p.fondo });
+  const [abierto, setAbierto] = useState(false);
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const inp = "w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none bg-white";
+  const num = (v: string): number | null => { const n = Number(String(v ?? "").trim().replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
+  function abrir() {
+    const ini: Record<string, string> = {};
+    for (const c of campos) { const v = p[c.key]; ini[c.key] = v != null && v > 0 ? String(v) : ""; }
+    setVals(ini);
+    setAbierto(true);
+  }
+  async function guardar() {
+    const medidas: { ancho?: number | null; alto?: number | null; fondo?: number | null } = {};
+    for (const c of campos) medidas[c.key] = num(vals[c.key] ?? "");
+    if (campos.some((c) => c.obligatorio && medidas[c.key] == null)) { toast.error("Faltan medidas obligatorias."); return; }
+    // Puf cuadrado: el fondo es el mismo lado.
+    if (campos.some((c) => c.label === "Lado")) medidas.fondo = medidas.ancho;
+    setBusy(true);
+    const ok = await guardarMedidasTapicero(p.id, medidas);
+    setBusy(false);
+    if (ok) { toast.success("Medidas guardadas ✅"); setAbierto(false); void onDone(); } else toast.error("No se pudieron guardar las medidas.");
+  }
+  if (!abierto) {
+    return (
+      <button type="button" onClick={abrir}
+        className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 print:hidden">
+        <Pencil className="h-3 w-3" /> Corregir medidas
+      </button>
+    );
+  }
+  return (
+    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 print:hidden">
+      <div className={`grid gap-2 ${campos.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+        {campos.map((c) => (
+          <label key={c.key} className="text-[11px] text-slate-500">{c.label === "Ø" ? "Diámetro" : c.label} (cm){c.obligatorio ? "" : " · opcional"}
+            <input type="number" inputMode="decimal" className={inp} value={vals[c.key] ?? ""}
+              onChange={(e) => setVals((v) => ({ ...v, [c.key]: e.target.value }))}
+              placeholder={c.defecto != null ? String(c.defecto) : "cm"} min={1} max={500} />
+          </label>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button type="button" disabled={busy} onClick={() => void guardar()}
+          className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">{busy ? "Guardando…" : "Guardar medidas"}</button>
+        <button type="button" disabled={busy} onClick={() => setAbierto(false)}
+          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600">Cancelar</button>
+      </div>
+      <p className="mt-1.5 text-[11px] text-slate-400">Se guarda en el producto: lo verán igual en Clientes y en Pedidos.</p>
+    </div>
+  );
+}
+
 // Aviso destacado cuando el equipo ha cambiado algo del pedido DESPUÉS de estar
 // ya en el panel del tapicero. Le permite darlo por visto (limpia el aviso).
 function AvisoCambio({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
@@ -318,18 +317,19 @@ function AvisoCambio({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
     setBusy(false);
     if (ok) { toast.success("Entendido ✅"); void onDone(); } else toast.error("No se pudo guardar.");
   }
+  const motivo = motivoCambio(p.cambioTrasEnvioDetalle);
   return (
-    <section className="rounded-xl border-2 border-rose-300 bg-rose-50 p-3 text-[13px] text-rose-900 print:hidden">
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700">
-        <span aria-hidden>⚠️</span> Ojo: este pedido se ha modificado
-      </div>
-      <div className="font-medium">
-        El equipo ha cambiado algo{p.cambioTrasEnvioFecha ? ` el ${formatShortDate(p.cambioTrasEnvioFecha.slice(0, 10))}` : ""} después de enviártelo.
-        {p.cambioTrasEnvioDetalle ? ` ${p.cambioTrasEnvioDetalle}.` : ""} Revísalo por si ya lo habías empezado.
+    <section className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-slate-800 print:hidden">
+      <Pencil className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold">Cambio{motivo ? `: ${motivo}` : ""}</div>
+        <div className="text-slate-600">
+          El equipo lo ha cambiado{p.cambioTrasEnvioFecha ? ` el ${formatShortDate(p.cambioTrasEnvioFecha.slice(0, 10))}` : ""} después de enviártelo. Revísalo si ya lo habías empezado.
+        </div>
       </div>
       <button disabled={busy} onClick={() => void visto()}
-        className="mt-2 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">
-        Ya lo he revisado
+        className="shrink-0 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50">
+        Visto
       </button>
     </section>
   );

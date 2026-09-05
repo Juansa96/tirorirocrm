@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Lead, type Producto, type Tapicero } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 import { cmpCola } from "@/lib/orden-taller";
-import { tipoLabelOf, displayModelo, displayColeccionTela } from "@/lib/catalogo";
+import { tipoLabelOf, displayModelo, displayColeccionTela, medidasEtiquetadas } from "@/lib/catalogo";
 import { toast } from "sonner";
 
 // Avisa por email a un tapicero de un grupo de pedidos (uno solo, agrupado).
@@ -27,8 +27,8 @@ async function avisarGrupo(pedidoIds: string[]): Promise<void> {
 // Medidas legibles a partir de ancho/alto/fondo (los que existan).
 function medidasOf(p: Producto | undefined): string {
   if (!p) return "—";
-  const dims = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0);
-  return dims.length ? dims.join(" × ") + " cm" : "—";
+  const m = medidasEtiquetadas(p.tipo, p.modelo, p.ancho, p.alto, p.fondo);
+  return m.texto || "—";
 }
 
 // Tela legible: nombre de tela + categoría (Básicas/Premium) si la hay.

@@ -219,7 +219,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav
-        className="fixed bottom-0 left-0 right-0 z-30 grid border-t border-slate-200 bg-white md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-30 grid border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
         style={{ gridTemplateColumns: `repeat(${NAV_MOBILE.length}, minmax(0, 1fr))` }}
       >
         {NAV_MOBILE.map((item) => {

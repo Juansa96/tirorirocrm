@@ -5,7 +5,7 @@ import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
-import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras } from "@/lib/catalogo";
+import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { ProductoForm, productoToState } from "@/components/ProductoForm";
 import { TapiceroAsignado, RutaProduccion, TelasPedidoEditor } from "@/components/PedidoProduccion";
@@ -62,7 +62,8 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
     if (dirty && !confirm("Tienes cambios sin guardar. ¿Salir sin guardar?")) { e.preventDefault(); }
   }
 
-  const medidas = [producto?.ancho, producto?.alto, producto?.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
+  const med = medidasEtiquetadas(producto?.tipo, producto?.modelo, producto?.ancho, producto?.alto, producto?.fondo);
+  const medidas = [med.texto, med.extra].filter(Boolean).join(" · ");
 
   return (
     <div className="space-y-4 pb-24">
@@ -159,7 +160,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
           ) : (
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
               <Info k="Tipo" v={displayNombreProducto(producto.tipo, producto.modelo)} />
-              <Info k="Medidas" v={medidas ? medidas + " cm" : "—"} />
+              <Info k="Medidas" v={medidas || "—"} />
               <Info k="Cantidad" v={String(producto.cantidad || 1)} />
               <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} />
               {producto.color && <Info k="Tela lateral" v={producto.color} />}
@@ -310,7 +311,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
 
       {/* Barra fija de guardado */}
       {dirty && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-amber-200 bg-amber-50/95 px-4 py-3 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-amber-200 bg-amber-50/95 px-4 py-3 shadow-[0_-8px_24px_-14px_rgba(0,0,0,.35)] backdrop-blur md:bottom-0 md:shadow-none">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
             <span className="text-sm font-medium text-amber-800">Tienes cambios sin guardar</span>
             <div className="flex gap-2">

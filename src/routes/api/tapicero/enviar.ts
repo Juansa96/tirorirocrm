@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { displayNombreProducto } from "@/lib/catalogo";
+import { displayNombreProducto, medidasEtiquetadas } from "@/lib/catalogo";
 import { obtenerTokenBaja } from "@/lib/email-baja.server";
 
 // "Enviar a Daniel": marca los pedidos como enviados al panel del tapicero y
@@ -65,13 +65,13 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
 
           const items = lista.map((p) => {
             const pr = prodById.get(p.producto_lead_id as string) ?? {};
-            const medidas = [pr.ancho, pr.alto, pr.fondo].filter((d) => d != null && Number(d) > 0).join(" × ");
+            const medidas = medidasEtiquetadas(pr.tipo, pr.modelo, pr.ancho as number | null, pr.alto as number | null, pr.fondo as number | null).texto;
             const titulo = esc(displayNombreProducto(pr.tipo, pr.modelo));
             const fecha = p.fecha_limite ? `entrega ${esc(String(p.fecha_limite))}` : "";
             const link = `${origin}/panel/${p.id}`;
             return `<tr><td style="padding:12px 0;border-bottom:1px solid #eee">
               <div style="font-weight:700;font-size:16px;color:#1a1f36">${titulo}</div>
-              <div style="color:#555;font-size:14px">${medidas ? medidas + " cm · " : ""}${fecha}</div>
+              <div style="color:#555;font-size:14px">${medidas ? medidas + " · " : ""}${fecha}</div>
               <a href="${link}" style="display:inline-block;margin-top:8px;background:#1a1f36;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;font-size:15px">Ver ficha del pedido</a>
             </td></tr>`;
           }).join("");

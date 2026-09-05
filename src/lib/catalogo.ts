@@ -682,3 +682,104 @@ export const PANTALLA_TAMANOS_UI: Record<string, string[]> = {
 // con el resto de constantes UI trasladadas).
 export const CABECERO_ALTURAS_UI = CABECERO_ALTOS;
 
+
+// ── Medidas con etiqueta por tipo ──────────────────────────────────────────
+// Las tres columnas (ancho / alto / fondo) significan cosas distintas según el
+// producto: en un cabecero "fondo" es el grosor, en un banco "ancho" es el
+// largo, en un puf redondo "ancho" es el diámetro. Para que el taller no tenga
+// que adivinar el orden, TODAS las pantallas pintan las medidas con su
+// etiqueta ("Ancho 150 · Alto 130 cm") a través de estas funciones.
+export type ClaveMedida = "ancho" | "alto" | "fondo";
+export interface CampoMedida {
+  key: ClaveMedida;
+  label: string;          // etiqueta corta para pintar y para el editor
+  obligatorio: boolean;   // sin este dato el pedido no puede ir al taller
+  defecto?: number;       // valor que se asume si no está guardado (bancos)
+}
+
+export function pufEsRedondo(modelo: unknown): boolean {
+  return /redond|ø/i.test(String(modelo ?? ""));
+}
+
+// Campos de medida que aplican a cada tipo, en el orden en que se muestran.
+export function camposMedida(tipo: unknown, modelo?: unknown, medidas?: { ancho?: number | null; fondo?: number | null }): CampoMedida[] {
+  switch (normalizeTipo(tipo)) {
+    case "cabecero":
+      return [{ key: "ancho", label: "Ancho", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: true }];
+    case "banco":
+      return [
+        { key: "ancho", label: "Largo", obligatorio: true },
+        { key: "alto", label: "Alto", obligatorio: false, defecto: BANCO_ALTO_DEFECTO },
+        { key: "fondo", label: "Fondo", obligatorio: false, defecto: BANCO_FONDO_DEFECTO },
+      ];
+    case "puf": {
+      if (pufEsRedondo(modelo)) return [{ key: "ancho", label: "Ø", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: true }];
+      // Cuadrado: una sola medida de lado salvo que el fondo guardado sea distinto.
+      const a = medidas?.ancho ?? null, f = medidas?.fondo ?? null;
+      const rect = a != null && f != null && a > 0 && f > 0 && a !== f;
+      return rect
+        ? [{ key: "ancho", label: "Ancho", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: true }, { key: "fondo", label: "Fondo", obligatorio: false }]
+        : [{ key: "ancho", label: "Lado", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: true }];
+    }
+    case "mesa":
+      return [{ key: "ancho", label: "Largo", obligatorio: true }, { key: "fondo", label: "Ancho", obligatorio: false }, { key: "alto", label: "Alto", obligatorio: true }];
+    case "cojin":
+      return [{ key: "ancho", label: "Ancho", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: true }];
+    case "pantalla":
+      return [{ key: "ancho", label: "Ø", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: true }];
+    default:
+      return [{ key: "ancho", label: "Ancho", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: false }, { key: "fondo", label: "Fondo", obligatorio: false }];
+  }
+}
+
+export interface MedidasEtiquetadas {
+  texto: string;      // "Ancho 150 · Alto 130 cm" — vacío si no hay ninguna medida
+  faltan: string[];   // etiquetas (en minúscula) de las medidas obligatorias que faltan
+  extra: string;      // dato secundario, p. ej. "Grosor 8 cm" en cabeceros
+}
+
+export function medidasEtiquetadas(
+  tipo: unknown, modelo: unknown,
+  ancho: number | null | undefined, alto: number | null | undefined, fondo: number | null | undefined,
+): MedidasEtiquetadas {
+  const val: Record<ClaveMedida, number | null> = {
+    ancho: ancho != null && ancho > 0 ? ancho : null,
+    alto: alto != null && alto > 0 ? alto : null,
+    fondo: fondo != null && fondo > 0 ? fondo : null,
+  };
+  const campos = camposMedida(tipo, modelo, val);
+  const faltan = campos.filter((c) => c.obligatorio && val[c.key] == null).map((c) => c.label.toLowerCase());
+  const partes: string[] = [];
+  for (const c of campos) {
+    const v = val[c.key] ?? c.defecto ?? null;
+    if (v == null) continue;
+    partes.push(c.label === "Ø" ? `Ø ${v}` : `${c.label} ${v}`);
+  }
+  // Sin ninguna medida numérica: a veces la medida viaja en el propio modelo
+  // ("30x50", "Oyambre — 120 cm"). Se enseña tal cual y no cuenta como falta.
+  if (val.ancho == null && val.alto == null && val.fondo == null) {
+    const det = modeloDetalle(tipo, modelo);
+    if (det && esDetalleMedida(det)) return { texto: det, faltan: [], extra: "" };
+    return { texto: "", faltan, extra: "" };
+  }
+  let extra = "";
+  if (normalizeTipo(tipo) === "cabecero" && val.fondo != null) extra = `Grosor ${val.fondo} cm`;
+  // Espacio duro antes de "cm" para que no quede solo en la línea siguiente.
+  return { texto: partes.length ? partes.join(" · ") + "\u00a0cm" : "", faltan, extra };
+}
+
+// Requisitos para que un pedido pueda ir al taller (asignarse a un tapicero):
+// medidas obligatorias del producto y fecha de recogida. Devuelve lo que falta.
+export function faltaParaTaller(
+  producto: { tipo?: unknown; modelo?: unknown; ancho?: number | null; alto?: number | null; fondo?: number | null } | null | undefined,
+  fechaRecogida: string | null | undefined,
+): string[] {
+  const faltan: string[] = [];
+  if (!producto) faltan.push("producto");
+  else {
+    const m = medidasEtiquetadas(producto.tipo, producto.modelo, producto.ancho, producto.alto, producto.fondo);
+    if (m.faltan.length > 0) faltan.push(m.texto ? `medidas (${m.faltan.join(", ")})` : "medidas");
+  }
+  if (!fechaRecogida) faltan.push("fecha de recogida");
+  return faltan;
+}
