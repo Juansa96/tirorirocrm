@@ -136,6 +136,8 @@ function ClienteDetalle() {
   const [closingEtapa, setClosingEtapa] = useState<Etapa | null>(null);
   const [closingReason, setClosingReason] = useState("");
   const [ventaImporte, setVentaImporte] = useState("");
+  // Pestaña activa de la ficha (Datos · Productos y pedidos · Notas y fotos).
+  const [tab, setTab] = useState<"datos" | "productos" | "notas" | null>(null);
   const [ventaFecha, setVentaFecha] = useState("");
   // Motivo de pérdida para colaboraciones (influencer → "Perdido")
   const [perdidaColab, setPerdidaColab] = useState(false);
@@ -222,6 +224,9 @@ function ClienteDetalle() {
   const leadAudit = audit.filter((a) => a.leadId === lead.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const leadNotas = notas.filter((n) => n.leadId === lead.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const leadProductos = productos.filter((p) => p.leadId === lead.id);
+  // Sin elección explícita: si el cliente ya tiene producto se abre en
+  // "Productos y pedidos" (donde se trabaja); si no, en Datos (cualificar).
+  const tabActiva = tab ?? (leadProductos.length > 0 ? "productos" : "datos");
 
   // Cliente recurrente (duplicados: ver el useMemo de arriba).
   const recurrente = esClienteRecurrente(lead, leads, pedidos);
@@ -331,7 +336,7 @@ function ClienteDetalle() {
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-500">Importe de la venta (€)</label>
               <input
-                type="number" step="0.01" min="0"
+                type="number" inputMode="decimal" step="0.01" min="0"
                 value={ventaImporte}
                 onChange={(e) => setVentaImporte(e.target.value)}
                 placeholder="0,00"
@@ -450,6 +455,20 @@ function ClienteDetalle() {
         </div>
       )}
 
+      {/* Pestañas: la ficha eran 10-13 bloques seguidos sin índice. Se abre en
+          "Productos y pedidos" si el cliente ya tiene producto; si no, en Datos. */}
+      <div className="sticky top-0 z-20 -mx-4 bg-slate-50/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0 md:py-0">
+        <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-white p-1 text-sm">
+          {([["datos", "Datos"], ["productos", `Productos y pedidos${leadProductos.length ? ` (${leadProductos.length})` : ""}`], ["notas", "Notas y fotos"]] as const).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setTab(k)}
+              className={`min-h-11 rounded-lg px-2 font-semibold transition-colors ${tabActiva === k ? "bg-[#1a1f36] text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tabActiva === "datos" && (<>
       {/* Bloque B2B (razón social, contacto, asignados) */}
       {lead.tipo === "B2B" && <B2BInfoPanel lead={lead} />}
 
@@ -683,7 +702,7 @@ function ClienteDetalle() {
                   </div>
                 </div>
               ) : valorProductoEdit ? (
-                <input type="number" value={localValorProducto ?? lead.valorProducto} autoFocus
+                <input type="number" inputMode="decimal" value={localValorProducto ?? lead.valorProducto} autoFocus
                   onChange={(e) => setLocalValorProducto(parseFloat(e.target.value) || 0)}
                   onBlur={() => {
                     if (localValorProducto !== null) actions.updateLead(lead.id, { valorProducto: localValorProducto });
@@ -699,7 +718,7 @@ function ClienteDetalle() {
             <div>
               <div className="text-xs text-slate-500 mb-1">Envío</div>
               {valorEnvioEdit ? (
-                <input type="number" value={localValorEnvio ?? lead.valorEnvio} autoFocus
+                <input type="number" inputMode="decimal" value={localValorEnvio ?? lead.valorEnvio} autoFocus
                   onChange={(e) => setLocalValorEnvio(parseFloat(e.target.value) || 0)}
                   onBlur={() => {
                     if (localValorEnvio !== null) actions.updateLead(lead.id, { valorEnvio: localValorEnvio });
@@ -729,6 +748,9 @@ function ClienteDetalle() {
           </div>
         </div>
       </div>
+      </>)}
+
+      {tabActiva === "productos" && (<>
 
       {/* Productos */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -866,6 +888,9 @@ function ClienteDetalle() {
           ))}
         </div>
       </div>
+      </>)}
+
+      {tabActiva === "notas" && (<>
 
       {/* Tareas */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -987,6 +1012,7 @@ function ClienteDetalle() {
           </ul>
         )}
       </div>
+      </>)}
     </div>
   );
 }
@@ -1237,7 +1263,7 @@ function InfluencerPanel({ lead }: { lead: Lead }) {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-700">Nº de seguidores</label>
-          <input type="number" min={0} defaultValue={lead.seguidores} key={lead.seguidores}
+          <input type="number" inputMode="decimal" min={0} defaultValue={lead.seguidores} key={lead.seguidores}
             onBlur={(e) => { const v = parseInt(e.target.value) || 0; if (v !== lead.seguidores) actions.updateLead(lead.id, { seguidores: v }); }}
             className={inp} />
         </div>

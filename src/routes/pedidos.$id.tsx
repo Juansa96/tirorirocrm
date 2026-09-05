@@ -82,7 +82,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
               <label className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">
                 Nº
                 <input
-                  type="number" min={1}
+                  type="number" inputMode="decimal" min={1}
                   value={draft.numero ?? ""}
                   onChange={(e) => guardarNumero(e.target.value)}
                   placeholder="—"
@@ -194,7 +194,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             <div>
               <label className="text-xs text-slate-500">Días de plazo</label>
               <input
-                type="number" min={1}
+                type="number" inputMode="decimal" min={1}
                 value={draft.diasPlazo}
                 onChange={(e) => patch({ diasPlazo: Math.max(1, parseInt(e.target.value) || 20) })}
                 className="mt-1 w-24 rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
@@ -237,13 +237,13 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             </Field>
             {lead?.clienteTipo === "partner_ab" && (
               <Field label="Precio con IVA (€)">
-                <input type="number" step="0.01" value={draft.precioConIva ?? ""}
+                <input type="number" inputMode="decimal" step="0.01" value={draft.precioConIva ?? ""}
                   onChange={(e) => patch({ precioConIva: e.target.value === "" ? null : parseFloat(e.target.value) })}
                   className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none" />
               </Field>
             )}
             <Field label="Coste envío (€)">
-              <input type="number" step="0.01" value={draft.costeEnvio}
+              <input type="number" inputMode="decimal" step="0.01" value={draft.costeEnvio}
                 onChange={(e) => patch({ costeEnvio: parseFloat(e.target.value) || 0 })}
                 className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none" />
             </Field>
@@ -255,7 +255,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
               onApply={(v) => patch({ costeEnvio: v })}
             />
             <Field label="Reserva (€)">
-              <input type="number" step="0.01" value={draft.reserva}
+              <input type="number" inputMode="decimal" step="0.01" value={draft.reserva}
                 onChange={(e) => patch({ reserva: parseFloat(e.target.value) || 0 })}
                 className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none" />
             </Field>
