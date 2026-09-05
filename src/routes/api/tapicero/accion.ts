@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { esPantalla } from "@/lib/types";
 
 // Acciones del tapicero sobre SUS pedidos (o del equipo sobre cualquiera).
 // El tapicero es solo-lectura a nivel de BD; estas escrituras pasan por aquí,
@@ -34,7 +35,9 @@ export const Route = createFileRoute("/api/tapicero/accion")({
         // Carga el pedido y valida propiedad (el tapicero solo los suyos).
         // `pasos_tapicero` (JSONB) guarda también los marcadores de iniciado /
         // cambio (claves con prefijo "@"), sin necesidad de columnas nuevas.
-        const { data: pedido } = await supabaseAdmin.from("pedidos").select("id, tapicero_id, pasos_tapicero, producto_lead_id, entregado").eq("id", pedidoId).maybeSingle();
+        const { data: pedido } = await supabaseAdmin.from("pedidos")
+          .select("id, tapicero_id, pasos_tapicero, producto_lead_id, entregado, tela_recibida, tela_recibida_fecha, enviar_tela_daniel, enviar_tela_daniel_fecha, terminado_daniel_fecha, pantalla_hecha_fecha")
+          .eq("id", pedidoId).maybeSingle();
         if (!pedido) return json({ error: "Pedido no encontrado" }, 404);
         if (esTapicero && pedido.tapicero_id !== perfil.tapicero_id) return json({ error: "No es tu pedido" }, 403);
 
@@ -46,18 +49,36 @@ export const Route = createFileRoute("/api/tapicero/accion")({
         }
         const ahora = new Date().toISOString();
 
+        // Marcadores dentro de pasos_tapicero (JSONB existente). Claves "@".
+        // Las claves camelCase de hito guardan quién hizo ese paso (sello).
+        const pasosActuales = (pedido.pasos_tapicero && typeof pedido.pasos_tapicero === "object"
+          ? pedido.pasos_tapicero : {}) as Record<string, string>;
+        const ped = pedido as Record<string, unknown>;
+
+        // Los botones del tapicero y los hitos del equipo son la misma verdad
+        // (misma regla que sincronizarHitosTapicero en el store del equipo).
+        const tipoProducto = async (): Promise<string> => {
+          if (!ped.producto_lead_id) return "";
+          const { data: pr } = await supabaseAdmin.from("productos_lead").select("tipo").eq("id", ped.producto_lead_id as string).maybeSingle();
+          return String((pr as { tipo?: string } | null)?.tipo ?? "");
+        };
+
         if (op === "tela_recibida") {
           const valor = body?.valor !== false; // por defecto true
-          const { error } = await supabaseAdmin.from("pedidos").update({
+          const pantalla = esPantalla(await tipoProducto());
+          const upd: Record<string, unknown> = {
             tela_estado: valor ? "recibida" : "enviada",
             tela_estado_por: por, tela_estado_fecha: ahora,
-          } as never).eq("id", pedidoId);
+          };
+          if (valor) {
+            // El tapicero tiene la tela ⇒ el equipo la recibió y se la envió.
+            if (!ped.tela_recibida) { upd.tela_recibida = true; upd.tela_recibida_fecha = ped.tela_recibida_fecha ?? ahora; }
+            if (!pantalla && !ped.enviar_tela_daniel) { upd.enviar_tela_daniel = true; upd.enviar_tela_daniel_fecha = ped.enviar_tela_daniel_fecha ?? ahora; }
+          }
+          const { error } = await supabaseAdmin.from("pedidos").update(upd as never).eq("id", pedidoId);
           if (error) return json({ error: error.message }, 400);
           return json({ ok: true });
         }
-        // Marcadores dentro de pasos_tapicero (JSONB existente). Claves "@".
-        const pasosActuales = (pedido.pasos_tapicero && typeof pedido.pasos_tapicero === "object"
-          ? pedido.pasos_tapicero : {}) as Record<string, string>;
         if (op === "iniciado") {
           const valor = body?.valor !== false; // por defecto true
           const pasos = { ...pasosActuales };
@@ -105,10 +126,20 @@ export const Route = createFileRoute("/api/tapicero/accion")({
         }
         if (op === "terminado") {
           const valor = body?.valor !== false;
+          const pantalla = esPantalla(await tipoProducto());
+          // Hito de la ruta de producción que equivale a "terminado" en el taller.
+          const hitoCol = pantalla ? "pantalla_hecha" : "terminado_daniel";
+          const hitoFechaCol = pantalla ? "pantalla_hecha_fecha" : "terminado_daniel_fecha";
+          const hitoKey = pantalla ? "pantallaHecha" : "terminadoDaniel";
+          const pasos = { ...pasosActuales };
+          if (valor && pedido.tapicero_id) pasos[hitoKey] = pedido.tapicero_id as string; else delete pasos[hitoKey];
           const { error } = await supabaseAdmin.from("pedidos").update({
             terminado_tapicero: valor,
             terminado_tapicero_por: valor ? por : null,
             terminado_tapicero_fecha: valor ? ahora : null,
+            [hitoCol]: valor,
+            [hitoFechaCol]: valor ? (ped[hitoFechaCol] ?? ahora) : null,
+            pasos_tapicero: pasos,
           } as never).eq("id", pedidoId);
           if (error) return json({ error: error.message }, 400);
           return json({ ok: true });

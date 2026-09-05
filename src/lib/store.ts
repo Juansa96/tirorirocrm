@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo } from "./types";
-import { VENDEDORES, flujoPedido, normNombreTela, marcadoresTapicero, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
+import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
 import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller } from "./catalogo";
@@ -829,6 +829,44 @@ const CAMBIO_PEDIDO_LABELS: Partial<Record<keyof Pedido, string>> = {
   fechaRecogida: "fecha de recogida",
 };
 
+// Los botones del tapicero ("He recibido la tela", "Pedido terminado") y los
+// hitos de la ruta de producción del equipo son la MISMA verdad: al cambiar
+// uno se refleja en el otro, en las dos direcciones, para que la lista de
+// Pedidos no diga "en producción" cuando el taller ya ha terminado.
+//   · terminado_tapicero  ⇄  hito "Terminado Daniel" (o "Pantalla hecha")
+//   · tela_estado recibida ⇒ hitos "Recibir tela" + "Enviar tela a Daniel"
+//   · tela_estado enviada  ⇒ hito "Enviar tela a Daniel"
+//   · hito "Enviar tela a Daniel" ⇒ tela_estado al menos "enviada"
+// La ruta del panel (/api/tapicero/accion) aplica las mismas reglas en el
+// servidor para lo que pulsa el tapicero.
+function sincronizarHitosTapicero(actual: Pedido, patch: Partial<Pedido>): Partial<Pedido> {
+  const producto = state.productos.find((pr) => pr.id === actual.productoLeadId);
+  const pantalla = esPantalla(producto?.tipo ?? "");
+  const hitoFin = (pantalla ? "pantallaHecha" : "terminadoDaniel") as keyof Pedido;
+  const hitoFinFecha = (pantalla ? "pantallaHechaFecha" : "terminadoDanielFecha") as keyof Pedido;
+  const ahora = new Date().toISOString();
+  const por = currentUser ? vendorName(currentUser) : "equipo";
+  const out = { ...patch } as Record<string, unknown>;
+  const act = actual as unknown as Record<string, unknown>;
+
+  if ("terminadoTapicero" in out && !(hitoFin in out)) {
+    const v = !!out.terminadoTapicero;
+    if (v !== !!act[hitoFin]) { out[hitoFin] = v; out[hitoFinFecha] = v ? ((act[hitoFinFecha] as string) || ahora) : ""; }
+  } else if (hitoFin in out && !("terminadoTapicero" in out)) {
+    const v = !!out[hitoFin];
+    if (v !== actual.terminadoTapicero) { out.terminadoTapicero = v; out.terminadoTapiceroPor = v ? por : ""; out.terminadoTapiceroFecha = v ? ahora : ""; }
+  }
+
+  if ("telaEstado" in out) {
+    const e = out.telaEstado;
+    if (e === "recibida" && !actual.telaRecibida && !("telaRecibida" in out)) { out.telaRecibida = true; out.telaRecibidaFecha = ahora; }
+    if ((e === "recibida" || e === "enviada") && !pantalla && !actual.enviarTelaDaniel && !("enviarTelaDaniel" in out)) { out.enviarTelaDaniel = true; out.enviarTelaDanielFecha = ahora; }
+  } else if ("enviarTelaDaniel" in out && out.enviarTelaDaniel && (actual.telaEstado || "pendiente") === "pendiente") {
+    out.telaEstado = "enviada"; out.telaEstadoPor = por; out.telaEstadoFecha = ahora;
+  }
+  return out as Partial<Pedido>;
+}
+
 // Requisitos para que un pedido entre en el taller (asignarse a un tapicero):
 // medidas obligatorias del producto y fecha de recogida. Devuelve lo que falta.
 export function faltaParaTallerPedido(pedido: Pedido): string[] {
@@ -1578,6 +1616,7 @@ export const actions = {
     const prevState = state;
     const actual = state.pedidos.find((p) => p.id === id);
     const leadId = actual?.leadId;
+    if (actual) patch = sincronizarHitosTapicero(actual, patch);
     // Aviso de cambio tras envío: si el pedido ya está en manos de un tapicero
     // y cambia algún campo que le afecta, se marca (dentro de pasos_tapicero)
     // para que lo revise. No se dispara si el patch ya toca pasos_tapicero
@@ -1729,6 +1768,17 @@ export const actions = {
     delete sellos[PASO_CAMBIO];
     delete sellos[PASO_CAMBIO_DETALLE];
     const patch: Partial<Pedido> = { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos };
+    // …y también el estado que dejó el tapicero anterior: un pedido que cambia
+    // de manos no está terminado, y la tela "recibida" por el anterior vuelve a
+    // "enviada" hasta que el nuevo confirme que la tiene.
+    if (pedido.terminadoTapicero) {
+      patch.terminadoTapicero = false; patch.terminadoTapiceroPor = ""; patch.terminadoTapiceroFecha = "";
+      const hitoFin = esPantalla(producto?.tipo ?? "") ? "pantallaHecha" : "terminadoDaniel";
+      delete sellos[hitoFin];
+    }
+    if (pedido.telaEstado === "recibida") {
+      patch.telaEstado = nuevoTapiceroId ? "enviada" : "pendiente"; patch.telaEstadoPor = ""; patch.telaEstadoFecha = "";
+    }
     await actions.updatePedido(pedidoId, patch);
     return true;
   },
