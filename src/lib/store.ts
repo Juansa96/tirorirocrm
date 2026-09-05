@@ -2,10 +2,10 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo } from "./types";
-import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
+import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
-import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller } from "./catalogo";
+import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller, medidasEtiquetadas } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 import { TELAS_WEB } from "./telas-web-data";
@@ -867,6 +867,116 @@ function sincronizarHitosTapicero(actual: Pedido, patch: Partial<Pedido>): Parti
   return out as Partial<Pedido>;
 }
 
+// ── Historial "antes ponía …" ────────────────────────────────────────────
+// Apunta en audit_log (tabla existente) el valor anterior y el nuevo de un dato
+// del producto o del pedido. Lo leen el componente <Antes> y el historial de la
+// ficha del cliente. No bloquea nada y no necesita columnas nuevas.
+async function registrarCambio(tabla: string, leadId: string | null, campo: string, antes: string | null | undefined, despues: string | null | undefined) {
+  const a = String(antes ?? "").trim(), d = String(despues ?? "").trim();
+  if (a === d) return;
+  const row = { tabla, lead_id: leadId, campo, valor_anterior: a || null, valor_nuevo: d || null, usuario: currentUser };
+  const { data } = await supabase.from("audit_log").insert(row as never).select().single();
+  if (data) {
+    const e = mapAudit(data as Record<string, unknown>);
+    if (!state.audit.find((x) => x.id === e.id)) { state = { ...state, audit: [e, ...state.audit] }; emit(); }
+  }
+}
+
+// Texto de medidas para el historial ("Ancho 150 · Alto 100 cm").
+function textoMedidas(p: Pick<Producto, "tipo" | "modelo" | "ancho" | "alto" | "fondo">): string {
+  const m = medidasEtiquetadas(p.tipo, p.modelo, p.ancho, p.alto, p.fondo);
+  return [m.texto, m.extra].filter(Boolean).join(" · ").replace(/\u00a0/g, " ");
+}
+
+// ── Telas: una sola verdad entre producto y pedido ───────────────────────
+// El producto guarda las telas como texto (tela / color = lateral / relleno =
+// vivo) y el pedido como filas por rol con foto (pedido_telas). Se copiaban una
+// sola vez al crear el pedido y después cada lado iba por su cuenta. Ahora:
+//   · cambiar las telas del PRODUCTO actualiza las filas de sus pedidos, y
+//   · cambiar las telas del PEDIDO se refleja en el producto,
+// así la ficha del cliente y el panel del tapicero enseñan siempre lo mismo.
+const ROLES_TELA = ["Frontal", "Lateral", "Vivo"] as const;
+
+// Foto y colección de una tela por su nombre (web + biblioteca subida).
+function telaPorNombre(nombre: string): { fotoUrl: string; bibliotecaId: string; coleccion: string } {
+  const n = normNombreTela(nombre);
+  if (!n) return { fotoUrl: "", bibliotecaId: "", coleccion: "" };
+  const subida = state.telasBiblioteca.find((t) => normNombreTela(t.nombre) === n);
+  if (subida) return { fotoUrl: subida.fotoUrl, bibliotecaId: subida.id, coleccion: subida.coleccion ?? "" };
+  const web = state.telasWeb.find((t) => normNombreTela(t.nombre) === n);
+  if (web) return { fotoUrl: web.fotoUrl, bibliotecaId: "", coleccion: web.coleccion ?? "" };
+  return { fotoUrl: "", bibliotecaId: "", coleccion: "" };
+}
+
+// Producto → pedidos: escribe las telas del producto en pedido_telas de cada
+// pedido del producto (frontal siempre; lateral y vivo solo si tienen texto).
+// Solo se tocan los roles que han cambiado en este guardado (`roles`): así un
+// pedido cuyo lateral ya estaba bien detallado no se pisa por cambiar la frontal.
+async function propagarTelasProductoAPedidos(prod: Producto, roles: ReadonlyArray<(typeof ROLES_TELA)[number]> = ROLES_TELA) {
+  const pedidos = state.pedidos.filter((p) => p.productoLeadId === prod.id && !p.entregado);
+  if (pedidos.length === 0) return;
+  const deseadas: Record<string, string> = { Frontal: (prod.tela || "").trim(), Lateral: (prod.color || "").trim(), Vivo: (prod.relleno || "").trim() };
+  for (const ped of pedidos) {
+    const filas = state.pedidoTelas.filter((t) => t.pedidoId === ped.id);
+    let orden = filas.length;
+    for (const rol of roles) {
+      const nombre = deseadas[rol];
+      const fila = filas.find((t) => t.tipoTela.toLowerCase() === rol.toLowerCase());
+      if (!nombre) {
+        // Lateral vacío en el producto = "misma que la principal"; vivo vacío = sin tela de vivo.
+        if (fila && rol === "Lateral" && !fila.mismaQueFrontal) {
+          await supabase.from("pedido_telas").update({ nombre_tela: deseadas.Frontal, misma_que_frontal: true, tela_foto_url: telaPorNombre(deseadas.Frontal).fotoUrl || null } as never).eq("id", fila.id);
+        } else if (fila && rol === "Vivo") {
+          await supabase.from("pedido_telas").delete().eq("id", fila.id);
+        }
+        continue;
+      }
+      if (fila && normNombreTela(fila.nombreTela) === normNombreTela(nombre) && !fila.mismaQueFrontal) continue;
+      const info = telaPorNombre(nombre);
+      const payload = {
+        nombre_tela: nombre, misma_que_frontal: false,
+        tela_foto_url: info.fotoUrl || null, tela_biblioteca_id: info.bibliotecaId || null,
+        tela_coleccion: rol === "Frontal" ? (prod.coleccionTela ? displayColeccionTela(prod.coleccionTela) : (info.coleccion || null)) : (info.coleccion || null),
+      };
+      if (fila) await supabase.from("pedido_telas").update(payload as never).eq("id", fila.id);
+      else await supabase.from("pedido_telas").insert({ pedido_id: ped.id, tipo_tela: rol, estado: "Pedida", orden: orden++, ...payload } as never);
+    }
+  }
+  await refetchPedidoTelas();
+}
+
+// Pedido → producto: refleja las telas del pedido en el producto (texto) y
+// apunta en el historial lo que había antes.
+async function reflejarTelasEnProducto(pedidoId: string) {
+  const ped = state.pedidos.find((p) => p.id === pedidoId);
+  const prod = ped ? state.productos.find((pr) => pr.id === ped.productoLeadId) : undefined;
+  if (!ped || !prod) return;
+  const filas = state.pedidoTelas.filter((t) => t.pedidoId === pedidoId);
+  const de = (rol: string) => filas.find((t) => t.tipoTela.toLowerCase() === rol.toLowerCase());
+  const frontal = de("Frontal"), lateral = de("Lateral"), vivo = de("Vivo");
+  if (!frontal) return; // sin tela principal en el pedido no hay nada que reflejar
+  const nuevo = {
+    tela: frontal.nombreTela.trim(),
+    color: lateral && !lateral.mismaQueFrontal ? lateral.nombreTela.trim() : "",
+    relleno: vivo ? vivo.nombreTela.trim() : "",
+    coleccionTela: frontal.telaColeccion ? normalizarColeccionTela(frontal.telaColeccion) : prod.coleccionTela,
+  };
+  const cambios: Array<[campo: string, antes: string, despues: string]> = [];
+  if (normNombreTela(nuevo.tela) !== normNombreTela(prod.tela)) cambios.push(["tela_frontal", prod.tela, nuevo.tela]);
+  if (normNombreTela(nuevo.color) !== normNombreTela(prod.color)) cambios.push(["tela_lateral", prod.color, nuevo.color]);
+  if (normNombreTela(nuevo.relleno) !== normNombreTela(prod.relleno)) cambios.push(["tela_vivo", prod.relleno, nuevo.relleno]);
+  const cambiaColeccion = nuevo.coleccionTela !== prod.coleccionTela;
+  if (cambios.length === 0 && !cambiaColeccion) return;
+  const prevState = state;
+  state = { ...state, productos: state.productos.map((p) => p.id === prod.id ? { ...p, ...nuevo } : p) };
+  emit();
+  const { error } = await supabase.from("productos_lead").update({
+    tela: nuevo.tela, color: nuevo.color, relleno: nuevo.relleno, coleccion_tela: normalizarColeccionTela(nuevo.coleccionTela),
+  } as never).eq("id", prod.id);
+  if (error) { state = prevState; emit(); return; }
+  for (const [campo, antes, despues] of cambios) await registrarCambio(tablaHistorialProducto(prod.id), prod.leadId, campo, antes, despues);
+}
+
 // Requisitos para que un pedido entre en el taller (asignarse a un tapicero):
 // medidas obligatorias del producto y fecha de recogida. Devuelve lo que falta.
 export function faltaParaTallerPedido(pedido: Pedido): string[] {
@@ -1359,6 +1469,24 @@ export const actions = {
     }).eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al actualizar el producto."); return; }
     if (prev) await syncLeadValorFromProductos(prev.leadId);
+    // Historial "antes ponía …" (medidas, telas, montaje) y una sola verdad de
+    // telas: lo que cambia en el producto va también a las telas de sus pedidos.
+    if (prev) {
+      const tabla = tablaHistorialProducto(id);
+      const medAntes = textoMedidas(prev), medDespues = textoMedidas({ ...prev, ...input });
+      if (medAntes !== medDespues) await registrarCambio(tabla, prev.leadId, "medidas", medAntes, medDespues);
+      if (normNombreTela(prev.tela) !== normNombreTela(input.tela)) await registrarCambio(tabla, prev.leadId, "tela_frontal", prev.tela, input.tela);
+      if (normNombreTela(prev.color) !== normNombreTela(input.color)) await registrarCambio(tabla, prev.leadId, "tela_lateral", prev.color, input.color);
+      if (normNombreTela(prev.relleno) !== normNombreTela(input.relleno)) await registrarCambio(tabla, prev.leadId, "tela_vivo", prev.relleno, input.relleno);
+      const mAntes = montajeDeExtras(prev.patas), mDespues = montajeDeExtras(input.patas);
+      if (mAntes !== mDespues) await registrarCambio(tabla, prev.leadId, "montaje", mAntes === "colgar" ? "colgado a la pared" : mAntes === "apoyar" ? "apoyado en el suelo" : "por decidir", mDespues === "colgar" ? "colgado a la pared" : mDespues === "apoyar" ? "apoyado en el suelo" : "por decidir");
+      const rolesCambiados = ([
+        (prev.tela !== input.tela || prev.coleccionTela !== input.coleccionTela) && "Frontal",
+        prev.color !== input.color && "Lateral",
+        prev.relleno !== input.relleno && "Vivo",
+      ] as const).filter((r): r is "Frontal" | "Lateral" | "Vivo" => !!r);
+      if (rolesCambiados.length > 0) await propagarTelasProductoAPedidos({ ...prev, ...input }, rolesCambiados);
+    }
     // Si cambió el precio o la cantidad, se propaga al/los pedido(s) del producto.
     if (prev && (prev.precioUnitario !== input.precioUnitario || prev.cantidad !== input.cantidad)) {
       await propagarPrecioProductoAPedidos(id, input.precioUnitario, input.cantidad);
@@ -1927,7 +2055,7 @@ export const actions = {
     // rol o "misma que frontal"), no el mero progreso (estado/fecha de recibo).
     const cambioSpec = ["tipoTela", "nombreTela", "telaFotoUrl", "telaColeccion", "mismaQueFrontal"]
       .some((k) => (patch as Record<string, unknown>)[k] !== undefined && telaPrev && (patch as Record<string, unknown>)[k] !== (telaPrev as unknown as Record<string, unknown>)[k]);
-    if (cambioSpec && telaPrev) await flagCambioPedidos([telaPrev.pedidoId], "Cambió: telas del pedido");
+    if (cambioSpec && telaPrev) { await flagCambioPedidos([telaPrev.pedidoId], "Cambió: telas del pedido"); await reflejarTelasEnProducto(telaPrev.pedidoId); }
   },
 
   // Guarda el CONJUNTO de telas de un pedido (diff create/update/delete) en una
@@ -1985,7 +2113,7 @@ export const actions = {
         }
       }
       await refetchPedidoTelas();
-      if (huboCambioTelas) await flagCambioPedidos([pedidoId], "Cambió: telas del pedido");
+      if (huboCambioTelas) { await flagCambioPedidos([pedidoId], "Cambió: telas del pedido"); await reflejarTelasEnProducto(pedidoId); }
       return true;
     } catch {
       toast.error("Error al guardar las telas del pedido.");
@@ -2000,7 +2128,7 @@ export const actions = {
     emit();
     const { error } = await supabase.from("pedido_telas").delete().eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al eliminar la tela."); return; }
-    if (telaPrev) await flagCambioPedidos([telaPrev.pedidoId], "Cambió: telas del pedido");
+    if (telaPrev) { await flagCambioPedidos([telaPrev.pedidoId], "Cambió: telas del pedido"); await reflejarTelasEnProducto(telaPrev.pedidoId); }
   },
 
   // ───────── Biblioteca de telas + telas por pedido (Fase 2) ─────────
