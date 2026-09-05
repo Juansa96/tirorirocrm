@@ -671,10 +671,11 @@ function CheckCell({ value, onChange }: { value: boolean; onChange: (v: boolean)
 // ──────────────────────────────────────────────────────────────────────────
 function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const { leads, productos } = useStore();
-  const [mode, setMode] = useState<"lead" | "libre" | "b2b" | "influ">("lead");
+  // Un pedido siempre cuelga de un cliente del CRM (B2C, empresa o influencer):
+  // el modo "cliente sin CRM" (nombre libre) se ha quitado.
+  const [mode, setMode] = useState<"lead" | "b2b" | "influ">("lead");
   const [leadId, setLeadId] = useState<string>("");
   const [leadSearch, setLeadSearch] = useState("");
-  const [nombreLibre, setNombreLibre] = useState("");
   const [empresaId, setEmpresaId] = useState<string>("");
   const [prodMode, setProdMode] = useState<"existente" | "nuevo">("nuevo");
   const [productoId, setProductoId] = useState<string>("");
@@ -718,15 +719,13 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
 
   async function submit() {
     if ((mode === "lead" || mode === "influ") && !leadId) return;
-    if (mode === "libre" && !nombreLibre.trim()) return;
     if (mode === "b2b" && !empresaId) return;
     if (prodMode === "existente" && !productoId) return;
     if (prodMode === "nuevo" && !prodStateValido(prodState)) return;
     setSaving(true);
-    const finalLeadId = mode === "lead" || mode === "influ" ? leadId : mode === "b2b" ? empresaId : null;
+    const finalLeadId = mode === "b2b" ? empresaId : leadId;
     const created = await actions.crearPedidoManual({
       leadId: finalLeadId,
-      clienteNombreLibre: mode === "libre" ? nombreLibre.trim() : "",
       productoId: prodMode === "existente" ? productoId : null,
       nuevoProducto: prodMode === "nuevo" ? prodStateToProducto(prodState) : undefined,
       diasPlazo, precio, reserva, costeEnvio,
@@ -754,11 +753,10 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
           {/* Cliente */}
           <div>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</div>
-            <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-xs md:grid-cols-4">
+            <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
               <button onClick={() => { setMode("lead"); setLeadId(""); setLeadSearch(""); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "lead" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Cliente B2C</button>
               <button onClick={() => { setMode("b2b"); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "b2b" ? "bg-[#1a4b5b] text-white" : "text-slate-600"}`}>Empresa B2B</button>
               <button onClick={() => { setMode("influ"); setLeadId(""); setLeadSearch(""); }} className={`rounded-md px-2 py-2 md:py-1 ${mode === "influ" ? "bg-pink-600 text-white" : "text-slate-600"}`}>Influencer</button>
-              <button onClick={() => setMode("libre")} className={`rounded-md px-2 py-2 md:py-1 ${mode === "libre" ? "bg-slate-900 text-white" : "text-slate-600"}`}>Sin CRM</button>
             </div>
             {(mode === "lead" || mode === "influ") && (
               <div className="space-y-1.5">
@@ -797,14 +795,6 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
                   ))}
                 </select>
               )
-            )}
-            {mode === "libre" && (
-              <input
-                value={nombreLibre}
-                onChange={(e) => setNombreLibre(e.target.value)}
-                placeholder="Nombre del cliente"
-                className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base focus:border-slate-500 focus:outline-none md:py-1.5 md:text-sm"
-              />
             )}
           </div>
 

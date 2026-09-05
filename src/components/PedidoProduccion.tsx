@@ -186,29 +186,9 @@ export function TelasPedidoEditor({ telasDraft, setTelasDraft }: {
 // ya tiene pedido, muestra el editor completo. Si NO tiene, permite asignar un
 // tapicero (o crear la ficha) y crea el pedido automáticamente en ese momento
 // —no solo por ver el producto—, tras lo cual aparece la ficha completa.
-export function ProduccionProducto({ producto, esCanje = false }: { producto: Producto; esCanje?: boolean }) {
-  const { pedidos, tapiceros } = useStore();
-  const [creando, setCreando] = useState(false);
+export function ProduccionProducto({ producto }: { producto: Producto; esCanje?: boolean }) {
+  const { pedidos } = useStore();
   const pedidosProd = pedidos.filter((p) => p.productoLeadId === producto.id);
-
-  async function crear(tapiceroId?: string) {
-    if (creando) return;
-    setCreando(true);
-    try {
-      const ped = await actions.crearPedidoManual({
-        leadId: producto.leadId,
-        productoId: producto.id,
-        diasPlazo: 20,
-        precio: (producto.precioUnitario || 0) * (producto.cantidad || 1),
-        reserva: 0,
-        costeEnvio: 0,
-        esCanje,
-      });
-      if (ped && tapiceroId) await actions.reasignarTapicero(ped.id, tapiceroId);
-    } finally {
-      setCreando(false);
-    }
-  }
 
   if (pedidosProd.length > 0) {
     return (
@@ -221,37 +201,17 @@ export function ProduccionProducto({ producto, esCanje = false }: { producto: Pr
     );
   }
 
-  const seleccionables = tapiceros.filter((t) => t.activo);
+  // Sin pedido no hay producción. Antes este desplegable CREABA el pedido al
+  // elegir un tapicero (con plazo 20, reserva 0 y envío 0 sin avisar). Ahora
+  // hay un solo camino: el botón «Crear pedido» del producto.
   return (
-    <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+    <div className="space-y-1 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
         <Hammer className="h-4 w-4" /> Producción / tapicero
       </div>
       <p className="text-xs text-slate-500">
-        Aún no hay pedido para este producto. Al <strong>asignar un tapicero</strong> (o crear la ficha) se crea el pedido automáticamente y se activa la ficha completa (telas, montaje, recogida, plantilla…).
+        Este producto aún no tiene pedido. Créalo con el botón <strong>«Crear pedido»</strong> de arriba (pide confirmar características y, si procede, el pago del 50 %); la ficha del tapicero (telas, montaje, recogida, plantilla…) aparece aquí en cuanto exista.
       </p>
-      <div>
-        <div className="mb-1 text-xs font-medium text-slate-500">Tapicero asignado</div>
-        <select
-          value=""
-          disabled={creando}
-          onChange={(e) => { if (e.target.value) void crear(e.target.value); }}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none disabled:opacity-60 sm:w-72"
-        >
-          <option value="">{creando ? "Creando…" : "— Asignar tapicero —"}</option>
-          {seleccionables.map((t) => (
-            <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
-          ))}
-        </select>
-      </div>
-      <button
-        type="button"
-        disabled={creando}
-        onClick={() => void crear()}
-        className="text-xs font-medium text-slate-500 underline hover:text-slate-700 disabled:opacity-60"
-      >
-        o crear la ficha sin asignar tapicero todavía
-      </button>
     </div>
   );
 }
