@@ -514,6 +514,32 @@ export function TelaSelect({ value, onChange, onSelectTela, placeholder, mismaQu
   );
 }
 
+// ── OpcionesGrupo ─────────────────────────────────────────────────
+// Grupo de opciones excluyentes. En pantallas ≥ sm son los botones de siempre;
+// en móvil, si hay cuatro o más opciones, un desplegable con la misma acción
+// (un cabecero eran 38 botones de 32 px apilados en una página ya larga).
+export function OpcionesGrupo({ items, value, onChange, minSelect = 4 }: {
+  items: { id: string; label: string; node?: React.ReactNode; className?: string }[];
+  value: string; onChange: (id: string) => void; minSelect?: number;
+}) {
+  const conSelect = items.length >= minSelect;
+  return (
+    <>
+      <div className={`${conSelect ? "hidden sm:flex" : "flex"} flex-wrap gap-2`}>
+        {items.map((x) => (
+          <button key={x.id} type="button" onClick={() => onChange(x.id)} className={`${BTN_CLS(value === x.id)} ${x.className ?? ""}`}>{x.node ?? x.label}</button>
+        ))}
+      </div>
+      {conSelect && (
+        <select className={`${TELA_INP} py-2.5 text-base sm:hidden`} value={items.some((x) => x.id === value) ? value : ""} onChange={(e) => { if (e.target.value) onChange(e.target.value); }}>
+          <option value="">— Elige —</option>
+          {items.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+        </select>
+      )}
+    </>
+  );
+}
+
 // ── TelaSection ────────────────────────────────────────────────────
 const SECTION_CLS = "text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2";
 const BTN_CLS = (active: boolean) =>
@@ -737,11 +763,15 @@ export function ProductoForm({
         <>
           <div>
             <div className={section}>Forma</div>
-            <div className="flex flex-wrap gap-2">
-              {CABECERO_FORMAS.map(x => <button key={x.id} type="button" onClick={() => s({ forma: x.id })} className={`${btn(f.forma === x.id)} inline-flex items-center gap-1.5`}><span>{x.name}</span><FormaBadge modelo={x.name} className="border-transparent bg-transparent px-0 py-0" /></button>)}
-              <button type="button" onClick={() => s({ forma: FORMA_OTRA })} className={btn(f.forma === FORMA_OTRA)}>Otra</button>
-              <button type="button" onClick={() => s({ forma: FORMA_POR_DECIDIR })} className={btn(f.forma === FORMA_POR_DECIDIR || !f.forma)}>Por decidir</button>
-            </div>
+            <OpcionesGrupo
+              value={f.forma || FORMA_POR_DECIDIR}
+              onChange={(id) => s({ forma: id })}
+              items={[
+                ...CABECERO_FORMAS.map(x => ({ id: x.id, label: x.name, className: "inline-flex items-center gap-1.5", node: <><span>{x.name}</span><FormaBadge modelo={x.name} className="border-transparent bg-transparent px-0 py-0" /></> })),
+                { id: FORMA_OTRA, label: "Otra" },
+                { id: FORMA_POR_DECIDIR, label: "Por decidir" },
+              ]}
+            />
             {f.forma === FORMA_OTRA && (
               <input
                 type="text"
@@ -759,38 +789,36 @@ export function ProductoForm({
           </div>
           <div>
             <div className={section}>Ancho de cabecero</div>
-            <div className="flex flex-wrap gap-2">
-              {CABECERO_ANCHOS_CAT.filter(x => x.activo || x.id === f.anchoCama).map(x => (
-                <button
-                  key={x.id}
-                  type="button"
-                  // Al fijar el precio base (creación) reseteamos el flag del
-                  // recargo para que el efecto lo vuelva a sumar si sigue siendo
-                  // grande (evita perder los +20€ al elegir un ancho).
-                  onClick={() => s(isEditing ? { anchoCama: x.id } : { anchoCama: x.id, precioUnitario: x.precio, _recargoGrande: false })}
-                  className={btn(f.anchoCama === x.id)}
-                >
-                  {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
-                </button>
-              ))}
-              <button type="button" onClick={() => s({ anchoCama: "custom" })} className={btn(f.anchoCama === "custom")}>Otra medida</button>
-              <button type="button" onClick={() => s({ anchoCama: "tbd" })} className={btn(f.anchoCama === "tbd")}>Por decidir</button>
-            </div>
-            {f.anchoCama === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.anchoCamaCustom} onChange={e => s({ anchoCamaCustom: e.target.value })} placeholder="cm" min={60} max={300} />}
+            <OpcionesGrupo
+              value={f.anchoCama}
+              onChange={(id) => {
+                const x = CABECERO_ANCHOS_CAT.find(o => o.id === id);
+                // Al fijar el precio base (creación) reseteamos el flag del recargo para
+                // que el efecto lo vuelva a sumar si sigue siendo grande.
+                if (x) s(isEditing ? { anchoCama: id } : { anchoCama: id, precioUnitario: x.precio, _recargoGrande: false });
+                else s({ anchoCama: id });
+              }}
+              items={[
+                ...CABECERO_ANCHOS_CAT.filter(x => x.activo || x.id === f.anchoCama).map(x => ({ id: x.id, label: `${x.label} · ${x.precio}€${x.legacy ? " (retirado)" : ""}` })),
+                { id: "custom", label: "Otra medida" },
+                { id: "tbd", label: "Por decidir" },
+              ]}
+            />
+            {f.anchoCama === "custom" && <input type="number" inputMode="decimal" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.anchoCamaCustom} onChange={e => s({ anchoCamaCustom: e.target.value })} placeholder="cm" min={60} max={300} />}
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={anchoOpt ? anchoOpt.precio + (cabGrande ? CABECERO_RECARGO_GRANDE : 0) : 0} onUpdate={v => s({ precioUnitario: v })} />
           </div>
           <div>
             <div className={section}>Alto del cabecero</div>
-            <div className="flex flex-wrap gap-2">
-              {CABECERO_ALTOS.map(a => (
-                <button key={a} type="button" onClick={() => s({ altoCabecero: a })} className={btn(f.altoCabecero === a)}>
-                  {a} cm{a === "100" ? " (estándar)" : ""}
-                </button>
-              ))}
-              <button type="button" onClick={() => s({ altoCabecero: "custom" })} className={btn(f.altoCabecero === "custom")}>Otra medida</button>
-              <button type="button" onClick={() => s({ altoCabecero: "tbd" })} className={btn(f.altoCabecero === "tbd")}>Por decidir</button>
-            </div>
-            {f.altoCabecero === "custom" && <input type="number" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.altoCabeceroCustom} onChange={e => s({ altoCabeceroCustom: e.target.value })} placeholder="cm" min={40} max={200} />}
+            <OpcionesGrupo
+              value={f.altoCabecero}
+              onChange={(id) => s({ altoCabecero: id })}
+              items={[
+                ...CABECERO_ALTOS.map(a => ({ id: a, label: `${a} cm${a === "100" ? " (estándar)" : ""}` })),
+                { id: "custom", label: "Otra medida" },
+                { id: "tbd", label: "Por decidir" },
+              ]}
+            />
+            {f.altoCabecero === "custom" && <input type="number" inputMode="decimal" className="mt-2 w-32 rounded border border-slate-200 px-2 py-1.5 text-sm" value={f.altoCabeceroCustom} onChange={e => s({ altoCabeceroCustom: e.target.value })} placeholder="cm" min={40} max={200} />}
           </div>
           <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
             Grosor <strong>{CABECERO_GROSOR_CM} cm</strong> (fijo)
@@ -836,28 +864,19 @@ export function ProductoForm({
         <>
           <div>
             <div className={section}>Medida (Oyambre)</div>
-            <div className="flex flex-wrap gap-2">
-              {opciones.map(x => (
-                <button
-                  key={x.id}
-                  type="button"
-                  onClick={() => s(patchPrecio(isEditing, { bancoMedida: x.id }, x.precio))}
-                  className={btn(f.bancoMedida === x.id)}
-                >
-                  {x.label}
-                  {x.id === "custom"
-                    ? " · A consultar"
-                    : x.precio > 0 ? ` · ${x.precio}€` : ""}
-                  {x.legacy ? " (retirado)" : ""}
-                </button>
-              ))}
-              <button type="button" onClick={() => s({ bancoMedida: "tbd" })} className={btn(f.bancoMedida === "tbd")}>Por decidir</button>
-            </div>
+            <OpcionesGrupo
+              value={f.bancoMedida}
+              onChange={(id) => { const x = opciones.find(o => o.id === id); if (x) s(patchPrecio(isEditing, { bancoMedida: id }, x.precio)); else s({ bancoMedida: id }); }}
+              items={[
+                ...opciones.map(x => ({ id: x.id, label: `${x.label}${x.id === "custom" ? " · A consultar" : x.precio > 0 ? ` · ${x.precio}€` : ""}${x.legacy ? " (retirado)" : ""}` })),
+                { id: "tbd", label: "Por decidir" },
+              ]}
+            />
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.bancoMedida === "custom" && (
               <div className="mt-2 space-y-2">
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   min={40}
                   max={400}
                   className="w-32 rounded border border-slate-200 px-2 py-1.5 text-sm"
@@ -943,9 +962,9 @@ export function ProductoForm({
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.pufId === "custom" && (
               <div className="mt-2 grid grid-cols-3 gap-2">
-                <div><label className="mb-1 block text-xs text-slate-500">Ancho (cm)</label><input type="number" className={inp} value={f.pufAnchoCustom} onChange={e => s({ pufAnchoCustom: e.target.value })} min={20} max={200} /></div>
-                <div><label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label><input type="number" className={inp} value={f.pufFondoCustom} onChange={e => s({ pufFondoCustom: e.target.value })} min={20} max={200} /></div>
-                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" className={inp} value={f.pufAltoCustom} onChange={e => s({ pufAltoCustom: e.target.value })} min={20} max={100} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Ancho (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pufAnchoCustom} onChange={e => s({ pufAnchoCustom: e.target.value })} min={20} max={200} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pufFondoCustom} onChange={e => s({ pufFondoCustom: e.target.value })} min={20} max={200} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pufAltoCustom} onChange={e => s({ pufAltoCustom: e.target.value })} min={20} max={100} /></div>
               </div>
             )}
           </div>
@@ -993,23 +1012,21 @@ export function ProductoForm({
         <>
           <div>
             <div className={section}>Medida (alto {MESA_ALTO_FIJO} cm fijo)</div>
-            <div className="flex flex-wrap gap-2">
-              {opciones.map(x => (
-                <button key={x.id} type="button"
-                  onClick={() => s(patchPrecio(isEditing, { mesaId: x.id }, x.precio))}
-                  className={btn(f.mesaId === x.id)}>
-                  {x.label}{x.precio > 0 ? ` · ${x.precio}€` : ""}{x.legacy ? " (retirado)" : ""}
-                </button>
-              ))}
-              <button type="button" onClick={() => s({ mesaId: "custom" })} className={btn(f.mesaId === "custom")}>Otra medida</button>
-              <button type="button" onClick={() => s({ mesaId: "tbd" })} className={btn(f.mesaId === "tbd")}>Por decidir</button>
-            </div>
+            <OpcionesGrupo
+              value={f.mesaId}
+              onChange={(id) => { const x = opciones.find(o => o.id === id); if (x) s(patchPrecio(isEditing, { mesaId: id }, x.precio)); else s({ mesaId: id }); }}
+              items={[
+                ...opciones.map(x => ({ id: x.id, label: `${x.label}${x.precio > 0 ? ` · ${x.precio}€` : ""}${x.legacy ? " (retirado)" : ""}` })),
+                { id: "custom", label: "Otra medida" },
+                { id: "tbd", label: "Por decidir" },
+              ]}
+            />
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.mesaId === "custom" && (
               <div className="mt-2 grid grid-cols-3 gap-2">
-                <div><label className="mb-1 block text-xs text-slate-500">Largo (cm)</label><input type="number" className={inp} value={f.mesaLargo} onChange={e => s({ mesaLargo: e.target.value })} min={40} max={300} /></div>
-                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" className={inp} value={f.mesaAlto} onChange={e => s({ mesaAlto: e.target.value })} min={20} max={100} /></div>
-                <div><label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label><input type="number" className={inp} value={f.mesaFondo} onChange={e => s({ mesaFondo: e.target.value })} min={20} max={150} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Largo (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.mesaLargo} onChange={e => s({ mesaLargo: e.target.value })} min={40} max={300} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.mesaAlto} onChange={e => s({ mesaAlto: e.target.value })} min={20} max={100} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.mesaFondo} onChange={e => s({ mesaFondo: e.target.value })} min={20} max={150} /></div>
               </div>
             )}
           </div>
@@ -1057,8 +1074,8 @@ export function ProductoForm({
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.pantallaId === "custom" && (
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <div><label className="mb-1 block text-xs text-slate-500">Ancho / Ø (cm)</label><input type="number" className={inp} value={f.pantallaAnchoCustom} onChange={e => s({ pantallaAnchoCustom: e.target.value })} min={5} max={200} /></div>
-                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" className={inp} value={f.pantallaAltoCustom} onChange={e => s({ pantallaAltoCustom: e.target.value })} min={5} max={200} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Ancho / Ø (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pantallaAnchoCustom} onChange={e => s({ pantallaAnchoCustom: e.target.value })} min={5} max={200} /></div>
+                <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pantallaAltoCustom} onChange={e => s({ pantallaAltoCustom: e.target.value })} min={5} max={200} /></div>
               </div>
             )}
           </div>
@@ -1077,17 +1094,15 @@ export function ProductoForm({
         <>
           <div>
             <div className={section}>Medida</div>
-            <div className="flex flex-wrap gap-2">
-              {opciones.map(x => (
-                <button key={x.id} type="button"
-                  onClick={() => s(patchPrecio(isEditing, { almohadonId: x.id }, x.precio))}
-                  className={btn(f.almohadonId === x.id)}>
-                  {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
-                </button>
-              ))}
-              <button type="button" onClick={() => s({ almohadonId: "custom" })} className={btn(f.almohadonId === "custom")}>Otra medida</button>
-              <button type="button" onClick={() => s({ almohadonId: "tbd" })} className={btn(f.almohadonId === "tbd")}>Por decidir</button>
-            </div>
+            <OpcionesGrupo
+              value={f.almohadonId}
+              onChange={(id) => { const x = opciones.find(o => o.id === id); if (x) s(patchPrecio(isEditing, { almohadonId: id }, x.precio)); else s({ almohadonId: id }); }}
+              items={[
+                ...opciones.map(x => ({ id: x.id, label: `${x.label} · ${x.precio}€${x.legacy ? " (retirado)" : ""}` })),
+                { id: "custom", label: "Otra medida" },
+                { id: "tbd", label: "Por decidir" },
+              ]}
+            />
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.almohadonId === "custom" && (
               <input type="text" className={`${inp} mt-2`} value={f.almohadonMedidas} onChange={e => s({ almohadonMedidas: e.target.value })} placeholder="Ej. 55×35 cm" />
@@ -1153,12 +1168,12 @@ export function ProductoForm({
             {f.tipo !== "puf" && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">Cantidad</label>
-                <input type="number" min={1} className={inp} value={f.cantidad} onChange={e => s({ cantidad: Number(e.target.value) || 1 })} />
+                <input type="number" inputMode="decimal" min={1} className={inp} value={f.cantidad} onChange={e => s({ cantidad: Number(e.target.value) || 1 })} />
               </div>
             )}
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Precio unitario (€)</label>
-              <input type="number" min={0} className={inp} value={f.precioUnitario} onChange={e => s({ precioUnitario: Number(e.target.value) || 0 })} />
+              <input type="number" inputMode="decimal" min={0} className={inp} value={f.precioUnitario} onChange={e => s({ precioUnitario: Number(e.target.value) || 0 })} />
             </div>
           </div>
           <div>

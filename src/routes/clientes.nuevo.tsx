@@ -106,7 +106,7 @@ function NuevoLead() {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Nº de seguidores</label>
-                <input type="number" min={0} value={influ.seguidores} onChange={e => setInflu({ ...influ, seguidores: parseInt(e.target.value) || 0 })} className={cls} />
+                <input type="number" inputMode="decimal" min={0} value={influ.seguidores} onChange={e => setInflu({ ...influ, seguidores: parseInt(e.target.value) || 0 })} className={cls} />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Red principal</label>
@@ -203,7 +203,7 @@ function NuevoLead() {
             )}
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Valor producto (€)</label>
-              <input type="number" min={0} value={form.valorProducto} onChange={e => setForm({...form, valorProducto: parseFloat(e.target.value) || 0})} className={cls} />
+              <input type="number" inputMode="decimal" min={0} value={form.valorProducto} onChange={e => setForm({...form, valorProducto: parseFloat(e.target.value) || 0})} className={cls} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">
@@ -212,7 +212,7 @@ function NuevoLead() {
                   · {form.ciudad ? (isMadrid(form.ciudad) ? "Madrid 40€" : "Fuera de Madrid — a consultar (mín. 60€)") : "Madrid 40€ · fuera mín. 60€ a consultar"}
                 </span>
               </label>
-              <input type="number" min={0} value={form.valorEnvio}
+              <input type="number" inputMode="decimal" min={0} value={form.valorEnvio}
                 onChange={e => { setEnvioTouched(true); setForm({...form, valorEnvio: parseFloat(e.target.value) || 0}); }}
                 className={cls} />
             </div>
