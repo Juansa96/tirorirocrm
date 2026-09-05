@@ -34,6 +34,8 @@ export const ENTREGA_LOGO_URL = `${ENTREGA_IMG_BASE}/logo-tiroriro.png`;
 export const ENTREGA_FROM = "Tiroriro Home <hola@notify.tirorirohome.com>";
 export const ENTREGA_SENDER_DOMAIN = "notify.tirorirohome.com";
 export const ENTREGA_TEMPLATE = "entrega_cliente"; // etiqueta en email_send_log
+// Titular del correo (se cambia aquí).
+export const ENTREGA_TITULAR = "Tu casa, un poco más tú.";
 export const ETIQUETA_RESENA_PEDIDA = "reseña pedida";
 
 // Foto del correo según el tipo de producto entregado.
@@ -172,7 +174,7 @@ export function htmlEmailEntrega(d: EmailEntregaDatos, mensaje: string): string 
 
     <tr><td class="pad" bgcolor="${C.papel}" style="background:${C.papel};padding:30px 24px 6px;${lado}">
       <div style="${ETIQUETA};margin:0 0 10px">Entregado</div>
-      <div class="h1" style="font-family:${SERIF};font-size:32px;line-height:1.1;font-weight:400;color:${C.tinta};margin:0 0 18px">Hecho a mano, ya en tu casa.</div>
+      <div class="h1" style="font-family:${SERIF};font-size:32px;line-height:1.1;font-weight:400;color:${C.tinta};margin:0 0 18px">${esc(ENTREGA_TITULAR)}</div>
       ${parrafosHtml(mensaje)}
     </td></tr>
 
