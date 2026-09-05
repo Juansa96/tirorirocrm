@@ -12,11 +12,15 @@ import { flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, type Pedido, ty
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { usePedidoDraft } from "@/lib/use-pedido-draft";
+import { faltaParaTaller } from "@/lib/catalogo";
 
 // ── Selector de tapicero (acción inmediata: sella los pasos ya hechos) ──────
 export function TapiceroAsignado({ pedido }: { pedido: Pedido }) {
-  const { tapiceros } = useStore();
+  const { tapiceros, productos } = useStore();
   const seleccionables = tapiceros.filter((t) => t.activo || t.id === pedido.tapiceroId);
+  const producto = productos.find((p) => p.id === pedido.productoLeadId);
+  // Sin medidas o sin fecha de recogida el pedido no puede entrar en el taller.
+  const faltan = pedido.tapiceroId ? [] : faltaParaTaller(producto, pedido.fechaRecogida);
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -25,14 +29,18 @@ export function TapiceroAsignado({ pedido }: { pedido: Pedido }) {
       </div>
       <select
         value={pedido.tapiceroId}
+        disabled={faltan.length > 0}
         onChange={(e) => actions.reasignarTapicero(pedido.id, e.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none sm:w-72"
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400 sm:w-72"
       >
         <option value="">— Sin asignar —</option>
         {seleccionables.map((t) => (
           <option key={t.id} value={t.id}>{tapiceroNombre(t)}{!t.activo ? " (inactivo)" : ""}</option>
         ))}
       </select>
+      {faltan.length > 0 && (
+        <p className="mt-2 text-xs text-rose-700">Para asignarlo falta {faltan.join(" y ")}. Se rellena más abajo, en la ficha para el tapicero, y se guarda.</p>
+      )}
     </div>
   );
 }

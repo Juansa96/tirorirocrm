@@ -5,7 +5,7 @@ import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela
 import { VENDEDORES, flujoPedido, normNombreTela, marcadoresTapicero, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
-import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras } from "./catalogo";
+import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 import { TELAS_WEB } from "./telas-web-data";
@@ -820,14 +820,21 @@ async function flagCambioPedidos(pedidoIds: string[], detalle: string) {
 
 // Campos del PEDIDO que, si cambian estando ya asignado a un tapicero, le
 // afectan (cómo/cuándo fabricar o recoger) y por tanto disparan el aviso.
+// Solo cambios "de taller": lo que obliga a rehacer o replanificar. Plazo
+// interno, orden de la cola, precio, cobros y notas internas NO avisan (si
+// avisa todo, el tapicero deja de mirar el aviso).
 const CAMBIO_PEDIDO_LABELS: Partial<Record<keyof Pedido, string>> = {
   montaje: "montaje",
   notaTapicero: "indicaciones",
   fechaRecogida: "fecha de recogida",
-  ordenProduccion: "orden de trabajo",
-  diasPlazo: "plazo de entrega",
-  fechaCreacionPedido: "plazo de entrega",
 };
+
+// Requisitos para que un pedido entre en el taller (asignarse a un tapicero):
+// medidas obligatorias del producto y fecha de recogida. Devuelve lo que falta.
+export function faltaParaTallerPedido(pedido: Pedido): string[] {
+  const producto = state.productos.find((pr) => pr.id === pedido.productoLeadId);
+  return faltaParaTaller(producto, pedido.fechaRecogida);
+}
 
 export const actions = {
   async addLead(
@@ -1320,14 +1327,15 @@ export const actions = {
     }
     // Aviso al tapicero si cambia algo del producto de un pedido ya asignado.
     if (prev) {
+      // Solo cambios de taller (medidas, tela, vivo, modelo, cantidad, montaje).
+      // Las notas internas y el precio no avisan.
       const cambios: string[] = [];
       if (prev.ancho !== input.ancho || prev.alto !== input.alto || prev.fondo !== input.fondo) cambios.push("medidas");
       if (prev.tela !== input.tela || prev.color !== input.color || prev.coleccionTela !== input.coleccionTela) cambios.push("tela");
-      if (prev.acabado !== input.acabado) cambios.push("acabado/vivo");
+      if (prev.acabado !== input.acabado || prev.relleno !== input.relleno) cambios.push("vivo");
       if (prev.tipo !== input.tipo || prev.modelo !== input.modelo) cambios.push("modelo");
       if (prev.cantidad !== input.cantidad) cambios.push("cantidad");
-      if (prev.patas !== input.patas || prev.relleno !== input.relleno) cambios.push("extras");
-      if (prev.notasProducto !== input.notasProducto) cambios.push("notas");
+      if (montajeDeExtras(input.patas) !== montajeDeExtras(prev.patas)) cambios.push("montaje");
       if (cambios.length > 0) {
         const ids = state.pedidos.filter((p) => p.productoLeadId === id).map((p) => p.id);
         await flagCambioPedidos(ids, "Cambió en el producto: " + cambios.join(", "));
@@ -1691,11 +1699,21 @@ export const actions = {
   // que aún no tengan sello se sellan con el tapicero SALIENTE (así "los
   // anteriores" mantienen quién los hizo); los pasos no hechos siguen al
   // tapicero nuevo. Usar esto (no updatePedido) al cambiar de tapicero.
-  async reasignarTapicero(pedidoId: string, nuevoTapiceroId: string) {
+  async reasignarTapicero(pedidoId: string, nuevoTapiceroId: string): Promise<boolean> {
     const pedido = state.pedidos.find((p) => p.id === pedidoId);
-    if (!pedido) return;
+    if (!pedido) return false;
     const saliente = pedido.tapiceroId;
-    if (saliente === nuevoTapiceroId) return; // sin cambios
+    if (saliente === nuevoTapiceroId) return true; // sin cambios
+    // Asignar tapicero = entrar en el taller. No se puede sin medidas ni fecha
+    // de recogida: el tapicero recibiría un pedido a medias y la cola no sabría
+    // dónde ponerlo. (Quitar el tapicero sí se permite siempre.)
+    if (nuevoTapiceroId) {
+      const faltan = faltaParaTallerPedido(pedido);
+      if (faltan.length > 0) {
+        toast.error(`No se puede enviar al taller: falta ${faltan.join(" y ")}. Complétalo en la ficha del pedido y guarda.`);
+        return false;
+      }
+    }
     const producto = state.productos.find((pr) => pr.id === pedido.productoLeadId);
     const sellos: Record<string, string> = { ...(pedido.pasosTapicero || {}) };
     if (saliente) {
@@ -1712,6 +1730,7 @@ export const actions = {
     delete sellos[PASO_CAMBIO_DETALLE];
     const patch: Partial<Pedido> = { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos };
     await actions.updatePedido(pedidoId, patch);
+    return true;
   },
 
   // ───────── Catálogo de tapiceros (gestión desde Usuarios) ─────────

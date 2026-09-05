@@ -1,12 +1,12 @@
 import { numeroPedidoLabel } from "@/lib/types";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical, Truck } from "lucide-react";
+import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical, Truck, Pencil } from "lucide-react";
 import { formatWeekdayShort } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { tapiceroNombre, type Tapicero } from "@/lib/types";
-import { displayNombreProducto, modeloDetalle, esDetalleMedida, pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL } from "@/lib/catalogo";
+import { tapiceroNombre, motivoCambio, type Tapicero } from "@/lib/types";
+import { displayNombreProducto, medidasEtiquetadas, pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL } from "@/lib/catalogo";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
 import { usePanelPedidos, type PanelPedido } from "@/lib/panel-data";
 import { claveCola, cmpClaveCola, ordenPorDia, type ClaveCola } from "@/lib/orden-taller";
@@ -418,9 +418,9 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto }: {
   p: PanelPedido; posicion: number; tapiceroSearch?: string; dnd?: DnD; arrastrarProducto: boolean;
 }) {
   const c = diasColor(p.diasRestantes, p.entregado, !!p.fechaRecogida);
-  const medidasNum = [p.ancho, p.alto, p.fondo].filter((d): d is number => d != null && d > 0).join(" × ");
-  const det = modeloDetalle(p.tipo, p.modelo);
-  const medidas = medidasNum ? medidasNum + " cm" : (det && esDetalleMedida(det) ? det : "Medidas sin especificar");
+  // Medidas con etiqueta por tipo ("Ancho 150 · Alto 130 cm"); si falta una
+  // obligatoria se enseña un aviso ámbar en vez de un texto gris.
+  const med = medidasEtiquetadas(p.tipo, p.modelo, p.ancho, p.alto, p.fondo);
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   const arrastrandoEste = dnd?.dragKind === "product" && dnd.dragKey === p.id;
   const encima = !!dnd && dnd.overId === p.id && dnd.dragKey !== p.id;
@@ -449,13 +449,22 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto }: {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
             {p.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
-            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${p.cantidad > 1 ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-500"}`}>×{p.cantidad} {p.cantidad === 1 ? "ud" : "uds"}</span>
-            {p.cambioTrasEnvio && <span className="shrink-0 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white">⚠️ Modificado</span>}
+            <span className={`shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium ${p.cantidad > 1 ? "text-slate-700" : "text-slate-400"}`}>×{p.cantidad} {p.cantidad === 1 ? "ud" : "uds"}</span>
+            {p.cambioTrasEnvio && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700" title="El equipo ha cambiado algo después de enviártelo">
+                <Pencil className="h-3 w-3" /> Cambio{motivoCambio(p.cambioTrasEnvioDetalle) ? `: ${motivoCambio(p.cambioTrasEnvioDetalle)}` : ""}
+              </span>
+            )}
             {pufTieneAlmacenaje(p.modelo) && <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">{PUF_ALMACENAJE_LABEL}</span>}
             {p.iniciado && !p.terminado && !p.entregado && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">En marcha</span>}
             <span className="w-full font-semibold leading-tight text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
           </div>
-          <div className="mt-0.5 text-xs text-slate-500">{medidas}</div>
+          <div className="mt-0.5 text-xs text-slate-500">
+            {med.faltan.length > 0 || !med.texto
+              ? <span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-amber-700">{med.texto ? `FALTA ${med.faltan.join(" Y ").toUpperCase()}` : "FALTAN MEDIDAS"}</span>
+              : med.texto}
+            {med.texto && med.faltan.length > 0 && <span className="ml-1.5">{med.texto}</span>}
+          </div>
           <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
           {p.fechaRecogida && !p.entregado && (
             <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500" title="Fecha en que Juan pasa a recoger el producto">

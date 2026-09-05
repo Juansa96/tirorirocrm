@@ -4,7 +4,7 @@ import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
 import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
-import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo } from "@/lib/catalogo";
+import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
@@ -42,6 +42,10 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
     setTelas((prev) => prev.filter((t) => t.tipoTela.toLowerCase() !== rol.toLowerCase()));
   }
 
+  // Requisitos DUROS para entrar en el taller (medidas obligatorias y fecha de
+  // recogida): sin ellos no se puede asignar tapicero ni avisarle. Se evalúan
+  // sobre el borrador para que el aviso desaparezca al rellenar la fecha.
+  const bloqueos = faltaParaTaller(producto, draft.fechaRecogida);
   // Aviso de producto incompleto (para no mandar a producción algo a medias).
   const incompletos: string[] = [];
   if (!archivos.some((a) => a.tipo === "plantilla")) incompletos.push("plantilla de corte");
@@ -51,6 +55,12 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
   // Aviso por email (el tapicero ya VE el pedido en cuanto está asignado; esto
   // solo le manda un correo de aviso). Acción inmediata.
   function enviarADaniel() {
+    // Sin medidas o sin fecha de recogida no se envía: ni "¿igualmente?".
+    const duros = faltaParaTaller(producto, pedido.fechaRecogida);
+    if (duros.length > 0) {
+      toast.error(`No se puede enviar al taller: falta ${duros.join(" y ")}.${!pedido.fechaRecogida && draft.fechaRecogida ? " Guarda la ficha primero." : ""}`);
+      return;
+    }
     const faltan: string[] = [];
     if (!pedido.tapiceroId) faltan.push("tapicero asignado");
     if (!producto?.modelo && !producto?.tipo) faltan.push("forma/modelo");
@@ -99,6 +109,19 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
           </span>
         )}
       </div>
+
+      {/* Requisitos para entrar en el taller (bloquean asignar / avisar) */}
+      {bloqueos.length > 0 && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            {pedido.tapiceroId
+              ? <><strong>Al taller le falta {bloqueos.join(" y ")}</strong> — el tapicero lo ve pero no puede empezarlo con garantías. Complétalo aquí (las medidas también las puede corregir él desde su panel).</>
+              : <><strong>No puede ir al taller todavía</strong> — falta {bloqueos.join(" y ")}. Hasta completarlo no se puede asignar tapicero ni avisarle.</>}
+            {!pedido.fechaRecogida && draft.fechaRecogida ? " Guarda la ficha para que cuente la fecha." : ""}
+          </div>
+        </div>
+      )}
 
       {/* Aviso de producto incompleto */}
       {incompletos.length > 0 && (
