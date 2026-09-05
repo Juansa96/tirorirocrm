@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { formatShortDate } from "@/lib/format";
 import { textoEmailEntrega, textoWhatsAppEntrega, htmlEmailEntrega, ENTREGA_WHATSAPP_INTL, ENTREGA_FROM } from "@/lib/email-entrega";
 import type { Lead, Pedido, Producto } from "@/lib/types";
+import { confirmar } from "@/components/Confirmar";
 
 // Bloque "Correo de entrega" en la ficha del pedido. Solo aparece cuando el
 // pedido está ENTREGADO y solo lo ve el equipo. Nada sale sin revisar y pulsar
@@ -38,7 +39,7 @@ export function EmailEntrega({ pedido, lead, producto }: { pedido: Pedido; lead:
 
   async function enviar() {
     if (!para.trim()) { toast.error("Escribe la dirección de correo del cliente."); return; }
-    if (enviado && !confirm(`Este correo ya se envió el ${formatShortDate(pedido.emailEntregaFecha.slice(0, 10))} a ${pedido.emailEntregaA}. ¿Enviarlo otra vez?`)) return;
+    if (enviado && !(await confirmar({ titulo: "¿Enviarlo otra vez?", texto: `Este correo ya se envió el ${formatShortDate(pedido.emailEntregaFecha.slice(0, 10))} a ${pedido.emailEntregaA}.`, aceptar: "Enviar de nuevo" }))) return;
     setBusy(true);
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token ?? "";

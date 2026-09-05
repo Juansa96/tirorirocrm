@@ -376,6 +376,23 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
           <option value="">Todas las ciudades</option>
           {ciudades.map((c) => (<option key={c} value={c}>{c}</option>))}
         </select>
+        {/* En tarjetas (por debajo de 1024 px) no hay cabeceras de columna:
+            la misma ordenación va en un desplegable. */}
+        <select
+          value={sort ? `${sort.key}:${sort.dir}` : ""}
+          onChange={(e) => { const [k, d] = e.target.value.split(":"); setSort(k ? { key: k as SortKey, dir: d === "desc" ? "desc" : "asc" } : null); }}
+          className="col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm md:col-span-1 lg:hidden"
+          aria-label="Ordenar por"
+        >
+          <option value="">Ordenar: por defecto</option>
+          <option value="fechaCreacion:desc">Más recientes primero</option>
+          <option value="fechaCreacion:asc">Más antiguos primero</option>
+          <option value="proximaAccion:asc">Próxima acción</option>
+          <option value="nombre:asc">Nombre A → Z</option>
+          <option value="etapa:asc">Etapa</option>
+          <option value="valor:desc">Mayor valor</option>
+          <option value="ciudad:asc">Ciudad</option>
+        </select>
       </div>
 
       {/* Chips de filtro por etapa */}

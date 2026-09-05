@@ -20,6 +20,7 @@ import { ProduccionProducto } from "@/components/PedidoProduccion";
 import { Antes } from "@/components/Antes";
 import { displayColeccionTela, displayNombreProducto, modeloDetalle, mismoTipo, displayExtras } from "@/lib/catalogo";
 import { esClienteRecurrente, detectarDuplicados } from "@/lib/duplicados";
+import { confirmar } from "@/components/Confirmar";
 
 export const Route = createFileRoute("/clientes/$id")({
   head: () => ({ meta: [{ title: "Cliente — TiroCRM" }] }),
@@ -98,7 +99,7 @@ function TareaRow({ tarea, clienteNombre }: { tarea: Tarea; clienteNombre: strin
         <button onClick={() => setEditing(true)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
           <Edit2 className="h-4 w-4" />
         </button>
-        <button onClick={() => { if (confirm("¿Eliminar esta tarea?")) actions.deleteTarea(tarea.id); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">
+        <button onClick={() => void confirmar({ titulo: "¿Eliminar esta tarea?", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) actions.deleteTarea(tarea.id); })} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
@@ -191,9 +192,9 @@ function ClienteDetalle() {
     setEditing(false);
   }
 
-  function goBack() {
+  async function goBack() {
     if (hasUnsaved) {
-      if (!window.confirm("Tienes un producto sin guardar. ¿Salir sin guardar?")) return;
+      if (!(await confirmar({ titulo: "Tienes un producto sin guardar", texto: "¿Salir sin guardar?", aceptar: "Salir sin guardar", cancelar: "Seguir editando" }))) return;
     }
     navigate({ to: "/clientes" });
   }
@@ -242,7 +243,7 @@ function ClienteDetalle() {
     if (!lead) return;
     const dup = leads.find((l) => l.id === dupId);
     if (!dup) return;
-    if (!confirm(`Fusionar «${dup.nombre}» dentro de «${lead.nombre}».\n\nSe moverán aquí sus productos, pedidos, tareas, notas, fotos e historial, y se eliminará el duplicado. Esto no se puede deshacer. ¿Continuar?`)) return;
+    if (!(await confirmar({ titulo: `Fusionar «${dup.nombre}» dentro de «${lead.nombre}»`, texto: `Se moverán aquí sus productos, pedidos, tareas, notas, fotos e historial, y se eliminará el duplicado. Esto no se puede deshacer. ¿Continuar?`, peligroso: true, aceptar: "Fusionar" }))) return;
     await actions.fusionarLeads(lead.id, dupId);
   }
 
@@ -851,7 +852,7 @@ function ClienteDetalle() {
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <button onClick={() => setEditingProd(p.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-slate-700"><Edit2 className="h-4 w-4" /></button>
-                      <button onClick={() => { if (confirm("¿Eliminar este producto?")) actions.deleteProducto(p.id); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => void confirmar({ titulo: "¿Eliminar este producto?", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) actions.deleteProducto(p.id); })} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
 
@@ -974,7 +975,7 @@ function ClienteDetalle() {
                     <p className="flex-1 whitespace-pre-wrap text-sm text-slate-800">{n.contenido}</p>
                     <div className="flex shrink-0 gap-1">
                       <button onClick={() => { setEditingNota(n.id); setEditNotaText(n.contenido); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-slate-700"><Edit2 className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => { if (confirm("¿Eliminar esta nota?")) actions.deleteNota(n.id); }} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => void confirmar({ titulo: "¿Eliminar esta nota?", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) actions.deleteNota(n.id); })} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
@@ -1143,7 +1144,7 @@ function CrearPedidoButton({
       });
       if (ped) navigate({ to: "/pedidos/$id", params: { id: ped.id } });
     } else {
-      if (confirm("¿Crear este pedido sin que se haya pagado el 50%? (ej. cliente de confianza o pago al final)")) {
+      if (await confirmar({ titulo: "¿Crear el pedido sin el 50 % pagado?", texto: "Por ejemplo, cliente de confianza o pago al final.", aceptar: "Crear pedido" })) {
         const ped = await actions.crearPedido({
           productoId: producto.id,
           pagado50: false,
@@ -1196,7 +1197,7 @@ function FotosSection({ leadId }: { leadId: string }) {
   }
 
   async function onDelete(id: string) {
-    if (!window.confirm("¿Borrar esta foto?")) return;
+    if (!(await confirmar({ titulo: "¿Borrar esta foto?", peligroso: true, aceptar: "Borrar" }))) return;
     await actions.deleteLeadFoto(id);
   }
 

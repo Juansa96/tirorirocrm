@@ -9,6 +9,7 @@ import { formatShortDate, formatCurrency } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto, prodStateValido, type ProdState } from "@/components/ProductoForm";
 import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
 import { displayModelo, displayNombreProducto, tipoLabelOf } from "@/lib/catalogo";
+import { confirmar } from "@/components/Confirmar";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
   const headers = Object.keys(rows[0] ?? {});
@@ -384,9 +385,8 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
           {pendientesMedia.length > 0 && (
             <button
               onClick={() => {
-                if (confirm(`Marcar el 50% (mitad del producto) como cobrado en ${pendientesMedia.length} pedido${pendientesMedia.length === 1 ? "" : "s"} de ${nombre}?`)) {
-                  actions.marcarMediaPagadaGrupo(pendientesMedia.map((it) => it.pedido.id));
-                }
+                void confirmar({ titulo: `¿Marcar el 50 % como cobrado en ${pendientesMedia.length} pedido${pendientesMedia.length === 1 ? "" : "s"} de ${nombre}?`, texto: "Se apunta como reserva la mitad del precio del producto.", aceptar: "Marcar cobrado" })
+                  .then((ok) => { if (ok) actions.marcarMediaPagadaGrupo(pendientesMedia.map((it) => it.pedido.id)); });
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
               title="Marca el 50% del producto como reserva en todos los pedidos actuales de este cliente"
@@ -398,7 +398,7 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
       </div>
 
       {/* Desktop: tabla compacta */}
-      <div className="hidden overflow-x-auto md:block">
+      <div className="hidden overflow-x-auto lg:block">
         <table className="w-full text-sm">
           <thead className="bg-white text-left text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
@@ -422,7 +422,7 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
       </div>
 
       {/* Móvil: tarjetas */}
-      <div className="space-y-2 p-3 md:hidden">
+      <div className="space-y-2 p-3 lg:hidden">
         {items.map((it) => (
           <PedidoCard key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} nombreTapicero={it.nombreTapicero} />
         ))}
@@ -521,7 +521,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }
           <button onClick={() => setEditing(true)} className="flex h-12 items-center justify-center gap-1.5 border-l border-slate-100 text-xs font-medium text-slate-600 active:bg-slate-100">
             <Pencil className="h-3.5 w-3.5" /> Editar
           </button>
-          <button onClick={() => { if (confirm("¿Eliminar este pedido?")) actions.deletePedido(pedido.id); }} className="flex h-12 items-center justify-center border-l border-slate-100 text-rose-500 active:bg-rose-50">
+          <button onClick={() => void confirmar({ titulo: "¿Eliminar este pedido?", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) actions.deletePedido(pedido.id); })} className="flex h-12 items-center justify-center border-l border-slate-100 text-rose-500 active:bg-rose-50">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -646,7 +646,7 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }:
       </td>
       <td className="px-3 py-2 text-right">
         <button
-          onClick={() => { if (confirm("¿Eliminar este pedido?")) actions.deletePedido(pedido.id); }}
+          onClick={() => void confirmar({ titulo: "¿Eliminar este pedido?", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) actions.deletePedido(pedido.id); })}
           className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
           title="Eliminar pedido"
         >

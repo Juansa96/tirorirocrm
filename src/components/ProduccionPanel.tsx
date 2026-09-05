@@ -9,6 +9,7 @@ import { formatShortDate } from "@/lib/format";
 import { cmpCola } from "@/lib/orden-taller";
 import { tipoLabelOf, displayModelo, displayColeccionTela, medidasEtiquetadas } from "@/lib/catalogo";
 import { toast } from "sonner";
+import { confirmar } from "@/components/Confirmar";
 
 // Avisa por email a un tapicero de un grupo de pedidos (uno solo, agrupado).
 async function avisarGrupo(pedidoIds: string[]): Promise<void> {
@@ -140,7 +141,7 @@ export function ProduccionPanel() {
               <div className="flex items-center gap-2">
                 {g.tapicero && (
                   <button
-                    onClick={() => { if (confirm(`¿Avisar por email a ${tapiceroNombre(g.tapicero)} de estos ${g.lineas.length} pedido(s)?`)) void avisarGrupo(g.lineas.map((l) => l.pedido.id)); }}
+                    onClick={() => void confirmar({ titulo: `¿Avisar por email a ${tapiceroNombre(g.tapicero)}?`, texto: `Se le enviará un correo con estos ${g.lineas.length} pedido(s).`, aceptar: "Enviar aviso" }).then((ok) => { if (ok) void avisarGrupo(g.lineas.map((l) => l.pedido.id)); })}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                   >
                     <Send className="h-3.5 w-3.5" /> Avisar por email

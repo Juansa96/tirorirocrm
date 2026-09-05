@@ -8,6 +8,7 @@ import { ProductoForm, EMPTY_PROD_STATE } from "@/components/ProductoForm";
 import { displayModelo } from "@/lib/catalogo";
 import { FormaBadge } from "@/components/FormaBadge";
 import type { Producto } from "@/lib/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/clientes/nuevo")({
   head: () => ({ meta: [{ title: "Nuevo Lead — TiroCRM" }] }),
@@ -50,7 +51,7 @@ function NuevoLead() {
     e.preventDefault();
     if (!form.nombre.trim() || submitting) return;
     if (form.etapa === "On Hold" && !form.fechaHold) {
-      alert("La etapa 'On Hold' requiere una fecha concreta");
+      toast.error("La etapa 'On Hold' requiere una fecha concreta.");
       return;
     }
     setSubmitting(true);

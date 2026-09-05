@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmarHost } from "@/components/Confirmar";
 
 function NotFoundComponent() {
   return (
@@ -215,6 +216,7 @@ function RootComponent() {
           <Outlet />
         </AuthGate>
         <Toaster position="bottom-right" richColors closeButton />
+        <ConfirmarHost />
       </AuthProvider>
     </QueryClientProvider>
   );
