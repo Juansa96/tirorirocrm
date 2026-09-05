@@ -5,6 +5,7 @@ import { useStore, actions } from "@/lib/store";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { displayModelo, tipoLabelOf, normalizeTipo } from "@/lib/catalogo";
 import type { Producto, Lead } from "@/lib/types";
+import { confirmar } from "@/components/Confirmar";
 
 export const Route = createFileRoute("/duplicados")({
   head: () => ({ meta: [{ title: "Duplicados — TiroCRM" }] }),
@@ -143,7 +144,7 @@ function DuplicadosPage() {
                               const aviso = peds.length > 0
                                 ? `Este producto tiene ${peds.length} pedido(s) enlazado(s). Si lo borras, esos pedidos quedarán sin producto. ¿Eliminar de todas formas?`
                                 : "¿Eliminar este producto duplicado?";
-                              if (confirm(aviso)) actions.deleteProducto(p.id);
+                              void confirmar({ titulo: "¿Eliminar este producto?", texto: aviso, peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) actions.deleteProducto(p.id); });
                             }}
                             className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-100"
                           >

@@ -13,6 +13,7 @@ import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
 import { EmailEntrega } from "@/components/EmailEntrega";
 import { Antes } from "@/components/Antes";
 import { usePedidoDraft } from "@/lib/use-pedido-draft";
+import { confirmar } from "@/components/Confirmar";
 
 export const Route = createFileRoute("/pedidos/$id")({
   head: () => ({ meta: [{ title: "Pedido — TiroCRM" }] }),
@@ -60,7 +61,10 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
   const tapiceroAsignado = tapiceros.find((t) => t.id === pedido.tapiceroId);
 
   function volver(e: React.MouseEvent) {
-    if (dirty && !confirm("Tienes cambios sin guardar. ¿Salir sin guardar?")) { e.preventDefault(); }
+    if (!dirty) return;
+    e.preventDefault();
+    void confirmar({ titulo: "Tienes cambios sin guardar", texto: "¿Salir sin guardar?", aceptar: "Salir sin guardar", cancelar: "Seguir editando" })
+      .then((ok) => { if (ok) navigate({ to: "/pedidos" }); });
   }
 
   const med = medidasEtiquetadas(producto?.tipo, producto?.modelo, producto?.ancho, producto?.alto, producto?.fondo);
@@ -127,9 +131,8 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
         <div className="flex shrink-0 gap-2">
           <button
             onClick={() => {
-              if (confirm("¿Eliminar este pedido? Las telas asociadas también se eliminarán.")) {
-                void actions.deletePedido(pedido.id).then(() => navigate({ to: "/pedidos" }));
-              }
+              void confirmar({ titulo: "¿Eliminar este pedido?", texto: "Las telas asociadas también se eliminarán.", peligroso: true, aceptar: "Eliminar" })
+                .then((ok) => { if (ok) void actions.deletePedido(pedido.id).then(() => navigate({ to: "/pedidos" })); });
             }}
             className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50"
           >

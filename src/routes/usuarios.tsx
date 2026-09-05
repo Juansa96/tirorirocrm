@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { useStore, actions } from "@/lib/store";
 import { tapiceroNombre, type Tapicero } from "@/lib/types";
 import { toast } from "sonner";
+import { confirmar, pedirTexto } from "@/components/Confirmar";
 
 export const Route = createFileRoute("/usuarios")({
   head: () => ({ meta: [{ title: "Usuarios — TiroCRM" }] }),
@@ -55,7 +56,7 @@ function Usuarios() {
 
 
   async function resetPassword(u: UsuarioRow) {
-    const pw = prompt(`Nueva contraseña para ${u.email} (mínimo 8 caracteres):`);
+    const pw = await pedirTexto({ titulo: `Nueva contraseña para ${u.email}`, texto: "Mínimo 8 caracteres.", tipo: "password", minimo: 8, aceptar: "Cambiar contraseña" });
     if (!pw) return;
     if (pw.length < 8) { toast.error("Mínimo 8 caracteres."); return; }
     const res = await apiCall("POST", { op: "password", id: u.id, password: pw });
@@ -87,7 +88,7 @@ function Usuarios() {
   }
 
   async function eliminar(u: UsuarioRow) {
-    if (!confirm(`¿Eliminar el usuario ${u.email}? Perderá el acceso definitivamente.`)) return;
+    if (!(await confirmar({ titulo: `¿Eliminar el usuario ${u.email}?`, texto: "Perderá el acceso definitivamente.", peligroso: true, aceptar: "Eliminar" }))) return;
     const res = await apiCall("POST", { op: "delete", id: u.id });
     if (res.ok) { toast.success("Usuario eliminado."); void cargar(); }
     else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "No se pudo eliminar."); }
@@ -247,7 +248,7 @@ function TapicerosSection({ tapiceros }: { tapiceros: Tapicero[] }) {
               className={`rounded-lg border p-1.5 ${t.activo ? "border-amber-200 text-amber-600 hover:bg-amber-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}>
               <Power className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => { if (confirm(`¿Eliminar a ${tapiceroNombre(t)}? Sus pedidos quedarán sin asignar.`)) void actions.deleteTapicero(t.id); }} title="Eliminar tapicero"
+            <button onClick={() => void confirmar({ titulo: `¿Eliminar a ${tapiceroNombre(t)}?`, texto: "Sus pedidos quedarán sin asignar. Si solo ha dejado de trabajar con vosotros, desactívalo.", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) void actions.deleteTapicero(t.id); })} title="Eliminar tapicero"
               className="rounded-lg border border-rose-200 p-1.5 text-rose-600 hover:bg-rose-50">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -300,11 +301,11 @@ function EnlaceTapicero({ tapicero }: { tapicero: Tapicero }) {
         className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
         <Copy className="h-3.5 w-3.5" /> Copiar enlace
       </button>
-      <button onClick={() => { if (confirm("¿Regenerar el enlace? El anterior dejará de funcionar.")) void actions.generarEnlaceTapicero(tapicero.id).then((tk) => { if (tk) toast.success("Enlace nuevo generado y copiado."); }); }}
+      <button onClick={() => void confirmar({ titulo: "¿Regenerar el enlace?", texto: "El anterior dejará de funcionar.", aceptar: "Regenerar" }).then((ok) => { if (!ok) return; void actions.generarEnlaceTapicero(tapicero.id).then((tk) => { if (tk) toast.success("Enlace nuevo generado y copiado."); }); })}
         title="Regenerar" className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50">
         <RefreshCw className="h-3.5 w-3.5" />
       </button>
-      <button onClick={() => { if (confirm("¿Revocar el enlace de acceso?")) void actions.revocarEnlaceTapicero(tapicero.id); }}
+      <button onClick={() => void confirmar({ titulo: "¿Revocar el enlace de acceso?", peligroso: true, aceptar: "Revocar" }).then((ok) => { if (ok) void actions.revocarEnlaceTapicero(tapicero.id); })}
         title="Revocar enlace" className="rounded-lg border border-rose-200 p-1.5 text-rose-600 hover:bg-rose-50">
         <Trash2 className="h-3.5 w-3.5" />
       </button>

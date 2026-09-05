@@ -9,6 +9,7 @@ import { FabricPicker } from "@/components/FabricPicker";
 import { Antes } from "@/components/Antes";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
+import { confirmar } from "@/components/Confirmar";
 
 // Panel del EQUIPO dentro de la ficha del pedido. Trabaja sobre el BORRADOR
 // (nada se persiste hasta pulsar "Guardar" en la ficha): las telas y los campos
@@ -67,11 +68,11 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
     if (!producto?.modelo && !producto?.tipo) faltan.push("forma/modelo");
     if (!pedido.fechaLimite) faltan.push("fecha de entrega");
     if (!telas.some((t) => t.tipoTela.toLowerCase() === "frontal" && t.nombreTela)) faltan.push("tela principal");
-    const ok = faltan.length === 0
-      ? confirm("¿Enviar este pedido al panel de " + (tapiceroNombre(tapicero) || "el tapicero") + "?")
-      : confirm("⚠️ Falta: " + faltan.join(", ") + ".\n¿Enviarlo igualmente al panel del tapicero?");
-    if (!ok) return;
     void (async () => {
+      const ok = faltan.length === 0
+        ? await confirmar({ titulo: "¿Avisar a " + (tapiceroNombre(tapicero) || "el tapicero") + "?", texto: "Le llegará un correo con el enlace a la ficha del pedido.", aceptar: "Enviar aviso" })
+        : await confirmar({ titulo: "Falta: " + faltan.join(", "), texto: "¿Avisar igualmente al tapicero?", aceptar: "Avisar igualmente" });
+      if (!ok) return;
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token ?? "";
       const res = await fetch("/api/tapicero/enviar", {
@@ -276,7 +277,7 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
             {archivos.filter((a) => a.tipo === "foto_terminado").map((a) => (
               <div key={a.id} className="group relative overflow-hidden rounded-lg border border-slate-200">
                 <a href={a.url} target="_blank" rel="noreferrer"><img src={a.url} alt="Producto terminado" loading="lazy" className="aspect-square w-full object-cover" /></a>
-                <button onClick={() => { if (confirm("¿Eliminar foto?")) void actions.deleteArchivoPedido(a.id, a.storagePath); }}
+                <button onClick={() => void confirmar({ titulo: "¿Eliminar esta foto?", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) void actions.deleteArchivoPedido(a.id, a.storagePath); })}
                   className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100"><Trash2 className="h-3 w-3" /></button>
               </div>
             ))}
@@ -413,7 +414,7 @@ function ArchivoSlot({ pedidoId, tipo, titulo, accept, icon, archivos }: {
               <a href={a.url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 flex-1 items-center gap-1 text-blue-600 hover:underline">
                 <Download className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{a.nombre}</span>
               </a>
-              <button onClick={() => { if (confirm("¿Eliminar archivo?")) void actions.deleteArchivoPedido(a.id, a.storagePath); }} className="text-slate-400 hover:text-rose-600"><Trash2 className="h-3.5 w-3.5" /></button>
+              <button onClick={() => void confirmar({ titulo: "¿Eliminar este archivo?", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) void actions.deleteArchivoPedido(a.id, a.storagePath); })} className="text-slate-400 hover:text-rose-600"><Trash2 className="h-3.5 w-3.5" /></button>
             </li>
           ))}
         </ul>
@@ -458,7 +459,7 @@ function EtiquetaEnvioSlot({ pedidoId, archivos }: {
                 <Download className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{a.nombre}</span>
               </a>
               {a.transportista && <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] uppercase text-slate-600">{a.transportista}</span>}
-              <button onClick={() => { if (confirm("¿Eliminar etiqueta?")) void actions.deleteArchivoPedido(a.id, a.storagePath); }} className="text-slate-400 hover:text-rose-600"><Trash2 className="h-3.5 w-3.5" /></button>
+              <button onClick={() => void confirmar({ titulo: "¿Eliminar esta etiqueta?", peligroso: true, aceptar: "Eliminar" }).then((ok) => { if (ok) void actions.deleteArchivoPedido(a.id, a.storagePath); })} className="text-slate-400 hover:text-rose-600"><Trash2 className="h-3.5 w-3.5" /></button>
             </li>
           ))}
         </ul>
