@@ -5,7 +5,7 @@ import {
   Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus, Hammer, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, CAMPANA_FIELDS, CANAL_COLORS, canalOf, vendorName, tapiceroNombre, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
+import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, CAMPANA_FIELDS, CANAL_COLORS, canalOf, vendorName, tapiceroNombre, HISTORIAL_LABELS, tablaHistorialProducto, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
 import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
 import { ClosedLostDialog } from "@/components/ClosedLostDialog";
 import { formatCurrency, todayISO } from "@/lib/format";
@@ -17,6 +17,7 @@ import {
   TIPOS_PRODUCTO,
 } from "@/components/ProductoForm";
 import { ProduccionProducto } from "@/components/PedidoProduccion";
+import { Antes } from "@/components/Antes";
 import { displayColeccionTela, displayNombreProducto, modeloDetalle, mismoTipo, displayExtras } from "@/lib/catalogo";
 import { esClienteRecurrente, detectarDuplicados } from "@/lib/duplicados";
 
@@ -29,6 +30,7 @@ const FIELD_LABELS: Record<string, string> = {
   etapa: "etapa", valor: "valor", vendedor: "vendedor",
   nombre: "nombre", email: "email", telefono: "teléfono",
   ciudad: "ciudad", producto: "producto",
+  ...HISTORIAL_LABELS,
 };
 
 function formatAuditValue(field: string, val: string | null): string {
@@ -799,6 +801,7 @@ function ClienteDetalle() {
                         {p.precioUnitario > 0 && <span>Precio: <strong>{formatCurrency(p.precioUnitario)}</strong></span>}
                         {p.precioUnitario > 0 && p.cantidad > 1 && <span>Total: <strong>{formatCurrency(p.precioUnitario * p.cantidad)}</strong></span>}
                       </div>
+                      <Antes tabla={tablaHistorialProducto(p.id)} campos={["medidas", "tela_frontal", "tela_lateral", "tela_vivo", "montaje", "precio_producto"]} className="mt-1" />
                       {p.notasProducto && <div className="mt-1 text-xs italic text-slate-500">{p.notasProducto}</div>}
 
                       {/* Confirmación + pago 50 + crear pedido */}

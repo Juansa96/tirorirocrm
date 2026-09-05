@@ -4,6 +4,8 @@ import type { Producto } from "@/lib/types";
 import { CATALOG_TO_INTERNAL } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { FormaBadge } from "@/components/FormaBadge";
+import { FabricPicker, type TelaSel } from "@/components/FabricPicker";
+import { normNombreTela } from "@/lib/types";
 import {
   normalizarColeccionTela,
   displayColeccionTela,
@@ -458,30 +460,41 @@ export const TELA_POR_DECIDIR = "Por decidir";
 // `mismaQuePrincipal`: añade un botón explícito "Misma que la principal"
 // (valor vacío). Se usa en telas secundarias (lateral) para que el operador
 // elija de forma consciente en vez de "dejar vacío".
-export function TelaSelect({ value, onChange, placeholder, mismaQuePrincipal = false }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; mismaQuePrincipal?: boolean;
+// `onSelectTela`: al elegir una tela de la biblioteca (con foto y colección)
+// se avisa con el detalle, para que la sección pueda fijar la colección sola.
+export function TelaSelect({ value, onChange, onSelectTela, placeholder, mismaQuePrincipal = false }: {
+  value: string; onChange: (v: string) => void; onSelectTela?: (t: TelaSel) => void; placeholder?: string; mismaQuePrincipal?: boolean;
 }) {
+  // Biblioteca de telas (web + subidas): el MISMO selector con foto que usa la
+  // ficha del tapicero, en vez de un desplegable de nombres fijos.
+  const { telasWeb, telasBiblioteca } = useStore();
+  const enBiblioteca = (nombre: string) => {
+    const n = normNombreTela(nombre);
+    if (!n) return undefined;
+    return telasBiblioteca.find((t) => normNombreTela(t.nombre) === n) ?? telasWeb.find((t) => normNombreTela(t.nombre) === n);
+  };
   const [modo, setModo] = useState<"misma" | "web" | "otro" | "tbd">(() => {
     if (value === TELA_POR_DECIDIR) return "tbd";
-    if (value !== "" && !TELAS_SUGERIDAS.includes(value)) return "otro";
+    if (value !== "" && !TELAS_SUGERIDAS.includes(value) && !enBiblioteca(value)) return "otro";
     if (value === "" && mismaQuePrincipal) return "misma";
     return "web";
   });
+  const actual = enBiblioteca(value);
+  const sel: TelaSel | null = value && modo === "web"
+    ? { nombreTela: value, telaFotoUrl: actual?.fotoUrl ?? "", telaBibliotecaId: actual?.origen === "subida" ? actual.id : "", telaColeccion: actual?.coleccion ?? "" }
+    : null;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
         {mismaQuePrincipal && (
           <button type="button" className={TELA_BTN(modo === "misma")} onClick={() => { setModo("misma"); onChange(""); }}>Misma que la principal</button>
         )}
-        <button type="button" className={TELA_BTN(modo === "web")} onClick={() => { setModo("web"); onChange(""); }}>Tela de la web</button>
+        <button type="button" className={TELA_BTN(modo === "web")} onClick={() => { setModo("web"); onChange(""); }}>Biblioteca de telas</button>
         <button type="button" className={TELA_BTN(modo === "otro")} onClick={() => { setModo("otro"); onChange(""); }}>Otra tela</button>
         <button type="button" className={TELA_BTN(modo === "tbd")} onClick={() => { setModo("tbd"); onChange(TELA_POR_DECIDIR); }}>Por decidir</button>
       </div>
       {modo === "web" && (
-        <select className={TELA_INP} value={value} onChange={e => onChange(e.target.value)}>
-          <option value="">— Selecciona tela —</option>
-          {TELAS_SUGERIDAS.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <FabricPicker label="" value={sel} onSelect={(t) => { onChange(t.nombreTela); onSelectTela?.(t); }} />
       )}
       {modo === "otro" && (
         <input type="text" className={TELA_INP} value={value} onChange={e => onChange(e.target.value)}
@@ -516,7 +529,8 @@ function TelaSection({ tela, onTela, coleccionTela, onColeccion, telaLateral, on
     <div className="space-y-3">
       <div>
         <div className={SECTION_CLS}>Tela principal</div>
-        <TelaSelect value={tela} onChange={onTela} />
+        <TelaSelect value={tela} onChange={onTela}
+          onSelectTela={(t) => { const c = String(t.telaColeccion ?? "").toLowerCase(); if (/premium/.test(c)) onColeccion("premium"); else if (/basic|básic|basic/.test(c)) onColeccion("basic"); }} />
       </div>
       <div>
         <div className={SECTION_CLS}>Colección</div>

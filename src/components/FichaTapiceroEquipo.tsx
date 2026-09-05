@@ -2,10 +2,11 @@ import { useRef } from "react";
 import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
-import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
+import { tapiceroNombre, tablaHistorialProducto, type Pedido, type Producto } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
+import { Antes } from "@/components/Antes";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
 
@@ -197,6 +198,8 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
           );
         })}
       </div>
+
+      {producto && <Antes tabla={tablaHistorialProducto(producto.id)} campos={["tela_frontal", "tela_lateral", "tela_vivo"]} className="mt-2" />}
 
       {/* Vivo / ribete del cabecero, banco o puf. Se especifica aquí (Sin vivo /
           Vivo simple / Vivo doble) y lo ve el tapicero. Acción inmediata sobre

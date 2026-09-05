@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ArrowLeft, Trash2, Package, ExternalLink, Save, Ruler, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, tablaHistorialProducto, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
@@ -11,6 +11,7 @@ import { ProductoForm, productoToState } from "@/components/ProductoForm";
 import { TapiceroAsignado, RutaProduccion, TelasPedidoEditor } from "@/components/PedidoProduccion";
 import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
 import { EmailEntrega } from "@/components/EmailEntrega";
+import { Antes } from "@/components/Antes";
 import { usePedidoDraft } from "@/lib/use-pedido-draft";
 
 export const Route = createFileRoute("/pedidos/$id")({
@@ -170,6 +171,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
                 : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
               {displayExtras(producto.patas) && <Info k="Extras" v={displayExtras(producto.patas)} />}
               {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
+              <Antes tabla={tablaHistorialProducto(producto.id)} campos={["medidas", "tela_frontal", "tela_lateral", "tela_vivo", "montaje"]} className="col-span-2 sm:col-span-3" />
             </div>
           )}
         </div>

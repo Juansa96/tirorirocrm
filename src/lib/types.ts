@@ -545,6 +545,23 @@ export const PASO_EMAIL_ENTREGA = "@emailEntrega";        // valor: fecha ISO de
 export const PASO_EMAIL_ENTREGA_A = "@emailEntregaA";     // valor: dirección
 export const PASO_EMAIL_ENTREGA_POR = "@emailEntregaPor"; // valor: quién lo envió
 
+// ───────────── Historial "antes ponía …" ─────────────
+// Los cambios de medidas, telas, montaje y precio se apuntan en `audit_log`
+// (tabla que ya existe) con `tabla` = "productos_lead:<id>" o "pedidos:<id>",
+// para poder enseñar bajo el campo una línea "Antes: 150 × 100 · Rocío, 2 sep"
+// sin columnas nuevas. `campo` usa estas claves:
+export const HISTORIAL_LABELS: Record<string, string> = {
+  medidas: "medidas",
+  tela_frontal: "tela principal",
+  tela_lateral: "tela lateral",
+  tela_vivo: "tela del vivo",
+  montaje: "montaje",
+  precio_producto: "precio del producto",
+  precio_pedido: "precio del pedido",
+};
+export const tablaHistorialProducto = (productoId: string) => `productos_lead:${productoId}`;
+export const tablaHistorialPedido = (pedidoId: string) => `pedidos:${pedidoId}`;
+
 // Motivo corto de un aviso de cambio ("Cambió en el producto: medidas" →
 // "medidas"), para pintarlo como chip discreto en el panel.
 export function motivoCambio(detalle: string | null | undefined): string {
