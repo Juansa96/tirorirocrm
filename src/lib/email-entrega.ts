@@ -21,7 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { displayNombreProducto, normalizeTipo } from "./catalogo";
 
-export const ENTREGA_REVIEW_URL = "https://www.google.com/search?q=Tiroriro+Home+opiniones";
+export const ENTREGA_REVIEW_URL = "https://g.page/r/Ces4vVtTbYFGEBM/review";
 export const ENTREGA_WHATSAPP = "660 786 453";
 export const ENTREGA_WHATSAPP_INTL = "34660786453";
 export const ENTREGA_PREMIO = "un 10 % de descuento";
