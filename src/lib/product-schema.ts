@@ -103,6 +103,11 @@ export function buildProducto(
   let relleno = "";
   let patas = "";
 
+  // Tela del vivo elegida en la web (solo si es distinta de la principal). En
+  // cabeceros, pufs y bancos se guarda en `relleno`, como hace ProductoForm.
+  const telaVivoWeb = sanitize((config as Record<string, unknown>).telaVivo, 200);
+  if ((tipo === "cabecero" || tipo === "puf" || tipo === "banco") && telaVivoWeb && topAcabado !== "liso") relleno = telaVivoWeb;
+
   if (tipo === "cabecero") {
     modelo = CABECERO_FORMAS[sanitize(config.forma, 50)] ?? sanitize(config.forma, 50);
     ancho = num(config.anchoCama, 400) ?? num(config.ancho, 400);
@@ -137,6 +142,13 @@ export function buildProducto(
     const dims = opcionAlmohadon.split("-")[1]?.replace(" cm", "").split("×");
     ancho = dims?.[0] ? Number(dims[0]) : null;
     alto = dims?.[1] ? Number(dims[1]) : null;
+    // Ribete del almohadón: la web manda acabado "vivo-simple" (con ribete) o
+    // "liso" (sin ribete) y, si el cliente eligió otra tela para el ribete,
+    // `telaVivo`. En el CRM el ribete del almohadón vive en `patas` con el
+    // mismo formato que escribe ProductoForm ("Ribete: <tela>" / "Sin ribete").
+    const telaVivo = sanitize((config as Record<string, unknown>).telaVivo, 200);
+    if (topAcabado === "vivo-simple" || topAcabado === "vivo-doble") patas = `Ribete: ${telaVivo || "misma tela"}`;
+    else if (topAcabado === "liso") patas = "Sin ribete";
   } else if (tipo === "puf") {
     const t = sanitize(config.tamanoPuf, 20);
     modelo = t ? `${t} cm` : "";
