@@ -220,6 +220,22 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
               }
             }
 
+            // Clave de idempotencia POR INTENTO. El proveedor recuerda cada clave:
+            // si el envío falló, cualquier reintento con la misma clave se rechaza
+            // con 409 "This email send already failed. Send again with a new
+            // idempotency key", así que sin esto los 5 reintentos fallaban
+            // siempre y el correo acababa en la DLQ sin llegar nunca. El primer
+            // intento conserva la clave original; los siguientes la derivan del
+            // número de fallos ya registrados en email_send_log.
+            const baseIdempotencyKey =
+              (typeof payload.idempotency_key === 'string' && payload.idempotency_key) ||
+              (typeof payload.message_id === 'string' && payload.message_id) ||
+              undefined
+            const idempotencyKey =
+              baseIdempotencyKey && failedAttempts > 0
+                ? `${baseIdempotencyKey}:r${failedAttempts}`
+                : baseIdempotencyKey
+
             try {
               await sendLovableEmail(
                 {
@@ -232,7 +248,7 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
                   text: payload.text,
                   purpose: payload.purpose,
                   label: payload.label,
-                  idempotency_key: payload.idempotency_key,
+                  idempotency_key: idempotencyKey,
                   unsubscribe_token: payload.unsubscribe_token,
                   message_id: payload.message_id,
                 },

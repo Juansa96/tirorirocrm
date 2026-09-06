@@ -5,7 +5,7 @@ import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela
 import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
-import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller, medidasEtiquetadas } from "./catalogo";
+import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 import { TELAS_WEB } from "./telas-web-data";
@@ -934,6 +934,11 @@ function telaPorNombre(nombre: string): { fotoUrl: string; bibliotecaId: string;
 async function propagarTelasProductoAPedidos(prod: Producto, roles: ReadonlyArray<(typeof ROLES_TELA)[number]> = ROLES_TELA) {
   const pedidos = state.pedidos.filter((p) => p.productoLeadId === prod.id && !p.entregado);
   if (pedidos.length === 0) return;
+  // En pantallas y mesas `color`/`relleno` NO son telas (superficie, forma,
+  // fondo): solo se sincroniza la tela principal (ver rellenoEsTelaVivo).
+  const sincronizables = rolesTelaSincronizables(prod.tipo);
+  roles = roles.filter((r) => sincronizables.includes(r));
+  if (roles.length === 0) return;
   const deseadas: Record<string, string> = { Frontal: (prod.tela || "").trim(), Lateral: (prod.color || "").trim(), Vivo: (prod.relleno || "").trim() };
   for (const ped of pedidos) {
     const filas = state.pedidoTelas.filter((t) => t.pedidoId === ped.id);
@@ -974,16 +979,21 @@ async function reflejarTelasEnProducto(pedidoId: string) {
   const de = (rol: string) => filas.find((t) => t.tipoTela.toLowerCase() === rol.toLowerCase());
   const frontal = de("Frontal"), lateral = de("Lateral"), vivo = de("Vivo");
   if (!frontal) return; // sin tela principal en el pedido no hay nada que reflejar
+  // Solo en cabeceros/pufs/bancos `color` y `relleno` guardan telas. En una
+  // pantalla `relleno` es la FORMA y en una mesa a medida el FONDO (y `color`
+  // la superficie): ahí se dejan tal cual, o tocar las telas del pedido
+  // borraría la forma/el fondo del producto y el taller vería otra cosa.
+  const conLateralYVivo = rellenoEsTelaVivo(prod.tipo);
   const nuevo = {
     tela: frontal.nombreTela.trim(),
-    color: lateral && !lateral.mismaQueFrontal ? lateral.nombreTela.trim() : "",
-    relleno: vivo ? vivo.nombreTela.trim() : "",
+    color: conLateralYVivo ? (lateral && !lateral.mismaQueFrontal ? lateral.nombreTela.trim() : "") : prod.color,
+    relleno: conLateralYVivo ? (vivo ? vivo.nombreTela.trim() : "") : prod.relleno,
     coleccionTela: frontal.telaColeccion ? normalizarColeccionTela(frontal.telaColeccion) : prod.coleccionTela,
   };
   const cambios: Array<[campo: string, antes: string, despues: string]> = [];
   if (normNombreTela(nuevo.tela) !== normNombreTela(prod.tela)) cambios.push(["tela_frontal", prod.tela, nuevo.tela]);
-  if (normNombreTela(nuevo.color) !== normNombreTela(prod.color)) cambios.push(["tela_lateral", prod.color, nuevo.color]);
-  if (normNombreTela(nuevo.relleno) !== normNombreTela(prod.relleno)) cambios.push(["tela_vivo", prod.relleno, nuevo.relleno]);
+  if (conLateralYVivo && normNombreTela(nuevo.color) !== normNombreTela(prod.color)) cambios.push(["tela_lateral", prod.color, nuevo.color]);
+  if (conLateralYVivo && normNombreTela(nuevo.relleno) !== normNombreTela(prod.relleno)) cambios.push(["tela_vivo", prod.relleno, nuevo.relleno]);
   const cambiaColeccion = nuevo.coleccionTela !== prod.coleccionTela;
   if (cambios.length === 0 && !cambiaColeccion) return;
   const prevState = state;
@@ -1495,15 +1505,18 @@ export const actions = {
       const medAntes = textoMedidas(prev), medDespues = textoMedidas({ ...prev, ...input });
       if (medAntes !== medDespues) await registrarCambio(tabla, prev.leadId, "medidas", medAntes, medDespues);
       if (normNombreTela(prev.tela) !== normNombreTela(input.tela)) await registrarCambio(tabla, prev.leadId, "tela_frontal", prev.tela, input.tela);
-      if (normNombreTela(prev.color) !== normNombreTela(input.color)) await registrarCambio(tabla, prev.leadId, "tela_lateral", prev.color, input.color);
-      if (normNombreTela(prev.relleno) !== normNombreTela(input.relleno)) await registrarCambio(tabla, prev.leadId, "tela_vivo", prev.relleno, input.relleno);
+      // `color`/`relleno` solo son telas en cabecero/puf/banco; en pantalla o
+      // mesa no se apuntan como "tela lateral"/"tela del vivo".
+      const telasLateralVivo = rellenoEsTelaVivo(input.tipo);
+      if (telasLateralVivo && normNombreTela(prev.color) !== normNombreTela(input.color)) await registrarCambio(tabla, prev.leadId, "tela_lateral", prev.color, input.color);
+      if (telasLateralVivo && normNombreTela(prev.relleno) !== normNombreTela(input.relleno)) await registrarCambio(tabla, prev.leadId, "tela_vivo", prev.relleno, input.relleno);
       const mAntes = montajeDeExtras(prev.patas), mDespues = montajeDeExtras(input.patas);
       if (prev.precioUnitario !== input.precioUnitario) await registrarCambio(tabla, prev.leadId, "precio_producto", `${prev.precioUnitario ?? 0} €`, `${input.precioUnitario ?? 0} €`);
       if (mAntes !== mDespues) await registrarCambio(tabla, prev.leadId, "montaje", mAntes === "colgar" ? "colgado a la pared" : mAntes === "apoyar" ? "apoyado en el suelo" : "por decidir", mDespues === "colgar" ? "colgado a la pared" : mDespues === "apoyar" ? "apoyado en el suelo" : "por decidir");
       const rolesCambiados = ([
         (prev.tela !== input.tela || prev.coleccionTela !== input.coleccionTela) && "Frontal",
-        prev.color !== input.color && "Lateral",
-        prev.relleno !== input.relleno && "Vivo",
+        telasLateralVivo && prev.color !== input.color && "Lateral",
+        telasLateralVivo && prev.relleno !== input.relleno && "Vivo",
       ] as const).filter((r): r is "Frontal" | "Lateral" | "Vivo" => !!r);
       if (rolesCambiados.length > 0) await propagarTelasProductoAPedidos({ ...prev, ...input }, rolesCambiados);
     }
@@ -1517,8 +1530,13 @@ export const actions = {
       // Las notas internas y el precio no avisan.
       const cambios: string[] = [];
       if (prev.ancho !== input.ancho || prev.alto !== input.alto || prev.fondo !== input.fondo) cambios.push("medidas");
-      if (prev.tela !== input.tela || prev.color !== input.color || prev.coleccionTela !== input.coleccionTela) cambios.push("tela");
-      if (prev.acabado !== input.acabado || prev.relleno !== input.relleno) cambios.push("vivo");
+      const esTelaLatVivo = rellenoEsTelaVivo(input.tipo);
+      if (prev.tela !== input.tela || (esTelaLatVivo && prev.color !== input.color) || prev.coleccionTela !== input.coleccionTela) cambios.push("tela");
+      if (esTelaLatVivo && (prev.acabado !== input.acabado || prev.relleno !== input.relleno)) cambios.push("vivo");
+      // En pantallas `relleno` es la forma y en mesas `color` la superficie:
+      // son cambios de taller, avisados con su nombre real (el fondo va en medidas).
+      if (!esTelaLatVivo && esPantalla(input.tipo) && prev.relleno !== input.relleno) cambios.push("forma");
+      if (normalizeTipo(input.tipo) === "mesa" && prev.color !== input.color) cambios.push("superficie");
       if (prev.tipo !== input.tipo || prev.modelo !== input.modelo) cambios.push("modelo");
       if (prev.cantidad !== input.cantidad) cambios.push("cantidad");
       if (montajeDeExtras(input.patas) !== montajeDeExtras(prev.patas)) cambios.push("montaje");
