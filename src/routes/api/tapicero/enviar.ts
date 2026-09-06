@@ -8,7 +8,7 @@ import { obtenerTokenBaja } from "@/lib/email-baja.server";
 //   POST { pedidoIds: string[] }
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
-const FROM = "Tiroriro Home <pedidos@notify.tirorirohome.com>";
+const FROM = "Tiroriro <pedidos@notify.tirorirohome.com>";
 const SENDER_DOMAIN = "notify.tirorirohome.com";
 // El helper de emails de Lovable no fija reply-to; se muestra en el cuerpo.
 const REPLY_TO = process.env.TAPICERO_REPLY_TO || "sangradortorresjuan@gmail.com";
