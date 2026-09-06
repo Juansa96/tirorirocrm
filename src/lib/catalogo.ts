@@ -217,6 +217,22 @@ export function tipoLlevaVivo(tipo: unknown): boolean {
   return k === "cabecero" || k === "banco" || k === "puf";
 }
 
+// `productos_lead.relleno` es una columna SOBRECARGADA: en cabeceros, pufs,
+// bancos y "otro" guarda la tela del vivo/ribete; en pantallas guarda la FORMA
+// (cilindro / cuadrado / rectangulo) y en mesas a medida el FONDO en cm. Y
+// `color` guarda la tela lateral en los primeros, pero la SUPERFICIE en mesas
+// y la tela principal en almohadones. La sincronía de telas producto ⇄ pedido
+// solo puede escribir en esas columnas cuando de verdad guardan una tela; si
+// no, pisaría la forma de la pantalla o el fondo de la mesa (bug real).
+export function rellenoEsTelaVivo(tipo: unknown): boolean {
+  const k = normalizeTipo(tipo);
+  return k === "cabecero" || k === "banco" || k === "puf" || k === "otro";
+}
+// Roles de tela (filas de pedido_telas) que se sincronizan con el producto.
+export function rolesTelaSincronizables(tipo: unknown): ReadonlyArray<"Frontal" | "Lateral" | "Vivo"> {
+  return rellenoEsTelaVivo(tipo) ? ["Frontal", "Lateral", "Vivo"] : ["Frontal"];
+}
+
 // "Sin vivo" se ha guardado de dos formas a lo largo del tiempo: acabado vacío
 // (nunca se eligió) y "liso" (se eligió "Sin vivo" en el CRM o en la web).
 export function esSinVivo(acabado: unknown): boolean {

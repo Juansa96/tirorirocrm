@@ -3,9 +3,9 @@ import { useState } from "react";
 import { ArrowLeft, Trash2, Package, ExternalLink, Save, Ruler, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, tablaHistorialProducto, tablaHistorialPedido, FORMATOS_COLAB, TIPOS_COLAB, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, tablaHistorialProducto, tablaHistorialPedido, FORMATOS_COLAB, TIPOS_COLAB, esPantalla, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
-import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas } from "@/lib/catalogo";
+import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas, rellenoEsTelaVivo } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { ProductoForm, productoToState } from "@/components/ProductoForm";
 import { TapiceroAsignado, RutaProduccion, TelasPedidoEditor } from "@/components/PedidoProduccion";
@@ -168,7 +168,9 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
               <Info k="Cantidad" v={String(producto.cantidad || 1)} />
               <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} />
               {producto.color && <Info k="Tela lateral" v={producto.color} />}
-              {producto.relleno && <Info k="Tela vivo/ribete" v={producto.relleno} />}
+              {/* `relleno` solo es tela en cabecero/puf/banco; en pantallas es la forma. */}
+              {producto.relleno && rellenoEsTelaVivo(producto.tipo) && <Info k="Tela vivo/ribete" v={producto.relleno} />}
+              {producto.relleno && esPantalla(producto.tipo) && <Info k="Forma" v={producto.relleno.charAt(0).toUpperCase() + producto.relleno.slice(1)} />}
               {tipoLlevaVivo(producto.tipo)
                 ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
                 : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
