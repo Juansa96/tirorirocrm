@@ -31,7 +31,7 @@ export const ENTREGA_INSTAGRAM = "https://www.instagram.com/tirorirohome/";
 export const ENTREGA_WEB = "https://tirorirohome.com";
 export const ENTREGA_IMG_BASE = "https://tirorirohome.com/email";
 export const ENTREGA_LOGO_URL = `${ENTREGA_IMG_BASE}/logo-tiroriro.png`;
-export const ENTREGA_FROM = "Tiroriro Home <hola@notify.tirorirohome.com>";
+export const ENTREGA_FROM = "Tiroriro <hola@notify.tirorirohome.com>";
 export const ENTREGA_SENDER_DOMAIN = "notify.tirorirohome.com";
 export const ENTREGA_TEMPLATE = "entrega_cliente"; // etiqueta en email_send_log
 // Titular del correo (se cambia aquí).
@@ -196,7 +196,7 @@ export function htmlEmailEntrega(d: EmailEntregaDatos, mensaje: string): string 
       </tr></table>
       <p style="margin:26px 0 0;font-family:${SERIF};font-size:21px;line-height:1.4;font-weight:400;font-style:italic;color:${C.tinta}">Gracias por confiar en nosotros cuando todavía éramos casi un secreto.</p>
       <p style="margin:12px 0 0;font-family:${SANS};font-size:15px;line-height:1.6;font-weight:400;color:${C.texto}">Bea, Rocío, Iñaki y Juan</p>
-      <p style="margin:4px 0 0;${ETIQUETA};color:${C.suave};letter-spacing:.3em">Tiro·Riro</p>
+      <p style="margin:4px 0 0;${ETIQUETA};color:${C.suave};letter-spacing:.3em">Tiroriro</p>
     </td></tr>
 
     <tr><td align="center" style="padding:22px 16px 0">
@@ -225,7 +225,7 @@ export function plainEmailEntrega(d: EmailEntregaDatos, mensaje: string): string
     `2. Una foto de ${prod} en su sitio, para nuestro Instagram. Nos la mandas por WhatsApp al ${ENTREGA_WHATSAPP} o a ${ENTREGA_CONTACTO}.`,
     `Si haces las dos, tu próximo pedido lleva ${ENTREGA_PREMIO}. Nos lo dices al hacer el pedido y lo aplicamos.`,
     "Gracias por confiar en nosotros cuando todavía éramos casi un secreto.",
-    "Bea, Rocío, Iñaki y Juan\nTIRO·RIRO",
+    "Bea, Rocío, Iñaki y Juan\nTiroriro",
     `— ${ENTREGA_WEB} · ${ENTREGA_CONTACTO} · WhatsApp ${ENTREGA_WHATSAPP}`,
   ].join("\n\n");
 }
