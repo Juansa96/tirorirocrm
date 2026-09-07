@@ -421,7 +421,9 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     const id = findCatalogIdByDims(COJIN_OPCIONES, p.ancho, p.alto);
     s.almohadonId = id || (p.ancho || p.modelo ? "custom" : "");
     s.almohadonMedidas = !id ? (p.modelo && !mismoModelo(p.modelo, "Almohadón") ? p.modelo : "") : "";
-    s.almohadonTela = p.color || p.tela || "";
+    // La tela del almohadón se guarda en `tela` y `color`; manda `tela`, que es
+    // la que sincronizan las telas del pedido (ver reflejarTelasEnProducto).
+    s.almohadonTela = p.tela || p.color || "";
     if (p.patas === "Sin ribete") { s.almohadonSinRibete = true; s.almohadonRibete = ""; }
     else if (p.patas?.startsWith("Ribete: ")) { s.almohadonSinRibete = false; s.almohadonRibete = p.patas.slice(8); }
     s.cantidad = p.cantidad;
