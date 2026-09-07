@@ -1,6 +1,6 @@
 import { numeroPedidoLabel } from "@/lib/types";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical, Truck, Pencil } from "lucide-react";
 import { formatWeekdayShort } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,33 @@ export const Route = createFileRoute("/panel/")({
 });
 
 const FIN = "__end__";
+
+type Vista = "en_curso" | "por_recoger" | "terminados";
+type FiltroEstado = "todos" | "pendiente_tela" | "en_curso" | "empezados";
+
+// ── Memoria de la vista del panel ─────────────────────────────────────────
+// Al abrir una ficha y volver (flecha ← o "atrás" del navegador) el panel se
+// vuelve a montar y carga la lista de cero, así que la restauración de scroll
+// del router llega antes de que existan las cards y la página acaba arriba del
+// todo. Aquí se guarda en sessionStorage la pestaña, los filtros, el producto
+// que se abrió y el scroll, para volver EXACTAMENTE a la card en la que se
+// estaba (y resaltarla un instante). Se guarda por tapicero, para que el
+// equipo no herede la vista de otro panel.
+const MEM_KEY = "panel-taller";
+interface MemoriaPanel {
+  tapicero: string; vista: Vista; filtro: FiltroEstado; retrasados: boolean; expandidos: string[];
+  productoId?: string; scrollY?: number;
+}
+function leerMemoria(tapicero: string): MemoriaPanel | null {
+  try {
+    const raw = sessionStorage.getItem(MEM_KEY);
+    const m = raw ? (JSON.parse(raw) as MemoriaPanel) : null;
+    return m && m.tapicero === tapicero ? m : null;
+  } catch { return null; }
+}
+function guardarMemoria(m: MemoriaPanel) {
+  try { sessionStorage.setItem(MEM_KEY, JSON.stringify(m)); } catch { /* sin sessionStorage: se pierde la memoria, nada más */ }
+}
 
 // Días para que Juan RECOJA el producto: rojo si ya pasó, ámbar si queda poco,
 // verde si sobra. Sin fecha de recogida → gris "Sin recogida" (no un número).
@@ -92,11 +119,47 @@ function Panel() {
 
   const viendoId = esTapicero ? miTapiceroId : (search.tapicero ?? "");
   const { pedidos, error: errorCarga, refetch } = usePanelPedidos(viendoId || null, esTapicero);
-  const [vista, setVista] = useState<"en_curso" | "por_recoger" | "terminados">("en_curso");
+  const [vista, setVista] = useState<Vista>("en_curso");
   const enCurso = vista === "en_curso";
-  const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente_tela" | "en_curso" | "empezados">("todos");
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
   const [soloRetrasados, setSoloRetrasados] = useState(false);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
+
+  // ── Volver a la misma card al regresar de una ficha ───────────────────────
+  // 1) Al montar (o cuando se sabe qué panel es), se recupera la vista guardada.
+  //    Se hace en un efecto, no en el estado inicial, para no discrepar con el
+  //    HTML del servidor (sessionStorage solo existe en el navegador).
+  const restauradoRef = useRef<string>("");       // tapicero cuya memoria ya se ha leído
+  const pendienteRef = useRef<{ productoId?: string; scrollY?: number } | null>(null);
+  const [resaltado, setResaltado] = useState<string | null>(null);
+  useEffect(() => {
+    if (!viendoId || restauradoRef.current === viendoId) return;
+    restauradoRef.current = viendoId;
+    const m = leerMemoria(viendoId);
+    if (!m) return;
+    setVista(m.vista);
+    setFiltroEstado(m.filtro);
+    setSoloRetrasados(m.retrasados);
+    setExpandidos(new Set(m.expandidos));
+    if (m.productoId || m.scrollY != null) pendienteRef.current = { productoId: m.productoId, scrollY: m.scrollY };
+  }, [viendoId]);
+  // 2) Cada cambio de pestaña/filtro se recuerda (sin tocar el scroll pendiente).
+  useEffect(() => {
+    if (!viendoId || restauradoRef.current !== viendoId) return;
+    const prev = leerMemoria(viendoId);
+    guardarMemoria({
+      tapicero: viendoId, vista, filtro: filtroEstado, retrasados: soloRetrasados, expandidos: [...expandidos],
+      productoId: prev?.productoId, scrollY: prev?.scrollY,
+    });
+  }, [viendoId, vista, filtroEstado, soloRetrasados, expandidos]);
+  // 3) Al pulsar un producto se apunta cuál y a qué altura estaba la página.
+  const recordarProducto = (productoId: string) => {
+    if (!viendoId) return;
+    guardarMemoria({
+      tapicero: viendoId, vista, filtro: filtroEstado, retrasados: soloRetrasados, expandidos: [...expandidos],
+      productoId, scrollY: window.scrollY,
+    });
+  };
 
   // ── Arrastre (pointer events: ratón + táctil) ──────────────────────────────
   const [ordenOverride, setOrdenOverride] = useState<Record<string, number>>({});
@@ -112,6 +175,31 @@ function Panel() {
   const flatRef = useRef<PanelPedido[]>([]);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
+
+  // 4) Cuando la lista ya está pintada, se vuelve a la altura guardada; si la
+  //    fila no queda a la vista (la cola cambió mientras tanto), se centra. La
+  //    fila se resalta un momento para orientar al ojo. Si el producto ya no
+  //    está en esta pestaña (p. ej. se marcó terminado), se deja el scroll donde
+  //    estaba y ya.
+  const listaPintada = pedidos !== null && !errorCarga;
+  useLayoutEffect(() => {
+    const pend = pendienteRef.current;
+    if (!pend || !listaPintada) return;
+    pendienteRef.current = null;
+    if (pend.scrollY != null) window.scrollTo({ top: pend.scrollY, behavior: "instant" });
+    const fila = pend.productoId
+      ? document.querySelector<HTMLElement>(`[data-producto-id="${pend.productoId}"]`)
+      : null;
+    // El scroll pendiente ya se ha consumido: no se repite en una recarga.
+    const m = leerMemoria(viendoId);
+    if (m) guardarMemoria({ ...m, productoId: undefined, scrollY: undefined });
+    if (!fila) return;
+    const r = fila.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) fila.scrollIntoView({ block: "center", behavior: "instant" });
+    setResaltado(fila.dataset.productoId ?? null);
+    const t = setTimeout(() => setResaltado(null), 1600);
+    return () => clearTimeout(t);
+  }, [listaPintada, viendoId]);
 
   const tapiceroActual = tapiceros.find((t) => t.id === viendoId);
 
@@ -332,6 +420,8 @@ function Panel() {
                 onToggle={() => toggle(t.cliente)}
                 tapiceroSearch={esEquipo ? viendoId : undefined}
                 dnd={dnd}
+                resaltado={resaltado}
+                onAbrir={recordarProducto}
               />
             ))}
             {/* Marcador de final (permite soltar al final de la cola) */}
@@ -361,9 +451,9 @@ interface DnD {
   onProductGrip: (productId: string, e: React.PointerEvent) => void;
 }
 
-function ClienteCard({ tramo, posiciones, totalCliente, expandido, onToggle, tapiceroSearch, dnd }: {
+function ClienteCard({ tramo, posiciones, totalCliente, expandido, onToggle, tapiceroSearch, dnd, resaltado, onAbrir }: {
   tramo: Tramo; posiciones: Map<string, number>; totalCliente: number; expandido: boolean; onToggle: () => void;
-  tapiceroSearch?: string; dnd?: DnD;
+  tapiceroSearch?: string; dnd?: DnD; resaltado: string | null; onAbrir: (productoId: string) => void;
 }) {
   const otros = totalCliente - tramo.items.length; // productos de este cliente en otras posiciones
   const arrastrandoRun = dnd?.dragKind === "run" && dnd.dragKey === tramo.repId;
@@ -407,15 +497,16 @@ function ClienteCard({ tramo, posiciones, totalCliente, expandido, onToggle, tap
       <div className="divide-y divide-slate-100">
         {tramo.items.map((p) => (
           <ProductoRow key={p.id} p={p} posicion={posiciones.get(p.id) ?? 0} tapiceroSearch={tapiceroSearch}
-            dnd={dnd} arrastrarProducto={!!dnd && expandido} />
+            dnd={dnd} arrastrarProducto={!!dnd && expandido} resaltado={resaltado === p.id} onAbrir={onAbrir} />
         ))}
       </div>
     </div>
   );
 }
 
-function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto }: {
+function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resaltado, onAbrir }: {
   p: PanelPedido; posicion: number; tapiceroSearch?: string; dnd?: DnD; arrastrarProducto: boolean;
+  resaltado: boolean; onAbrir: (productoId: string) => void;
 }) {
   const c = diasColor(p.diasRestantes, p.entregado, !!p.fechaRecogida);
   // Medidas con etiqueta por tipo ("Ancho 150 · Alto 130 cm"); si falta una
@@ -427,7 +518,8 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto }: {
   return (
     <div
       ref={arrastrarProducto && dnd ? (el) => dnd.registrarRow(p.id, el) : undefined}
-      className={`flex items-center bg-white ${arrastrandoEste ? "relative z-30 rounded-lg shadow-xl ring-2 ring-slate-900/10" : ""} ${encima ? "border-t-2 border-slate-900" : "border-t-2 border-transparent"}`}
+      data-producto-id={p.id}
+      className={`flex items-center transition-colors duration-1000 ${resaltado ? "bg-amber-50" : "bg-white"} ${arrastrandoEste ? "relative z-30 rounded-lg shadow-xl ring-2 ring-slate-900/10" : ""} ${encima ? "border-t-2 border-slate-900" : "border-t-2 border-transparent"}`}
       style={arrastrandoEste ? { transform: `translateY(${dnd!.dy}px)`, opacity: 0.97, touchAction: "none" } : undefined}
     >
       {arrastrarProducto && dnd && (
@@ -441,6 +533,7 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto }: {
         </span>
       )}
       <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}} draggable={false}
+        onClick={() => onAbrir(p.id)}
         className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-3 active:bg-slate-50">
         {posicion > 0 && (
           <span className="w-5 shrink-0 text-center text-xs font-semibold tabular-nums text-slate-400">{posicion}</span>

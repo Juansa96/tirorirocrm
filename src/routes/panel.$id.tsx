@@ -72,6 +72,7 @@ function FichaPanel() {
           <div className="flex items-center gap-1.5">
             {p.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
             <div className="truncate text-base font-bold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</div>
+            {p.cantidad > 1 && <UnidadesBadge n={p.cantidad} />}
           </div>
           {p.cliente && <div className="truncate text-[11px] text-slate-500">{p.cliente}</div>}
         </div>
@@ -112,7 +113,10 @@ function FichaPanel() {
           <section className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Producto</h2>
-              {p.numero != null && <span className="inline-flex items-center whitespace-nowrap rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-bold leading-none text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
+              <div className="flex items-center gap-1.5">
+                {p.cantidad > 1 && <UnidadesBadge n={p.cantidad} />}
+                {p.numero != null && <span className="inline-flex items-center whitespace-nowrap rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-bold leading-none text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
+              </div>
             </div>
             <div className="flex gap-3">
               <div className="h-20 w-20 shrink-0 rounded-lg border border-slate-100 bg-slate-50 p-1.5">
@@ -120,6 +124,9 @@ function FichaPanel() {
               </div>
               <dl className="min-w-0 flex-1 space-y-1">
                 <Dato k="Producto" v={displayNombreProducto(p.tipo, p.modelo)} />
+                {/* Nº de unidades: en la lista sale como "×2 uds"; aquí también,
+                    para que el taller sepa cuántas piezas iguales debe hacer. */}
+                <Dato k="Unidades" v={p.cantidad === 1 ? "1 unidad" : `${p.cantidad} unidades iguales`} destacado={p.cantidad > 1} />
                 <Dato k="Medidas" wrap v={med.texto} vacio={med.faltan.length > 0 ? `Faltan: ${med.faltan.join(", ")}` : "Sin especificar"} />
                 {med.texto && med.faltan.length > 0 && <Dato k="" v="" vacio={`Falta: ${med.faltan.join(", ")}`} />}
                 {med.extra && <Dato k="" wrap v={med.extra} />}
@@ -208,12 +215,22 @@ function FichaPanel() {
   );
 }
 
-function Dato({ k, v, vacio = "—", wrap = false }: { k: string; v: string; vacio?: string; wrap?: boolean }) {
+// Pastilla "×2 uds" (misma forma que en la lista del panel): solo cuando el
+// producto va en más de una unidad, que es cuando importa no pasarlo por alto.
+function UnidadesBadge({ n }: { n: number }) {
+  return (
+    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold leading-none text-amber-800" title={`${n} unidades iguales de este producto`}>
+      ×{n} uds
+    </span>
+  );
+}
+
+function Dato({ k, v, vacio = "—", wrap = false, destacado = false }: { k: string; v: string; vacio?: string; wrap?: boolean; destacado?: boolean }) {
   return (
     <div className="flex gap-2">
       <dt className="w-20 shrink-0 text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
       {v
-        ? <dd className={`min-w-0 flex-1 font-semibold text-slate-800 ${wrap ? "" : "truncate"}`}>{v}</dd>
+        ? <dd className={`min-w-0 flex-1 font-semibold ${destacado ? "text-amber-800" : "text-slate-800"} ${wrap ? "" : "truncate"}`}>{v}</dd>
         : <dd className="min-w-0 flex-1"><span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">{vacio}</span></dd>}
     </div>
   );
