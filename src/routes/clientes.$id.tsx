@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
-  Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus, Hammer, ChevronDown, ChevronRight,
+  Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus, Hammer, ChevronDown, ChevronRight, PackageCheck,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, CAMPANA_FIELDS, CANAL_COLORS, canalOf, vendorName, tapiceroNombre, HISTORIAL_LABELS, tablaHistorialProducto, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
@@ -139,6 +139,9 @@ function ClienteDetalle() {
   const [ventaImporte, setVentaImporte] = useState("");
   // Pestaña activa de la ficha (Datos · Productos y pedidos · Notas y fotos).
   const [tab, setTab] = useState<"datos" | "productos" | "notas" | null>(null);
+  // Los productos ya entregados se ocultan de la lista por defecto (estorban
+  // al trabajar); con este interruptor se vuelven a mostrar.
+  const [verEntregados, setVerEntregados] = useState(false);
   const [ventaFecha, setVentaFecha] = useState("");
   // Motivo de pérdida para colaboraciones (influencer → "Perdido")
   const [perdidaColab, setPerdidaColab] = useState(false);
@@ -225,6 +228,11 @@ function ClienteDetalle() {
   const leadAudit = audit.filter((a) => a.leadId === lead.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const leadNotas = notas.filter((n) => n.leadId === lead.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const leadProductos = productos.filter((p) => p.leadId === lead.id);
+  // Un producto está "entregado" cuando su pedido asociado está marcado como
+  // entregado. Por defecto se sacan de la lista de trabajo.
+  const productoEntregado = (prodId: string) => pedidos.some((pd) => pd.productoLeadId === prodId && pd.entregado);
+  const productosEntregados = leadProductos.filter((p) => productoEntregado(p.id));
+  const productosVisibles = verEntregados ? leadProductos : leadProductos.filter((p) => !productoEntregado(p.id));
   // Sin elección explícita: si el cliente ya tiene producto se abre en
   // "Productos y pedidos" (donde se trabaja); si no, en Datos (cualificar).
   const tabActiva = tab ?? (leadProductos.length > 0 ? "productos" : "datos");
@@ -763,6 +771,16 @@ function ClienteDetalle() {
           </div>
           {!showProdForm && (
             <div className="flex items-center gap-2">
+              {productosEntregados.length > 0 && (
+                <button
+                  onClick={() => setVerEntregados((v) => !v)}
+                  className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${verEntregados ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                  title={verEntregados ? "Ocultar los productos ya entregados" : "Mostrar también los productos ya entregados"}
+                >
+                  <PackageCheck className="h-3.5 w-3.5" />
+                  {verEntregados ? "Ocultar entregados" : `Ver entregados (${productosEntregados.length})`}
+                </button>
+              )}
               <button onClick={() => setShowProdForm(true)} className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2a2f46]">
                 <Plus className="h-3.5 w-3.5" /> Añadir producto
               </button>
@@ -783,9 +801,15 @@ function ClienteDetalle() {
         {leadProductos.length === 0 && !showProdForm && (
           <div className="py-4 text-center text-sm text-slate-400">Sin productos añadidos</div>
         )}
+        {leadProductos.length > 0 && productosVisibles.length === 0 && !showProdForm && (
+          <div className="py-4 text-center text-sm text-slate-400">
+            Todos los productos de este cliente ya están entregados.{" "}
+            <button onClick={() => setVerEntregados(true)} className="font-medium text-slate-600 underline hover:text-slate-900">Verlos</button>
+          </div>
+        )}
 
         <div className="space-y-3">
-          {leadProductos.map((p) => (
+          {productosVisibles.map((p) => (
             <div key={p.id}>
               {editingProd === p.id ? (
                 <ProductoForm
@@ -795,10 +819,15 @@ function ClienteDetalle() {
                   isEditing
                 />
               ) : (
-                <div className={`rounded-lg border p-3 ${p.caracteristicasConfirmadas ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-slate-50"}`}>
+                <div className={`rounded-lg border p-3 ${productoEntregado(p.id) ? "border-slate-200 bg-white opacity-75" : p.caracteristicasConfirmadas ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-slate-50"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
+                        {productoEntregado(p.id) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800" title="El pedido de este producto ya está entregado">
+                            <PackageCheck className="h-3 w-3" /> Entregado
+                          </span>
+                        )}
                         {p.tipo && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">{TIPOS_PRODUCTO.find(t => t.id === p.tipo)?.label ?? p.tipo}</span>}
                         {/* Detalle de forma/modelo SIN el relleno "Forma personalizada -". Si
                             no aporta nada y no hay tipo, se muestra "Producto". */}

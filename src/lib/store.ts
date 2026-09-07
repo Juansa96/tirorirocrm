@@ -984,23 +984,32 @@ async function reflejarTelasEnProducto(pedidoId: string) {
   // la superficie): ahí se dejan tal cual, o tocar las telas del pedido
   // borraría la forma/el fondo del producto y el taller vería otra cosa.
   const conLateralYVivo = rellenoEsTelaVivo(prod.tipo);
+  // Almohadón: el formulario guarda su tela en `tela` Y en `color` (y la lee
+  // primero de `color`), y el ribete en `patas` ("Ribete: X"). Si aquí solo se
+  // actualizara `tela`, al reabrir el producto saldría la tela antigua y al
+  // guardarlo se pisaría la nueva: el taller acabaría cosiéndolo mal.
+  const esAlmohadon = normalizeTipo(prod.tipo) === "cojin";
+  const telaFrontal = frontal.nombreTela.trim();
   const nuevo = {
-    tela: frontal.nombreTela.trim(),
-    color: conLateralYVivo ? (lateral && !lateral.mismaQueFrontal ? lateral.nombreTela.trim() : "") : prod.color,
+    tela: telaFrontal,
+    color: conLateralYVivo ? (lateral && !lateral.mismaQueFrontal ? lateral.nombreTela.trim() : "") : esAlmohadon ? telaFrontal : prod.color,
     relleno: conLateralYVivo ? (vivo ? vivo.nombreTela.trim() : "") : prod.relleno,
+    patas: esAlmohadon && vivo && vivo.nombreTela.trim() ? `Ribete: ${vivo.nombreTela.trim()}` : prod.patas,
     coleccionTela: frontal.telaColeccion ? normalizarColeccionTela(frontal.telaColeccion) : prod.coleccionTela,
   };
   const cambios: Array<[campo: string, antes: string, despues: string]> = [];
   if (normNombreTela(nuevo.tela) !== normNombreTela(prod.tela)) cambios.push(["tela_frontal", prod.tela, nuevo.tela]);
   if (conLateralYVivo && normNombreTela(nuevo.color) !== normNombreTela(prod.color)) cambios.push(["tela_lateral", prod.color, nuevo.color]);
   if (conLateralYVivo && normNombreTela(nuevo.relleno) !== normNombreTela(prod.relleno)) cambios.push(["tela_vivo", prod.relleno, nuevo.relleno]);
+  if (esAlmohadon && nuevo.patas !== prod.patas) cambios.push(["tela_vivo", (prod.patas || "").replace(/^ribete:\s*/i, ""), nuevo.patas.replace(/^ribete:\s*/i, "")]);
   const cambiaColeccion = nuevo.coleccionTela !== prod.coleccionTela;
-  if (cambios.length === 0 && !cambiaColeccion) return;
+  const cambiaColorAlmohadon = esAlmohadon && normNombreTela(nuevo.color) !== normNombreTela(prod.color);
+  if (cambios.length === 0 && !cambiaColeccion && !cambiaColorAlmohadon) return;
   const prevState = state;
   state = { ...state, productos: state.productos.map((p) => p.id === prod.id ? { ...p, ...nuevo } : p) };
   emit();
   const { error } = await supabase.from("productos_lead").update({
-    tela: nuevo.tela, color: nuevo.color, relleno: nuevo.relleno, coleccion_tela: normalizarColeccionTela(nuevo.coleccionTela),
+    tela: nuevo.tela, color: nuevo.color, relleno: nuevo.relleno, patas: nuevo.patas, coleccion_tela: normalizarColeccionTela(nuevo.coleccionTela),
   } as never).eq("id", prod.id);
   if (error) { state = prevState; emit(); return; }
   for (const [campo, antes, despues] of cambios) await registrarCambio(tablaHistorialProducto(prod.id), prod.leadId, campo, antes, despues);
