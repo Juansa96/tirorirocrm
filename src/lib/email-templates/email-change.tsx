@@ -6,14 +6,18 @@ import {
   Container,
   Head,
   Heading,
-  Hr,
   Html,
+  Link,
   Preview,
   Text,
 } from '@react-email/components'
 
 interface EmailChangeEmailProps {
   siteName: string
+  // oldEmail is the user's current address (HookData.OldEmail). For the
+  // NEW-recipient half of a secure email_change fanout, `email` equals the
+  // recipient (NEW), so the "from" line must render oldEmail to read
+  // "from OLD to NEW" instead of "from NEW to NEW".
   oldEmail: string
   email: string
   newEmail: string
@@ -27,23 +31,32 @@ export const EmailChangeEmail = ({
   confirmationUrl,
 }: EmailChangeEmailProps) => (
   <Html lang="es" dir="ltr">
-    <Head />
+    <Head>
+      <style>{darkModeCss}</style>
+    </Head>
     <Preview>Confirma el cambio de email en {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Text style={brand}>{siteName}</Text>
-        <Hr style={hr} />
         <Heading style={h1}>Confirma el cambio de email</Heading>
         <Text style={text}>
-          Solicitaste cambiar la dirección de email de tu cuenta en {siteName} de{' '}
-          <strong>{oldEmail}</strong> a <strong>{newEmail}</strong>.
+          Has solicitado cambiar tu dirección de correo en {siteName} de{' '}
+          <Link href={`mailto:${oldEmail}`} style={link}>
+            {oldEmail}
+          </Link>{' '}
+          a{' '}
+          <Link href={`mailto:${newEmail}`} style={link}>
+            {newEmail}
+          </Link>
+          .
         </Text>
-        <Text style={text}>Haz clic en el botón para confirmar el cambio:</Text>
-        <Button style={button} href={confirmationUrl}>
-          Confirmar cambio
+        <Text style={text}>
+          Pulsa el botón para confirmar el cambio:
+        </Text>
+        <Button className="dm-btn" style={button} href={confirmationUrl}>
+          Confirmar cambio de email
         </Button>
         <Text style={footer}>
-          Si no solicitaste este cambio, protege tu cuenta de inmediato.
+          Si no has solicitado este cambio, protege tu cuenta cuanto antes.
         </Text>
       </Container>
     </Body>
@@ -54,9 +67,34 @@ export default EmailChangeEmail
 
 const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
 const container = { padding: '20px 25px' }
-const brand = { fontSize: '14px', fontWeight: 'bold' as const, color: '#000000', letterSpacing: '0.5px', margin: '0' }
-const hr = { borderColor: '#e5e7eb', margin: '12px 0 24px' }
-const h1 = { fontSize: '22px', fontWeight: 'bold' as const, color: '#000000', margin: '0 0 20px' }
-const text = { fontSize: '14px', color: '#55575d', lineHeight: '1.5', margin: '0 0 25px' }
-const button = { backgroundColor: '#000000', color: '#ffffff', fontSize: '14px', borderRadius: '8px', padding: '12px 20px', textDecoration: 'none' }
+const h1 = {
+  fontSize: '22px',
+  fontWeight: 'bold' as const,
+  color: '#000000',
+  margin: '0 0 20px',
+}
+const text = {
+  fontSize: '14px',
+  color: '#55575d',
+  lineHeight: '1.5',
+  margin: '0 0 25px',
+}
+const link = { color: 'inherit', textDecoration: 'underline' }
+const button = {
+  backgroundColor: '#000000',
+  color: '#ffffff',
+  fontSize: '14px',
+  border: '1px solid #000000',
+  borderRadius: '8px',
+  padding: '12px 20px',
+  textDecoration: 'none',
+}
 const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+// Rendered as a text child, which React may HTML-escape: keep this CSS free of >, &, and quotes.
+const darkModeCss = `
+  @media (prefers-color-scheme: dark) {
+    .dm-btn { background-color: #ffffff !important; color: #000000 !important; }
+  }
+  [data-ogsc] .dm-btn { background-color: #ffffff !important; color: #000000 !important; }
+  [data-ogsb] .dm-btn { background-color: #ffffff !important; color: #000000 !important; }
+`
