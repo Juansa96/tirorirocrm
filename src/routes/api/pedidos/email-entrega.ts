@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { EmailAPIError, sendLovableEmail } from "@lovable.dev/email-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   htmlEmailEntrega, plainEmailEntrega, textoEmailEntrega,
   ENTREGA_FROM, ENTREGA_SENDER_DOMAIN, ENTREGA_TEMPLATE, ETIQUETA_RESENA_PEDIDA,
 } from "@/lib/email-entrega";
 import { PASO_EMAIL_ENTREGA, PASO_EMAIL_ENTREGA_A, PASO_EMAIL_ENTREGA_POR } from "@/lib/types";
-import { obtenerTokenBaja, emailSuprimido } from "@/lib/email-baja.server";
+
 
 // Correo de entrega al cliente. Lo dispara alguien del EQUIPO desde la ficha
 // del pedido, después de revisar el texto: nunca sale solo.
@@ -54,9 +55,6 @@ export const Route = createFileRoute("/api/pedidos/email-entrega")({
         // (p. ej. un envío de prueba a la propia dirección).
         const to = String(body?.para ?? (lead as { email?: string } | null)?.email ?? "").trim().toLowerCase();
         if (!EMAIL_RE.test(to)) return json({ error: "El cliente no tiene un correo válido" }, 400);
-        if (await emailSuprimido(supabaseAdmin, to)) return json({ error: "Esta dirección se dio de baja de nuestros correos (o rebotó). No se envía." }, 400);
-        const unsubscribeToken = await obtenerTokenBaja(supabaseAdmin, to);
-        if (!unsubscribeToken) return json({ error: "No se pudo preparar el enlace de baja del correo" }, 500);
 
         const datos = {
           nombre: (lead as { nombre?: string } | null)?.nombre ?? "",
@@ -70,22 +68,37 @@ export const Route = createFileRoute("/api/pedidos/email-entrega")({
 
         const ahora = new Date().toISOString();
         const messageId = crypto.randomUUID();
-        await supabaseAdmin.from("email_send_log").insert({
-          message_id: messageId, template_name: ENTREGA_TEMPLATE, recipient_email: to, status: "pending",
-          metadata: { pedido_id: pedidoId, enviado_por: u.user.email ?? u.user.id },
-        } as never);
-        const { error: encErr } = await supabaseAdmin.rpc("enqueue_email", {
-          queue_name: "transactional_emails",
-          payload: {
-            // Sin run_id: la API de Lovable lo valida contra una ejecución real y
-            // rechaza cualquier uuid inventado ("Run not found or expired").
-            message_id: messageId, idempotency_key: messageId, to, from: ENTREGA_FROM, sender_domain: ENTREGA_SENDER_DOMAIN,
-            subject: asunto, html: htmlEmailEntrega(datos, mensaje), text: plainEmailEntrega(datos, mensaje),
-            purpose: "transactional", label: ENTREGA_TEMPLATE, queued_at: ahora,
-            unsubscribe_token: unsubscribeToken,
-          },
-        });
-        if (encErr) return json({ error: "No se pudo encolar el correo: " + encErr.message }, 500);
+        const metadata = { pedido_id: pedidoId, enviado_por: u.user.email ?? u.user.id };
+        const apiKey = process.env["LOVABLE_API_KEY"];
+        if (!apiKey) return json({ error: "El envío de correo no está configurado" }, 500);
+
+        const registrar = async (status: string, errorMessage?: string) => {
+          const { error } = await supabaseAdmin.from("email_send_log").insert({
+            message_id: messageId, template_name: ENTREGA_TEMPLATE, recipient_email: to,
+            status, error_message: errorMessage ?? null, metadata,
+          } as never);
+          if (error) console.error("No se pudo registrar el envío", { code: error.code, message: error.message });
+        };
+
+        try {
+          await sendLovableEmail(
+            {
+              to, from: ENTREGA_FROM, sender_domain: ENTREGA_SENDER_DOMAIN,
+              subject: asunto, html: htmlEmailEntrega(datos, mensaje), text: plainEmailEntrega(datos, mensaje),
+              purpose: "transactional", label: ENTREGA_TEMPLATE, idempotency_key: messageId,
+            },
+            { apiKey, sendUrl: process.env["LOVABLE_SEND_URL"] },
+          );
+        } catch (error) {
+          if (error instanceof EmailAPIError && error.code === "recipient_suppressed") {
+            await registrar("suppressed", "Dirección dada de baja o suprimida");
+            return json({ error: "Esta dirección se dio de baja de nuestros correos (o rebotó). No se envía." }, 400);
+          }
+          const msg = error instanceof Error ? error.message : String(error);
+          await registrar("failed", msg.slice(0, 1000));
+          return json({ error: "No se pudo enviar el correo: " + msg }, 500);
+        }
+        await registrar("sent");
 
         // Constancia en el pedido (marcadores "@" en pasos_tapicero, sin migración).
         const pasos = { ...((pedido as { pasos_tapicero?: Record<string, string> | null }).pasos_tapicero ?? {}) };
@@ -104,6 +117,7 @@ export const Route = createFileRoute("/api/pedidos/email-entrega")({
         }
 
         return json({ ok: true, to, messageId });
+
       },
     },
   },
