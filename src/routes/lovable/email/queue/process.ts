@@ -137,6 +137,10 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
             )
           )
           const failedAttemptsByMessageId = new Map<string, number>()
+          // Si no se pueden leer los contadores, los reintentos se cuentan por
+          // read_ct (lecturas de la cola) para no repetir NUNCA la misma clave
+          // de idempotencia: el proveedor rechaza toda clave que ya falló.
+          let contadoresCargados = true
           if (messageIds.length > 0) {
             const { data: failedRows, error: failedRowsError } = await supabase
               .from('email_send_log')
@@ -145,6 +149,7 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
               .eq('status', 'failed')
 
             if (failedRowsError) {
+              contadoresCargados = false
               console.error('Failed to load failed-attempt counters', {
                 queue,
                 error: failedRowsError,
@@ -164,10 +169,12 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           for (let i = 0; i < messages.length; i++) {
             const msg = messages[i]
             const payload = msg.message
+            // read_ct cuenta esta lectura: en el primer intento vale 1.
+            const lecturasPrevias = Math.max(0, (msg.read_ct ?? 1) - 1)
             const failedAttempts =
-              payload?.message_id && typeof payload.message_id === 'string'
+              contadoresCargados && payload?.message_id && typeof payload.message_id === 'string'
                 ? (failedAttemptsByMessageId.get(payload.message_id) ?? 0)
-                : msg.read_ct ?? 0
+                : lecturasPrevias
 
             // Drop expired messages (TTL exceeded).
             // Prefer payload.queued_at when present; fall back to PGMQ's enqueued_at

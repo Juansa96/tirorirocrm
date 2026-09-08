@@ -5,7 +5,7 @@ import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela
 import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO } from "./format";
-import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables } from "./catalogo";
+import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 import { TELAS_WEB } from "./telas-web-data";
@@ -296,8 +296,7 @@ function telasSeedDeProducto(prod: Producto): Array<{ tipo_tela: string; nombre_
     push("Lateral", prod.color);   // color guarda la tela lateral en estos tipos
     push("Vivo", prod.relleno);    // relleno guarda la tela del vivo/ribete
   } else if (tipo === "cojin") {
-    const p = prod.patas || "";
-    if (/^ribete:\s*/i.test(p)) push("Vivo", p.replace(/^ribete:\s*/i, ""));
+    push("Vivo", ribeteAlmohadon(prod.patas)); // el ribete del almohadón va en `patas`
   }
   return rows.map((r) => ({ ...r, estado: "Pedida" }));
 }
@@ -939,7 +938,14 @@ async function propagarTelasProductoAPedidos(prod: Producto, roles: ReadonlyArra
   const sincronizables = rolesTelaSincronizables(prod.tipo);
   roles = roles.filter((r) => sincronizables.includes(r));
   if (roles.length === 0) return;
-  const deseadas: Record<string, string> = { Frontal: (prod.tela || "").trim(), Lateral: (prod.color || "").trim(), Vivo: (prod.relleno || "").trim() };
+  const esAlmohadon = normalizeTipo(prod.tipo) === "cojin";
+  const deseadas: Record<string, string> = {
+    Frontal: (prod.tela || "").trim(),
+    Lateral: (prod.color || "").trim(),
+    // Almohadón: el ribete está en `patas` ("Ribete: X"); "Sin ribete" o vacío
+    // quita la fila de vivo del pedido, igual que un vivo vacío en un cabecero.
+    Vivo: esAlmohadon ? ribeteAlmohadon(prod.patas) : (prod.relleno || "").trim(),
+  };
   for (const ped of pedidos) {
     const filas = state.pedidoTelas.filter((t) => t.pedidoId === ped.id);
     let orden = filas.length;
@@ -985,23 +991,24 @@ async function reflejarTelasEnProducto(pedidoId: string) {
   // borraría la forma/el fondo del producto y el taller vería otra cosa.
   const conLateralYVivo = rellenoEsTelaVivo(prod.tipo);
   // Almohadón: el formulario guarda su tela en `tela` Y en `color` (y la lee
-  // primero de `color`), y el ribete en `patas` ("Ribete: X"). Si aquí solo se
-  // actualizara `tela`, al reabrir el producto saldría la tela antigua y al
-  // guardarlo se pisaría la nueva: el taller acabaría cosiéndolo mal.
+  // primero de `tela`). Si aquí solo se actualizara `tela`, al reabrir el
+  // producto saldría la tela antigua y al guardarlo se pisaría la nueva: el
+  // taller acabaría cosiéndolo mal. El RIBETE del almohadón (`patas`) NO se
+  // toca desde el pedido: lo decide el formulario del producto y de ahí se
+  // propaga al pedido (propagarTelasProductoAPedidos). Reescribirlo aquí desde
+  // la fila "Vivo" del pedido devolvía un ribete ya cambiado o quitado.
   const esAlmohadon = normalizeTipo(prod.tipo) === "cojin";
   const telaFrontal = frontal.nombreTela.trim();
   const nuevo = {
     tela: telaFrontal,
     color: conLateralYVivo ? (lateral && !lateral.mismaQueFrontal ? lateral.nombreTela.trim() : "") : esAlmohadon ? telaFrontal : prod.color,
     relleno: conLateralYVivo ? (vivo ? vivo.nombreTela.trim() : "") : prod.relleno,
-    patas: esAlmohadon && vivo && vivo.nombreTela.trim() ? `Ribete: ${vivo.nombreTela.trim()}` : prod.patas,
     coleccionTela: frontal.telaColeccion ? normalizarColeccionTela(frontal.telaColeccion) : prod.coleccionTela,
   };
   const cambios: Array<[campo: string, antes: string, despues: string]> = [];
   if (normNombreTela(nuevo.tela) !== normNombreTela(prod.tela)) cambios.push(["tela_frontal", prod.tela, nuevo.tela]);
   if (conLateralYVivo && normNombreTela(nuevo.color) !== normNombreTela(prod.color)) cambios.push(["tela_lateral", prod.color, nuevo.color]);
   if (conLateralYVivo && normNombreTela(nuevo.relleno) !== normNombreTela(prod.relleno)) cambios.push(["tela_vivo", prod.relleno, nuevo.relleno]);
-  if (esAlmohadon && nuevo.patas !== prod.patas) cambios.push(["tela_vivo", (prod.patas || "").replace(/^ribete:\s*/i, ""), nuevo.patas.replace(/^ribete:\s*/i, "")]);
   const cambiaColeccion = nuevo.coleccionTela !== prod.coleccionTela;
   const cambiaColorAlmohadon = esAlmohadon && normNombreTela(nuevo.color) !== normNombreTela(prod.color);
   if (cambios.length === 0 && !cambiaColeccion && !cambiaColorAlmohadon) return;
@@ -1009,7 +1016,7 @@ async function reflejarTelasEnProducto(pedidoId: string) {
   state = { ...state, productos: state.productos.map((p) => p.id === prod.id ? { ...p, ...nuevo } : p) };
   emit();
   const { error } = await supabase.from("productos_lead").update({
-    tela: nuevo.tela, color: nuevo.color, relleno: nuevo.relleno, patas: nuevo.patas, coleccion_tela: normalizarColeccionTela(nuevo.coleccionTela),
+    tela: nuevo.tela, color: nuevo.color, relleno: nuevo.relleno, coleccion_tela: normalizarColeccionTela(nuevo.coleccionTela),
   } as never).eq("id", prod.id);
   if (error) { state = prevState; emit(); return; }
   for (const [campo, antes, despues] of cambios) await registrarCambio(tablaHistorialProducto(prod.id), prod.leadId, campo, antes, despues);
@@ -1519,13 +1526,17 @@ export const actions = {
       const telasLateralVivo = rellenoEsTelaVivo(input.tipo);
       if (telasLateralVivo && normNombreTela(prev.color) !== normNombreTela(input.color)) await registrarCambio(tabla, prev.leadId, "tela_lateral", prev.color, input.color);
       if (telasLateralVivo && normNombreTela(prev.relleno) !== normNombreTela(input.relleno)) await registrarCambio(tabla, prev.leadId, "tela_vivo", prev.relleno, input.relleno);
+      // Almohadón: el ribete va en `patas` ("Ribete: X" / "Sin ribete").
+      const esAlmohadon = normalizeTipo(input.tipo) === "cojin";
+      const cambiaRibeteAlmohadon = esAlmohadon && normNombreTela(ribeteAlmohadon(prev.patas)) !== normNombreTela(ribeteAlmohadon(input.patas));
+      if (cambiaRibeteAlmohadon) await registrarCambio(tabla, prev.leadId, "tela_vivo", ribeteAlmohadon(prev.patas), ribeteAlmohadon(input.patas));
       const mAntes = montajeDeExtras(prev.patas), mDespues = montajeDeExtras(input.patas);
       if (prev.precioUnitario !== input.precioUnitario) await registrarCambio(tabla, prev.leadId, "precio_producto", `${prev.precioUnitario ?? 0} €`, `${input.precioUnitario ?? 0} €`);
       if (mAntes !== mDespues) await registrarCambio(tabla, prev.leadId, "montaje", mAntes === "colgar" ? "colgado a la pared" : mAntes === "apoyar" ? "apoyado en el suelo" : "por decidir", mDespues === "colgar" ? "colgado a la pared" : mDespues === "apoyar" ? "apoyado en el suelo" : "por decidir");
       const rolesCambiados = ([
         (prev.tela !== input.tela || prev.coleccionTela !== input.coleccionTela) && "Frontal",
         telasLateralVivo && prev.color !== input.color && "Lateral",
-        telasLateralVivo && prev.relleno !== input.relleno && "Vivo",
+        ((telasLateralVivo && prev.relleno !== input.relleno) || cambiaRibeteAlmohadon) && "Vivo",
       ] as const).filter((r): r is "Frontal" | "Lateral" | "Vivo" => !!r);
       if (rolesCambiados.length > 0) await propagarTelasProductoAPedidos({ ...prev, ...input }, rolesCambiados);
     }
@@ -1542,6 +1553,7 @@ export const actions = {
       const esTelaLatVivo = rellenoEsTelaVivo(input.tipo);
       if (prev.tela !== input.tela || (esTelaLatVivo && prev.color !== input.color) || prev.coleccionTela !== input.coleccionTela) cambios.push("tela");
       if (esTelaLatVivo && (prev.acabado !== input.acabado || prev.relleno !== input.relleno)) cambios.push("vivo");
+      if (normalizeTipo(input.tipo) === "cojin" && ribeteAlmohadon(prev.patas) !== ribeteAlmohadon(input.patas)) cambios.push("ribete");
       // En pantallas `relleno` es la forma y en mesas `color` la superficie:
       // son cambios de taller, avisados con su nombre real (el fondo va en medidas).
       if (!esTelaLatVivo && esPantalla(input.tipo) && prev.relleno !== input.relleno) cambios.push("forma");

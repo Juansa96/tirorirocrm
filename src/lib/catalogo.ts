@@ -229,8 +229,20 @@ export function rellenoEsTelaVivo(tipo: unknown): boolean {
   return k === "cabecero" || k === "banco" || k === "puf" || k === "otro";
 }
 // Roles de tela (filas de pedido_telas) que se sincronizan con el producto.
+// En el almohadón el ribete vive en `patas` ("Ribete: X" / "Sin ribete"), no
+// en `relleno`, y se sincroniza SOLO del producto al pedido (ver
+// ribeteAlmohadon): el formulario del producto es quien manda sobre el ribete.
 export function rolesTelaSincronizables(tipo: unknown): ReadonlyArray<"Frontal" | "Lateral" | "Vivo"> {
-  return rellenoEsTelaVivo(tipo) ? ["Frontal", "Lateral", "Vivo"] : ["Frontal"];
+  if (rellenoEsTelaVivo(tipo)) return ["Frontal", "Lateral", "Vivo"];
+  return normalizeTipo(tipo) === "cojin" ? ["Frontal", "Vivo"] : ["Frontal"];
+}
+
+// Ribete del almohadón a partir de `productos_lead.patas`: "Ribete: X" → "X";
+// "Sin ribete", vacío o cualquier otro texto → "" (sin ribete).
+export function ribeteAlmohadon(patas: string | null | undefined): string {
+  const p = (patas || "").trim();
+  const m = /^ribete:\s*(.*)$/i.exec(p);
+  return m ? m[1].trim() : "";
 }
 
 // "Sin vivo" se ha guardado de dos formas a lo largo del tiempo: acabado vacío
