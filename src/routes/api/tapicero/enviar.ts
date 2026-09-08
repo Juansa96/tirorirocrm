@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { displayNombreProducto, medidasEtiquetadas } from "@/lib/catalogo";
-import { obtenerTokenBaja } from "@/lib/email-baja.server";
+import { EmailAPIError, sendLovableEmail } from "@lovable.dev/email-js";
 
 // "Enviar a Daniel": marca los pedidos como enviados al panel del tapicero y
 // encola UN email (agrupado por tapicero) con enlace a su ficha. Solo equipo.
@@ -53,6 +53,9 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
           if (!tid) continue;
           (porTapicero.get(tid) ?? porTapicero.set(tid, []).get(tid)!).push(p);
         }
+
+        const apiKey = process.env["LOVABLE_API_KEY"];
+        if (!apiKey) return json({ error: "El envío de correo no está configurado" }, 500);
 
         let emailsEncolados = 0;
         for (const [tid, lista] of porTapicero) {
