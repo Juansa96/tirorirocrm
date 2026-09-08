@@ -6,6 +6,7 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
   Link,
   Preview,
@@ -25,33 +26,35 @@ export const SignupEmail = ({
   recipient,
   confirmationUrl,
 }: SignupEmailProps) => (
-  <Html lang="en" dir="ltr">
+  <Html lang="es" dir="ltr">
     <Head>
       <style>{darkModeCss}</style>
     </Head>
-    <Preview>Confirm your email for {siteName}</Preview>
+    <Preview>Confirma tu email de {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Confirm your email</Heading>
+        <Text style={brand}>{siteName}</Text>
+        <Hr style={hr} />
+        <Heading style={h1}>Confirma tu email</Heading>
         <Text style={text}>
-          Thanks for signing up for{' '}
+          Gracias por registrarte en{' '}
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
-          !
+          .
         </Text>
         <Text style={text}>
-          Please confirm your email address (
+          Confirma tu dirección de correo (
           <Link href={`mailto:${recipient}`} style={link}>
             {recipient}
           </Link>
-          ) by clicking the button below:
+          ) pulsando el botón:
         </Text>
         <Button className="dm-btn" style={button} href={confirmationUrl}>
-          Verify Email
+          Confirmar email
         </Button>
         <Text style={footer}>
-          If you didn't create an account, you can safely ignore this email.
+          Si no has creado ninguna cuenta, puedes ignorar este mensaje.
         </Text>
       </Container>
     </Body>
@@ -62,6 +65,14 @@ export default SignupEmail
 
 const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
 const container = { padding: '20px 25px' }
+const brand = {
+  fontSize: '14px',
+  fontWeight: 'bold' as const,
+  color: '#000000',
+  letterSpacing: '0.5px',
+  margin: '0',
+}
+const hr = { borderColor: '#e5e7eb', margin: '12px 0 24px' }
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,

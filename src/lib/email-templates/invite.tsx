@@ -6,6 +6,7 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
   Link,
   Preview,
@@ -23,28 +24,28 @@ export const InviteEmail = ({
   siteUrl,
   confirmationUrl,
 }: InviteEmailProps) => (
-  <Html lang="en" dir="ltr">
+  <Html lang="es" dir="ltr">
     <Head>
       <style>{darkModeCss}</style>
     </Head>
-    <Preview>You've been invited to join {siteName}</Preview>
+    <Preview>Te han invitado a {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>You've been invited</Heading>
+        <Text style={brand}>{siteName}</Text>
+        <Hr style={hr} />
+        <Heading style={h1}>Te han invitado</Heading>
         <Text style={text}>
-          You've been invited to join{' '}
+          Te han invitado a unirte a{' '}
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
-          . Click the button below to accept the invitation and create your
-          account.
+          . Pulsa el botón para aceptar la invitación y crear tu cuenta.
         </Text>
         <Button className="dm-btn" style={button} href={confirmationUrl}>
-          Accept Invitation
+          Aceptar invitación
         </Button>
         <Text style={footer}>
-          If you weren't expecting this invitation, you can safely ignore this
-          email.
+          Si no esperabas esta invitación, puedes ignorar este mensaje.
         </Text>
       </Container>
     </Body>
@@ -55,6 +56,14 @@ export default InviteEmail
 
 const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
 const container = { padding: '20px 25px' }
+const brand = {
+  fontSize: '14px',
+  fontWeight: 'bold' as const,
+  color: '#000000',
+  letterSpacing: '0.5px',
+  margin: '0',
+}
+const hr = { borderColor: '#e5e7eb', margin: '12px 0 24px' }
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
