@@ -13,9 +13,9 @@ import { PASO_EMAIL_ENTREGA, PASO_EMAIL_ENTREGA_A, PASO_EMAIL_ENTREGA_POR } from
 //   POST { pedidoId, asunto?, mensaje?, para? }
 //   `mensaje` es solo la parte personal (saludo + dos párrafos); el resto del
 //   correo (pasos, premio, pie) lleva el diseño fijo de la web.
-// Encola el correo por la misma cola que el aviso al tapicero (enqueue_email +
-// email_send_log), deja constancia en pasos_tapicero (@emailEntrega…) y pone
-// la etiqueta "reseña pedida" al cliente. Sin columnas nuevas.
+// Envía el correo por la API de correo de Lovable, deja constancia en
+// email_send_log y en pasos_tapicero (@emailEntrega…) y pone la etiqueta
+// "reseña pedida" al cliente. Sin columnas nuevas.
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
