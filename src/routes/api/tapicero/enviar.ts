@@ -92,21 +92,35 @@ export const Route = createFileRoute("/api/tapicero/enviar")({
           const text = `Tienes ${n} pedido(s) nuevo(s). Abre tu panel: ${origin}/panel\n¿Dudas? Escribe a Juan: ${REPLY_TO}`;
 
           const messageId = crypto.randomUUID();
-          const unsubscribeToken = await obtenerTokenBaja(supabaseAdmin, to);
-          if (!unsubscribeToken) continue;
-          await supabaseAdmin.from("email_send_log").insert({ message_id: messageId, template_name: "tapicero_asignacion", recipient_email: to, status: "pending" });
-          const { error: encErr } = await supabaseAdmin.rpc("enqueue_email", {
-            queue_name: "transactional_emails",
-            payload: {
-              // Sin run_id: la API de Lovable lo valida contra una ejecución real y
-              // rechazaba el uuid inventado ("Run not found or expired"), por lo que
-              // este aviso nunca había llegado a enviarse.
-              message_id: messageId, idempotency_key: messageId, to, from: FROM, sender_domain: SENDER_DOMAIN,
-              subject, html, text, purpose: "transactional", label: "tapicero_asignacion", queued_at: ahora,
-              unsubscribe_token: unsubscribeToken,
-            },
-          });
-          if (!encErr) emailsEncolados++;
+          const registrar = async (status: string, errorMessage?: string) => {
+            const { error } = await supabaseAdmin.from("email_send_log").insert({
+              message_id: messageId, template_name: "tapicero_asignacion", recipient_email: to,
+              status, error_message: errorMessage ?? null,
+            } as never);
+            if (error) console.error("No se pudo registrar el envío", { code: error.code, message: error.message });
+          };
+          try {
+            await sendLovableEmail(
+              {
+                to, from: FROM, sender_domain: SENDER_DOMAIN,
+                subject, html, text, purpose: "transactional",
+                label: "tapicero_asignacion", idempotency_key: messageId,
+              },
+              { apiKey, sendUrl: process.env["LOVABLE_SEND_URL"] },
+            );
+          } catch (error) {
+            if (error instanceof EmailAPIError && error.code === "recipient_suppressed") {
+              await registrar("suppressed", "Dirección dada de baja o suprimida");
+              continue;
+            }
+            const msg = error instanceof Error ? error.message : String(error);
+            console.error("No se pudo enviar el aviso al tapicero", msg);
+            await registrar("failed", msg.slice(0, 1000));
+            continue;
+          }
+          await registrar("sent");
+          emailsEncolados++;
+
         }
 
         return json({ ok: true, enviados: ids.length, emailsEncolados });
