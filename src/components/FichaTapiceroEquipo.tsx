@@ -2,11 +2,11 @@ import { useRef } from "react";
 import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
-import { tapiceroNombre, tablaHistorialProducto, type Pedido, type Producto } from "@/lib/types";
+import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
-import { Antes } from "@/components/Antes";
+import { Tachado } from "@/components/Tachado";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
 import { confirmar } from "@/components/Confirmar";
@@ -200,7 +200,13 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
         })}
       </div>
 
-      {producto && <Antes tabla={tablaHistorialProducto(producto.id)} campos={["tela_frontal", "tela_lateral", "tela_vivo"]} className="mt-2" />}
+      {(pedido.antes.tela_frontal || pedido.antes.tela_lateral || pedido.antes.tela_vivo) && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-slate-500">
+          {pedido.antes.tela_frontal && <span>Principal: <Tachado antes={pedido.antes.tela_frontal}>{telaDe("Frontal")?.nombreTela || "—"}</Tachado></span>}
+          {pedido.antes.tela_lateral && <span>Lateral: <Tachado antes={pedido.antes.tela_lateral}>{telaDe("Lateral")?.mismaQueFrontal ? "Misma que la principal" : (telaDe("Lateral")?.nombreTela || "—")}</Tachado></span>}
+          {pedido.antes.tela_vivo && <span>Vivo: <Tachado antes={pedido.antes.tela_vivo}>{telaDe("Vivo")?.nombreTela || "—"}</Tachado></span>}
+        </div>
+      )}
 
       {/* Vivo / ribete del cabecero, banco o puf. Se especifica aquí (Sin vivo /
           Vivo simple / Vivo doble) y lo ve el tapicero. Acción inmediata sobre
@@ -227,7 +233,7 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
       {/* Montaje + estado de tela */}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white p-2.5">
-          <div className="mb-1.5 text-xs font-medium text-slate-500">Montaje</div>
+          <div className="mb-1.5 text-xs font-medium text-slate-500">Montaje{pedido.antes.montaje && <span className="ml-1.5 text-slate-400">antes: <s>{pedido.antes.montaje}</s></span>}</div>
           <div className="flex gap-2">
             {[["colgar", "Colgar en pared"], ["apoyar", "Apoyar en suelo"]].map(([v, lbl]) => (
               <button key={v} onClick={() => patch({ montaje: draft.montaje === v ? "" : v })}
@@ -252,7 +258,7 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
 
       {/* Fecha de recogida por Juan */}
       <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
-        <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-500"><Calendar className="h-3.5 w-3.5" /> Fecha prevista de recogida por Juan (taller)</div>
+        <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-500"><Calendar className="h-3.5 w-3.5" /> Fecha prevista de recogida por Juan (taller){pedido.antes.fecha_recogida && <span className="text-slate-400">· antes: <s>{pedido.antes.fecha_recogida}</s></span>}</div>
         <input
           type="date" value={draft.fechaRecogida || ""}
           onChange={(e) => patch({ fechaRecogida: e.target.value })}
@@ -285,21 +291,10 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
         </div>
       )}
 
-      {/* Estado de acciones del tapicero (con deshacer desde administración).
-          Se refleja sobre el borrador; se persiste al Guardar. */}
-      {/* Aviso al equipo: cambió algo tras enviarlo y el tapicero aún no lo ha
-          dado por visto (por si ya lo había empezado). */}
-      {pedido.cambioTrasEnvio && (
-        <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-900">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <strong>Modificado tras enviarlo</strong>
-            {pedido.cambioTrasEnvioDetalle ? ` — ${pedido.cambioTrasEnvioDetalle}.` : "."} Pendiente de que lo revise el tapicero.
-          </div>
-        </div>
-      )}
-
-      {(draft.telaEstado === "recibida" || draft.iniciadoTapicero || draft.terminadoTapicero) && (
+      {/* Histórico de acciones del tapicero (tela recibida / en marcha /
+          terminado / recogido). El estado se cambia en el bloque "Estado del
+          pedido"; aquí solo se enseña quién y cuándo. */}
+      {(draft.telaEstado === "recibida" || draft.iniciadoTapicero || draft.terminadoTapicero || pedido.recogido) && (
         <div className="mt-3 space-y-1 rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-600">
           {draft.telaEstado === "recibida" && (
             <div className="flex items-center justify-between">
@@ -315,7 +310,11 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
           {draft.terminadoTapicero && (
             <div className="flex items-center justify-between">
               <span>Terminado por <strong>{pedido.terminadoTapiceroPor || "tapicero"}</strong>{pedido.terminadoTapiceroFecha ? ` · ${formatShortDate(pedido.terminadoTapiceroFecha.slice(0, 10))}` : ""}</span>
-              <button onClick={() => patch({ terminadoTapicero: false })} className="underline hover:text-slate-800">deshacer</button>
+            </div>
+          )}
+          {pedido.recogido && (
+            <div className="flex items-center justify-between">
+              <span>Recogido por Juan{pedido.recogidoFecha ? ` · ${formatShortDate(pedido.recogidoFecha.slice(0, 10))}` : ""}{pedido.recogidoPor ? ` · marcado por ${pedido.recogidoPor}` : ""}</span>
             </div>
           )}
         </div>

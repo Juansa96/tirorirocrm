@@ -3,7 +3,8 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { EstadoBadge } from "@/components/EstadoPedido";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto, prodStateValido, type ProdState } from "@/components/ProductoForm";
@@ -36,14 +37,9 @@ const SEM_COLOR: Record<RutaEstado, { bg: string; text: string; dot: string; lab
   rojo:  { bg: "bg-rose-50",     text: "text-rose-700",    dot: "bg-rose-500",    label: "Atrasado",  border: "border-rose-200" },
 };
 
-const ESTADO_OPTS = ["Todos", "En proceso", "Terminado", "Entregado"] as const;
-type EstadoFiltro = typeof ESTADO_OPTS[number];
-
-// "Empezado" = el tapicero pulsó "Ya lo he empezado" y aún no está terminado ni
-// entregado. Se usa para el filtro y la pegatina "En marcha".
-function pedidoEmpezado(p: Pedido): boolean {
-  return !!p.iniciadoTapicero && !p.terminadoTapicero && !p.entregado;
-}
+// Filtro por estado del pedido (los cinco estados; "Entregado al cliente" solo
+// tiene sentido en el Archivo, donde viven los pedidos entregados).
+type EstadoFiltro = "todos" | EstadoPedido;
 
 function PedidosIndex() {
   const { pedidos, leads, productos, pedidoTelas, tapiceros } = useStore();
@@ -52,7 +48,7 @@ function PedidosIndex() {
   const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
   const [semF, setSemF] = useState<"todos" | RutaEstado>("todos");
-  const [soloEmpezados, setSoloEmpezados] = useState(false);
+  const [estadoF, setEstadoF] = useState<EstadoFiltro>("todos");
   const [newOpen, setNewOpen] = useState(false);
   const [, setNowTick] = useState(0);
   useEffect(() => {
@@ -135,7 +131,7 @@ function PedidosIndex() {
         const items = g.items.filter(({ pedido, producto, sem }) => {
           if (view === "activos" && pedido.entregado) return false;
           if (semF !== "todos" && sem.estado !== semF) return false;
-          if (soloEmpezados && !pedidoEmpezado(pedido)) return false;
+          if (estadoF !== "todos" && pedido.estadoPedido !== estadoF) return false;
           if (q) {
             const nombre = g.nombre.toLowerCase();
             const prodTxt = ((producto?.modelo || "") + " " + (producto?.tipo || "")).toLowerCase();
@@ -149,7 +145,7 @@ function PedidosIndex() {
       .sort((a, b) => view === "archivo"
         ? (b.oldest || "").localeCompare(a.oldest || "")
         : (a.oldest || "").localeCompare(b.oldest || ""));
-  }, [groupsAll, view, search, semF, soloEmpezados]);
+  }, [groupsAll, view, search, semF, estadoF]);
 
   const totalPedidos = groups.reduce((s, g) => s + g.items.length, 0);
   const archivoCount = groupsAll.filter((g) => g.allEntregados).length;
@@ -294,13 +290,15 @@ function PedidosIndex() {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setSoloEmpezados((v) => !v)}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${soloEmpezados ? "border-amber-500 bg-amber-500 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
-          title="Mostrar solo los pedidos que el tapicero ha empezado"
+        <select
+          value={estadoF}
+          onChange={(e) => setEstadoF(e.target.value as EstadoFiltro)}
+          title="Filtrar por estado del pedido"
+          className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${estadoF !== "todos" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"}`}
         >
-          <Hammer className="h-3.5 w-3.5" /> Empezados
-        </button>
+          <option value="todos">Todos los estados</option>
+          {ESTADOS_PEDIDO.map((e) => <option key={e} value={e}>{e}</option>)}
+        </select>
       </div>
 
       {/* Grupos por persona */}
@@ -487,7 +485,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }
               </h3>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
-              {pedidoEmpezado(pedido) && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">En marcha</span>}
+              <EstadoBadge estado={pedido.estadoPedido} />
               <span className={`font-medium ${sem.estado === "rojo" && !pedido.entregado ? "text-rose-700" : "text-slate-600"}`}>{diasLabel}</span>
               <span className="text-slate-500">{formatShortDate(pedido.fechaLimite)}</span>
               {totalT > 0 && <span className={okT === totalT ? "text-emerald-700" : "text-slate-500"}>Telas {okT}/{totalT}</span>}
@@ -598,7 +596,7 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }:
           {tituloProducto}
           {producto && producto.cantidad > 1 && <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">×{producto.cantidad}</span>}
         </Link>
-        {pedidoEmpezado(pedido) && <span className="ml-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 align-middle">En marcha</span>}
+        <div className="mt-1"><EstadoBadge estado={pedido.estadoPedido} /></div>
         {producto?.ancho && producto?.alto && (
           <div className="text-[11px] text-slate-400">{producto.ancho}×{producto.alto}</div>
         )}

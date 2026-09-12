@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
-import { maskApellido, marcadoresTapicero } from "@/lib/types";
+import { maskApellido, marcadoresTapicero, estadoDePedido, ESTADO_ENTREGADO_CLIENTE, type EstadoPedido } from "@/lib/types";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 import { cmpCola } from "@/lib/orden-taller";
 import { TELAS_WEB } from "@/lib/telas-web-data";
@@ -22,11 +22,13 @@ export interface PanelPedido {
   telaTexto: string;   // tela del producto (texto), respaldo si no hay telas con foto
   tapiceroNombre: string;
   fechaLimite: string; fechaAsignacion: string; fechaRecogida: string; diasRestantes: number;
+  estado: EstadoPedido;           // Pendiente | En marcha | Terminado | Recogido | Entregado al cliente
   entregado: boolean;
   telaEstado: string; telaEstadoPor: string; telaEstadoFecha: string;
   iniciado: boolean; iniciadoPor: string; iniciadoFecha: string;
   terminado: boolean; terminadoPor: string; terminadoFecha: string;
-  cambioTrasEnvio: boolean; cambioTrasEnvioFecha: string; cambioTrasEnvioDetalle: string;
+  recogido: boolean; recogidoPor: string; recogidoFecha: string;
+  antes: Record<string, string>;  // campo → valor anterior (se enseña tachado)
   telas: PanelTela[]; archivos: PanelArchivo[];
 }
 
@@ -70,6 +72,7 @@ const COLS_TAPICERO = [
   "orden_produccion", "fecha_limite", "fecha_recogida", "enviado_tapicero_fecha", "entregado",
   "tela_estado", "tela_estado_por", "tela_estado_fecha",
   "terminado_tapicero", "terminado_tapicero_por", "terminado_tapicero_fecha",
+  "terminado_daniel", "pantalla_hecha",
   "pasos_tapicero", "tapicero_id",
 ];
 
@@ -189,10 +192,13 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
 
     const out: PanelPedido[] = rows.map((p) => {
       const prod = prodById.get(p.producto_lead_id as string) ?? {};
-      // Marcadores del tapicero (iniciado / cambio) derivados de pasos_tapicero.
-      const marc = marcadoresTapicero(
-        (p.pasos_tapicero && typeof p.pasos_tapicero === "object" ? p.pasos_tapicero : {}) as Record<string, string>,
-      );
+      // Marcadores del tapicero (iniciado / recogido / valores anteriores) derivados de pasos_tapicero.
+      const pasos = (p.pasos_tapicero && typeof p.pasos_tapicero === "object" ? p.pasos_tapicero : {}) as Record<string, string>;
+      const marc = marcadoresTapicero(pasos);
+      const estado = estadoDePedido({
+        entregado: !!p.entregado, terminadoTapicero: !!p.terminado_tapicero,
+        terminadoDaniel: !!p.terminado_daniel, pantallaHecha: !!p.pantalla_hecha, pasosTapicero: pasos,
+      });
       const fechaLimite = (p.fecha_limite as string) ?? "";
       const fechaRecogida = (p.fecha_recogida as string) ?? "";
       const ts = (telasByPedido.get(p.id as string) ?? []).map((t): PanelTela => {
@@ -249,6 +255,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         // fecha de recogida, diasHasta("") = 9999 y la card muestra "Sin
         // recogida" en vez de un número (ver diasColor/plazoBadge).
         diasRestantes: diasHasta(fechaRecogida),
+        estado,
         entregado: !!p.entregado,
         telaEstado: (p.tela_estado as string) ?? "pendiente",
         telaEstadoPor: (p.tela_estado_por as string) ?? "",
@@ -256,15 +263,19 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         iniciado: marc.iniciado,
         iniciadoPor: marc.iniciadoPor,
         iniciadoFecha: marc.iniciadoFecha,
-        terminado: !!p.terminado_tapicero,
+        terminado: estado !== "Pendiente" && estado !== "En marcha",
         terminadoPor: (p.terminado_tapicero_por as string) ?? "",
         terminadoFecha: (p.terminado_tapicero_fecha as string) ?? "",
-        cambioTrasEnvio: marc.cambioTrasEnvio,
-        cambioTrasEnvioFecha: marc.cambioTrasEnvioFecha,
-        cambioTrasEnvioDetalle: marc.cambioTrasEnvioDetalle,
+        recogido: marc.recogido,
+        recogidoPor: marc.recogidoPor,
+        recogidoFecha: marc.recogidoFecha,
+        antes: marc.antes,
         telas: ts, archivos: ar,
       };
-    });
+    })
+    // Para el TAPICERO el estado "Entregado al cliente" no existe: esos pedidos
+    // desaparecen de su vista por completo. El equipo sí los ve (quinta pestaña).
+    .filter((p) => !esViewerElTapicero || p.estado !== ESTADO_ENTREGADO_CLIENTE);
     // Lo que antes sale del taller, primero: manda la fecha de recogida de Juan
     // (y la de entrega si aún no hay recogida). Ver src/lib/orden-taller.ts.
     out.sort(cmpCola);
@@ -289,8 +300,8 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
   return { pedidos, error, refetch: cargar };
 }
 
-// Llama a la ruta de servidor para marcar tela recibida / terminado.
-export async function accionTapicero(op: "tela_recibida" | "iniciado" | "terminado" | "cambio_visto", pedidoId: string, valor = true): Promise<boolean> {
+// Llama a la ruta de servidor para marcar la tela recibida.
+export async function accionTapicero(op: "tela_recibida", pedidoId: string, valor = true): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token ?? "";
   const res = await fetch("/api/tapicero/accion", {
@@ -299,6 +310,21 @@ export async function accionTapicero(op: "tela_recibida" | "iniciado" | "termina
     body: JSON.stringify({ op, pedidoId, valor }),
   });
   return res.ok;
+}
+
+// Cambia el estado del pedido desde el panel (tapicero o equipo). El servidor
+// aplica las reglas: el tapicero no puede marcar "Entregado al cliente".
+export async function cambiarEstadoDesdePanel(pedidoId: string, estado: EstadoPedido): Promise<{ ok: boolean; error?: string }> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? "";
+  const res = await fetch("/api/tapicero/accion", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ op: "estado", pedidoId, estado }),
+  });
+  if (res.ok) return { ok: true };
+  const d = await res.json().catch(() => ({})) as { error?: string };
+  return { ok: false, error: d.error };
 }
 
 // Corrige las medidas del producto del pedido (cm) desde el panel. Escribe en

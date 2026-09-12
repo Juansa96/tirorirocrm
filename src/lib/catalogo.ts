@@ -25,7 +25,7 @@ export const TIPO_LABEL: Record<TipoProductoKey, string> = {
   puf: "Puf",
   mesa: "Mesa de centro",
   pantalla: "Pantalla de lámpara",
-  otro: "Otro producto",
+  otro: "Producto libre",
 };
 
 // Alias de entrada → tipo canónico. Se normaliza quitando acentos, minúsculas
@@ -283,6 +283,8 @@ export function etiquetaTela(tipo: unknown, rol: string): string {
 export function displayNombreProducto(tipo: unknown, modelo: unknown): string {
   const label = tipoLabelOf(tipo);
   const det = modeloDetalle(tipo, modelo);
+  // Producto libre (fuera de catálogo): el nombre escrito a mano ES el producto.
+  if (normalizeTipo(tipo) === "otro" && det) return det;
   // Solo se añade al título el detalle que sea un NOMBRE (forma/modelo), no una
   // medida: las medidas viven en su propia línea.
   const nombreExtra = det && !esDetalleMedida(det) ? det : "";
@@ -755,6 +757,9 @@ export function camposMedida(tipo: unknown, modelo?: unknown, medidas?: { ancho?
       return [{ key: "ancho", label: "Ancho", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: true }];
     case "pantalla":
       return [{ key: "ancho", label: "Ø", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: true }];
+    case "otro":
+      // Producto libre: las medidas se escriben a mano y ninguna es obligatoria.
+      return [{ key: "ancho", label: "Ancho", obligatorio: false }, { key: "alto", label: "Alto", obligatorio: false }, { key: "fondo", label: "Fondo", obligatorio: false }];
     default:
       return [{ key: "ancho", label: "Ancho", obligatorio: true }, { key: "alto", label: "Alto", obligatorio: false }, { key: "fondo", label: "Fondo", obligatorio: false }];
   }

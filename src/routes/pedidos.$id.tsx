@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ArrowLeft, Trash2, Package, ExternalLink, Save, Ruler, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, tablaHistorialProducto, tablaHistorialPedido, FORMATOS_COLAB, TIPOS_COLAB, esPantalla, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, esPantalla, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas, rellenoEsTelaVivo } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
@@ -11,7 +11,8 @@ import { ProductoForm, productoToState } from "@/components/ProductoForm";
 import { TapiceroAsignado, RutaProduccion, TelasPedidoEditor } from "@/components/PedidoProduccion";
 import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
 import { EmailEntrega } from "@/components/EmailEntrega";
-import { Antes } from "@/components/Antes";
+import { Tachado } from "@/components/Tachado";
+import { EstadoPedidoPanel } from "@/components/PedidoProduccion";
 import { usePedidoDraft } from "@/lib/use-pedido-draft";
 import { confirmar } from "@/components/Confirmar";
 
@@ -122,9 +123,9 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             <span className={`h-2 w-2 rounded-full ${c.dot}`} />
             {c.label} · Hito real {sem.hitoActual}/{hitos.length} — esperado {sem.hitoEsperado}/{hitos.length}
           </div>
-          {pedido.iniciadoTapicero && !pedido.terminadoTapicero && !pedido.entregado && (
-            <div className="ml-2 mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">
-              En marcha{pedido.iniciadoTapiceroPor ? ` · ${pedido.iniciadoTapiceroPor}` : ""}
+          {pedido.estadoPedido === "En marcha" && pedido.iniciadoTapiceroPor && (
+            <div className="ml-2 mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">
+              Empezado por {pedido.iniciadoTapiceroPor}
             </div>
           )}
         </div>
@@ -140,6 +141,10 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
           </button>
         </div>
       </div>
+
+      {/* Estado del pedido: cinco pasos, se guarda al instante. El equipo puede
+          ir a cualquier estado, hacia delante o hacia atrás. */}
+      <EstadoPedidoPanel pedido={pedido} />
 
       {/* Datos del producto — editable (mismo formulario que en Clientes). Al
           guardar se actualiza el MISMO producto (se refleja en la ficha del
@@ -163,20 +168,19 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             />
           ) : (
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
-              <Info k="Tipo" v={displayNombreProducto(producto.tipo, producto.modelo)} />
-              <Info k="Medidas" v={medidas || "—"} />
-              <Info k="Cantidad" v={String(producto.cantidad || 1)} />
-              <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} />
-              {producto.color && <Info k="Tela lateral" v={producto.color} />}
+              <Info k="Tipo" v={displayNombreProducto(producto.tipo, producto.modelo)} antes={pedido.antes.modelo} />
+              <Info k="Medidas" v={medidas || "—"} antes={pedido.antes.medidas} />
+              <Info k="Cantidad" v={String(producto.cantidad || 1)} antes={pedido.antes.cantidad} />
+              <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} antes={pedido.antes.tela_frontal} />
+              {(producto.color || pedido.antes.tela_lateral) && <Info k="Tela lateral" v={producto.color || "—"} antes={pedido.antes.tela_lateral} />}
               {/* `relleno` solo es tela en cabecero/puf/banco; en pantallas es la forma. */}
-              {producto.relleno && rellenoEsTelaVivo(producto.tipo) && <Info k="Tela vivo/ribete" v={producto.relleno} />}
+              {(producto.relleno || pedido.antes.tela_vivo) && rellenoEsTelaVivo(producto.tipo) && <Info k="Tela vivo/ribete" v={producto.relleno || "—"} antes={pedido.antes.tela_vivo} />}
               {producto.relleno && esPantalla(producto.tipo) && <Info k="Forma" v={producto.relleno.charAt(0).toUpperCase() + producto.relleno.slice(1)} />}
               {tipoLlevaVivo(producto.tipo)
                 ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
                 : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
               {displayExtras(producto.patas) && <Info k="Extras" v={displayExtras(producto.patas)} />}
               {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
-              <Antes tabla={tablaHistorialProducto(producto.id)} campos={["medidas", "tela_frontal", "tela_lateral", "tela_vivo", "montaje"]} className="col-span-2 sm:col-span-3" />
             </div>
           )}
         </div>
@@ -238,7 +242,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
               <input type="number" inputMode="decimal" step="0.01" value={draft.precio}
                 onChange={(e) => patch({ precio: parseFloat(e.target.value) || 0 })}
                 className="w-full rounded border border-slate-200 px-2 py-1 focus:border-slate-400 focus:outline-none" />
-              <Antes tabla={tablaHistorialPedido(pedido.id)} campos={["precio_pedido"]} className="mt-1" />
+              {pedido.antes.precio && <div className="mt-1 text-[11px] text-slate-400">Antes: <s>{pedido.antes.precio}</s></div>}
             </Field>
             {lead?.clienteTipo === "partner_ab" && (
               <Field label="Precio con IVA (€)">
@@ -298,8 +302,8 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
       {/* Ruta de producción (hitos) */}
       <RutaProduccion pedido={pedido} producto={producto} draft={draft} patch={patch} setTelasDraft={setTelasDraft} />
 
-      {/* Correo de entrega al cliente: solo cuando el pedido está ENTREGADO
-          (guardado), y solo lo ve el equipo. Nunca sale sin pulsar Enviar. */}
+      {/* Correo de entrega al cliente: solo en estado "Entregado al cliente"
+          y solo lo ve el equipo. Nunca sale sin pulsar Enviar. */}
       <EmailEntrega pedido={pedido} lead={lead} producto={producto} />
 
       {/* Telas del pedido (borrador) */}
@@ -400,11 +404,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Info({ k, v, full }: { k: string; v: string; full?: boolean }) {
+// `antes`: valor anterior del dato, tachado delante del actual.
+function Info({ k, v, full, antes }: { k: string; v: string; full?: boolean; antes?: string }) {
   return (
     <div className={full ? "col-span-2 sm:col-span-3" : ""}>
       <div className="text-[11px] uppercase tracking-wide text-slate-400">{k}</div>
-      <div className="font-medium text-slate-800">{v}</div>
+      <div className="font-medium text-slate-800"><Tachado antes={antes}>{v}</Tachado></div>
     </div>
   );
 }

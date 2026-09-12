@@ -1,4 +1,6 @@
-import { numeroPedidoLabel, motivoCambio } from "@/lib/types";
+import { numeroPedidoLabel, ESTADOS_PEDIDO, ESTADOS_TAPICERO, ESTADO_ENTREGADO_CLIENTE, type EstadoPedido } from "@/lib/types";
+import { EstadoBadge, EstadoSelector } from "@/components/EstadoPedido";
+import { Tachado } from "@/components/Tachado";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import {
@@ -11,7 +13,7 @@ import {
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
-import { usePanelPedidos, accionTapicero, subirFotoTerminado, guardarMedidasTapicero, type PanelPedido, type PanelTela } from "@/lib/panel-data";
+import { usePanelPedidos, accionTapicero, cambiarEstadoDesdePanel, subirFotoTerminado, guardarMedidasTapicero, type PanelPedido, type PanelTela } from "@/lib/panel-data";
 import { toast } from "sonner";
 
 interface Search { tapicero?: string; }
@@ -23,8 +25,9 @@ export const Route = createFileRoute("/panel/$id")({
 });
 
 // Días hacia la fecha de recogida por Juan (misma lógica que el panel).
-function plazoBadge(d: number, entregado: boolean, tieneRecogida: boolean) {
-  if (entregado) return { bg: "bg-slate-100", text: "text-slate-500", label: "Entregado" };
+function plazoBadge(d: number, estado: EstadoPedido, tieneRecogida: boolean) {
+  if (estado === "Recogido") return { bg: "bg-violet-100", text: "text-violet-700", label: "Recogido" };
+  if (estado === ESTADO_ENTREGADO_CLIENTE) return { bg: "bg-emerald-100", text: "text-emerald-700", label: "Entregado" };
   if (!tieneRecogida) return { bg: "bg-slate-100", text: "text-slate-400", label: "Sin recogida" };
   if (d < 0) return { bg: "bg-rose-100", text: "text-rose-700", label: `${Math.abs(d)}d tarde` };
   if (d <= 3) return { bg: "bg-amber-100", text: "text-amber-700", label: d === 0 ? "Hoy" : `${d}d` };
@@ -49,7 +52,7 @@ function FichaPanel() {
   );
 
   const med = medidasEtiquetadas(p.tipo, p.modelo, p.ancho, p.alto, p.fondo);
-  const plazo = plazoBadge(p.diasRestantes, p.entregado, !!p.fechaRecogida);
+  const plazo = plazoBadge(p.diasRestantes, p.estado, !!p.fechaRecogida);
   const montajeEf = montajeEfectivo(p.tipo, p.montaje);
   const montaje = montajeEf === "colgar" ? "Colgar en pared" : montajeEf === "apoyar" ? "Apoyar en suelo" : "";
   // Colgador y tapetes van siempre incluidos: no se listan como extra. El
@@ -65,7 +68,7 @@ function FichaPanel() {
   const fotosAcabado = p.archivos.filter((a) => a.tipo === "foto_terminado");
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 print:pb-0">
+    <div className="min-h-screen bg-slate-50 pb-40 print:pb-0">
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 print:static">
         <Link to="/panel" search={backSearch} className="text-slate-500 print:hidden"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="min-w-0 flex-1">
@@ -76,10 +79,10 @@ function FichaPanel() {
           </div>
           {p.cliente && <div className="truncate text-[11px] text-slate-500">{p.cliente}</div>}
         </div>
-        {p.iniciado && !p.terminado && !p.entregado && (
-          <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold leading-none text-amber-700">En marcha</span>
+        <EstadoBadge estado={p.estado} className="shrink-0" />
+        {(p.estado === "Pendiente" || p.estado === "En marcha" || p.estado === "Terminado") && (
+          <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold leading-none ${plazo.bg} ${plazo.text}`}>{plazo.label}</span>
         )}
-        <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold leading-none ${plazo.bg} ${plazo.text}`}>{plazo.label}</span>
         {/* Editar (solo equipo): abre el editor completo del pedido. El tapicero
             no lo ve — él solo pulsa los 3 botones de abajo. */}
         {esEquipo && (
@@ -95,15 +98,13 @@ function FichaPanel() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-3 px-3 py-3 text-sm print:space-y-2 print:py-1">
-        {/* Aviso de cambios hechos por el equipo después de enviar el pedido. */}
-        <AvisoCambio p={p} onDone={refetch} />
-
         {/* Comentarios para el tapicero (dirección de tela, etc.) — lo más
             importante, arriba del todo. NO se muestran las notas internas del
             pedido/producto. */}
         {p.notaTapicero && (
           <section className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Indicaciones importantes</div>
+            {p.antes.nota_tapicero && <div className="mb-1 whitespace-pre-wrap text-amber-700/60 line-through" title="Indicaciones anteriores">{p.antes.nota_tapicero}</div>}
             <div className="whitespace-pre-wrap font-medium">{p.notaTapicero}</div>
           </section>
         )}
@@ -123,24 +124,24 @@ function FichaPanel() {
                 <SiluetaProducto tipo={p.tipo} modelo={p.modelo} className="h-full w-full" />
               </div>
               <dl className="min-w-0 flex-1 space-y-1">
-                <Dato k="Producto" v={displayNombreProducto(p.tipo, p.modelo)} />
+                <Dato k="Producto" v={displayNombreProducto(p.tipo, p.modelo)} antes={p.antes.modelo} />
                 {/* Nº de unidades: en la lista sale como "×2 uds"; aquí también,
                     para que el taller sepa cuántas piezas iguales debe hacer. */}
-                <Dato k="Unidades" v={p.cantidad === 1 ? "1 unidad" : `${p.cantidad} unidades iguales`} destacado={p.cantidad > 1} />
-                <Dato k="Medidas" wrap v={med.texto} vacio={med.faltan.length > 0 ? `Faltan: ${med.faltan.join(", ")}` : "Sin especificar"} />
+                <Dato k="Unidades" v={p.cantidad === 1 ? "1 unidad" : `${p.cantidad} unidades iguales`} destacado={p.cantidad > 1 || !!p.antes.cantidad} antes={p.antes.cantidad ? `${p.antes.cantidad} ud.` : ""} />
+                <Dato k="Medidas" wrap v={med.texto} vacio={med.faltan.length > 0 ? `Faltan: ${med.faltan.join(", ")}` : "Sin especificar"} antes={p.antes.medidas} />
                 {med.texto && med.faltan.length > 0 && <Dato k="" v="" vacio={`Falta: ${med.faltan.join(", ")}`} />}
                 {med.extra && <Dato k="" wrap v={med.extra} />}
                 <Dato k="Cliente" v={p.cliente || "—"} />
                 <Dato k="Tapicero" v={p.tapiceroNombre || "Sin asignar"} />
                 {tipoLlevaVivo(p.tipo) && <Dato k="Vivo" v={vivoLabel(p.acabado)} />}
-                {montaje && <Dato k="Montaje" v={montaje} />}
+                {(montaje || p.antes.montaje) && <Dato k="Montaje" v={montaje} antes={p.antes.montaje} />}
               </dl>
             </div>
             {/* Solo la fecha de recogida: la entrega final al cliente no es
                 cosa del taller y no se muestra aquí. */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2 text-[11px]">
               <span className="text-slate-400">Lo recoge Juan:</span>
-              <span className="font-semibold text-slate-700">{p.fechaRecogida ? formatShortDate(p.fechaRecogida) : "—"}</span>
+              <span className="font-semibold text-slate-700"><Tachado antes={p.antes.fecha_recogida}>{p.fechaRecogida ? formatShortDate(p.fechaRecogida) : "—"}</Tachado></span>
             </div>
             <MedidasEditor p={p} onDone={refetch} />
             {extras.length > 0 && (
@@ -184,13 +185,19 @@ function FichaPanel() {
 
         {/* Histórico + foto del acabado (no salen en el PDF) */}
         <section className="space-y-2 print:hidden">
-          {(p.telaEstado === "recibida" || p.terminado) && (
+          {(p.telaEstado === "recibida" || p.iniciado || p.terminado || p.recogido) && (
             <div className="rounded-xl border border-slate-200 bg-white p-3 text-[13px] text-slate-600">
               {p.telaEstado === "recibida" && (
                 <div>Tela recibida{p.telaEstadoFecha ? ` el ${formatShortDate(p.telaEstadoFecha.slice(0, 10))}` : ""}{p.telaEstadoPor ? ` por ${p.telaEstadoPor}` : ""}.</div>
               )}
+              {p.iniciado && (
+                <div>En marcha{p.iniciadoFecha ? ` desde el ${formatShortDate(p.iniciadoFecha.slice(0, 10))}` : ""}{p.iniciadoPor ? ` (${p.iniciadoPor})` : ""}.</div>
+              )}
               {p.terminado && (
                 <div>Terminado{p.terminadoFecha ? ` el ${formatShortDate(p.terminadoFecha.slice(0, 10))}` : ""}{p.terminadoPor ? ` por ${p.terminadoPor}` : ""}.</div>
+              )}
+              {p.recogido && (
+                <div>Recogido por Juan{p.recogidoFecha ? ` el ${formatShortDate(p.recogidoFecha.slice(0, 10))}` : ""}{p.recogidoPor ? ` (marcado por ${p.recogidoPor})` : ""}.</div>
               )}
             </div>
           )}
@@ -203,7 +210,7 @@ function FichaPanel() {
         </section>
       </main>
 
-      <AccionesTapicero p={p} onDone={refetch} />
+      <AccionesTapicero p={p} onDone={refetch} estados={esEquipo ? [...ESTADOS_PEDIDO] : [...ESTADOS_TAPICERO]} />
 
       {zoom && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setZoom(null)}>
@@ -225,41 +232,45 @@ function UnidadesBadge({ n }: { n: number }) {
   );
 }
 
-function Dato({ k, v, vacio = "—", wrap = false, destacado = false }: { k: string; v: string; vacio?: string; wrap?: boolean; destacado?: boolean }) {
+// `antes`: valor anterior (se pinta tachado delante del actual).
+function Dato({ k, v, vacio = "—", wrap = false, destacado = false, antes = "" }: { k: string; v: string; vacio?: string; wrap?: boolean; destacado?: boolean; antes?: string }) {
   return (
     <div className="flex gap-2">
       <dt className="w-20 shrink-0 text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
       {v
-        ? <dd className={`min-w-0 flex-1 font-semibold ${destacado ? "text-amber-800" : "text-slate-800"} ${wrap ? "" : "truncate"}`}>{v}</dd>
-        : <dd className="min-w-0 flex-1"><span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">{vacio}</span></dd>}
+        ? <dd className={`min-w-0 flex-1 font-semibold ${destacado ? "text-amber-800" : "text-slate-800"} ${wrap || antes ? "" : "truncate"}`}><Tachado antes={antes}>{v}</Tachado></dd>
+        : <dd className="min-w-0 flex-1"><Tachado antes={antes}><span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700">{vacio}</span></Tachado></dd>}
     </div>
   );
 }
 
-function AccionesTapicero({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
+// Barra fija de abajo: "He recibido la tela" (no es un estado) y el selector
+// de estado del pedido. Pulsar un estado mueve el pedido a ese estado, hacia
+// delante o hacia atrás (por si se equivoca). El tapicero ve cuatro estados;
+// "Entregado al cliente" solo existe para el equipo.
+function AccionesTapicero({ p, onDone, estados }: { p: PanelPedido; onDone: () => void; estados: EstadoPedido[] }) {
   const [busy, setBusy] = useState(false);
-  async function marca(op: "tela_recibida" | "iniciado" | "terminado", valor = true) {
+  async function marcaTela(valor: boolean) {
     setBusy(true);
-    const ok = await accionTapicero(op, p.id, valor);
+    const ok = await accionTapicero("tela_recibida", p.id, valor);
     setBusy(false);
     if (ok) { toast.success("Hecho ✅"); void onDone(); } else toast.error("No se pudo guardar.");
+  }
+  async function cambiarEstado(estado: EstadoPedido) {
+    setBusy(true);
+    const r = await cambiarEstadoDesdePanel(p.id, estado);
+    setBusy(false);
+    if (r.ok) { toast.success(`Pedido en «${estado}» ✅`); void onDone(); } else toast.error(r.error || "No se pudo guardar.");
   }
   const telaRecibida = p.telaEstado === "recibida";
   return (
     <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] print:hidden">
-      <div className="mx-auto grid max-w-4xl grid-cols-3 gap-2">
-        <button disabled={busy} onClick={() => marca("tela_recibida", !telaRecibida)}
-          className={`rounded-xl px-2 py-3 text-xs font-bold sm:text-sm ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
+      <div className="mx-auto max-w-4xl space-y-2">
+        <button disabled={busy} onClick={() => void marcaTela(!telaRecibida)}
+          className={`w-full rounded-xl px-2 py-2.5 text-xs font-bold sm:text-sm ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
           {telaRecibida ? "✓ Tela recibida" : "He recibido la tela"}
         </button>
-        <button disabled={busy} onClick={() => marca("iniciado", !p.iniciado)}
-          className={`rounded-xl px-2 py-3 text-xs font-bold sm:text-sm ${p.iniciado ? "border border-amber-300 bg-amber-50 text-amber-700" : "bg-amber-500 text-white"} disabled:opacity-50`}>
-          {p.iniciado ? "✓ En marcha" : "Ya lo he empezado"}
-        </button>
-        <button disabled={busy} onClick={() => marca("terminado", !p.terminado)}
-          className={`rounded-xl px-2 py-3 text-xs font-bold sm:text-sm ${p.terminado ? "border border-slate-300 bg-slate-100 text-slate-600" : "bg-[#1a1f36] text-white"} disabled:opacity-50`}>
-          {p.terminado ? "✓ Terminado" : "Pedido terminado"}
-        </button>
+        <EstadoSelector estado={p.estado} estados={estados} onChange={(e) => void cambiarEstado(e)} disabled={busy} />
       </div>
     </div>
   );
@@ -323,35 +334,6 @@ function MedidasEditor({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
   );
 }
 
-// Aviso destacado cuando el equipo ha cambiado algo del pedido DESPUÉS de estar
-// ya en el panel del tapicero. Le permite darlo por visto (limpia el aviso).
-function AvisoCambio({ p, onDone }: { p: PanelPedido; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  if (!p.cambioTrasEnvio) return null;
-  async function visto() {
-    setBusy(true);
-    const ok = await accionTapicero("cambio_visto", p.id);
-    setBusy(false);
-    if (ok) { toast.success("Entendido ✅"); void onDone(); } else toast.error("No se pudo guardar.");
-  }
-  const motivo = motivoCambio(p.cambioTrasEnvioDetalle);
-  return (
-    <section className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-slate-800 print:hidden">
-      <Pencil className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-      <div className="min-w-0 flex-1">
-        <div className="font-semibold">Cambio{motivo ? `: ${motivo}` : ""}</div>
-        <div className="text-slate-600">
-          El equipo lo ha cambiado{p.cambioTrasEnvioFecha ? ` el ${formatShortDate(p.cambioTrasEnvioFecha.slice(0, 10))}` : ""} después de enviártelo. Revísalo si ya lo habías empezado.
-        </div>
-      </div>
-      <button disabled={busy} onClick={() => void visto()}
-        className="shrink-0 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50">
-        Visto
-      </button>
-    </section>
-  );
-}
-
 // Telas adaptadas al tipo: solo los roles que aplican y tienen tela.
 function TelasProducto({ p, onZoom }: { p: PanelPedido; onZoom: (url: string, alt: string) => void }) {
   const roles = telasDeProducto(p.tipo);
@@ -372,19 +354,20 @@ function TelasProducto({ p, onZoom }: { p: PanelPedido; onZoom: (url: string, al
     <div className="space-y-2">
       {cards.map(({ r, tela }) => (
         <TelaCard key={r.rol} label={etiquetaTela(p.tipo, r.rol)} tela={tela}
+          antes={p.antes[`tela_${r.rol.toLowerCase()}`]}
           fallback={r.rol === "Frontal" ? p.telaTexto : undefined} onZoom={onZoom} />
       ))}
     </div>
   );
 }
 
-function TelaCard({ label, tela, fallback, onZoom }: {
-  label: string; tela: PanelTela | undefined; fallback?: string; onZoom: (url: string, alt: string) => void;
+function TelaCard({ label, tela, fallback, antes, onZoom }: {
+  label: string; tela: PanelTela | undefined; fallback?: string; antes?: string; onZoom: (url: string, alt: string) => void;
 }) {
   const misma = tela?.mismaQueFrontal;
   const nombre = misma ? "Misma que la principal" : (tela?.nombre || fallback || "");
   const foto = tela?.fotoUrl;
-  const falta = !nombre && !foto;
+  const falta = !nombre && !foto && !antes;
   // Hueco vacío evidente (en ámbar) para que se note que falta asignar la tela.
   if (falta) {
     return (
@@ -408,7 +391,7 @@ function TelaCard({ label, tela, fallback, onZoom }: {
       )}
       <div className="min-w-0 flex-1">
         <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</div>
-        <div className="truncate font-bold text-slate-900">{nombre}</div>
+        <div className="font-bold text-slate-900"><Tachado antes={antes}>{nombre || "Sin tela"}</Tachado></div>
         {!misma && tela?.coleccion && <div className="truncate text-[11px] text-slate-500">{tela.coleccion}</div>}
       </div>
     </div>
