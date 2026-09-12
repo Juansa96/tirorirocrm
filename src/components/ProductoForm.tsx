@@ -46,7 +46,7 @@ export const TIPOS_PRODUCTO = [
   { id: "mesa",      label: "Mesa de centro" },
   { id: "pantalla",  label: "Pantalla de lámpara" },
   { id: "almohadon", label: "Almohadón" },
-  { id: "otro",      label: "Otro" },
+  { id: "otro",      label: "Producto libre" },
 ] as const;
 
 export const CABECERO_FORMAS = [
@@ -125,8 +125,11 @@ export interface ProdState {
   tapetes: boolean;
   // Almohadón: almohadonId ∈ COJIN_OPCIONES.id | "custom" | "tbd" | ""
   almohadonId: string; almohadonMedidas: string; almohadonTela: string; almohadonRibete: string; almohadonSinRibete: boolean;
-  // Otro: descripción libre o "Por decidir"
+  // Producto libre (fuera de catálogo): nombre escrito a mano o "Por decidir",
+  // con medidas libres (cm, ninguna obligatoria). La tela va en `tela` y el
+  // precio en `precioUnitario`, como en el resto.
   otroDescripcion: string; otroPorDecidir: boolean;
+  otroAncho: string; otroAlto: string; otroFondo: string;
   // Banco: alto y fondo EDITABLES (vacío = sin especificar). Se guardan en las
   // columnas `alto` / `fondo` del producto, las mismas que leen Pedidos y el
   // panel del tapicero: una sola fuente de datos.
@@ -159,7 +162,7 @@ export const EMPTY_PROD_STATE: ProdState = {
   tela: "", coleccionTela: "basic", acabado: "", telaVivo: "",
   tapetes: false,
   almohadonId: "", almohadonMedidas: "", almohadonTela: "", almohadonRibete: "", almohadonSinRibete: false,
-  otroDescripcion: "", otroPorDecidir: false,
+  otroDescripcion: "", otroPorDecidir: false, otroAncho: "", otroAlto: "", otroFondo: "",
   bancoMedida: "tbd", bancoLargoCustom: "", bancoAlto: String(BANCO_ALTO_DEFECTO), bancoFondo: String(BANCO_FONDO_DEFECTO),
   cantidad: 1, precioUnitario: 0, notasProducto: "",
   _recargoGrande: false,
@@ -305,7 +308,9 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     color = f.almohadonTela;
     patas = f.almohadonSinRibete ? "Sin ribete" : (f.almohadonRibete ? `Ribete: ${f.almohadonRibete}` : "");
   } else if (f.tipo === "otro") {
-    modelo = f.otroPorDecidir ? MODELO_TBD : f.otroDescripcion;
+    modelo = f.otroPorDecidir ? MODELO_TBD : f.otroDescripcion.trim();
+    const num = (v: string): number | null => { const n = Number(String(v ?? "").trim().replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
+    ancho = num(f.otroAncho); alto = num(f.otroAlto); fondo = num(f.otroFondo);
   }
 
   // V8bis — preservación de modelo histórico en round-trip.
@@ -430,6 +435,9 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
   } else if (mismoTipo(p.tipo, "otro")) {
     s.otroPorDecidir = esModeloTBD(p.modelo);
     s.otroDescripcion = s.otroPorDecidir ? "" : p.modelo;
+    s.otroAncho = p.ancho ? String(p.ancho) : "";
+    s.otroAlto = p.alto ? String(p.alto) : "";
+    s.otroFondo = p.fondo ? String(p.fondo) : "";
     s.cantidad = p.cantidad;
   } else if (mismoTipo(p.tipo, "banco")) {
     const a = p.ancho ? String(p.ancho) : "";
@@ -606,26 +614,33 @@ function patchPrecio<T extends Record<string, unknown>>(isEditing: boolean, patc
   return isEditing ? patch : { ...patch, precioUnitario: precio };
 }
 
+const PRODUCTO_LIBRE = "Producto libre";
+
 // ── CatalogoSelector ──────────────────────────────────────────────
 function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState>) => void }) {
   const { catalogo } = useStore();
   const internalToLabel: Record<string, string> = {
     cabecero: "Cabecero", puf: "Puf", mesa: "Mesa de centro",
-    pantalla: "Pantalla de lámpara", almohadon: "Almohadón", otro: "Cubrecanapé",
+    pantalla: "Pantalla de lámpara", almohadon: "Almohadón", otro: PRODUCTO_LIBRE,
     banco: "Banco",
   };
 
+  // Tipos del catálogo + "Producto libre" SIEMPRE al final (para lanzar
+  // productos que aún no están en el catálogo, sin tocar el catálogo).
   const tipos = useMemo(() => {
-    const fromCat = Array.from(new Set(catalogo.map(c => c.tipo)));
-    return fromCat.length > 0
+    const fromCat = Array.from(new Set(catalogo.map(c => c.tipo))).filter((t) => t !== "Cubrecanapé");
+    const base = fromCat.length > 0
       ? fromCat
-      : ["Cabecero", "Banco", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón", "Cubrecanapé"];
+      : ["Cabecero", "Banco", "Puf", "Mesa de centro", "Pantalla de lámpara", "Almohadón"];
+    return [...base, PRODUCTO_LIBRE];
   }, [catalogo]);
 
   const tipoLabel = f.tipo ? internalToLabel[f.tipo] ?? "" : "";
+  // Los modelos históricos de tipo "Cubrecanapé" siguen disponibles bajo
+  // Producto libre (rellenan el nombre).
   const modelosTipo = useMemo(
-    () => catalogo.filter(c => c.tipo === tipoLabel).sort((a, b) => a.orden - b.orden),
-    [catalogo, tipoLabel]
+    () => catalogo.filter(c => c.tipo === (f.tipo === "otro" ? "Cubrecanapé" : tipoLabel)).sort((a, b) => a.orden - b.orden),
+    [catalogo, tipoLabel, f.tipo]
   );
 
   const selectedModelo = useMemo(() => {
@@ -1138,29 +1153,50 @@ export function ProductoForm({
         );
       })()}
 
-      {/* ── OTRO ── */}
+      {/* ── PRODUCTO LIBRE (fuera de catálogo) ── */}
       {f.tipo === "otro" && (
-        <div className="space-y-2">
-          <div className={section}>¿Qué producto es? {!f.otroPorDecidir && <span className="text-red-500">*</span>}</div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => s({ otroPorDecidir: false })} className={btn(!f.otroPorDecidir)}>Descripción libre</button>
-            <button type="button" onClick={() => s({ otroPorDecidir: true, otroDescripcion: "" })} className={btn(f.otroPorDecidir)}>Por decidir</button>
-          </div>
-          {!f.otroPorDecidir && (
-            <input
-              type="text"
-              className={inp}
-              value={f.otroDescripcion}
-              onChange={e => s({ otroDescripcion: e.target.value })}
-              placeholder="Describe el producto…"
-            />
-          )}
-          {f.otroPorDecidir && (
-            <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Producto pendiente de definir — se puede editar más adelante
+        <>
+          <div className="space-y-2">
+            <div className={section}>Nombre del producto {!f.otroPorDecidir && <span className="text-red-500">*</span>}</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => s({ otroPorDecidir: false })} className={btn(!f.otroPorDecidir)}>Nombre a mano</button>
+              <button type="button" onClick={() => s({ otroPorDecidir: true, otroDescripcion: "" })} className={btn(f.otroPorDecidir)}>Por decidir</button>
             </div>
-          )}
-        </div>
+            {!f.otroPorDecidir && (
+              <input
+                type="text"
+                className={inp}
+                value={f.otroDescripcion}
+                onChange={e => s({ otroDescripcion: e.target.value })}
+                placeholder="Ej. Lámpara de pie, cabecero infantil…"
+              />
+            )}
+            {f.otroPorDecidir && (
+              <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Producto pendiente de definir — se puede editar más adelante
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400">Producto fuera del catálogo: nombre, medidas, tela y precio a mano. Sigue el mismo flujo de estados que el resto.</p>
+          </div>
+          <div>
+            <div className={section}>Medidas (cm) <span className="font-normal normal-case text-slate-400">· opcionales</span></div>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="text-[11px] text-slate-500">Ancho
+                <input type="number" inputMode="decimal" min={1} max={500} className={inp} value={f.otroAncho} onChange={e => s({ otroAncho: e.target.value })} placeholder="cm" />
+              </label>
+              <label className="text-[11px] text-slate-500">Alto
+                <input type="number" inputMode="decimal" min={1} max={500} className={inp} value={f.otroAlto} onChange={e => s({ otroAlto: e.target.value })} placeholder="cm" />
+              </label>
+              <label className="text-[11px] text-slate-500">Fondo
+                <input type="number" inputMode="decimal" min={1} max={500} className={inp} value={f.otroFondo} onChange={e => s({ otroFondo: e.target.value })} placeholder="cm" />
+              </label>
+            </div>
+          </div>
+          <div>
+            <div className={section}>Tela</div>
+            <TelaSelect value={f.tela} onChange={v => s({ tela: v })} placeholder="Nombre de la tela…" />
+          </div>
+        </>
       )}
 
       {/* ── Precio / cantidad / notas ── */}

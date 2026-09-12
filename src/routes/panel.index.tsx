@@ -1,11 +1,12 @@
 import { numeroPedidoLabel } from "@/lib/types";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical, Truck, Pencil } from "lucide-react";
+import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical, Truck } from "lucide-react";
 import { formatWeekdayShort } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { tapiceroNombre, motivoCambio, type Tapicero } from "@/lib/types";
+import { tapiceroNombre, ESTADOS_PEDIDO, ESTADOS_TAPICERO, ESTADO_ENTREGADO_CLIENTE, type EstadoPedido, type Tapicero } from "@/lib/types";
+import { Tachado } from "@/components/Tachado";
 import { displayNombreProducto, medidasEtiquetadas, pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL } from "@/lib/catalogo";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
 import { usePanelPedidos, type PanelPedido } from "@/lib/panel-data";
@@ -22,8 +23,19 @@ export const Route = createFileRoute("/panel/")({
 
 const FIN = "__end__";
 
-type Vista = "en_curso" | "por_recoger" | "terminados";
-type FiltroEstado = "todos" | "pendiente_tela" | "en_curso" | "empezados";
+// Una pestaña por estado del pedido (el tapicero ve cuatro; el equipo, cinco).
+type Vista = EstadoPedido;
+const esVista = (v: unknown): v is Vista => (ESTADOS_PEDIDO as readonly string[]).includes(String(v));
+const ETIQUETA_VISTA: Record<Vista, string> = {
+  "Pendiente": "Pendientes", "En marcha": "En marcha", "Terminado": "Terminados", "Recogido": "Recogidos", "Entregado al cliente": "Entregados",
+};
+const VACIO_VISTA: Record<Vista, string> = {
+  "Pendiente": "Nada pendiente. 🎉",
+  "En marcha": "Nada en marcha ahora mismo.",
+  "Terminado": "Nada terminado pendiente de recoger.",
+  "Recogido": "Nada recogido todavía.",
+  "Entregado al cliente": "Nada entregado al cliente todavía.",
+};
 
 // ── Memoria de la vista del panel ─────────────────────────────────────────
 // Al abrir una ficha y volver (flecha ← o "atrás" del navegador) el panel se
@@ -35,7 +47,7 @@ type FiltroEstado = "todos" | "pendiente_tela" | "en_curso" | "empezados";
 // equipo no herede la vista de otro panel.
 const MEM_KEY = "panel-taller";
 interface MemoriaPanel {
-  tapicero: string; vista: Vista; filtro: FiltroEstado; retrasados: boolean; expandidos: string[];
+  tapicero: string; vista: Vista; retrasados: boolean; expandidos: string[];
   productoId?: string; scrollY?: number;
 }
 function leerMemoria(tapicero: string): MemoriaPanel | null {
@@ -51,8 +63,9 @@ function guardarMemoria(m: MemoriaPanel) {
 
 // Días para que Juan RECOJA el producto: rojo si ya pasó, ámbar si queda poco,
 // verde si sobra. Sin fecha de recogida → gris "Sin recogida" (no un número).
-function diasColor(d: number, entregado: boolean, tieneRecogida: boolean) {
-  if (entregado) return { bg: "bg-slate-100", text: "text-slate-500", label: "Entregado" };
+function diasColor(d: number, estado: EstadoPedido, tieneRecogida: boolean) {
+  if (estado === "Recogido") return { bg: "bg-violet-100", text: "text-violet-700", label: "Recogido" };
+  if (estado === ESTADO_ENTREGADO_CLIENTE) return { bg: "bg-emerald-100", text: "text-emerald-700", label: "Entregado" };
   if (!tieneRecogida) return { bg: "bg-slate-100", text: "text-slate-400", label: "Sin recogida" };
   if (d < 0) return { bg: "bg-rose-100", text: "text-rose-700", label: `${Math.abs(d)}d tarde` };
   if (d <= 3) return { bg: "bg-amber-100", text: "text-amber-700", label: d === 0 ? "Hoy" : `${d}d` };
@@ -119,9 +132,7 @@ function Panel() {
 
   const viendoId = esTapicero ? miTapiceroId : (search.tapicero ?? "");
   const { pedidos, error: errorCarga, refetch } = usePanelPedidos(viendoId || null, esTapicero);
-  const [vista, setVista] = useState<Vista>("en_curso");
-  const enCurso = vista === "en_curso";
-  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
+  const [vista, setVista] = useState<Vista>("Pendiente");
   const [soloRetrasados, setSoloRetrasados] = useState(false);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
 
@@ -137,8 +148,7 @@ function Panel() {
     restauradoRef.current = viendoId;
     const m = leerMemoria(viendoId);
     if (!m) return;
-    setVista(m.vista);
-    setFiltroEstado(m.filtro);
+    if (esVista(m.vista)) setVista(m.vista);
     setSoloRetrasados(m.retrasados);
     setExpandidos(new Set(m.expandidos));
     if (m.productoId || m.scrollY != null) pendienteRef.current = { productoId: m.productoId, scrollY: m.scrollY };
@@ -148,15 +158,15 @@ function Panel() {
     if (!viendoId || restauradoRef.current !== viendoId) return;
     const prev = leerMemoria(viendoId);
     guardarMemoria({
-      tapicero: viendoId, vista, filtro: filtroEstado, retrasados: soloRetrasados, expandidos: [...expandidos],
+      tapicero: viendoId, vista, retrasados: soloRetrasados, expandidos: [...expandidos],
       productoId: prev?.productoId, scrollY: prev?.scrollY,
     });
-  }, [viendoId, vista, filtroEstado, soloRetrasados, expandidos]);
+  }, [viendoId, vista, soloRetrasados, expandidos]);
   // 3) Al pulsar un producto se apunta cuál y a qué altura estaba la página.
   const recordarProducto = (productoId: string) => {
     if (!viendoId) return;
     guardarMemoria({
-      tapicero: viendoId, vista, filtro: filtroEstado, retrasados: soloRetrasados, expandidos: [...expandidos],
+      tapicero: viendoId, vista, retrasados: soloRetrasados, expandidos: [...expandidos],
       productoId, scrollY: window.scrollY,
     });
   };
@@ -221,25 +231,17 @@ function Panel() {
     );
   }
 
-  // Tres estados de un producto en el taller:
-  //  · En curso:    el tapicero aún lo está haciendo (ni terminado ni recogido).
-  //  · Por recoger: el tapicero lo marcó terminado, pendiente de que Juan lo
-  //                 recoja. Aquí Juan ve de un vistazo qué puede llevarse.
-  //  · Terminados:  ya recogido/entregado.
-  const activos = (pedidos ?? []).filter((p) => !p.terminado && !p.entregado);
-  const porRecoger = (pedidos ?? []).filter((p) => p.terminado && !p.entregado);
-  const terminados = (pedidos ?? []).filter((p) => p.entregado);
-  const base = vista === "terminados" ? terminados : vista === "por_recoger" ? porRecoger : activos;
-  const lista = base.filter((p) => {
-    if (enCurso && filtroEstado === "pendiente_tela" && p.telaEstado === "recibida") return false;
-    if (enCurso && filtroEstado === "en_curso" && p.telaEstado !== "recibida") return false;
-    if (enCurso && filtroEstado === "empezados" && !p.iniciado) return false;
-    if (soloRetrasados && p.diasRestantes >= 0) return false;
-    return true;
-  });
+  // Una sección por estado, sin mezclar: Pendientes / En marcha / Terminados /
+  // Recogidos (y, solo para el equipo, Entregados al cliente). Los pedidos
+  // entregados al cliente ya vienen filtrados para el tapicero (panel-data).
+  const vistas: Vista[] = esEquipo ? [...ESTADOS_PEDIDO] : [...ESTADOS_TAPICERO];
+  const porEstado = new Map<Vista, PanelPedido[]>(vistas.map((v) => [v, (pedidos ?? []).filter((p) => p.estado === v)]));
+  const base = porEstado.get(vista) ?? [];
+  const lista = base.filter((p) => !(soloRetrasados && p.diasRestantes >= 0));
+  const enCurso = vista === "Pendiente" || vista === "En marcha";
 
-  // Solo el equipo reordena, y solo en "En curso" sin filtros (secuencia global).
-  const puedeOrdenar = esEquipo && enCurso && filtroEstado === "todos" && !soloRetrasados;
+  // Solo el equipo reordena, y solo en Pendientes / En marcha sin filtros (secuencia global).
+  const puedeOrdenar = esEquipo && enCurso && !soloRetrasados;
 
   const conOrden = (arr: PanelPedido[]) =>
     Object.keys(ordenOverride).length === 0
@@ -356,31 +358,16 @@ function Panel() {
     <Shell onSignOut={signOut} equipo={esEquipo} bannerNombre={esEquipo ? tapiceroNombre(tapiceroActual) : ""}>
       <div className="mx-auto max-w-2xl px-3 py-4">
         <div className="mb-3 flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs sm:text-sm">
-          {([
-            ["en_curso", "En curso", activos.length],
-            ["por_recoger", "Por recoger", porRecoger.length],
-            ["terminados", "Terminados", terminados.length],
-          ] as const).map(([v, lbl, n]) => (
+          {vistas.map((v) => (
             <button key={v} onClick={() => setVista(v)}
-              className={`flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-center font-medium ${vista === v ? "bg-slate-900 text-white" : "text-slate-600"}`}>
-              {lbl} ({n})
+              className={`flex-1 whitespace-nowrap rounded-md px-1.5 py-1.5 text-center font-medium ${vista === v ? "bg-slate-900 text-white" : "text-slate-600"}`}>
+              {ETIQUETA_VISTA[v]} ({porEstado.get(v)?.length ?? 0})
             </button>
           ))}
         </div>
 
         {enCurso && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            {([
-              ["todos", "Todos"],
-              ["pendiente_tela", "Pendiente de tela"],
-              ["en_curso", "Tela recibida"],
-              ["empezados", "Empezados"],
-            ] as const).map(([v, lbl]) => (
-              <button key={v} onClick={() => setFiltroEstado(v)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium ${filtroEstado === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
-                {lbl}
-              </button>
-            ))}
             <button onClick={() => setSoloRetrasados((v) => !v)}
               className={`rounded-full border px-3 py-1 text-xs font-medium ${soloRetrasados ? "border-rose-500 bg-rose-500 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
               Solo retrasados
@@ -402,9 +389,7 @@ function Panel() {
           <div className="py-16 text-center text-slate-400">Cargando…</div>
         ) : flat.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-400">
-            {base.length === 0
-              ? (vista === "terminados" ? "Nada recogido todavía." : vista === "por_recoger" ? "Nada por recoger todavía." : "No tienes pedidos en curso. 🎉")
-              : "Nada con este filtro."}
+            {base.length === 0 ? VACIO_VISTA[vista] : "Nada con este filtro."}
           </div>
         ) : (
           <div className="space-y-3">
@@ -504,13 +489,17 @@ function ClienteCard({ tramo, posiciones, totalCliente, expandido, onToggle, tap
   );
 }
 
+// Estados en los que aún tiene sentido enseñar la fecha de recogida.
+const enCursoOTerminado = (e: EstadoPedido) => e === "Pendiente" || e === "En marcha" || e === "Terminado";
+
 function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resaltado, onAbrir }: {
   p: PanelPedido; posicion: number; tapiceroSearch?: string; dnd?: DnD; arrastrarProducto: boolean;
   resaltado: boolean; onAbrir: (productoId: string) => void;
 }) {
-  const c = diasColor(p.diasRestantes, p.entregado, !!p.fechaRecogida);
+  const c = diasColor(p.diasRestantes, p.estado, !!p.fechaRecogida);
   // Medidas con etiqueta por tipo ("Ancho 150 · Alto 130 cm"); si falta una
-  // obligatoria se enseña un aviso ámbar en vez de un texto gris.
+  // obligatoria se enseña un aviso ámbar en vez de un texto gris. Si se han
+  // cambiado, el valor anterior sale tachado delante (p.antes).
   const med = medidasEtiquetadas(p.tipo, p.modelo, p.ancho, p.alto, p.fondo);
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   const arrastrandoEste = dnd?.dragKind === "product" && dnd.dragKey === p.id;
@@ -542,27 +531,24 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
             {p.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
-            <span className={`shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium ${p.cantidad > 1 ? "text-slate-700" : "text-slate-400"}`}>×{p.cantidad} {p.cantidad === 1 ? "ud" : "uds"}</span>
-            {p.cambioTrasEnvio && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700" title="El equipo ha cambiado algo después de enviártelo">
-                <Pencil className="h-3 w-3" /> Cambio{motivoCambio(p.cambioTrasEnvioDetalle) ? `: ${motivoCambio(p.cambioTrasEnvioDetalle)}` : ""}
-              </span>
-            )}
+            <span className={`shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium ${p.cantidad > 1 ? "text-slate-700" : "text-slate-400"}`}>
+              <Tachado antes={p.antes.cantidad ? `×${p.antes.cantidad}` : ""}>×{p.cantidad} {p.cantidad === 1 ? "ud" : "uds"}</Tachado>
+            </span>
             {pufTieneAlmacenaje(p.modelo) && <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">{PUF_ALMACENAJE_LABEL}</span>}
-            {p.iniciado && !p.terminado && !p.entregado && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">En marcha</span>}
-            <span className="w-full font-semibold leading-tight text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</span>
+            <span className="w-full font-semibold leading-tight text-slate-900"><Tachado antes={p.antes.modelo}>{displayNombreProducto(p.tipo, p.modelo)}</Tachado></span>
           </div>
           <div className="mt-0.5 text-xs text-slate-500">
+            {p.antes.medidas && <s className="mr-1 text-slate-400" title={`Antes: ${p.antes.medidas}`}>{p.antes.medidas}</s>}
             {med.faltan.length > 0 || !med.texto
               ? <span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-amber-700">{med.texto ? `FALTA ${med.faltan.join(" Y ").toUpperCase()}` : "FALTAN MEDIDAS"}</span>
               : med.texto}
             {med.texto && med.faltan.length > 0 && <span className="ml-1.5">{med.texto}</span>}
           </div>
-          <div className="truncate text-xs text-slate-600">{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</div>
-          {p.fechaRecogida && !p.entregado && (
+          <div className="truncate text-xs text-slate-600"><Tachado antes={p.antes.tela_frontal}>{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</Tachado></div>
+          {p.fechaRecogida && enCursoOTerminado(p.estado) && (
             <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500" title="Fecha en que Juan pasa a recoger el producto">
               <Truck className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-              Recoge Juan {formatWeekdayShort(p.fechaRecogida)}
+              <Tachado antes={p.antes.fecha_recogida}>Recoge Juan {formatWeekdayShort(p.fechaRecogida)}</Tachado>
             </div>
           )}
         </div>

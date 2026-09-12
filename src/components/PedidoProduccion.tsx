@@ -8,11 +8,38 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { Plus, Trash2, Save, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
-import { flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
+import { flujoPedido, hitoLabel, cascadaMarcado, tapiceroNombre, ESTADOS_PEDIDO, ESTADO_ENTREGADO_CLIENTE, type EstadoPedido, type Pedido, type Producto } from "@/lib/types";
+import { EstadoSelector } from "@/components/EstadoPedido";
+import { toast } from "sonner";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { usePedidoDraft } from "@/lib/use-pedido-draft";
 import { faltaParaTaller } from "@/lib/catalogo";
+
+// ── Estado del pedido (acción inmediata) ────────────────────────────────────
+// Pendiente → En marcha → Terminado → Recogido → Entregado al cliente. El
+// equipo puede mover el pedido a cualquier estado (adelante o atrás). Solo
+// desde "Entregado al cliente" se puede enviar el correo de entrega.
+export function EstadoPedidoPanel({ pedido }: { pedido: Pedido }) {
+  const [busy, setBusy] = useState(false);
+  async function cambiar(estado: EstadoPedido) {
+    setBusy(true);
+    try { await actions.cambiarEstadoPedido(pedido.id, estado); toast.success(`Pedido en «${estado}».`); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <span>Estado del pedido</span>
+        <span className="font-normal normal-case text-slate-400">se guarda al instante</span>
+      </div>
+      <EstadoSelector estado={pedido.estadoPedido} estados={[...ESTADOS_PEDIDO]} onChange={(e) => void cambiar(e)} disabled={busy} compacto />
+      <p className="mt-2 text-[11px] text-slate-400">
+        El tapicero mueve el pedido entre Pendiente, En marcha, Terminado y Recogido desde su panel; «{ESTADO_ENTREGADO_CLIENTE}» solo lo marca el equipo, y es el único estado desde el que se envía el correo de entrega.
+      </p>
+    </div>
+  );
+}
 
 // ── Selector de tapicero (acción inmediata: sella los pasos ya hechos) ──────
 export function TapiceroAsignado({ pedido }: { pedido: Pedido }) {
@@ -225,6 +252,7 @@ export function PedidoProduccionEditor({ pedidoId }: { pedidoId: string }) {
 
   return (
     <div className="space-y-4">
+      <EstadoPedidoPanel pedido={pedido} />
       <TapiceroAsignado pedido={pedido} />
       <FichaTapiceroEquipo pedido={pedido} producto={producto} draft={draft} patch={patch} telas={telasDraft} setTelas={setTelasDraft} />
       <RutaProduccion pedido={pedido} producto={producto} draft={draft} patch={patch} setTelasDraft={setTelasDraft} />

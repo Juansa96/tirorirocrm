@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo } from "./types";
-import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_CAMBIO, PASO_CAMBIO_DETALLE } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo, EstadoPedido } from "./types";
+import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
 import { pedidoPendiente } from "./money";
-import { todayISO } from "./format";
-import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
+import { todayISO, formatShortDate } from "./format";
+import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, displayNombreProducto, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 import { TELAS_WEB } from "./telas-web-data";
@@ -197,7 +197,10 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     fechaEntregaReal: (r.fecha_entrega_real as string) ?? "",
     pagado50: !!r.pagado_50,
     creadoManualmente: !!r.creado_manualmente,
-    estadoPedido: (r.estado_pedido as string) ?? "En proceso",
+    estadoPedido: estadoDePedido({
+      entregado: !!r.entregado, terminadoTapicero: !!r.terminado_tapicero,
+      terminadoDaniel: !!r.terminado_daniel, pantallaHecha: !!r.pantalla_hecha, pasosTapicero: pasos,
+    }),
     telaPedida: !!r.tela_pedida,
     telaPedidaFecha: (r.tela_pedida_fecha as string) ?? "",
     telaRecibida: !!r.tela_recibida,
@@ -238,9 +241,10 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     terminadoTapicero: !!r.terminado_tapicero,
     terminadoTapiceroPor: (r.terminado_tapicero_por as string) ?? "",
     terminadoTapiceroFecha: (r.terminado_tapicero_fecha as string) ?? "",
-    cambioTrasEnvio: marc.cambioTrasEnvio,
-    cambioTrasEnvioFecha: marc.cambioTrasEnvioFecha,
-    cambioTrasEnvioDetalle: marc.cambioTrasEnvioDetalle,
+    recogido: marc.recogido,
+    recogidoFecha: marc.recogidoFecha,
+    recogidoPor: marc.recogidoPor,
+    antes: marc.antes,
     emailEntregaFecha: marc.emailEntregaFecha,
     emailEntregaA: marc.emailEntregaA,
     emailEntregaPor: marc.emailEntregaPor,
@@ -257,6 +261,20 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     esCanje: !!r.es_canje,
     formatos: Array.isArray(r.formatos) ? (r.formatos as string[]) : [],
     tipoColaboracion: (r.tipo_colaboracion as string) ?? "",
+  };
+}
+
+// Recalcula los campos derivados (estado y marcadores de pasos_tapicero) tras
+// fusionar un parche en memoria, para que la UI no espere al realtime.
+function derivarPedido(p: Pedido): Pedido {
+  const marc = marcadoresTapicero(p.pasosTapicero);
+  return {
+    ...p,
+    iniciadoTapicero: marc.iniciado, iniciadoTapiceroPor: marc.iniciadoPor, iniciadoTapiceroFecha: marc.iniciadoFecha,
+    recogido: marc.recogido, recogidoFecha: marc.recogidoFecha, recogidoPor: marc.recogidoPor,
+    antes: marc.antes,
+    emailEntregaFecha: marc.emailEntregaFecha, emailEntregaA: marc.emailEntregaA, emailEntregaPor: marc.emailEntregaPor,
+    estadoPedido: estadoDePedido(p),
   };
 }
 
@@ -781,7 +799,10 @@ async function propagarPrecioProductoAPedidos(productoId: string, precioUnitario
     state = { ...state, pedidos: state.pedidos.map((p) => p.productoLeadId === productoId ? { ...p, precio: total } : p) };
     emit();
     await Promise.all(afectados.map((p) => supabase.from("pedidos").update({ precio: total } as never).eq("id", p.id)));
-    for (const p of afectados) await registrarCambio(tablaHistorialPedido(p.id), p.leadId, "precio_pedido", `${p.precio ?? 0} €`, `${total} €`);
+    for (const p of afectados) {
+      await registrarCambio(tablaHistorialPedido(p.id), p.leadId, "precio_pedido", `${p.precio ?? 0} €`, `${total} €`);
+      await anotarAntesPedidos([p.id], { precio: `${p.precio ?? 0} €` });
+    }
     for (const lid of new Set(afectados.map((p) => p.leadId).filter(Boolean))) await syncLeadFromPedidos(lid);
   } finally { _syncingPrecio = false; }
 }
@@ -810,41 +831,43 @@ async function propagarPrecioPedidoAProducto(pedidoId: string) {
   } finally { _syncingPrecio = false; }
 }
 
-// Marca "cambio tras envío" en los pedidos indicados que ya estén en manos de
-// un tapicero (asignado y sin entregar → visible en su panel). Sirve para que
-// el tapicero se entere de que se ha cambiado algo por si ya lo había empezado.
-// El marcador se guarda DENTRO de pasos_tapicero (columna que ya existe): no
-// necesita ninguna migración. No molesta a pedidos sin tapicero ni entregados.
-async function flagCambioPedidos(pedidoIds: string[], detalle: string) {
+// Apunta el valor ANTERIOR de los datos cambiados en los pedidos indicados
+// (marcador "@antes" dentro de pasos_tapicero, columna que ya existe): la card
+// enseña ese valor tachado junto al nuevo. Solo se guarda el último anterior
+// de cada campo, y solo mientras el pedido no haya sido recogido (a partir de
+// Recogido ya no se enseña nada). Sin migraciones.
+async function anotarAntesPedidos(pedidoIds: string[], cambios: Record<string, string | null | undefined>) {
+  if (Object.keys(cambios).length === 0) return;
   const ids = new Set(pedidoIds);
-  const afectados = state.pedidos.filter((p) => ids.has(p.id) && p.tapiceroId && !p.entregado);
+  const afectados = state.pedidos.filter((p) => ids.has(p.id) && indiceEstado(p.estadoPedido) < indiceEstado("Recogido"));
   if (afectados.length === 0) return;
-  const fecha = new Date().toISOString();
-  // Se escribe pedido a pedido para fusionar en su pasos_tapicero sin pisar el
-  // histórico de pasos ni el marcador de "iniciado".
+  const nuevos = new Map(afectados.map((a) => [a.id, conAntes(a.pasosTapicero, cambios)]));
   state = {
     ...state,
-    pedidos: state.pedidos.map((p) => afectados.some((a) => a.id === p.id)
-      ? { ...p, cambioTrasEnvio: true, cambioTrasEnvioFecha: fecha, cambioTrasEnvioDetalle: detalle,
-          pasosTapicero: { ...(p.pasosTapicero || {}), [PASO_CAMBIO]: fecha, [PASO_CAMBIO_DETALLE]: detalle } }
-      : p),
+    pedidos: state.pedidos.map((p) => nuevos.has(p.id) ? derivarPedido({ ...p, pasosTapicero: nuevos.get(p.id)! }) : p),
   };
   emit();
-  await Promise.all(afectados.map((a) => {
-    const pasos = { ...(a.pasosTapicero || {}), [PASO_CAMBIO]: fecha, [PASO_CAMBIO_DETALLE]: detalle };
-    return supabase.from("pedidos").update({ pasos_tapicero: pasos } as never).eq("id", a.id);
-  }));
+  await Promise.all(afectados.map((a) => supabase.from("pedidos").update({ pasos_tapicero: nuevos.get(a.id) } as never).eq("id", a.id)));
 }
 
-// Campos del PEDIDO que, si cambian estando ya asignado a un tapicero, le
-// afectan (cómo/cuándo fabricar o recoger) y por tanto disparan el aviso.
-// Solo cambios "de taller": lo que obliga a rehacer o replanificar. Plazo
-// interno, orden de la cola, precio, cobros y notas internas NO avisan (si
-// avisa todo, el tapicero deja de mirar el aviso).
-const CAMBIO_PEDIDO_LABELS: Partial<Record<keyof Pedido, string>> = {
-  montaje: "montaje",
-  notaTapicero: "indicaciones",
-  fechaRecogida: "fecha de recogida",
+// Texto legible del montaje para el tachado.
+function textoMontaje(m: string | null | undefined): string {
+  return m === "colgar" ? "Colgar en pared" : m === "apoyar" ? "Apoyar en suelo" : "";
+}
+
+// Clave "@antes" de la tela de un rol de pedido_telas ("Frontal" → tela_frontal).
+function claveAntesTela(rol: string): string {
+  const r = (rol || "").trim().toLowerCase();
+  return r === "frontal" ? "tela_frontal" : r === "lateral" ? "tela_lateral" : r === "vivo" ? "tela_vivo" : `tela_${r || "otra"}`;
+}
+
+// Campos del PEDIDO cuyo valor anterior se enseña tachado en las cards cuando
+// cambian (montaje, indicaciones, fecha de recogida, precio).
+const ANTES_PEDIDO: Partial<Record<keyof Pedido, { clave: string; texto: (p: Pedido) => string }>> = {
+  montaje: { clave: "montaje", texto: (p) => textoMontaje(p.montaje) },
+  notaTapicero: { clave: "nota_tapicero", texto: (p) => p.notaTapicero || "" },
+  fechaRecogida: { clave: "fecha_recogida", texto: (p) => p.fechaRecogida ? formatShortDate(p.fechaRecogida) : "" },
+  precio: { clave: "precio", texto: (p) => `${p.precio ?? 0} €` },
 };
 
 // Los botones del tapicero ("He recibido la tela", "Pedido terminado") y los
@@ -1544,26 +1567,24 @@ export const actions = {
     if (prev && (prev.precioUnitario !== input.precioUnitario || prev.cantidad !== input.cantidad)) {
       await propagarPrecioProductoAPedidos(id, input.precioUnitario, input.cantidad);
     }
-    // Aviso al tapicero si cambia algo del producto de un pedido ya asignado.
+    // Valor anterior tachado en las cards de sus pedidos (medidas, telas,
+    // cantidad, producto, montaje). Las notas internas no.
     if (prev) {
-      // Solo cambios de taller (medidas, tela, vivo, modelo, cantidad, montaje).
-      // Las notas internas y el precio no avisan.
-      const cambios: string[] = [];
-      if (prev.ancho !== input.ancho || prev.alto !== input.alto || prev.fondo !== input.fondo) cambios.push("medidas");
+      const cambios: Record<string, string> = {};
+      const medAntes = textoMedidas(prev), medDespues = textoMedidas({ ...prev, ...input });
+      if (medAntes !== medDespues) cambios.medidas = medAntes || "—";
       const esTelaLatVivo = rellenoEsTelaVivo(input.tipo);
-      if (prev.tela !== input.tela || (esTelaLatVivo && prev.color !== input.color) || prev.coleccionTela !== input.coleccionTela) cambios.push("tela");
-      if (esTelaLatVivo && (prev.acabado !== input.acabado || prev.relleno !== input.relleno)) cambios.push("vivo");
-      if (normalizeTipo(input.tipo) === "cojin" && ribeteAlmohadon(prev.patas) !== ribeteAlmohadon(input.patas)) cambios.push("ribete");
-      // En pantallas `relleno` es la forma y en mesas `color` la superficie:
-      // son cambios de taller, avisados con su nombre real (el fondo va en medidas).
-      if (!esTelaLatVivo && esPantalla(input.tipo) && prev.relleno !== input.relleno) cambios.push("forma");
-      if (normalizeTipo(input.tipo) === "mesa" && prev.color !== input.color) cambios.push("superficie");
-      if (prev.tipo !== input.tipo || prev.modelo !== input.modelo) cambios.push("modelo");
-      if (prev.cantidad !== input.cantidad) cambios.push("cantidad");
-      if (montajeDeExtras(input.patas) !== montajeDeExtras(prev.patas)) cambios.push("montaje");
-      if (cambios.length > 0) {
+      const telaTxt = (t: string, col: string) => [t || "", col ? displayColeccionTela(col) : ""].filter(Boolean).join(" · ");
+      if (prev.tela !== input.tela || prev.coleccionTela !== input.coleccionTela) cambios.tela_frontal = telaTxt(prev.tela, prev.coleccionTela) || "—";
+      if (esTelaLatVivo && prev.color !== input.color) cambios.tela_lateral = prev.color || "—";
+      if (esTelaLatVivo && prev.relleno !== input.relleno) cambios.tela_vivo = prev.relleno || "—";
+      if (normalizeTipo(input.tipo) === "cojin" && ribeteAlmohadon(prev.patas) !== ribeteAlmohadon(input.patas)) cambios.tela_vivo = ribeteAlmohadon(prev.patas) || "—";
+      if (prev.tipo !== input.tipo || prev.modelo !== input.modelo) cambios.modelo = displayNombreProducto(prev.tipo, prev.modelo);
+      if ((prev.cantidad || 1) !== (input.cantidad || 1)) cambios.cantidad = String(prev.cantidad || 1);
+      if (montajeDeExtras(input.patas) !== montajeDeExtras(prev.patas)) cambios.montaje = textoMontaje(montajeDeExtras(prev.patas)) || "—";
+      if (Object.keys(cambios).length > 0) {
         const ids = state.pedidos.filter((p) => p.productoLeadId === id).map((p) => p.id);
-        await flagCambioPedidos(ids, "Cambió en el producto: " + cambios.join(", "));
+        await anotarAntesPedidos(ids, cambios);
       }
       // El montaje del producto (texto en `patas`) manda sobre el del pedido:
       // si cambia, se copia a todos sus pedidos para que no haya dos versiones.
@@ -1804,28 +1825,22 @@ export const actions = {
     const actual = state.pedidos.find((p) => p.id === id);
     const leadId = actual?.leadId;
     if (actual) patch = sincronizarHitosTapicero(actual, patch);
-    // Aviso de cambio tras envío: si el pedido ya está en manos de un tapicero
-    // y cambia algún campo que le afecta, se marca (dentro de pasos_tapicero)
-    // para que lo revise. No se dispara si el patch ya toca pasos_tapicero
-    // (reasignación / marcado de pasos), para no pisarlo.
-    if (actual?.tapiceroId && !actual.entregado && !("pasosTapicero" in patch)) {
-      const labels = [...new Set(
-        (Object.keys(patch) as (keyof Pedido)[])
-          .filter((k) => CAMBIO_PEDIDO_LABELS[k] && actual[k] !== patch[k])
-          .map((k) => CAMBIO_PEDIDO_LABELS[k]!),
-      )];
-      if (labels.length > 0) {
-        patch = {
-          ...patch,
-          pasosTapicero: {
-            ...(actual.pasosTapicero || {}),
-            [PASO_CAMBIO]: new Date().toISOString(),
-            [PASO_CAMBIO_DETALLE]: "Cambió: " + labels.join(", "),
-          },
-        };
+    // Valor anterior tachado: si cambia un dato que ve la card (montaje,
+    // indicaciones, recogida, precio) se apunta el valor viejo en pasos_tapicero
+    // ("@antes"). No se hace si el parche ya trae pasos_tapicero (cambio de
+    // estado / reasignación / marcado de pasos), para no pisarlo.
+    if (actual && indiceEstado(actual.estadoPedido) < indiceEstado("Recogido") && !("pasosTapicero" in patch)) {
+      const cambios: Record<string, string> = {};
+      for (const k of Object.keys(patch) as (keyof Pedido)[]) {
+        const def = ANTES_PEDIDO[k];
+        if (!def) continue;
+        const despues = def.texto({ ...actual, ...patch } as Pedido);
+        const antes = def.texto(actual);
+        if (antes !== despues) cambios[def.clave] = antes || "—";
       }
+      if (Object.keys(cambios).length > 0) patch = { ...patch, pasosTapicero: conAntes(actual.pasosTapicero, cambios) };
     }
-    state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? { ...p, ...patch } : p) };
+    state = { ...state, pedidos: state.pedidos.map((p) => p.id === id ? derivarPedido({ ...p, ...patch }) : p) };
     emit();
     const dbPatch: Record<string, unknown> = {};
     const map: Record<string, string> = {
@@ -1902,6 +1917,22 @@ export const actions = {
     }
   },
 
+  // Cambia el ESTADO del pedido (Pendiente → En marcha → Terminado → Recogido →
+  // Entregado al cliente), hacia delante o hacia atrás. El equipo puede ir a
+  // cualquier estado; el tapicero usa /api/tapicero/accion (misma regla).
+  async cambiarEstadoPedido(id: string, estado: EstadoPedido) {
+    const actual = state.pedidos.find((p) => p.id === id);
+    if (!actual) return;
+    const producto = state.productos.find((pr) => pr.id === actual.productoLeadId);
+    const patch = patchParaEstado(actual, estado, {
+      por: currentUser ? vendorName(currentUser) : "equipo",
+      ahora: new Date().toISOString(),
+      tipoProducto: producto?.tipo ?? "",
+    });
+    if (Object.keys(patch).length === 0) return;
+    await actions.updatePedido(id, patch as Partial<Pedido>);
+  },
+
   // Edición MANUAL del número de pedido (solo equipo). El número PUEDE
   // repetirse; para diferenciar dos pedidos con el mismo número se usa una
   // letra opcional (sufijo): 12, 12A, 12B…
@@ -1952,12 +1983,12 @@ export const actions = {
       }
     }
     // Cambiar de tapicero arranca en limpio para el nuevo: se borran los
-    // marcadores de "iniciado" y de "cambio tras envío" (que viven dentro de
+    // marcadores de "iniciado" y de valores anteriores tachados (que viven dentro de
     // pasos_tapicero). Asignar NO implica "solicitado" (ese paso se marca a mano).
     delete sellos[PASO_INICIADO];
     delete sellos[PASO_INICIADO_POR];
-    delete sellos[PASO_CAMBIO];
-    delete sellos[PASO_CAMBIO_DETALLE];
+    delete sellos[PASO_ANTES];
+    for (const k of PASO_CAMBIO_LEGACY) delete sellos[k];
     const patch: Partial<Pedido> = { tapiceroId: nuevoTapiceroId, pasosTapicero: sellos };
     // …y también el estado que dejó el tapicero anterior: un pedido que cambia
     // de manos no está terminado, y la tela "recibida" por el anterior vuelve a
@@ -2095,7 +2126,6 @@ export const actions = {
       pedido_id: pedidoId, tipo_tela: tipoTela, estado: "Pedida", orden,
     });
     if (error) { toast.error("Error al añadir la tela."); return; }
-    await flagCambioPedidos([pedidoId], "Cambió: telas del pedido");
   },
 
   async updatePedidoTela(id: string, patch: Partial<PedidoTela>) {
@@ -2118,7 +2148,12 @@ export const actions = {
     // rol o "misma que frontal"), no el mero progreso (estado/fecha de recibo).
     const cambioSpec = ["tipoTela", "nombreTela", "telaFotoUrl", "telaColeccion", "mismaQueFrontal"]
       .some((k) => (patch as Record<string, unknown>)[k] !== undefined && telaPrev && (patch as Record<string, unknown>)[k] !== (telaPrev as unknown as Record<string, unknown>)[k]);
-    if (cambioSpec && telaPrev) { await flagCambioPedidos([telaPrev.pedidoId], "Cambió: telas del pedido"); await reflejarTelasEnProducto(telaPrev.pedidoId); }
+    if (cambioSpec && telaPrev) {
+      const nombreDespues = patch.mismaQueFrontal ? "Misma que la principal" : (patch.nombreTela ?? telaPrev.nombreTela);
+      const nombreAntes = telaPrev.mismaQueFrontal ? "Misma que la principal" : telaPrev.nombreTela;
+      if (nombreAntes !== nombreDespues) await anotarAntesPedidos([telaPrev.pedidoId], { [claveAntesTela(telaPrev.tipoTela)]: nombreAntes || "—" });
+      await reflejarTelasEnProducto(telaPrev.pedidoId);
+    }
   },
 
   // Guarda el CONJUNTO de telas de un pedido (diff create/update/delete) en una
@@ -2176,7 +2211,22 @@ export const actions = {
         }
       }
       await refetchPedidoTelas();
-      if (huboCambioTelas) { await flagCambioPedidos([pedidoId], "Cambió: telas del pedido"); await reflejarTelasEnProducto(pedidoId); }
+      if (huboCambioTelas) {
+        // Valor anterior tachado por rol: lo que había antes en cada rol y
+        // ha cambiado de nombre (o ha desaparecido).
+        const nombreDe = (t: { nombreTela: string; mismaQueFrontal: boolean }) => t.mismaQueFrontal ? "Misma que la principal" : (t.nombreTela || "");
+        const antesPorRol = new Map<string, string>();
+        for (const e of existentes) antesPorRol.set(e.tipoTela.toLowerCase(), nombreDe(e));
+        const despuesPorRol = new Map<string, string>();
+        for (const r of rows) despuesPorRol.set(r.tipoTela.toLowerCase(), nombreDe(r));
+        const cambios: Record<string, string> = {};
+        for (const [rol, antes] of antesPorRol) {
+          const despues = despuesPorRol.get(rol) ?? "";
+          if (antes !== despues) cambios[claveAntesTela(rol)] = antes || "—";
+        }
+        await anotarAntesPedidos([pedidoId], cambios);
+        await reflejarTelasEnProducto(pedidoId);
+      }
       return true;
     } catch {
       toast.error("Error al guardar las telas del pedido.");
@@ -2191,7 +2241,10 @@ export const actions = {
     emit();
     const { error } = await supabase.from("pedido_telas").delete().eq("id", id);
     if (error) { state = prevState; emit(); toast.error("Error al eliminar la tela."); return; }
-    if (telaPrev) { await flagCambioPedidos([telaPrev.pedidoId], "Cambió: telas del pedido"); await reflejarTelasEnProducto(telaPrev.pedidoId); }
+    if (telaPrev) {
+      await anotarAntesPedidos([telaPrev.pedidoId], { [claveAntesTela(telaPrev.tipoTela)]: (telaPrev.mismaQueFrontal ? "Misma que la principal" : telaPrev.nombreTela) || "—" });
+      await reflejarTelasEnProducto(telaPrev.pedidoId);
+    }
   },
 
   // ───────── Biblioteca de telas + telas por pedido (Fase 2) ─────────

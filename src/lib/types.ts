@@ -367,7 +367,7 @@ export interface Pedido {
   fechaEntregaReal: string;
   pagado50: boolean;
   creadoManualmente: boolean;
-  estadoPedido: string;       // En proceso | Terminado | Entregado
+  estadoPedido: EstadoPedido; // derivado de los hitos/marcadores (ver estadoDePedido)
   telaPedida: boolean;
   telaPedidaFecha: string;
   telaRecibida: boolean;
@@ -411,10 +411,14 @@ export interface Pedido {
   terminadoTapicero: boolean;
   terminadoTapiceroPor: string;
   terminadoTapiceroFecha: string;
-  // ── Aviso de cambios tras enviar al tapicero ──
-  cambioTrasEnvio: boolean;          // se cambió algo estando ya en manos del tapicero
-  cambioTrasEnvioFecha: string;
-  cambioTrasEnvioDetalle: string;    // texto legible de qué cambió
+  // ── Recogido por Juan (marcador en pasos_tapicero) ──
+  recogido: boolean;
+  recogidoFecha: string;
+  recogidoPor: string;
+  // ── Valores anteriores de datos cambiados (marcador @antes en pasos_tapicero) ──
+  // campo → último valor anterior, para pintarlo tachado en las cards. Se vacía
+  // al llegar a "Recogido".
+  antes: Record<string, string>;
   // ── Correo de entrega al cliente (marcadores en pasos_tapicero) ──
   emailEntregaFecha: string;         // ISO del último envío, "" si no se ha enviado
   emailEntregaA: string;
@@ -538,8 +542,15 @@ export function flujoPedido(tipoProducto: string): HitoDef[] {
 // las claves de hito (camelCase). Así no hace falta ninguna migración.
 export const PASO_INICIADO = "@iniciado";           // valor: fecha ISO
 export const PASO_INICIADO_POR = "@iniciadoPor";    // valor: nombre
-export const PASO_CAMBIO = "@cambio";               // valor: fecha ISO
-export const PASO_CAMBIO_DETALLE = "@cambioDetalle";// valor: texto
+export const PASO_RECOGIDO = "@recogido";           // valor: fecha ISO (Juan ya lo tiene)
+export const PASO_RECOGIDO_POR = "@recogidoPor";    // valor: nombre
+// Último valor anterior de cada dato cambiado (JSON campo → texto). Sustituye
+// a los antiguos avisos "@cambio": en vez de avisar, la card enseña el valor
+// viejo tachado junto al nuevo.
+export const PASO_ANTES = "@antes";
+// Claves antiguas del aviso de cambio: ya no se escriben; se limpian al tocar
+// pasos_tapicero.
+export const PASO_CAMBIO_LEGACY = ["@cambio", "@cambioDetalle"] as const;
 // Correo de entrega al cliente (lo envía el equipo desde la ficha del pedido).
 export const PASO_EMAIL_ENTREGA = "@emailEntrega";        // valor: fecha ISO del envío
 export const PASO_EMAIL_ENTREGA_A = "@emailEntregaA";     // valor: dirección
@@ -562,19 +573,52 @@ export const HISTORIAL_LABELS: Record<string, string> = {
 export const tablaHistorialProducto = (productoId: string) => `productos_lead:${productoId}`;
 export const tablaHistorialPedido = (pedidoId: string) => `pedidos:${pedidoId}`;
 
-// Motivo corto de un aviso de cambio ("Cambió en el producto: medidas" →
-// "medidas"), para pintarlo como chip discreto en el panel.
-export function motivoCambio(detalle: string | null | undefined): string {
-  const d = String(detalle ?? "").trim();
-  if (!d) return "";
-  const i = d.lastIndexOf(":");
-  return (i >= 0 ? d.slice(i + 1) : d).trim().replace(/\.$/, "");
+// Etiquetas de los campos que pueden llevar valor anterior tachado.
+export const ANTES_LABELS: Record<string, string> = {
+  medidas: "medidas",
+  tela_frontal: "tela principal",
+  tela_lateral: "tela lateral",
+  tela_vivo: "tela del vivo",
+  cantidad: "cantidad",
+  modelo: "producto",
+  montaje: "montaje",
+  nota_tapicero: "indicaciones",
+  fecha_recogida: "fecha de recogida",
+  precio: "precio",
+};
+
+// Lee el mapa de valores anteriores guardado en pasos_tapicero["@antes"].
+export function antesDe(pasos: Record<string, string> | null | undefined): Record<string, string> {
+  const raw = pasos?.[PASO_ANTES];
+  if (!raw) return {};
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) if (typeof x === "string" && x) out[k] = x;
+    return out;
+  } catch { return {}; }
+}
+
+// Devuelve pasos_tapicero con el valor anterior de `campo` apuntado (solo se
+// conserva el ÚLTIMO anterior). Si el anterior está vacío, se quita la marca.
+export function conAntes(pasos: Record<string, string> | null | undefined, cambios: Record<string, string | null | undefined>): Record<string, string> {
+  const antes = antesDe(pasos);
+  for (const [campo, valor] of Object.entries(cambios)) {
+    const v = String(valor ?? "").trim();
+    if (v) antes[campo] = v; else delete antes[campo];
+  }
+  const next: Record<string, string> = { ...(pasos || {}) };
+  for (const k of PASO_CAMBIO_LEGACY) delete next[k];
+  if (Object.keys(antes).length > 0) next[PASO_ANTES] = JSON.stringify(antes); else delete next[PASO_ANTES];
+  return next;
 }
 
 // Deriva los marcadores del tapicero a partir de `pasos_tapicero`.
 export function marcadoresTapicero(pasos: Record<string, string> | null | undefined): {
   iniciado: boolean; iniciadoFecha: string; iniciadoPor: string;
-  cambioTrasEnvio: boolean; cambioTrasEnvioFecha: string; cambioTrasEnvioDetalle: string;
+  recogido: boolean; recogidoFecha: string; recogidoPor: string;
+  antes: Record<string, string>;
   emailEntregaFecha: string; emailEntregaA: string; emailEntregaPor: string;
 } {
   const p = pasos || {};
@@ -582,13 +626,140 @@ export function marcadoresTapicero(pasos: Record<string, string> | null | undefi
     iniciado: !!p[PASO_INICIADO],
     iniciadoFecha: p[PASO_INICIADO] || "",
     iniciadoPor: p[PASO_INICIADO_POR] || "",
-    cambioTrasEnvio: !!p[PASO_CAMBIO],
-    cambioTrasEnvioFecha: p[PASO_CAMBIO] || "",
-    cambioTrasEnvioDetalle: p[PASO_CAMBIO_DETALLE] || "",
+    recogido: !!p[PASO_RECOGIDO],
+    recogidoFecha: p[PASO_RECOGIDO] || "",
+    recogidoPor: p[PASO_RECOGIDO_POR] || "",
+    antes: antesDe(p),
     emailEntregaFecha: p[PASO_EMAIL_ENTREGA] || "",
     emailEntregaA: p[PASO_EMAIL_ENTREGA_A] || "",
     emailEntregaPor: p[PASO_EMAIL_ENTREGA_POR] || "",
   };
+}
+
+// ───────────── Estado del pedido (cinco estados, uno solo a la vez) ─────────────
+// Pendiente → En marcha → Terminado → Recogido → Entregado al cliente.
+// No hay columna nueva: el estado se DERIVA de campos que ya existen, así que
+// funciona aunque la base de datos no tenga aplicada la migración del trigger.
+//   · Entregado al cliente ⇐ `entregado` (último hito de la ruta).
+//   · Recogido            ⇐ marcador "@recogido" en pasos_tapicero.
+//   · Terminado           ⇐ terminado_tapicero (⇄ hito Terminado Daniel / Pantalla hecha).
+//   · En marcha           ⇐ marcador "@iniciado" en pasos_tapicero.
+//   · Pendiente           ⇐ el resto.
+// La columna `estado_pedido` (trigger) guarda el mismo valor como caché.
+export const ESTADOS_PEDIDO = ["Pendiente", "En marcha", "Terminado", "Recogido", "Entregado al cliente"] as const;
+export type EstadoPedido = (typeof ESTADOS_PEDIDO)[number];
+export const ESTADO_ENTREGADO_CLIENTE: EstadoPedido = "Entregado al cliente";
+// Estados que existen para el TAPICERO (nunca ve "Entregado al cliente").
+export const ESTADOS_TAPICERO: EstadoPedido[] = ["Pendiente", "En marcha", "Terminado", "Recogido"];
+
+export const ESTADO_PEDIDO_COLORS: Record<EstadoPedido, { bg: string; text: string; dot: string }> = {
+  "Pendiente": { bg: "bg-slate-100", text: "text-slate-600", dot: "bg-slate-400" },
+  "En marcha": { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" },
+  "Terminado": { bg: "bg-sky-100", text: "text-sky-700", dot: "bg-sky-500" },
+  "Recogido": { bg: "bg-violet-100", text: "text-violet-700", dot: "bg-violet-500" },
+  "Entregado al cliente": { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
+};
+
+export function indiceEstado(e: EstadoPedido): number {
+  return ESTADOS_PEDIDO.indexOf(e);
+}
+
+// Campos mínimos de los que se deriva el estado (valen Pedido y filas crudas
+// ya mapeadas a camelCase).
+export interface FuenteEstado {
+  entregado: boolean;
+  terminadoTapicero: boolean;
+  terminadoDaniel?: boolean;
+  pantallaHecha?: boolean;
+  pasosTapicero: Record<string, string> | null | undefined;
+}
+
+export function estadoDePedido(p: FuenteEstado): EstadoPedido {
+  const pasos = p.pasosTapicero || {};
+  if (p.entregado) return "Entregado al cliente";
+  if (pasos[PASO_RECOGIDO]) return "Recogido";
+  if (p.terminadoTapicero || p.terminadoDaniel || p.pantallaHecha) return "Terminado";
+  if (pasos[PASO_INICIADO]) return "En marcha";
+  return "Pendiente";
+}
+
+// Campos que toca un cambio de estado (para poder aplicarlo igual en el
+// cliente y en el servidor).
+export interface PatchEstado {
+  pasosTapicero?: Record<string, string>;
+  terminadoTapicero?: boolean; terminadoTapiceroPor?: string; terminadoTapiceroFecha?: string;
+  terminadoDaniel?: boolean; terminadoDanielFecha?: string;
+  pantallaHecha?: boolean; pantallaHechaFecha?: string;
+  enviadoDaniel?: boolean; enviadoDanielFecha?: string;
+  entregado?: boolean; entregadoFecha?: string;
+}
+
+export interface FuentePatchEstado extends FuenteEstado {
+  terminadoTapiceroPor?: string; terminadoTapiceroFecha?: string;
+  terminadoDanielFecha?: string; pantallaHechaFecha?: string;
+  enviadoDaniel?: boolean; enviadoDanielFecha?: string;
+  entregadoFecha?: string;
+  tapiceroId?: string;
+}
+
+// Parche que deja el pedido EXACTAMENTE en `estado` (hacia delante o hacia
+// atrás): marca lo que hay por debajo y limpia lo que hay por encima, de modo
+// que el pedido está siempre en un único estado. Al llegar a "Recogido" se
+// borran los valores anteriores tachados (ya no hace falta enseñarlos).
+export function patchParaEstado(
+  p: FuentePatchEstado,
+  estado: EstadoPedido,
+  opts: { por: string; ahora: string; tipoProducto: string },
+): PatchEstado {
+  const idx = indiceEstado(estado);
+  const hoy = opts.ahora.slice(0, 10);
+  const pantalla = esPantalla(opts.tipoProducto);
+  const hitoFin = pantalla ? "pantallaHecha" : "terminadoDaniel";
+  const pasos: Record<string, string> = { ...(p.pasosTapicero || {}) };
+  for (const k of PASO_CAMBIO_LEGACY) delete pasos[k];
+  const out: PatchEstado = {};
+
+  // En marcha
+  if (idx >= 1) {
+    if (!pasos[PASO_INICIADO]) { pasos[PASO_INICIADO] = opts.ahora; pasos[PASO_INICIADO_POR] = opts.por; }
+  } else {
+    delete pasos[PASO_INICIADO]; delete pasos[PASO_INICIADO_POR];
+  }
+
+  // Terminado (botón del tapicero ⇄ hito de la ruta de producción)
+  if (idx >= 2) {
+    if (!p.terminadoTapicero) { out.terminadoTapicero = true; out.terminadoTapiceroPor = p.terminadoTapiceroPor || opts.por; out.terminadoTapiceroFecha = p.terminadoTapiceroFecha || opts.ahora; }
+    if (pantalla) { if (!p.pantallaHecha) { out.pantallaHecha = true; out.pantallaHechaFecha = p.pantallaHechaFecha || hoy; } }
+    else if (!p.terminadoDaniel) { out.terminadoDaniel = true; out.terminadoDanielFecha = p.terminadoDanielFecha || hoy; }
+    if (p.tapiceroId && !pasos[hitoFin]) pasos[hitoFin] = p.tapiceroId;
+  } else {
+    if (p.terminadoTapicero) { out.terminadoTapicero = false; out.terminadoTapiceroPor = ""; out.terminadoTapiceroFecha = ""; }
+    if (p.terminadoDaniel) { out.terminadoDaniel = false; out.terminadoDanielFecha = ""; }
+    if (p.pantallaHecha) { out.pantallaHecha = false; out.pantallaHechaFecha = ""; }
+    delete pasos.terminadoDaniel; delete pasos.pantallaHecha;
+  }
+
+  // Recogido por Juan (en el flujo Daniel equivale al hito "Enviado Daniel")
+  if (idx >= 3) {
+    if (!pasos[PASO_RECOGIDO]) { pasos[PASO_RECOGIDO] = opts.ahora; pasos[PASO_RECOGIDO_POR] = opts.por; }
+    if (!pantalla && !p.enviadoDaniel) { out.enviadoDaniel = true; out.enviadoDanielFecha = p.enviadoDanielFecha || hoy; }
+    if (!pantalla && p.tapiceroId && !pasos.enviadoDaniel) pasos.enviadoDaniel = p.tapiceroId;
+    delete pasos[PASO_ANTES];
+  } else {
+    delete pasos[PASO_RECOGIDO]; delete pasos[PASO_RECOGIDO_POR];
+    if (p.enviadoDaniel) { out.enviadoDaniel = false; out.enviadoDanielFecha = ""; }
+    delete pasos.enviadoDaniel;
+  }
+
+  // Entregado al cliente
+  if (idx >= 4) {
+    if (!p.entregado) { out.entregado = true; out.entregadoFecha = p.entregadoFecha || hoy; }
+  } else if (p.entregado) {
+    out.entregado = false; out.entregadoFecha = "";
+  }
+
+  if (JSON.stringify(pasos) !== JSON.stringify(p.pasosTapicero || {})) out.pasosTapicero = pasos;
+  return out;
 }
 
 // Etiqueta del hito personalizada con el tapicero asignado. Los pasos del
@@ -723,6 +894,7 @@ export const CATALOG_TO_INTERNAL: Record<string, string> = {
   "Pantalla de lámpara": "pantalla",
   "Almohadón": "almohadon",
   "Cubrecanapé": "otro",
+  "Producto libre": "otro",
   "Banco": "banco",
 };
 

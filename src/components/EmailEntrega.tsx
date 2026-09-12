@@ -5,11 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatShortDate } from "@/lib/format";
 import { textoEmailEntrega, textoWhatsAppEntrega, htmlEmailEntrega, ENTREGA_WHATSAPP_INTL, ENTREGA_FROM } from "@/lib/email-entrega";
-import type { Lead, Pedido, Producto } from "@/lib/types";
+import { ESTADO_ENTREGADO_CLIENTE, type Lead, type Pedido, type Producto } from "@/lib/types";
 import { confirmar } from "@/components/Confirmar";
 
 // Bloque "Correo de entrega" en la ficha del pedido. Solo aparece cuando el
-// pedido está ENTREGADO y solo lo ve el equipo. Nada sale sin revisar y pulsar
+// pedido está en "Entregado al cliente" (desde ningún otro estado se puede
+// enviar) y solo lo ve el equipo. Nada sale sin revisar y pulsar
 // Enviar. Si el cliente no tiene correo (la mayoría), ofrece el texto para
 // WhatsApp, que abre el chat con el mensaje ya escrito.
 export function EmailEntrega({ pedido, lead, producto }: { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined }) {
@@ -24,7 +25,7 @@ export function EmailEntrega({ pedido, lead, producto }: { pedido: Pedido; lead:
   const [para, setPara] = useState(lead?.email ?? "");
   const [busy, setBusy] = useState(false);
 
-  if (!esEquipo || !pedido.entregado) return null;
+  if (!esEquipo || pedido.estadoPedido !== ESTADO_ENTREGADO_CLIENTE) return null;
 
   const enviado = !!pedido.emailEntregaFecha;
   const whatsapp = textoWhatsAppEntrega({ nombre: lead?.nombre ?? "", tipo: producto?.tipo ?? "", modelo: producto?.modelo ?? "", cantidad: producto?.cantidad ?? 1 });
