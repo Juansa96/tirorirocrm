@@ -1,5 +1,5 @@
 import { FormaSVG, formaForModelo } from "@/components/FormaBadge";
-import { normalizeTipo } from "@/lib/catalogo";
+import { normalizeTipo, pufEsRedondo } from "@/lib/catalogo";
 
 // Silueta grande y limpia del producto, SIN textura de tela (solo el contorno).
 // Reutiliza las siluetas por forma de cabecero/pantalla (FormaBadge) y añade
@@ -22,7 +22,10 @@ export function SiluetaProducto({ tipo, modelo, className = "h-40 w-full" }: {
       svg = <svg {...common}><rect x="2" y="12" width="28" height="9" rx="2" /><line x1="6" y1="21" x2="6" y2="27" /><line x1="26" y1="21" x2="26" y2="27" /></svg>;
       break;
     case "puf":
-      svg = <svg {...common}><rect x="7" y="11" width="18" height="13" rx="4" /></svg>;
+      // Redondo: círculo; cuadrado (o sin forma conocida): la caja de siempre.
+      svg = pufEsRedondo(modelo)
+        ? <svg {...common}><circle cx="16" cy="16" r="9" /></svg>
+        : <svg {...common}><rect x="7" y="11" width="18" height="13" rx="4" /></svg>;
       break;
     case "mesa":
       svg = <svg {...common}><rect x="6" y="10" width="20" height="12" rx="1" /></svg>;
