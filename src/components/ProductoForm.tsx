@@ -659,7 +659,6 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
       return modelosTipo.find(x => mismoModelo(x.modelo, "Patos"))?.id ?? "";
     }
     if (f.tipo === "almohadon") return modelosTipo[0]?.id ?? "";
-    if (f.tipo === "otro") return modelosTipo[0]?.id ?? "";
     if (f.tipo === "mesa") {
       return modelosTipo.find(x => mismoModelo(x.modelo, "Cabo de Palos"))?.id ?? "";
     }
@@ -686,8 +685,6 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     } else if (f.tipo === "pantalla") {
       const fp = PANTALLA_FORMAS.find(x => x.name.split("—")[0].trim() === m.modelo)?.id;
       if (fp) s({ formaPantalla: fp });
-    } else if (f.tipo === "otro") {
-      s({ otroDescripcion: m.modelo });
     }
   }
 
@@ -702,20 +699,45 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
         </select>
       </div>
       <div>
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Modelo</div>
-        <select
-          className={sel}
-          value={selectedModelo}
-          onChange={(e) => setModelo(e.target.value)}
-          disabled={!tipoLabel || modelosTipo.length === 0}
-        >
-          <option value="">{tipoLabel ? "— Selecciona modelo —" : "Elige tipo primero"}</option>
-          {modelosTipo.map(m => (
-            <option key={m.id} value={m.id}>
-              {m.modelo}{m.activo ? "" : " (Próximamente)"}
-            </option>
-          ))}
-        </select>
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Modelo{f.tipo === "otro" && !f.otroPorDecidir && <span className="text-red-500"> *</span>}
+        </div>
+        {f.tipo === "otro" ? (
+          // Producto libre: el modelo es TEXTO LIBRE (cualquier producto, esté o
+          // no en la web). Los modelos históricos (p. ej. Cubrecanapé) solo se
+          // ofrecen como sugerencias del navegador, nunca como lista cerrada.
+          <>
+            <input
+              type="text"
+              list="producto-libre-sugerencias"
+              className={sel}
+              value={f.otroPorDecidir ? "" : f.otroDescripcion}
+              onChange={(e) => s({ otroDescripcion: e.target.value, otroPorDecidir: false })}
+              placeholder={f.otroPorDecidir ? "Por decidir" : "Escribe el nombre del producto…"}
+              disabled={f.otroPorDecidir}
+              autoComplete="off"
+            />
+            {modelosTipo.length > 0 && (
+              <datalist id="producto-libre-sugerencias">
+                {modelosTipo.map(m => <option key={m.id} value={m.modelo} />)}
+              </datalist>
+            )}
+          </>
+        ) : (
+          <select
+            className={sel}
+            value={selectedModelo}
+            onChange={(e) => setModelo(e.target.value)}
+            disabled={!tipoLabel || modelosTipo.length === 0}
+          >
+            <option value="">{tipoLabel ? "— Selecciona modelo —" : "Elige tipo primero"}</option>
+            {modelosTipo.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.modelo}{m.activo ? "" : " (Próximamente)"}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
     </div>
   );
@@ -1159,19 +1181,17 @@ export function ProductoForm({
       {f.tipo === "otro" && (
         <>
           <div className="space-y-2">
-            <div className={section}>Nombre del producto {!f.otroPorDecidir && <span className="text-red-500">*</span>}</div>
+            <div className={section}>Nombre del producto</div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => s({ otroPorDecidir: false })} className={btn(!f.otroPorDecidir)}>Nombre a mano</button>
               <button type="button" onClick={() => s({ otroPorDecidir: true, otroDescripcion: "" })} className={btn(f.otroPorDecidir)}>Por decidir</button>
             </div>
             {!f.otroPorDecidir && (
-              <input
-                type="text"
-                className={inp}
-                value={f.otroDescripcion}
-                onChange={e => s({ otroDescripcion: e.target.value })}
-                placeholder="Ej. Lámpara de pie, cabecero infantil…"
-              />
+              <p className="text-xs text-slate-600">
+                {f.otroDescripcion.trim()
+                  ? <>Producto: <strong>{f.otroDescripcion.trim()}</strong> (se escribe en el campo <em>Modelo</em>, arriba).</>
+                  : <>Escribe el nombre del producto en el campo <em>Modelo</em>, arriba. Vale cualquier producto, esté o no en la web.</>}
+              </p>
             )}
             {f.otroPorDecidir && (
               <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
