@@ -287,7 +287,15 @@ export function displayNombreProducto(tipo: unknown, modelo: unknown): string {
   if (normalizeTipo(tipo) === "otro" && det) return det;
   // Solo se añade al título el detalle que sea un NOMBRE (forma/modelo), no una
   // medida: las medidas viven en su propia línea.
-  const nombreExtra = det && !esDetalleMedida(det) ? det : "";
+  let nombreExtra = det && !esDetalleMedida(det) ? det : "";
+  // Puf: el modelo del catálogo lleva las medidas en el nombre ("Redondo Ø40 ×
+  // 40 cm alto"), así que se descarta como detalle y el título quedaba en un
+  // "Puf" a secas que no distinguía redondo de cuadrado. La forma sí va en el
+  // título ("Puf redondo"): el taller la necesita a primera vista.
+  if (normalizeTipo(tipo) === "puf" && !nombreExtra) {
+    const forma = pufFormaDeModelo(modelo);
+    if (forma) nombreExtra = forma;
+  }
   const titulo = [label, nombreExtra].filter(Boolean).join(" ").trim();
   return titulo || "Producto";
 }
@@ -679,6 +687,39 @@ export function findBancoById(id: string): BancoOpcion | undefined {
 }
 export function findPufById(id: string): PufOpcion | undefined {
   return PUF_OPCIONES.find((o) => o.id === id);
+}
+
+// Forma de puf que declara el modelo guardado ("Redondo Ø40 × 40 cm alto",
+// "Cuadrado 50×50×40 cm · Con almacenaje", "Puf redondo"…). undefined si el
+// texto no lo dice (medida personalizada, "por decidir", históricos).
+export function pufFormaDeModelo(modelo: unknown): PufOpcion["forma"] | undefined {
+  const m = String(modelo ?? "");
+  if (pufEsRedondo(m)) return "redondo";
+  if (/cuadrad/i.test(m)) return "cuadrado";
+  return undefined;
+}
+
+// Resuelve la opción de catálogo de un puf ya guardado. Primero por el nombre
+// del modelo (sin el sufijo de almacenaje) y, si no coincide, por medidas
+// PERO respetando la forma que declara el modelo: el redondo Ø40×40 y el
+// cuadrado 40×40×40 tienen exactamente las mismas medidas, así que buscar
+// solo por medidas devolvía siempre el cuadrado y, al reabrir y guardar, el
+// puf redondo pasaba a "Cuadrado" (bug real reportado por el taller).
+export function findPufOpcion(
+  modelo: unknown, ancho: number | null, alto: number | null, fondo?: number | null,
+): PufOpcion | undefined {
+  const nombre = String(modelo ?? "").replace(PUF_ALMACENAJE_SUFIJO_RE, "").trim();
+  const porNombre = PUF_OPCIONES.find((o) => mismoModelo(o.label, nombre));
+  // El nombre manda salvo que las medidas guardadas lo contradigan (p. ej. el
+  // taller las corrigió después): entonces se resuelve por medidas o cae a
+  // "otra medida", que conserva las medidas reales.
+  if (porNombre && (ancho === null || (porNombre.ancho === ancho && porNombre.alto === alto))) return porNombre;
+  if (ancho === null || alto === null) return undefined;
+  const forma = pufFormaDeModelo(modelo);
+  return PUF_OPCIONES.find((o) =>
+    (forma === undefined || o.forma === forma) &&
+    o.ancho === ancho && o.alto === alto && (fondo == null || o.fondo === fondo),
+  );
 }
 export function findMesaById(id: string): MesaOpcion | undefined {
   return MESA_OPCIONES.find((o) => o.id === id);

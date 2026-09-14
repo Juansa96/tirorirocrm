@@ -25,7 +25,7 @@ import {
   CABECERO_VIVO_DOBLE_RECARGO,
   CABECERO_RECARGO_GRANDE,
   cabeceroEsGrande,
-  PUF_OPCIONES,
+  PUF_OPCIONES, findPufOpcion,
   findPufById,
   PUF_ALMACENAJE_SUFIJO,
   pufTieneAlmacenaje,
@@ -398,7 +398,9 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     // duplica al reabrir; si el usuario cambia las medidas, se ajusta solo.
     s._recargoGrande = cabeceroEsGrande(p.ancho, p.alto);
   } else if (mismoTipo(p.tipo, "puf")) {
-    const id = findCatalogIdByDims(PUF_OPCIONES, p.ancho, p.alto, p.fondo);
+    // Por nombre de modelo y, si no, por medidas respetando la forma: el
+    // redondo Ø40 y el cuadrado 40×40 comparten medidas (ver findPufOpcion).
+    const id = findPufOpcion(p.modelo, p.ancho, p.alto, p.fondo)?.id ?? "";
     s.pufId = id || (p.ancho ? "custom" : "");
     s.pufAnchoCustom = !id && p.ancho ? String(p.ancho) : "";
     s.pufFondoCustom = !id && p.fondo ? String(p.fondo) : "";
