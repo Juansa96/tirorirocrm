@@ -179,7 +179,7 @@ function Usuarios() {
                           }}
                           className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
                         >
-                          <option value="">— Elegir persona —</option>
+                          <option value="">{u.rol === "tapicero" ? "— Elegir persona —" : "— Elige la persona para guardar el rol —"}</option>
                           {tapiceros.filter((t) => t.activo || t.id === u.tapiceroId).map((t) => (
                             <option key={t.id} value={t.id}>{tapiceroNombre(t)}</option>
                           ))}
