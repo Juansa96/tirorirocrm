@@ -53,15 +53,15 @@ madera**, no una ficha de tapizado:
 - **Sin** telas, vivo, montaje, notas ni avisos (eso ya está en la ficha del CRM
   y en la imagen de referencia de Gemini). **Sin** página a escala 1:1.
 - Cabecera mínima: producto, medidas, nº de pedido y cliente.
-- Reparto del alto en cabeceros con forma: **70 % tramo recto, 30 % tramo
-  curvo** (p. ej. 100 cm de alto → 70 recto + 30 de perfil). Marcar las dos
+- Reparto del alto en cabeceros con forma: **75 % tramo recto, 25 % tramo
+  curvo** (p. ej. 100 cm de alto → 75 recto + 25 de perfil). Marcar las dos
   cotas RECTO / CURVA grandes a la izquierda, **con la medida en cm y el
   porcentaje** ("RECTO · 70 cm · 70 %").
 - Forma Conta: hombro cóncavo que acaba en un pico (pequeño escalón plano),
-  cuello cóncavo y cúpula convexa **suave** que enlaza tangente con el cuello
-  (nada de semicírculo con arranque vertical). Referencia: el croquis del
-  cabecero de Bego Gandarias (160 × 150: tramos 25 / 28 / 55 / 28 / 25 de
-  ancho; alturas del tramo curvo 43 / 30 / 27 %). Poner también las alturas
-  de hombro, pico, cuello y cima.
+  cuello cóncavo y cúpula central que es un **arco de círculo** (redonda, no
+  en pico ni "montaña"; tampoco un semicírculo con arranque vertical).
+  Anchos como el croquis de Bego Gandarias (25 / 28 / 55 / 28 / 25 sobre
+  160); el tramo curvo se reparte ~32 % hombro, 20 % cuello, 48 % cúpula.
+  Poner también las alturas de hombro, pico, cuello y cima.
 - Si varios pedidos son la misma pieza (mismo modelo y medidas), un único
   croquis para todos, indicando los números de pedido y las unidades.
