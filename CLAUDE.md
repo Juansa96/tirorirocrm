@@ -60,7 +60,8 @@ madera**, no una ficha de tapizado:
 - Forma Conta (la que le gusta a Juan): **dos escalones cóncavos en cuarto de
   curva** a cada lado (arrancan horizontales y llegan verticales al siguiente
   nivel) y un **arco de círculo suave** en el centro, poco marcado, sin
-  arranque vertical ("sutileza"). Anchos: escalón ≈ 15,7 % del ancho cada uno
+  arranque vertical ("sutileza"). El segundo escalón debe llegar **tangente**
+  al arco: la unión escalón-arco es redonda, sin esquinas ni "puntas". Anchos: escalón ≈ 15,7 % del ancho cada uno
   (23,5 sobre 150), arco central el resto (≈ 37 %). El tramo curvo se
   reparte ≈ 34 % / 34 % / 32 % (escalón, escalón, arco). Poner también las
   alturas de hombro, escalones y cima. NO hacer el perfil "hombro-pico-cuello"
