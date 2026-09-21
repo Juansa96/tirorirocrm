@@ -40,3 +40,19 @@ caso avisar explícitamente al usuario de que hay que aplicarla antes de publica
 ## Stack
 React + TypeScript + Tailwind, TanStack Router/Start, backend Lovable Cloud /
 Supabase. Gestor de paquetes: `bun` (`bun install`, `bun run build`).
+
+## Croquis para el tapicero (IMPORTANTE)
+
+Cuando Juan pide "el croquis" de un pedido, quiere un **plano de corte de la
+madera**, no una ficha de tapizado:
+
+- Solo medidas: ancho, alto, grosor, tramos rectos y curvos del perfil (ancho y
+  subida de cada escalón, ancho y flecha del arco…), y, si el pedido lo indica,
+  distancias de enchufes, huecos o anclajes.
+- Un A4 apaisado con alzado acotado + vista lateral con el grosor. Nada más.
+- **Sin** telas, vivo, montaje, notas ni avisos (eso ya está en la ficha del CRM
+  y en la imagen de referencia de Gemini). **Sin** página a escala 1:1.
+- Cabecera mínima: producto, medidas, nº de pedido y cliente.
+- Las proporciones de las formas (Conta, corona simple, ondas…) salen de los
+  paths del configurador de la web (`ProductSVGPreview.tsx` en el repo
+  `tiroriro`), redondeadas a 0,5 cm.
