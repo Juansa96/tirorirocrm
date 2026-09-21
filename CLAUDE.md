@@ -61,8 +61,9 @@ madera**, no una ficha de tapizado:
   curva** a cada lado (arrancan horizontales y llegan verticales al siguiente
   nivel) y un **arco de círculo suave** en el centro, poco marcado, sin
   arranque vertical ("sutileza"). El segundo escalón debe llegar **tangente**
-  al arco: la unión escalón-arco es redonda, sin esquinas ni "puntas". Anchos: escalón ≈ 15,7 % del ancho cada uno
-  (23,5 sobre 150), arco central el resto (≈ 37 %). El tramo curvo se
+  al arco: la unión escalón-arco es redonda, sin esquinas ni "puntas". Anchos: cada escalón 1/6 del ancho
+  (25 sobre 150) y el arco central 1/3 (50 sobre 150); Juan prefiere el arco
+  estrecho y las curvas anchas, no un arco "gordo". El tramo curvo se
   reparte ≈ 34 % / 38 % / 28 % (escalón 1, escalón 2, arco): el segundo
   escalón algo más marcado que el primero y el arco el más bajo de los tres. Poner también las
   alturas de hombro, escalones y cima. NO hacer el perfil "hombro-pico-cuello"
