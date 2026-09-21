@@ -63,7 +63,8 @@ madera**, no una ficha de tapizado:
   arranque vertical ("sutileza"). El segundo escalón debe llegar **tangente**
   al arco: la unión escalón-arco es redonda, sin esquinas ni "puntas". Anchos: escalón ≈ 15,7 % del ancho cada uno
   (23,5 sobre 150), arco central el resto (≈ 37 %). El tramo curvo se
-  reparte ≈ 34 % / 34 % / 32 % (escalón, escalón, arco). Poner también las
+  reparte ≈ 34 % / 38 % / 28 % (escalón 1, escalón 2, arco): el segundo
+  escalón algo más marcado que el primero y el arco el más bajo de los tres. Poner también las
   alturas de hombro, escalones y cima. NO hacer el perfil "hombro-pico-cuello"
   del croquis de Bego Gandarias ni una cúpula alta.
 - Si varios pedidos son la misma pieza (mismo modelo y medidas), un único
