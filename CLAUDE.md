@@ -57,11 +57,13 @@ madera**, no una ficha de tapizado:
   curvo** (p. ej. 100 cm de alto → 75 recto + 25 de perfil). Marcar las dos
   cotas RECTO / CURVA grandes a la izquierda, **con la medida en cm y el
   porcentaje** ("RECTO · 70 cm · 70 %").
-- Forma Conta: hombro cóncavo que acaba en un pico (pequeño escalón plano),
-  cuello cóncavo y cúpula central que es un **arco de círculo** (redonda, no
-  en pico ni "montaña"; tampoco un semicírculo con arranque vertical).
-  Anchos como el croquis de Bego Gandarias (25 / 28 / 55 / 28 / 25 sobre
-  160); el tramo curvo se reparte ~32 % hombro, 20 % cuello, 48 % cúpula.
-  Poner también las alturas de hombro, pico, cuello y cima.
+- Forma Conta (la que le gusta a Juan): **dos escalones cóncavos en cuarto de
+  curva** a cada lado (arrancan horizontales y llegan verticales al siguiente
+  nivel) y un **arco de círculo suave** en el centro, poco marcado, sin
+  arranque vertical ("sutileza"). Anchos: escalón ≈ 15,7 % del ancho cada uno
+  (23,5 sobre 150), arco central el resto (≈ 37 %). El tramo curvo se
+  reparte ≈ 34 % / 34 % / 32 % (escalón, escalón, arco). Poner también las
+  alturas de hombro, escalones y cima. NO hacer el perfil "hombro-pico-cuello"
+  del croquis de Bego Gandarias ni una cúpula alta.
 - Si varios pedidos son la misma pieza (mismo modelo y medidas), un único
   croquis para todos, indicando los números de pedido y las unidades.
