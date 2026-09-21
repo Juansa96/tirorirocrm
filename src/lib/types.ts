@@ -636,6 +636,32 @@ export function marcadoresTapicero(pasos: Record<string, string> | null | undefi
   };
 }
 
+// ───────────── Tela del pedido: metros y doble ancho (sin columnas nuevas) ─────────────
+// Lo que hay que comprar de cada tela (metros) y si es de doble ancho se
+// apunta por pedido y rol ("Frontal", "Lateral", "Vivo"…) DENTRO de
+// `pasos_tapicero`, con la clave "@tela:<rol>" y un JSON corto como valor
+// ({"m":"3,5","da":true}). Lo lee y lo escribe la sección Telas del CRM.
+export const PASO_TELA_PREFIJO = "@tela:";
+export interface TelaInfoPedido { metros: string; dobleAncho: boolean; }
+export function claveTelaInfo(rol: string): string {
+  return PASO_TELA_PREFIJO + normNombreTela(rol || "principal");
+}
+export function telaInfoDe(pasos: Record<string, string> | null | undefined, rol: string): TelaInfoPedido {
+  const raw = pasos?.[claveTelaInfo(rol)];
+  if (!raw) return { metros: "", dobleAncho: false };
+  try {
+    const v = JSON.parse(raw) as { m?: unknown; da?: unknown };
+    return { metros: typeof v?.m === "string" ? v.m : "", dobleAncho: v?.da === true };
+  } catch { return { metros: "", dobleAncho: false }; }
+}
+export function conTelaInfo(pasos: Record<string, string> | null | undefined, rol: string, info: TelaInfoPedido): Record<string, string> {
+  const next: Record<string, string> = { ...(pasos || {}) };
+  const metros = (info.metros || "").trim();
+  if (!metros && !info.dobleAncho) delete next[claveTelaInfo(rol)];
+  else next[claveTelaInfo(rol)] = JSON.stringify({ m: metros, da: info.dobleAncho });
+  return next;
+}
+
 // ───────────── Estado del pedido (cinco estados, uno solo a la vez) ─────────────
 // Pendiente → En marcha → Terminado → Recogido → Entregado al cliente.
 // No hay columna nueva: el estado se DERIVA de campos que ya existen, así que

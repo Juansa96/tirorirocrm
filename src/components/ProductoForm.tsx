@@ -29,6 +29,11 @@ import {
   findPufById,
   PUF_ALMACENAJE_SUFIJO,
   pufTieneAlmacenaje,
+  PUF_MODELO_POR_FORMA,
+  PUF_FORMA_LABEL,
+  pufFormaDeModelo,
+  pufFormaDeModeloCatalogo,
+  type PufOpcion,
   MESA_OPCIONES,
   MESA_ALTO_FIJO,
   findMesaById,
@@ -100,6 +105,7 @@ export const TELAS_SUGERIDAS = [
 export type ProdTipo = "cabecero" | "banco" | "puf" | "mesa" | "pantalla" | "almohadon" | "otro" | "";
 export const FORMA_POR_DECIDIR = "tbd";
 export const FORMA_OTRA = "custom";
+export type PufForma = PufOpcion["forma"] | "";
 
 export interface ProdState {
   tipo: ProdTipo;
@@ -113,6 +119,12 @@ export interface ProdState {
   montaje: "" | "colgar" | "apoyar";
   // Puf: pufId ∈ PUF_OPCIONES.id | "custom" | "tbd" | ""
   pufId: string; pufAnchoCustom: string; pufFondoCustom: string; pufAltoCustom: string; cantidadPuf: string;
+  // Forma del puf (cuadrado = modelo "Patos", redondo = "Monteferro"). Es la
+  // misma decisión que el selector de modelo de arriba: cambiar uno cambia el
+  // otro. Vacío = aún sin decidir. Con medida de catálogo manda la de la
+  // medida; con "otra medida" / "por decidir" se guarda en el nombre del
+  // modelo ("Puf redondo (medida personalizada)") para no perderla.
+  pufForma: PufForma;
   // Puf con almacenaje (hueco interior). Se guarda dentro de `modelo` —"… · Con
   // almacenaje"— para no necesitar una columna nueva.
   pufAlmacenaje: boolean;
@@ -156,7 +168,7 @@ export const EMPTY_PROD_STATE: ProdState = {
   // Arrancan en "Por decidir" (tbd → null) y se rellenan solas solo cuando el
   // operador elige una opción estándar del catálogo.
   forma: "", formaOtra: "", anchoCama: "tbd", anchoCamaCustom: "", altoCabecero: "tbd", altoCabeceroCustom: "", telaLateral: "", montaje: "",
-  pufId: "", pufAnchoCustom: "", pufFondoCustom: "", pufAltoCustom: "", cantidadPuf: "1", pufAlmacenaje: false,
+  pufId: "", pufAnchoCustom: "", pufFondoCustom: "", pufAltoCustom: "", cantidadPuf: "1", pufAlmacenaje: false, pufForma: "",
   mesaId: "", mesaLargo: "", mesaAlto: "", mesaFondo: "", superficieMesa: "nada",
   pantallaId: "", formaPantalla: "cilindro", pantallaAnchoCustom: "", pantallaAltoCustom: "",
   tela: "", coleccionTela: "basic", acabado: "", telaVivo: "",
@@ -221,13 +233,19 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
     ]);
   } else if (f.tipo === "puf") {
     const opt = findPufById(f.pufId);
+    // La forma viaja en el nombre del modelo también cuando no hay medida de
+    // catálogo ("Puf redondo (medida personalizada)"): así el título, la
+    // silueta y las etiquetas de medida (Ø / Lado) saben si es redondo.
+    const forma = opt?.forma ?? f.pufForma;
+    const pufTxt = forma ? `Puf ${forma}` : "Puf";
     if (f.pufId === "tbd" || !f.pufId) {
-      modelo = "Puf (medida por decidir)";
+      modelo = `${pufTxt} (medida por decidir)`;
       ancho = null; alto = null; fondo = null;
     } else if (f.pufId === "custom") {
-      modelo = "Puf (medida personalizada)";
+      modelo = `${pufTxt} (medida personalizada)`;
       ancho = Number(f.pufAnchoCustom) || null;
-      fondo = Number(f.pufFondoCustom) || null;
+      // Redondo: el "ancho" es el diámetro y el fondo es el mismo valor.
+      fondo = forma === "redondo" ? ancho : (Number(f.pufFondoCustom) || null);
       alto  = Number(f.pufAltoCustom)  || null;
     } else if (opt) {
       modelo = opt.label;
@@ -322,12 +340,16 @@ export function prodStateToProducto(f: ProdState): Omit<Producto, "id" | "leadId
   // placeholder genérico Y las medidas coinciden exactamente con las
   // originales (el usuario no las cambió), restauramos el modelo original.
   // Si el usuario tocó alguna medida, el placeholder se aplica normalmente.
-  const PLACEHOLDER_RE = /^(Puf|Pantalla|Almohadón) \(medida (por decidir|personalizada)\)$/;
+  const PLACEHOLDER_RE = /^(Puf(?: cuadrado| redondo)?|Pantalla|Almohadón) \(medida (por decidir|personalizada)\)$/;
+  // Puf: si el usuario ha cambiado la FORMA (cuadrado ⇄ redondo) el nombre
+  // nuevo debe ganar aunque las medidas no hayan cambiado.
+  const mismaFormaPuf = f.tipo !== "puf" || (pufFormaDeModelo(f._origModelo) ?? "") === (f.pufForma || "");
   if (
     f._isEdit &&
     f._origModelo &&
     (f.tipo === "puf" || f.tipo === "pantalla" || f.tipo === "almohadon") &&
     PLACEHOLDER_RE.test(modelo) &&
+    mismaFormaPuf &&
     (ancho ?? null) === (f._origAncho ?? null) &&
     (alto  ?? null) === (f._origAlto  ?? null) &&
     (fondo ?? null) === (f._origFondo ?? null)
@@ -407,6 +429,7 @@ export function productoToState(p: Omit<Producto, "id" | "leadId" | "createdAt" 
     s.pufAltoCustom  = !id && p.alto  ? String(p.alto)  : "";
     s.cantidadPuf = String(p.cantidad);
     s.pufAlmacenaje = pufTieneAlmacenaje(p.modelo);
+    s.pufForma = findPufById(id)?.forma ?? pufFormaDeModelo(p.modelo) ?? "";
     s.telaLateral = p.color; s.telaVivo = p.relleno ?? "";
   } else if (mismoTipo(p.tipo, "mesa")) {
     const id = findCatalogIdByDims(MESA_OPCIONES, p.ancho, p.alto, p.fondo);
@@ -618,6 +641,28 @@ function patchPrecio<T extends Record<string, unknown>>(isEditing: boolean, patc
 
 const PRODUCTO_LIBRE = "Producto libre";
 
+// Cambia la forma del puf (cuadrado ⇄ redondo) de forma coherente: si había
+// una medida de catálogo elegida, se pasa a la medida equivalente de la otra
+// forma (mismo lado / diámetro) y, al crear, se actualiza el precio. "Otra
+// medida" y "Por decidir" solo cambian la forma. Lo usan tanto el selector
+// de modelo (Patos / Monteferro) como los botones de forma del puf.
+export function patchFormaPuf(f: ProdState, forma: PufOpcion["forma"]): Partial<ProdState> {
+  const patch: Partial<ProdState> = { pufForma: forma };
+  const opt = findPufById(f.pufId);
+  if (opt && opt.forma !== forma) {
+    const equivalente =
+      PUF_OPCIONES.find(o => o.activo && o.forma === forma && o.ancho === opt.ancho) ??
+      PUF_OPCIONES.find(o => o.activo && o.forma === forma);
+    if (equivalente) {
+      patch.pufId = equivalente.id;
+      if (!f._isEdit) patch.precioUnitario = equivalente.precio;
+    } else {
+      patch.pufId = "";
+    }
+  }
+  return patch;
+}
+
 // ── CatalogoSelector ──────────────────────────────────────────────
 function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState>) => void }) {
   const { catalogo } = useStore();
@@ -656,7 +701,10 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
       return modelosTipo.find(x => mismoModelo(x.modelo, m))?.id ?? "";
     }
     if (f.tipo === "puf") {
-      return modelosTipo.find(x => mismoModelo(x.modelo, "Patos"))?.id ?? "";
+      // El modelo del puf ES su forma: Patos = cuadrado, Monteferro = redondo.
+      const forma = findPufById(f.pufId)?.forma ?? f.pufForma;
+      if (!forma) return "";
+      return modelosTipo.find(x => pufFormaDeModeloCatalogo(x.modelo) === forma)?.id ?? "";
     }
     if (f.tipo === "almohadon") return modelosTipo[0]?.id ?? "";
     if (f.tipo === "mesa") {
@@ -666,7 +714,7 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
       return modelosTipo.find(x => mismoModelo(x.modelo, "Oyambre"))?.id ?? modelosTipo[0]?.id ?? "";
     }
     return "";
-  }, [modelosTipo, f.tipo, f.forma, f.formaPantalla]);
+  }, [modelosTipo, f.tipo, f.forma, f.formaPantalla, f.pufId, f.pufForma]);
 
   function setTipo(label: string) {
     const internal = (CATALOG_TO_INTERNAL[label] ?? "") as ProdTipo;
@@ -685,6 +733,11 @@ function CatalogoSelector({ f, s }: { f: ProdState; s: (patch: Partial<ProdState
     } else if (f.tipo === "pantalla") {
       const fp = PANTALLA_FORMAS.find(x => x.name.split("—")[0].trim() === m.modelo)?.id;
       if (fp) s({ formaPantalla: fp });
+    } else if (f.tipo === "puf") {
+      // Patos → cuadrado, Monteferro → redondo (antes este cambio se ignoraba
+      // y el selector volvía solo a "Patos").
+      const forma = pufFormaDeModeloCatalogo(m.modelo);
+      if (forma) s(patchFormaPuf(f, forma));
     }
   }
 
@@ -968,33 +1021,51 @@ export function ProductoForm({
 
       {/* ── PUF ── */}
       {f.tipo === "puf" && (() => {
-        const activasCuad = PUF_OPCIONES.filter(o => o.activo && o.forma === "cuadrado");
-        const activasRed  = PUF_OPCIONES.filter(o => o.activo && o.forma === "redondo");
         const selectedOpt = findPufById(f.pufId);
         const legacyExtra = selectedOpt && !selectedOpt.activo ? [selectedOpt] : [];
+        // La forma manda: con una medida de catálogo elegida es la de esa
+        // medida; si no, la que se haya marcado (o ninguna todavía).
+        const formaActual: PufForma = selectedOpt?.forma ?? f.pufForma;
+        const formas: PufOpcion["forma"][] = ["cuadrado", "redondo"];
+        // Sin forma decidida se enseñan las dos listas; con forma, solo la suya
+        // (elegir una medida de la otra lista cambiaría la forma sin querer).
+        const visibles = formaActual ? [formaActual] : formas;
+        const opcionesDe = (forma: PufOpcion["forma"]) =>
+          [...PUF_OPCIONES.filter(o => o.activo && o.forma === forma), ...legacyExtra.filter(o => o.forma === forma)];
         return (
         <>
           <div>
-            <div className={section}>Forma cuadrada</div>
+            <div className={section}>Forma</div>
             <div className="flex flex-wrap gap-2">
-              {[...activasCuad, ...legacyExtra.filter(o => o.forma === "cuadrado")].map(x => (
-                <button key={x.id} type="button"
-                  onClick={() => s(patchPrecio(isEditing, { pufId: x.id }, x.precio))}
-                  className={btn(f.pufId === x.id)}>
-                  {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
+              {formas.map(forma => (
+                <button key={forma} type="button"
+                  onClick={() => s(patchFormaPuf(f, forma))}
+                  className={btn(formaActual === forma)}>
+                  {PUF_FORMA_LABEL[forma]} · {PUF_MODELO_POR_FORMA[forma]}
                 </button>
               ))}
             </div>
-            <div className={`${section} mt-3`}>Forma redonda</div>
-            <div className="flex flex-wrap gap-2">
-              {[...activasRed, ...legacyExtra.filter(o => o.forma === "redondo")].map(x => (
-                <button key={x.id} type="button"
-                  onClick={() => s(patchPrecio(isEditing, { pufId: x.id }, x.precio))}
-                  className={btn(f.pufId === x.id)}>
-                  {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
-                </button>
-              ))}
-            </div>
+            <p className="mt-1.5 text-xs text-slate-400">
+              {formaActual
+                ? `Modelo ${PUF_MODELO_POR_FORMA[formaActual]} (puf ${formaActual}). Cambia la forma aquí o en el selector de modelo de arriba: es lo mismo.`
+                : "Elige la forma (o directamente una medida de abajo)."}
+            </p>
+          </div>
+          <div>
+            {visibles.map((forma, i) => (
+              <div key={forma}>
+                <div className={`${section} ${i > 0 ? "mt-3" : ""}`}>{formaActual ? "Medida" : `Medidas · ${PUF_FORMA_LABEL[forma].toLowerCase()}`}</div>
+                <div className="flex flex-wrap gap-2">
+                  {opcionesDe(forma).map(x => (
+                    <button key={x.id} type="button"
+                      onClick={() => s(patchPrecio(isEditing, { pufId: x.id, pufForma: x.forma }, x.precio))}
+                      className={btn(f.pufId === x.id)}>
+                      {x.label} · {x.precio}€{x.legacy ? " (retirado)" : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
             <div className={`${section} mt-3`}>Otras opciones</div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => s({ pufId: "custom" })} className={btn(f.pufId === "custom")}>Otra medida</button>
@@ -1002,11 +1073,16 @@ export function ProductoForm({
             </div>
             <PriceReconciler isEditing={isEditing} saved={f.precioUnitario} catalog={selectedOpt?.precio ?? 0} onUpdate={v => s({ precioUnitario: v })} />
             {f.pufId === "custom" && (
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <div><label className="mb-1 block text-xs text-slate-500">Ancho (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pufAnchoCustom} onChange={e => s({ pufAnchoCustom: e.target.value })} min={20} max={200} /></div>
-                <div><label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pufFondoCustom} onChange={e => s({ pufFondoCustom: e.target.value })} min={20} max={200} /></div>
+              <div className={`mt-2 grid gap-2 ${formaActual === "redondo" ? "grid-cols-2" : "grid-cols-3"}`}>
+                <div><label className="mb-1 block text-xs text-slate-500">{formaActual === "redondo" ? "Diámetro (cm)" : "Ancho (cm)"}</label><input type="number" inputMode="decimal" className={inp} value={f.pufAnchoCustom} onChange={e => s({ pufAnchoCustom: e.target.value })} min={20} max={200} /></div>
+                {formaActual !== "redondo" && (
+                  <div><label className="mb-1 block text-xs text-slate-500">Fondo (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pufFondoCustom} onChange={e => s({ pufFondoCustom: e.target.value })} min={20} max={200} /></div>
+                )}
                 <div><label className="mb-1 block text-xs text-slate-500">Alto (cm)</label><input type="number" inputMode="decimal" className={inp} value={f.pufAltoCustom} onChange={e => s({ pufAltoCustom: e.target.value })} min={20} max={100} /></div>
               </div>
+            )}
+            {(f.pufId === "custom" || f.pufId === "tbd") && !formaActual && (
+              <p className="mt-1.5 text-xs text-amber-600">Marca arriba si es cuadrado o redondo para que el taller lo sepa.</p>
             )}
           </div>
           <div>

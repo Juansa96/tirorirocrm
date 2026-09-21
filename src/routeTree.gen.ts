@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UsuariosRouteImport } from './routes/usuarios'
+import { Route as TelasRouteImport } from './routes/telas'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PipelineB2bRouteImport } from './routes/pipeline-b2b'
 import { Route as PipelineRouteImport } from './routes/pipeline'
@@ -46,6 +47,11 @@ import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/em
 const UsuariosRoute = UsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TelasRoute = TelasRouteImport.update({
+  id: '/telas',
+  path: '/telas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/telas': typeof TelasRoute
   '/usuarios': typeof UsuariosRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -254,6 +261,7 @@ export interface FileRoutesByTo {
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/telas': typeof TelasRoute
   '/usuarios': typeof UsuariosRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -290,6 +298,7 @@ export interface FileRoutesById {
   '/pipeline': typeof PipelineRoute
   '/pipeline-b2b': typeof PipelineB2bRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/telas': typeof TelasRoute
   '/usuarios': typeof UsuariosRoute
   '/b2b/nuevo': typeof B2bNuevoRoute
   '/clientes/$id': typeof ClientesIdRoute
@@ -327,6 +336,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/pipeline-b2b'
     | '/reset-password'
+    | '/telas'
     | '/usuarios'
     | '/b2b/nuevo'
     | '/clientes/$id'
@@ -361,6 +371,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/pipeline-b2b'
     | '/reset-password'
+    | '/telas'
     | '/usuarios'
     | '/b2b/nuevo'
     | '/clientes/$id'
@@ -396,6 +407,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/pipeline-b2b'
     | '/reset-password'
+    | '/telas'
     | '/usuarios'
     | '/b2b/nuevo'
     | '/clientes/$id'
@@ -432,6 +444,7 @@ export interface RootRouteChildren {
   PipelineRoute: typeof PipelineRoute
   PipelineB2bRoute: typeof PipelineB2bRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  TelasRoute: typeof TelasRoute
   UsuariosRoute: typeof UsuariosRoute
   B2bNuevoRoute: typeof B2bNuevoRoute
   ClientesIdRoute: typeof ClientesIdRoute
@@ -463,6 +476,13 @@ declare module '@tanstack/react-router' {
       path: '/usuarios'
       fullPath: '/usuarios'
       preLoaderRoute: typeof UsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/telas': {
+      id: '/telas'
+      path: '/telas'
+      fullPath: '/telas'
+      preLoaderRoute: typeof TelasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -714,6 +734,7 @@ const rootRouteChildren: RootRouteChildren = {
   PipelineRoute: PipelineRoute,
   PipelineB2bRoute: PipelineB2bRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  TelasRoute: TelasRoute,
   UsuariosRoute: UsuariosRoute,
   B2bNuevoRoute: B2bNuevoRoute,
   ClientesIdRoute: ClientesIdRoute,

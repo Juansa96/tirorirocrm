@@ -129,6 +129,8 @@ const FORMA_LIBRE_PREFIJO_RE = /^\(?\s*formas?\s+(?:personalizad[ao]s?|a\s+medid
 // (el panel del tapicero la enseña como distintivo y como extra de la ficha),
 // así que se quita aquí para que no tape el placeholder de "medida por decidir".
 const PUF_ALMACENAJE_SUFIJO_RE = /\s*[·-]?\s*con\s+almacenaje\s*$/i;
+// Placeholder de medida al FINAL del modelo ("Puf redondo (medida personalizada)").
+const MEDIDA_PLACEHOLDER_SUFIJO_RE = /\s*\(\s*medidas?\s+(?:personalizadas?|por decidir)\s*\)\s*$/i;
 
 export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
   if (esModeloTBD(modelo)) return "";
@@ -137,6 +139,9 @@ export function modeloDetalle(_tipo: unknown, modelo: unknown): string {
   let resto = det.replace(PREFIJO_TIPO_MODELO_RE, "").trim();
   resto = resto.replace(FORMA_LIBRE_PREFIJO_RE, "").trim(); // quita "Forma personalizada -"
   resto = resto.replace(PUF_ALMACENAJE_SUFIJO_RE, "").trim(); // quita "· Con almacenaje"
+  // "Puf redondo (medida personalizada)" → "redondo": el placeholder de medida
+  // al final no aporta nada al título; la forma sí.
+  resto = resto.replace(MEDIDA_PLACEHOLDER_SUFIJO_RE, "").trim();
   if (!resto) return "";                       // el modelo era solo el nombre del tipo / "forma personalizada"
   if (MODELO_PLACEHOLDER_RE.test(resto)) return "";
   if (/^por decidir$/i.test(resto)) return "";
@@ -539,6 +544,30 @@ export const PUF_ALMACENAJE_SUFIJO = ` · ${PUF_ALMACENAJE_LABEL}`;
 
 export function pufTieneAlmacenaje(modelo: unknown): boolean {
   return /almacenaje/i.test(String(modelo ?? ""));
+}
+
+// ── Modelo de catálogo ↔ forma del puf ─────────────────────────────────────
+// En `catalogo_productos` el puf tiene dos modelos: "Patos" (cúbico, es decir,
+// CUADRADO) y "Monteferro" (REDONDO). El selector de modelo del formulario y
+// los botones de forma son la misma decisión: elegir "Monteferro" pone el puf
+// redondo y elegir una medida redonda marca "Monteferro" en el selector.
+export const PUF_MODELO_POR_FORMA: Record<PufOpcion["forma"], string> = {
+  cuadrado: "Patos",
+  redondo: "Monteferro",
+};
+export const PUF_FORMA_LABEL: Record<PufOpcion["forma"], string> = {
+  cuadrado: "Cuadrado",
+  redondo: "Redondo",
+};
+
+// Forma que representa un modelo del catálogo ("Patos" → cuadrado, "Monteferro"
+// → redondo). Si el nombre no es uno de los dos, se intenta leer la forma del
+// propio texto ("Puf redondo"…). undefined si no se sabe.
+export function pufFormaDeModeloCatalogo(nombre: unknown): PufOpcion["forma"] | undefined {
+  for (const forma of ["cuadrado", "redondo"] as const) {
+    if (mismoModelo(nombre, PUF_MODELO_POR_FORMA[forma])) return forma;
+  }
+  return pufFormaDeModelo(nombre);
 }
 
 // ── Mesas de centro ────────────────────────────────────────────────────────

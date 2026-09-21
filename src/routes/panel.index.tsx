@@ -136,6 +136,17 @@ function Panel() {
   const [soloRetrasados, setSoloRetrasados] = useState(false);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
 
+  // La pestaña activa se trae a la vista en la fila desplazable (móvil).
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const cont = tabsRef.current;
+    const el = cont?.querySelector<HTMLElement>(`[data-vista="${vista}"]`);
+    if (!cont || !el) return;
+    const izq = el.offsetLeft - 12, der = el.offsetLeft + el.offsetWidth + 12;
+    if (izq < cont.scrollLeft) cont.scrollTo({ left: Math.max(0, izq), behavior: "smooth" });
+    else if (der > cont.scrollLeft + cont.clientWidth) cont.scrollTo({ left: der - cont.clientWidth, behavior: "smooth" });
+  }, [vista]);
+
   // ── Volver a la misma card al regresar de una ficha ───────────────────────
   // 1) Al montar (o cuando se sabe qué panel es), se recupera la vista guardada.
   //    Se hace en un efecto, no en el estado inicial, para no discrepar con el
@@ -357,13 +368,24 @@ function Panel() {
   return (
     <Shell onSignOut={signOut} equipo={esEquipo} bannerNombre={esEquipo ? tapiceroNombre(tapiceroActual) : ""}>
       <div className="mx-auto max-w-2xl px-3 py-4">
-        <div className="mb-3 flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs sm:text-sm">
-          {vistas.map((v) => (
-            <button key={v} onClick={() => setVista(v)}
-              className={`flex-1 whitespace-nowrap rounded-md px-1.5 py-1.5 text-center font-medium ${vista === v ? "bg-slate-900 text-white" : "text-slate-600"}`}>
-              {ETIQUETA_VISTA[v]} ({porEstado.get(v)?.length ?? 0})
-            </button>
-          ))}
+        {/* Pestañas de estado. En móvil no caben las cinco en el ancho de la
+            pantalla (la de "Entregados" se salía): la fila se desplaza en
+            horizontal, cada pestaña conserva su ancho y la activa se trae a la
+            vista sola. En pantallas anchas se reparten el ancho como antes. */}
+        <div ref={tabsRef} className="-mx-3 mb-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex w-max min-w-full gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 text-xs sm:text-sm">
+            {vistas.map((v) => {
+              const n = porEstado.get(v)?.length ?? 0;
+              const activa = vista === v;
+              return (
+                <button key={v} data-vista={v} onClick={() => setVista(v)}
+                  className={`inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 font-medium sm:flex-1 ${activa ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                  {ETIQUETA_VISTA[v]}
+                  <span className={`rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums ${activa ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {enCurso && (
