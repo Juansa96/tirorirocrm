@@ -273,8 +273,22 @@ function Panel() {
   // si no la hay, entrega): así la cola sigue mandándola la fecha y el arrastre
   // decide el orden dentro de ese día. Si se suelta algo en un día que no es el
   // suyo, vuelve a su sitio y se avisa (la fecha manda).
+  //
+  // La pestaña solo enseña los pedidos de UN estado, pero el orden manual es
+  // una sola cola compartida por Pendientes y En marcha (misma numeración por
+  // día). Si se renumerase solo con los visibles, un "Pendiente" podría acabar
+  // con la misma posición que un "En marcha" del mismo día y la cola se
+  // embarullaría. Por eso se renumera sobre la cola en curso COMPLETA: los
+  // pedidos de la otra pestaña conservan su hueco y los visibles se recolocan
+  // en los huecos que ya ocupaban, en el nuevo orden.
   async function guardarOrden(nuevoFlat: PanelPedido[]) {
-    const nuevoOrden = ordenPorDia(nuevoFlat);
+    const visibles = new Set(nuevoFlat.map((p) => p.id));
+    const enCursoTodos = ordenarFlat((pedidos ?? []).filter((p) => p.estado === "Pendiente" || p.estado === "En marcha"));
+    let i = 0;
+    const colaCompleta = enCursoTodos.map((p) => (visibles.has(p.id) ? nuevoFlat[i++] ?? p : p));
+    // Visibles que no estuvieran en la cola en curso (no debería pasar): al final.
+    for (; i < nuevoFlat.length; i++) colaCompleta.push(nuevoFlat[i]);
+    const nuevoOrden = ordenPorDia(colaCompleta);
     setOrdenOverride(Object.fromEntries(nuevoOrden));
     const conNuevoOrden = nuevoFlat.map((p) => ({ ...p, ordenProduccion: nuevoOrden.get(p.id) ?? null }));
     const resultado = ordenarFlat(conNuevoOrden);
@@ -282,8 +296,9 @@ function Panel() {
       toast.info("La cola la manda la fecha de recogida: se ha colocado dentro de su día.");
     }
     try {
-      // Solo se escriben los pedidos cuyo orden cambia realmente.
-      const cambios = nuevoFlat.filter((p) => (p.ordenProduccion ?? null) !== (nuevoOrden.get(p.id) ?? null));
+      // Solo se escriben los pedidos cuyo orden cambia realmente (también los
+      // de la otra pestaña si su número dentro del día ha cambiado).
+      const cambios = colaCompleta.filter((p) => (p.ordenProduccion ?? null) !== (nuevoOrden.get(p.id) ?? null));
       const res = await Promise.all(cambios.map((p) =>
         supabase.from("pedidos").update({ orden_produccion: nuevoOrden.get(p.id) ?? null } as never).eq("id", p.id)));
       // Supabase devuelve el fallo en `error`, no lo lanza: sin esto, un orden
