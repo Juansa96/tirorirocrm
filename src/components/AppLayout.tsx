@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Columns3, List, LogOut, Search, X, BarChart2, Package, Users, WifiOff, RefreshCw,
+  LayoutDashboard, Columns3, List, LogOut, Search, X, BarChart2, Package, Users, WifiOff, RefreshCw, Scissors,
 } from "lucide-react";
 import { useState, useEffect, useRef, type ComponentType } from "react";
 import { useAuth } from "@/lib/auth";
@@ -23,6 +23,8 @@ const NAV: NavItem[] = [
   { to: "/clientes", label: "Clientes", icon: List },
   { to: "/datos", label: "Datos", icon: BarChart2 },
   { to: "/pedidos", label: "Pedidos", icon: Package },
+  // Telas: qué tela lleva cada pedido, dónde está y cuántos metros.
+  { to: "/telas", label: "Telas", icon: Scissors },
   // Usuarios también en móvil: es la única vía para entrar al panel del
   // tapicero desde el teléfono (antes era desktopOnly y quedaba inaccesible).
   { to: "/usuarios", label: "Usuarios", icon: Users },

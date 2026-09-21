@@ -23,17 +23,22 @@ export function EstadoSelector({ estado, estados = [...ESTADOS_PEDIDO], onChange
   compacto?: boolean;
 }) {
   const actual = indiceEstado(estado);
+  // En móvil los cinco estados en una sola fila no caben ("Entregado al
+  // cliente" se salía de la pantalla): van a dos columnas y, si son cinco, el
+  // último ocupa la fila entera. En pantallas anchas, una fila como siempre.
+  const cols = estados.length === 5 ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4";
   return (
-    <div className={`grid gap-1.5 ${estados.length === 5 ? "grid-cols-5" : "grid-cols-4"}`}>
-      {estados.map((e) => {
+    <div className={`grid gap-1.5 ${cols}`}>
+      {estados.map((e, idx) => {
         const i = indiceEstado(e);
         const c = ESTADO_PEDIDO_COLORS[e];
         const activo = e === estado;
         const hecho = i < actual;
+        const ultimoImpar = estados.length % 2 === 1 && idx === estados.length - 1;
         return (
           <button key={e} type="button" disabled={disabled || activo} onClick={() => onChange(e)}
             title={activo ? "Estado actual" : hecho ? `Volver a «${e}»` : `Pasar a «${e}»`}
-            className={`rounded-xl border px-1.5 text-center font-bold leading-tight transition-colors disabled:cursor-default ${compacto ? "py-2 text-[11px]" : "py-3 text-xs sm:text-sm"} ${
+            className={`min-w-0 break-words rounded-xl border px-1.5 text-center font-bold leading-tight transition-colors disabled:cursor-default ${ultimoImpar ? "col-span-2 sm:col-span-1" : ""} ${compacto ? "py-2 text-[11px]" : "py-3 text-xs sm:text-sm"} ${
               activo
                 ? `${c.bg} ${c.text} border-transparent ring-2 ring-offset-1 ring-slate-900/70`
                 : hecho
