@@ -53,6 +53,10 @@ madera**, no una ficha de tapizado:
 - **Sin** telas, vivo, montaje, notas ni avisos (eso ya está en la ficha del CRM
   y en la imagen de referencia de Gemini). **Sin** página a escala 1:1.
 - Cabecera mínima: producto, medidas, nº de pedido y cliente.
-- Las proporciones de las formas (Conta, corona simple, ondas…) salen de los
-  paths del configurador de la web (`ProductSVGPreview.tsx` en el repo
-  `tiroriro`), redondeadas a 0,5 cm.
+- Reparto del alto en cabeceros con forma: **80 % tramo recto, 20 % tramo
+  curvo** (p. ej. 100 cm de alto → 80 recto + 20 de perfil). Marcar las dos
+  cotas RECTO / CURVA bien visibles. El reparto interno del tramo curvo
+  (escalones, arco) sigue las proporciones del configurador de la web
+  (`ProductSVGPreview.tsx` en el repo `tiroriro`), redondeado a 0,5 cm.
+- Si varios pedidos son la misma pieza (mismo modelo y medidas), un único
+  croquis para todos, indicando los números de pedido y las unidades.
