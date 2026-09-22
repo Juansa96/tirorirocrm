@@ -158,8 +158,11 @@ function PedidosIndex() {
         const items = g.items.filter(({ pedido, producto, sem, faltan }) => {
           if (view === "activos" ? pedido.entregado : !pedido.entregado) return false;
           if (semF !== "todos" && sem.estado !== semF) return false;
-          if (estadoF !== "todos" && pedido.estadoPedido !== estadoF) return false;
-          if (faltaF !== "todos" && !faltan.includes(faltaF)) return false;
+          // Los filtros de estado y de "qué falta" son de Activos: en el
+          // Archivo sus botones no se ven, así que no deben filtrar (si no, un
+          // filtro elegido antes dejaba el archivo vacío sin forma de saberlo).
+          if (view === "activos" && estadoF !== "todos" && pedido.estadoPedido !== estadoF) return false;
+          if (view === "activos" && faltaF !== "todos" && !faltan.includes(faltaF)) return false;
           if (q) {
             const nombre = g.nombre.toLowerCase();
             const prodTxt = ((producto?.modelo || "") + " " + (producto?.tipo || "")).toLowerCase();
