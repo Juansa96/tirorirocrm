@@ -3,13 +3,13 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, ESTADO_PEDIDO_COLORS, DIAS_PLAZO_DEFECTO, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, ESTADO_PEDIDO_COLORS, DIAS_PLAZO_DEFECTO, indiceEstado, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { EstadoBadge } from "@/components/EstadoPedido";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto, prodStateValido, type ProdState } from "@/components/ProductoForm";
 import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
-import { displayModelo, displayNombreProducto, tipoLabelOf, medidasEtiquetadas } from "@/lib/catalogo";
+import { displayModelo, displayNombreProducto, tipoLabelOf, medidasEtiquetadas, normalizeTipo } from "@/lib/catalogo";
 import { confirmar } from "@/components/Confirmar";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
@@ -81,10 +81,14 @@ function PedidosIndex() {
     const okT = tls.filter((t) => t.estado === "Recibida").length;
     const nombreTapicero = tapiceroNombre(tapiceros.find((t) => t.id === p.tapiceroId));
     // Qué le falta (solo tiene sentido en pedidos no entregados).
+    // Qué le falta. Solo mientras el pedido está en curso: recogido o entregado
+    // ya no le falta nada. El croquis (plantilla de corte) solo aplica a
+    // cabeceros; pufs, bancos, pantallas y almohadones no lo llevan.
     const faltan: FaltaKey[] = [];
-    if (!p.entregado) {
+    if (!p.entregado && indiceEstado(p.estadoPedido) < indiceEstado("Recogido")) {
       const archivos = pedidoArchivos.filter((a) => a.pedidoId === p.id);
-      if (!archivos.some((a) => a.tipo === "plantilla")) faltan.push("croquis");
+      const esCabecero = normalizeTipo(prod?.tipo) === "cabecero";
+      if (esCabecero && !archivos.some((a) => a.tipo === "plantilla")) faltan.push("croquis");
       if (!p.tapiceroId) faltan.push("tapicero");
       if (!archivos.some((a) => a.tipo === "referencia")) faltan.push("referencia");
       if (!p.fechaRecogida) faltan.push("recogida");
@@ -307,73 +311,63 @@ function PedidosIndex() {
         </div>
       )}
 
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      {/* Filtros: una sola tarjeta, con aire. Búsqueda arriba; debajo, filas
+          de pastillas (estado, plazo y "le falta"). En móvil cada fila se
+          desplaza en horizontal para no apilar; en pantallas anchas se reparte. */}
+      <div className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por cliente o producto…"
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-2 text-sm focus:border-slate-400 focus:bg-white focus:outline-none"
+            placeholder="Buscar cliente o producto"
+            className="h-11 w-full rounded-xl border-0 bg-slate-100 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
           />
-        </div>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
-          {(["todos", "verde", "ambar", "rojo"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setSemF(s)}
-              className={`rounded-md px-2 py-1 font-medium ${semF === s ? "bg-slate-900 text-white" : "text-slate-600"}`}
-            >
-              {s === "todos" ? "Todos" : SEM_COLOR[s].label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Estado del pedido (Pendiente / En marcha / Terminado / Recogido) */}
-      {estadosFiltro.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Estado</span>
-          <button onClick={() => setEstadoF("todos")}
-            className={`rounded-full border px-2.5 py-1 text-xs font-medium ${estadoF === "todos" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
-            Todos <span className="opacity-70">{enVista.length}</span>
-          </button>
-          {estadosFiltro.map((e) => {
-            const activo = estadoF === e;
-            const col = ESTADO_PEDIDO_COLORS[e];
-            return (
-              <button key={e} onClick={() => setEstadoF(activo ? "todos" : e)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${col.dot}`} />
-                {e} <span className="opacity-70">{porEstadoN.get(e) ?? 0}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Qué falta: croquis, tapicero, foto de referencia, recogida, medidas */}
-      {view === "activos" && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Falta</span>
-          {FALTAS.map((f) => {
-            const n = porFaltaN.get(f.key) ?? 0;
-            const activo = faltaF === f.key;
-            return (
-              <button key={f.key} onClick={() => setFaltaF(activo ? "todos" : f.key)} title={f.desc}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${activo ? "border-amber-600 bg-amber-600 text-white" : n > 0 ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" : "border-slate-200 bg-white text-slate-400"}`}>
-                {f.label} <span className={activo ? "opacity-80" : n > 0 ? "font-bold" : "opacity-70"}>{n}</span>
-              </button>
-            );
-          })}
-          {faltaF !== "todos" && (
-            <button onClick={() => setFaltaF("todos")} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-slate-500 hover:text-slate-700">
-              <X className="h-3 w-3" /> Quitar filtro
+          {search && (
+            <button type="button" onClick={() => setSearch("")} aria-label="Borrar búsqueda"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600">
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
-      )}
+
+        {estadosFiltro.length > 0 && (
+          <FiltroFila etiqueta="Estado">
+            <Pastilla activa={estadoF === "todos"} onClick={() => setEstadoF("todos")} n={enVista.length}>Todos</Pastilla>
+            {estadosFiltro.map((e) => (
+              <Pastilla key={e} activa={estadoF === e} onClick={() => setEstadoF(estadoF === e ? "todos" : e)} n={porEstadoN.get(e) ?? 0} punto={ESTADO_PEDIDO_COLORS[e].dot}>
+                {e}
+              </Pastilla>
+            ))}
+          </FiltroFila>
+        )}
+
+        {view === "activos" && (
+          <FiltroFila etiqueta="Plazo">
+            {(["todos", "verde", "ambar", "rojo"] as const).map((sm) => (
+              <Pastilla key={sm} activa={semF === sm} onClick={() => setSemF(semF === sm && sm !== "todos" ? "todos" : sm)} punto={sm === "todos" ? undefined : SEM_COLOR[sm].dot}>
+                {sm === "todos" ? "Todos" : SEM_COLOR[sm].label}
+              </Pastilla>
+            ))}
+          </FiltroFila>
+        )}
+
+        {view === "activos" && (
+          <FiltroFila etiqueta="Le falta">
+            {FALTAS.every((f) => (porFaltaN.get(f.key) ?? 0) === 0) ? (
+              <span className="inline-flex h-9 items-center gap-1.5 text-[13px] text-emerald-700">
+                <Check className="h-4 w-4" /> Todo en orden: ningún pedido tiene nada pendiente
+              </span>
+            ) : (
+              FALTAS.filter((f) => (porFaltaN.get(f.key) ?? 0) > 0).map((f) => (
+                <Pastilla key={f.key} tono="ambar" activa={faltaF === f.key} onClick={() => setFaltaF(faltaF === f.key ? "todos" : f.key)} n={porFaltaN.get(f.key) ?? 0} title={f.desc}>
+                  {f.label}
+                </Pastilla>
+              ))
+            )}
+          </FiltroFila>
+        )}
+      </div>
 
       {/* Grupos por persona */}
       <div className="space-y-4">
@@ -396,17 +390,45 @@ function PedidosIndex() {
 
 type EnrichedItem = { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number; nombreTapicero: string; faltan: FaltaKey[] };
 
-// Pastillas "Falta: croquis · tapicero…" de una card/fila de pedido.
-function FaltanChips({ faltan }: { faltan: FaltaKey[] }) {
+// Una sola línea discreta en la card/fila: "· Falta croquis, tapicero y medidas".
+function FaltaLinea({ faltan }: { faltan: FaltaKey[] }) {
   if (faltan.length === 0) return null;
+  const n = faltan.map((f) => FALTA_LABEL[f].toLowerCase());
+  const texto = n.length === 1 ? n[0] : `${n.slice(0, -1).join(", ")} y ${n[n.length - 1]}`;
   return (
-    <span className="inline-flex flex-wrap items-center gap-1" title="Cosas que faltan en este pedido">
-      {faltan.map((f) => (
-        <span key={f} className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
-          Falta {FALTA_LABEL[f].toLowerCase()}
-        </span>
-      ))}
-    </span>
+    <p className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700">
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" /> Falta {texto}
+    </p>
+  );
+}
+
+// Fila de filtros: etiqueta corta a la izquierda y pastillas a la derecha. En
+// móvil las pastillas se desplazan en horizontal (sin barra); en pantallas
+// anchas se envuelven con normalidad.
+function FiltroFila({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="w-14 shrink-0 pt-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{etiqueta}</span>
+      <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Pastilla({ activa, onClick, n, punto, tono = "neutro", title, children }: {
+  activa: boolean; onClick: () => void; n?: number; punto?: string; tono?: "neutro" | "ambar"; title?: string; children: React.ReactNode;
+}) {
+  const base = "inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-medium transition-colors";
+  const estilo = activa
+    ? (tono === "ambar" ? "bg-amber-500 text-white" : "bg-slate-900 text-white")
+    : (tono === "ambar" ? "bg-amber-50 text-amber-800 hover:bg-amber-100" : "bg-slate-100 text-slate-700 hover:bg-slate-200");
+  return (
+    <button type="button" onClick={onClick} title={title} className={`${base} ${estilo}`}>
+      {punto && <span className={`h-2 w-2 rounded-full ${activa ? "bg-white/80" : punto}`} />}
+      {children}
+      {n != null && <span className={`text-[11px] tabular-nums ${activa ? "text-white/70" : "text-slate-400"}`}>{n}</span>}
+    </button>
   );
 }
 
@@ -583,7 +605,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero, 
                 {estadoCobro(pedido)}{pedidoPendiente(pedido) > 0 ? ` · falta ${formatCurrency(pedidoPendiente(pedido))}` : ""}
               </span>
             </div>
-            {faltan.length > 0 && <div className="mt-1.5"><FaltanChips faltan={faltan} /></div>}
+            {faltan.length > 0 && <div className="mt-2"><FaltaLinea faltan={faltan} /></div>}
           </div>
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-300" />
         </Link>
@@ -691,7 +713,7 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero, f
         {producto?.ancho && producto?.alto && (
           <div className="text-[11px] text-slate-400">{producto.ancho}×{producto.alto}</div>
         )}
-        {faltan.length > 0 && <div className="mt-1"><FaltanChips faltan={faltan} /></div>}
+        {faltan.length > 0 && <div className="mt-1.5"><FaltaLinea faltan={faltan} /></div>}
       </td>
       <td className="px-3 py-2">
         <Link to="/pedidos/$id" params={{ id: pedido.id }} className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${okT === totalT && totalT > 0 ? "bg-emerald-50 text-emerald-700" : okT > 0 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>

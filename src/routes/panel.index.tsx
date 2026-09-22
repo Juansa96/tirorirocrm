@@ -536,8 +536,10 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
   const c = diasColor(p.diasRestantes, p.estado, !!p.fechaRecogida);
   // Medidas con etiqueta por tipo ("Ancho 150 · Alto 130 cm"); si falta una
   // obligatoria se enseña un aviso ámbar en vez de un texto gris. Si se han
-  // cambiado, el valor anterior sale tachado delante (p.antes).
+  // cambiado, el valor anterior sale tachado delante (p.antes). Un pedido ya
+  // recogido o entregado no avisa de nada: ese trabajo ya está hecho.
   const med = medidasEtiquetadas(p.tipo, p.modelo, p.ancho, p.alto, p.fondo);
+  const cerrado = p.estado === "Recogido" || p.estado === ESTADO_ENTREGADO_CLIENTE;
   const frontal = p.telas.find((t) => t.rol.toLowerCase() === "frontal");
   const arrastrandoEste = dnd?.dragKind === "product" && dnd.dragKey === p.id;
   const encima = !!dnd && dnd.overId === p.id && dnd.dragKey !== p.id;
@@ -577,10 +579,12 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
           </div>
           <div className="mt-0.5 text-xs text-slate-500">
             {p.antes.medidas && <s className="mr-1 text-slate-400" title={`Antes: ${p.antes.medidas}`}>{p.antes.medidas}</s>}
-            {med.faltan.length > 0 || !med.texto
-              ? <span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-amber-700">{med.texto ? `FALTA ${med.faltan.join(" Y ").toUpperCase()}` : "FALTAN MEDIDAS"}</span>
-              : med.texto}
-            {med.texto && med.faltan.length > 0 && <span className="ml-1.5">{med.texto}</span>}
+            {cerrado
+              ? (med.texto || "")
+              : med.faltan.length > 0 || !med.texto
+                ? <span className="inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-amber-700">{med.texto ? `FALTA ${med.faltan.join(" Y ").toUpperCase()}` : "FALTAN MEDIDAS"}</span>
+                : med.texto}
+            {!cerrado && med.texto && med.faltan.length > 0 && <span className="ml-1.5">{med.texto}</span>}
           </div>
           <div className="truncate text-xs text-slate-600"><Tachado antes={p.antes.tela_frontal}>{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</Tachado></div>
           {p.fechaRecogida && enCursoOTerminado(p.estado) && (

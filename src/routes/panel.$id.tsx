@@ -9,7 +9,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import {
   displayNombreProducto, telasDeProducto, etiquetaTela, vivoLabel, tipoLlevaVivo, montajeEfectivo,
-  pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL, medidasEtiquetadas, camposMedida,
+  pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL, medidasEtiquetadas, camposMedida, normalizeTipo,
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
@@ -52,6 +52,10 @@ function FichaPanel() {
   );
 
   const med = medidasEtiquetadas(p.tipo, p.modelo, p.ancho, p.alto, p.fondo);
+  // Recogido o entregado: el trabajo ya está hecho, no se avisa de nada que falte.
+  const cerrado = p.estado === "Recogido" || p.estado === ESTADO_ENTREGADO_CLIENTE;
+  // La plantilla de corte (croquis) solo existe para cabeceros.
+  const esCabecero = normalizeTipo(p.tipo) === "cabecero";
   const plazo = plazoBadge(p.diasRestantes, p.estado, !!p.fechaRecogida);
   const montajeEf = montajeEfectivo(p.tipo, p.montaje);
   const montaje = montajeEf === "colgar" ? "Colgar en pared" : montajeEf === "apoyar" ? "Apoyar en suelo" : "";
@@ -128,8 +132,8 @@ function FichaPanel() {
                 {/* Nº de unidades: en la lista sale como "×2 uds"; aquí también,
                     para que el taller sepa cuántas piezas iguales debe hacer. */}
                 <Dato k="Unidades" v={p.cantidad === 1 ? "1 unidad" : `${p.cantidad} unidades iguales`} destacado={p.cantidad > 1 || !!p.antes.cantidad} antes={p.antes.cantidad ? `${p.antes.cantidad} ud.` : ""} />
-                <Dato k="Medidas" wrap v={med.texto} vacio={med.faltan.length > 0 ? `Faltan: ${med.faltan.join(", ")}` : "Sin especificar"} antes={p.antes.medidas} />
-                {med.texto && med.faltan.length > 0 && <Dato k="" v="" vacio={`Falta: ${med.faltan.join(", ")}`} />}
+                <Dato k="Medidas" wrap v={med.texto} vacio={!cerrado && med.faltan.length > 0 ? `Faltan: ${med.faltan.join(", ")}` : "Sin especificar"} antes={p.antes.medidas} />
+                {!cerrado && med.texto && med.faltan.length > 0 && <Dato k="" v="" vacio={`Falta: ${med.faltan.join(", ")}`} />}
                 {med.extra && <Dato k="" wrap v={med.extra} />}
                 <Dato k="Cliente" v={p.cliente || "—"} />
                 <Dato k="Tapicero" v={p.tapiceroNombre || "Sin asignar"} />
@@ -179,7 +183,9 @@ function FichaPanel() {
         <section className="rounded-xl border border-slate-200 bg-white p-3">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Documentos</h2>
           <div className="grid gap-2 sm:grid-cols-2">
-            <DocSlot icon={<Scissors className="h-4 w-4 text-slate-500" />} titulo="Plantilla de corte" archivos={plantilla} vacio="Sin plantilla subida" nota={p.antes.plantilla} />
+            {(esCabecero || plantilla.length > 0) && (
+              <DocSlot icon={<Scissors className="h-4 w-4 text-slate-500" />} titulo="Plantilla de corte" archivos={plantilla} vacio={cerrado ? "—" : "Sin plantilla subida"} nota={p.antes.plantilla} />
+            )}
             <DocSlot icon={<Truck className="h-4 w-4 text-slate-500" />} titulo="Etiqueta de envío (lo recoge el transportista)" archivos={etiquetas} vacio="Sin etiqueta · lo recoge Juan" mostrarTransportista />
           </div>
         </section>
