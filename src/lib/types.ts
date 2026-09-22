@@ -585,6 +585,8 @@ export const ANTES_LABELS: Record<string, string> = {
   nota_tapicero: "indicaciones",
   fecha_recogida: "fecha de recogida",
   precio: "precio",
+  plantilla: "croquis (plantilla de corte)",
+  referencia: "foto de referencia",
 };
 
 // Lee el mapa de valores anteriores guardado en pasos_tapicero["@antes"].

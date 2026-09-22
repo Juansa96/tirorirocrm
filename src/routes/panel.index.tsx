@@ -572,6 +572,7 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
               <Tachado antes={p.antes.cantidad ? `×${p.antes.cantidad}` : ""}>×{p.cantidad} {p.cantidad === 1 ? "ud" : "uds"}</Tachado>
             </span>
             {pufTieneAlmacenaje(p.modelo) && <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">{PUF_ALMACENAJE_LABEL}</span>}
+            {p.antes.plantilla && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700" title={`Croquis: ${p.antes.plantilla}`}>↻ Croquis</span>}
             <span className="w-full font-semibold leading-tight text-slate-900"><Tachado antes={p.antes.modelo}>{displayNombreProducto(p.tipo, p.modelo)}</Tachado></span>
           </div>
           <div className="mt-0.5 text-xs text-slate-500">

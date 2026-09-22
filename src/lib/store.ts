@@ -850,6 +850,18 @@ async function anotarAntesPedidos(pedidoIds: string[], cambios: Record<string, s
   await Promise.all(afectados.map((a) => supabase.from("pedidos").update({ pasos_tapicero: nuevos.get(a.id) } as never).eq("id", a.id)));
 }
 
+// Croquis (plantilla de corte) y foto de referencia: si el pedido ya está en
+// el panel de un tapicero, se le deja una nota corta y con fecha ("Cambiado el
+// 21 sep") junto al documento, con la misma mecánica "@antes" del resto de
+// cambios (desaparece al llegar a Recogido). Solo esos dos tipos: las
+// etiquetas de envío no le afectan al trabajo.
+async function anotarCambioArchivoTapicero(pedidoId: string, tipo: string, texto: string) {
+  if (tipo !== "plantilla" && tipo !== "referencia") return;
+  const ped = state.pedidos.find((p) => p.id === pedidoId);
+  if (!ped?.tapiceroId) return; // aún no está en ningún panel: no hay nada que avisar
+  await anotarAntesPedidos([pedidoId], { [tipo]: texto });
+}
+
 // Texto legible del montaje para el tachado.
 function textoMontaje(m: string | null | undefined): string {
   return m === "colgar" ? "Colgar en pared" : m === "apoyar" ? "Apoyar en suelo" : "";
@@ -2301,6 +2313,7 @@ export const actions = {
   // La subida es solo del equipo (RLS lo garantiza). `transportista` solo aplica
   // a la etiqueta de envío.
   async subirArchivoPedido(pedidoId: string, tipo: "plantilla" | "etiqueta_ctt" | "etiqueta_envio" | "referencia", file: File, transportista?: string) {
+    const anteriores = state.pedidoArchivos.filter((a) => a.pedidoId === pedidoId && a.tipo === tipo);
     const path = `${pedidoId}/${tipo}/${crypto.randomUUID()}-${file.name}`;
     const { error: upErr } = await supabase.storage.from("pedido-archivos").upload(path, file, { upsert: false });
     if (upErr) { toast.error("No se pudo subir el archivo."); return; }
@@ -2311,15 +2324,23 @@ export const actions = {
     } as never);
     if (error) { toast.error("No se pudo guardar el archivo."); return; }
     await refetchPedidoArchivos();
+    await anotarCambioArchivoTapicero(pedidoId, tipo, anteriores.length > 0 ? `Cambiado el ${formatShortDate(todayISO())}` : `Añadido el ${formatShortDate(todayISO())}`);
   },
   async deleteArchivoPedido(id: string, storagePath: string) {
     const prevState = state;
+    const borrado = state.pedidoArchivos.find((a) => a.id === id);
     state = { ...state, pedidoArchivos: state.pedidoArchivos.filter((a) => a.id !== id) };
     emit();
     await supabase.storage.from("pedido-archivos").remove([storagePath]);
     const { error } = await supabase.from("pedido_archivos").delete().eq("id", id);
     if (error) { state = prevState; emit(); toast.error("No se pudo eliminar el archivo."); return; }
     await refetchPedidoArchivos();
+    // Si tras borrar no queda ningún archivo de ese tipo, el tapicero lo ve
+    // como "retirado"; si queda otro, como "cambiado".
+    if (borrado) {
+      const quedan = state.pedidoArchivos.some((a) => a.pedidoId === borrado.pedidoId && a.tipo === borrado.tipo);
+      await anotarCambioArchivoTapicero(borrado.pedidoId, borrado.tipo, `${quedan ? "Cambiado" : "Retirado"} el ${formatShortDate(todayISO())}`);
+    }
   },
 
   // deleteAuditEntry intentionally removed — audit log is append-only

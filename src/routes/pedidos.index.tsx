@@ -3,13 +3,13 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, ESTADO_PEDIDO_COLORS, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { EstadoBadge } from "@/components/EstadoPedido";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto, prodStateValido, type ProdState } from "@/components/ProductoForm";
 import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
-import { displayModelo, displayNombreProducto, tipoLabelOf } from "@/lib/catalogo";
+import { displayModelo, displayNombreProducto, tipoLabelOf, medidasEtiquetadas } from "@/lib/catalogo";
 import { confirmar } from "@/components/Confirmar";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
@@ -41,9 +41,24 @@ const SEM_COLOR: Record<RutaEstado, { bg: string; text: string; dot: string; lab
 // tiene sentido en el Archivo, donde viven los pedidos entregados).
 type EstadoFiltro = "todos" | EstadoPedido;
 
+// Filtro "qué falta": cosas que un pedido activo necesita para ir al taller o
+// para que el tapicero trabaje bien. Se calculan con datos que ya existen:
+// archivos del pedido (croquis = plantilla de corte, foto de referencia de
+// Gemini), tapicero asignado, fecha de recogida de Juan y medidas obligatorias.
+const FALTAS = [
+  { key: "croquis", label: "Croquis", desc: "Sin plantilla de corte subida" },
+  { key: "tapicero", label: "Tapicero", desc: "Sin tapicero asignado" },
+  { key: "referencia", label: "Foto de referencia", desc: "Sin imagen de referencia (Gemini)" },
+  { key: "recogida", label: "Fecha de recogida", desc: "Sin fecha de recogida de Juan" },
+  { key: "medidas", label: "Medidas", desc: "Falta alguna medida obligatoria" },
+] as const;
+type FaltaKey = (typeof FALTAS)[number]["key"];
+const FALTA_LABEL = Object.fromEntries(FALTAS.map((f) => [f.key, f.label])) as Record<FaltaKey, string>;
+
 function PedidosIndex() {
-  const { pedidos, leads, productos, pedidoTelas, tapiceros } = useStore();
+  const { pedidos, leads, productos, pedidoTelas, tapiceros, pedidoArchivos } = useStore();
   const [modo, setModo] = useState<"pedidos" | "produccion">("pedidos");
+  const [faltaF, setFaltaF] = useState<"todos" | FaltaKey>("todos");
   const [tab, setTab] = useState<"todos" | "normal" | "ab" | "influ">("todos");
   const [view, setView] = useState<"activos" | "archivo">("activos");
   const [search, setSearch] = useState("");
@@ -65,8 +80,18 @@ function PedidosIndex() {
     const totalT = tls.length;
     const okT = tls.filter((t) => t.estado === "Recibida").length;
     const nombreTapicero = tapiceroNombre(tapiceros.find((t) => t.id === p.tapiceroId));
-    return { pedido: p, lead, producto: prod, sem, prog, totalT, okT, nombreTapicero };
-  }), [pedidos, leads, productos, pedidoTelas, tapiceros]);
+    // Qué le falta (solo tiene sentido en pedidos no entregados).
+    const faltan: FaltaKey[] = [];
+    if (!p.entregado) {
+      const archivos = pedidoArchivos.filter((a) => a.pedidoId === p.id);
+      if (!archivos.some((a) => a.tipo === "plantilla")) faltan.push("croquis");
+      if (!p.tapiceroId) faltan.push("tapicero");
+      if (!archivos.some((a) => a.tipo === "referencia")) faltan.push("referencia");
+      if (!p.fechaRecogida) faltan.push("recogida");
+      if (!prod || medidasEtiquetadas(prod.tipo, prod.modelo, prod.ancho, prod.alto, prod.fondo).faltan.length > 0) faltan.push("medidas");
+    }
+    return { pedido: p, lead, producto: prod, sem, prog, totalT, okT, nombreTapicero, faltan };
+  }), [pedidos, leads, productos, pedidoTelas, tapiceros, pedidoArchivos]);
 
   // Colaboraciones (canje) — pedidos de influencer, van a su propia pestaña.
   const isCanje = ({ pedido, lead }: (typeof enriched)[number]) => pedido.esCanje || lead?.tipo === "INFLUENCER";
@@ -123,15 +148,18 @@ function PedidosIndex() {
   }, [baseTab, leadPorNombre]);
 
   const groups = useMemo(() => {
-    const filtered = groupsAll.filter((g) => view === "archivo" ? g.allEntregados : !g.allEntregados);
+    // Un pedido entregado va SIEMPRE al archivo, aunque su cliente tenga otros
+    // pedidos activos (antes esos pedidos "mixtos" no salían en ninguna vista).
+    const filtered = groupsAll.filter((g) => view === "archivo" ? g.items.some((it) => it.pedido.entregado) : !g.allEntregados);
     // Filtros texto/semáforo
     const q = search.trim().toLowerCase();
     return filtered
       .map((g) => {
-        const items = g.items.filter(({ pedido, producto, sem }) => {
-          if (view === "activos" && pedido.entregado) return false;
+        const items = g.items.filter(({ pedido, producto, sem, faltan }) => {
+          if (view === "activos" ? pedido.entregado : !pedido.entregado) return false;
           if (semF !== "todos" && sem.estado !== semF) return false;
           if (estadoF !== "todos" && pedido.estadoPedido !== estadoF) return false;
+          if (faltaF !== "todos" && !faltan.includes(faltaF)) return false;
           if (q) {
             const nombre = g.nombre.toLowerCase();
             const prodTxt = ((producto?.modelo || "") + " " + (producto?.tipo || "")).toLowerCase();
@@ -145,10 +173,18 @@ function PedidosIndex() {
       .sort((a, b) => view === "archivo"
         ? (b.oldest || "").localeCompare(a.oldest || "")
         : (a.oldest || "").localeCompare(b.oldest || ""));
-  }, [groupsAll, view, search, semF, estadoF]);
+  }, [groupsAll, view, search, semF, estadoF, faltaF]);
 
   const totalPedidos = groups.reduce((s, g) => s + g.items.length, 0);
-  const archivoCount = groupsAll.filter((g) => g.allEntregados).length;
+  const archivoCount = groupsAll.reduce((s, g) => s + g.items.filter((it) => it.pedido.entregado).length, 0);
+  // Contadores de los filtros (sobre la pestaña y vista actuales, sin los demás filtros).
+  const enVista = baseTab.filter((it) => view === "archivo" ? it.pedido.entregado : !it.pedido.entregado);
+  const porEstadoN = new Map<string, number>();
+  for (const it of enVista) porEstadoN.set(it.pedido.estadoPedido, (porEstadoN.get(it.pedido.estadoPedido) ?? 0) + 1);
+  const porFaltaN = new Map<FaltaKey, number>();
+  for (const it of enVista) for (const f of it.faltan) porFaltaN.set(f, (porFaltaN.get(f) ?? 0) + 1);
+  // En el archivo solo hay entregados: los filtros de estado y de "qué falta" no aplican.
+  const estadosFiltro = view === "archivo" ? [] : ESTADOS_PEDIDO.filter((e) => e !== "Entregado al cliente");
 
   const atrasados = baseTab.filter(({ pedido, sem }) => !pedido.entregado && sem.estado === "rojo");
 
@@ -290,16 +326,51 @@ function PedidosIndex() {
             </button>
           ))}
         </div>
-        <select
-          value={estadoF}
-          onChange={(e) => setEstadoF(e.target.value as EstadoFiltro)}
-          title="Filtrar por estado del pedido"
-          className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${estadoF !== "todos" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600"}`}
-        >
-          <option value="todos">Todos los estados</option>
-          {ESTADOS_PEDIDO.map((e) => <option key={e} value={e}>{e}</option>)}
-        </select>
       </div>
+
+      {/* Estado del pedido (Pendiente / En marcha / Terminado / Recogido) */}
+      {estadosFiltro.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Estado</span>
+          <button onClick={() => setEstadoF("todos")}
+            className={`rounded-full border px-2.5 py-1 text-xs font-medium ${estadoF === "todos" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+            Todos <span className="opacity-70">{enVista.length}</span>
+          </button>
+          {estadosFiltro.map((e) => {
+            const activo = estadoF === e;
+            const col = ESTADO_PEDIDO_COLORS[e];
+            return (
+              <button key={e} onClick={() => setEstadoF(activo ? "todos" : e)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${col.dot}`} />
+                {e} <span className="opacity-70">{porEstadoN.get(e) ?? 0}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Qué falta: croquis, tapicero, foto de referencia, recogida, medidas */}
+      {view === "activos" && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Falta</span>
+          {FALTAS.map((f) => {
+            const n = porFaltaN.get(f.key) ?? 0;
+            const activo = faltaF === f.key;
+            return (
+              <button key={f.key} onClick={() => setFaltaF(activo ? "todos" : f.key)} title={f.desc}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${activo ? "border-amber-600 bg-amber-600 text-white" : n > 0 ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" : "border-slate-200 bg-white text-slate-400"}`}>
+                {f.label} <span className={activo ? "opacity-80" : n > 0 ? "font-bold" : "opacity-70"}>{n}</span>
+              </button>
+            );
+          })}
+          {faltaF !== "todos" && (
+            <button onClick={() => setFaltaF("todos")} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-slate-500 hover:text-slate-700">
+              <X className="h-3 w-3" /> Quitar filtro
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Grupos por persona */}
       <div className="space-y-4">
@@ -320,7 +391,21 @@ function PedidosIndex() {
   );
 }
 
-type EnrichedItem = { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number; nombreTapicero: string };
+type EnrichedItem = { pedido: Pedido; lead: Lead | undefined; producto: Producto | undefined; sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number; nombreTapicero: string; faltan: FaltaKey[] };
+
+// Pastillas "Falta: croquis · tapicero…" de una card/fila de pedido.
+function FaltanChips({ faltan }: { faltan: FaltaKey[] }) {
+  if (faltan.length === 0) return null;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1" title="Cosas que faltan en este pedido">
+      {faltan.map((f) => (
+        <span key={f} className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+          Falta {FALTA_LABEL[f].toLowerCase()}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 const CAT_BADGE: Record<string, string> = {
   "B2C": "bg-slate-100 text-slate-600",
@@ -413,7 +498,7 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
           </thead>
           <tbody>
             {items.map((it) => (
-              <PedidoRow key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} nombreTapicero={it.nombreTapicero} />
+              <PedidoRow key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} nombreTapicero={it.nombreTapicero} faltan={it.faltan} />
             ))}
           </tbody>
         </table>
@@ -422,7 +507,7 @@ function PersonaGroup({ nombre, lead, items, categoria }: {
       {/* Móvil: tarjetas */}
       <div className="space-y-2 p-3 lg:hidden">
         {items.map((it) => (
-          <PedidoCard key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} nombreTapicero={it.nombreTapicero} />
+          <PedidoCard key={it.pedido.id} pedido={it.pedido} producto={it.producto} sem={it.sem} prog={it.prog} totalT={it.totalT} okT={it.okT} nombreTapicero={it.nombreTapicero} faltan={it.faltan} />
         ))}
       </div>
     </div>
@@ -447,9 +532,10 @@ const COBRO_BADGE: Record<string, string> = {
 
 // ──────────────────────────────────────────────────────────────────────────
 // Card móvil + bottom sheet de edición
-function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }: {
+function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero, faltan }: {
   pedido: Pedido; producto: Producto | undefined;
   sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number; nombreTapicero: string;
+  faltan: FaltaKey[];
 }) {
   const [editing, setEditing] = useState(false);
   const c = SEM_COLOR[sem.estado];
@@ -494,6 +580,7 @@ function PedidoCard({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }
                 {estadoCobro(pedido)}{pedidoPendiente(pedido) > 0 ? ` · falta ${formatCurrency(pedidoPendiente(pedido))}` : ""}
               </span>
             </div>
+            {faltan.length > 0 && <div className="mt-1.5"><FaltanChips faltan={faltan} /></div>}
           </div>
           <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-300" />
         </Link>
@@ -581,9 +668,10 @@ function SheetField({ label, children }: { label: string; children: React.ReactN
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }: {
+function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero, faltan }: {
   pedido: Pedido; producto: Producto | undefined;
   sem: ReturnType<typeof semaforoPedido>; prog: ReturnType<typeof progresoPedido>; totalT: number; okT: number; nombreTapicero: string;
+  faltan: FaltaKey[];
 }) {
   const c = SEM_COLOR[sem.estado];
   const tituloProducto = producto ? displayNombreProducto(producto.tipo, producto.modelo) : "—";
@@ -600,6 +688,7 @@ function PedidoRow({ pedido, producto, sem, prog, totalT, okT, nombreTapicero }:
         {producto?.ancho && producto?.alto && (
           <div className="text-[11px] text-slate-400">{producto.ancho}×{producto.alto}</div>
         )}
+        {faltan.length > 0 && <div className="mt-1"><FaltanChips faltan={faltan} /></div>}
       </td>
       <td className="px-3 py-2">
         <Link to="/pedidos/$id" params={{ id: pedido.id }} className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${okT === totalT && totalT > 0 ? "bg-emerald-50 text-emerald-700" : okT > 0 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
