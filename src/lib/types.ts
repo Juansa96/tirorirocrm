@@ -354,6 +354,10 @@ export function numeroPedidoLabel(numero: number | null | undefined, sufijo?: st
   return `${numero}${(sufijo ?? "").trim().toUpperCase()}`;
 }
 
+// Plazo de entrega por defecto de un pedido nuevo (días naturales): un mes.
+// Antes eran 20 días. Cada pedido puede cambiarlo en su ficha.
+export const DIAS_PLAZO_DEFECTO = 30;
+
 export interface Pedido {
   id: string;
   numero: number | null;      // número del pedido (correlativo, puede repetirse); null = sin número
