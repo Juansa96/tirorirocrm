@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, ESTADO_PEDIDO_COLORS, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, ESTADO_PEDIDO_COLORS, DIAS_PLAZO_DEFECTO, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { EstadoBadge } from "@/components/EstadoPedido";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
@@ -768,7 +768,7 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
   const [productoId, setProductoId] = useState<string>("");
   // Producto nuevo: MISMO formulario completo que en Clientes (características).
   const [prodState, setProdState] = useState<ProdState>(EMPTY_PROD_STATE);
-  const [diasPlazo, setDiasPlazo] = useState(20);
+  const [diasPlazo, setDiasPlazo] = useState(DIAS_PLAZO_DEFECTO);
   const [precio, setPrecio] = useState(0);
   const [precioTocado, setPrecioTocado] = useState(false);
   const [reserva, setReserva] = useState(0);
@@ -919,7 +919,7 @@ function NuevoPedidoModal({ onClose }: { onClose: () => void }) {
 
           {/* Datos pedido */}
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Días de plazo"><input type="number" inputMode="numeric" min={1} value={diasPlazo} onChange={(e) => setDiasPlazo(parseInt(e.target.value) || 20)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
+            <Field label="Días de plazo"><input type="number" inputMode="numeric" min={1} value={diasPlazo} onChange={(e) => setDiasPlazo(parseInt(e.target.value) || DIAS_PLAZO_DEFECTO)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
             <Field label="Precio (€)"><input type="number" inputMode="decimal" step="0.01" value={precio} onChange={(e) => { setPrecio(parseFloat(e.target.value) || 0); setPrecioTocado(true); }} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
             <Field label="Reserva (€)"><input type="number" inputMode="decimal" step="0.01" value={reserva} onChange={(e) => setReserva(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>
             <Field label="Coste envío (€)"><input type="number" inputMode="decimal" step="0.01" value={costeEnvio} onChange={(e) => setCosteEnvio(parseFloat(e.target.value) || 0)} className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base md:py-1.5 md:text-sm" /></Field>

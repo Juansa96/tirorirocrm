@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ArrowLeft, Trash2, Package, ExternalLink, Save, Ruler, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, esPantalla, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, DIAS_PLAZO_DEFECTO, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, esPantalla, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas, rellenoEsTelaVivo } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
@@ -205,7 +205,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
               <input
                 type="number" inputMode="decimal" min={1}
                 value={draft.diasPlazo}
-                onChange={(e) => patch({ diasPlazo: Math.max(1, parseInt(e.target.value) || 20) })}
+                onChange={(e) => patch({ diasPlazo: Math.max(1, parseInt(e.target.value) || DIAS_PLAZO_DEFECTO) })}
                 className="mt-1 w-24 rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
               />
             </div>

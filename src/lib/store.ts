@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo, EstadoPedido } from "./types";
-import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
+import { DIAS_PLAZO_DEFECTO, VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO, formatShortDate } from "./format";
 import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, displayNombreProducto, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
@@ -192,7 +192,7 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     leadId: (r.lead_id as string) ?? "",
     clienteNombreLibre: (r.cliente_nombre_libre as string) ?? "",
     fechaCreacionPedido: (r.fecha_creacion_pedido as string) ?? "",
-    diasPlazo: Number(r.dias_plazo) || 20,
+    diasPlazo: Number(r.dias_plazo) || DIAS_PLAZO_DEFECTO,
     fechaLimite: (r.fecha_limite as string) ?? "",
     fechaEntregaReal: (r.fecha_entrega_real as string) ?? "",
     pagado50: !!r.pagado_50,
@@ -1709,7 +1709,7 @@ export const actions = {
       // Montaje elegido por el cliente (web o formulario de producto) → el
       // pedido nace con él, que es lo que lee el panel del tapicero.
       montaje: montajeDeExtras(prod.patas) || "",
-      dias_plazo: opts.diasPlazo ?? 20,
+      dias_plazo: opts.diasPlazo ?? DIAS_PLAZO_DEFECTO,
       pagado_50: opts.pagado50,
       creado_manualmente: opts.creadoManualmente,
       precio,
