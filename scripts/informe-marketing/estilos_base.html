@@ -1,0 +1,288 @@
+<title>Parte de marketing Tiroriro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F8F5F0; --surface:#FFFFFF; --ink:#133A43; --ink-2:#48646B; --muted:#7A8C90; --line:#E4DDD1; --soft:#EFE9DF;
+  --s1:#00849F; --s2:#C27A2C; --area:rgba(0,132,159,.10);
+  --good:#2E7D5B; --good-bg:#E4F1EA; --bad:#B4432F; --bad-bg:#F7E4DF; --warn:#9A6A12; --warn-bg:#F6ECD6;
+  --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif; --sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark; --bg:#0E1F24; --surface:#152B31; --ink:#E7EFF0; --ink-2:#B3C4C7; --muted:#86999D; --line:#27434B; --soft:#1B363E;
+  --s1:#1FA5BD; --s2:#C4802C; --area:rgba(31,165,189,.14);
+  --good:#6CC49A; --good-bg:#17352A; --bad:#EE8A76; --bad-bg:#3A201B; --warn:#E3B25C; --warn-bg:#352B17;}}
+:root[data-theme="dark"]{
+  color-scheme:dark; --bg:#0E1F24; --surface:#152B31; --ink:#E7EFF0; --ink-2:#B3C4C7; --muted:#86999D; --line:#27434B; --soft:#1B363E;
+  --s1:#1FA5BD; --s2:#C4802C; --area:rgba(31,165,189,.14);
+  --good:#6CC49A; --good-bg:#17352A; --bad:#EE8A76; --bad-bg:#3A201B; --warn:#E3B25C; --warn-bg:#352B17;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--sans);margin:0}
+.wrap{max-width:880px;margin:0 auto;padding:40px 20px 72px}
+h1,h2{font-family:var(--serif);font-weight:500;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3rem);line-height:1.05}
+h2{font-size:1.75rem;line-height:1.15}
+.eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+header{display:grid;gap:10px;padding-bottom:28px;border-bottom:1px solid var(--line)}
+header p{margin:0;color:var(--ink-2);max-width:62ch}
+section{padding-block:36px;border-bottom:1px solid var(--line);display:grid;gap:18px}
+section:last-of-type{border-bottom:0}
+p{margin:0;max-width:65ch}
+.lead{font-size:1.05rem}
+.verdict{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.verdict li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.chip{font-size:.72rem;font-weight:600;letter-spacing:.04em;padding:3px 9px;border-radius:99px;white-space:nowrap;margin-top:2px}
+.up{color:var(--good);background:var(--good-bg)} .down{color:var(--bad);background:var(--bad-bg)} .flat{color:var(--warn);background:var(--warn-bg)}
+.periods{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.per{background:var(--surface);padding:18px 18px 16px;display:grid;gap:12px;align-content:start}
+.per h3{margin:0;font-size:.95rem;font-weight:600}
+.per h3 small{display:block;font-weight:400;color:var(--muted);font-size:.78rem}
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:.9rem}
+.kv dt{color:var(--ink-2)} .kv dd{margin:0;text-align:right;font-weight:600}
+.kv dd i{font-style:normal;font-weight:500;font-size:.78rem;margin-left:6px}
+.kv dd i.p{color:var(--good)} .kv dd i.n{color:var(--bad)} .kv dd i.z{color:var(--muted)}
+.kv .sep{grid-column:1/-1;border-top:1px dashed var(--line);margin:4px 0}
+.note{font-size:.82rem;color:var(--muted)}
+.figure{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 16px 10px;position:relative}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:.82rem;color:var(--ink-2);margin-bottom:6px}
+.legend span::before{content:"";display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle;background:var(--c)}
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .ax{fill:var(--muted);font-size:11px;font-family:var(--sans)}
+.chart .area{fill:var(--area)} .chart .l1{fill:none;stroke:var(--s1);stroke-width:2;stroke-linejoin:round}
+.chart .l2{fill:none;stroke:var(--s2);stroke-width:2;stroke-linejoin:round} .chart .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+.chart .hit{fill:transparent;cursor:crosshair} .chart .xh{stroke:var(--muted);stroke-dasharray:3 3}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.78rem;padding:7px 9px;border-radius:6px;line-height:1.35;white-space:nowrap}
+.frow,.brow{display:grid;grid-template-columns:150px 1fr 110px;gap:12px;align-items:center;font-size:.88rem}
+.ftrack,.btrack{height:14px;background:var(--soft);border-radius:4px;overflow:hidden}
+.fbar{height:100%;background:var(--s1);border-radius:0 4px 4px 0}
+.bbar{height:100%;background:var(--s1);border-radius:0 4px 4px 0}
+.fval,.bval{text-align:right;font-variant-numeric:tabular-nums} .fval span{color:var(--muted);font-size:.8rem}
+.stack{display:grid;gap:9px}
+.callout{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:6px;padding:16px 18px;display:grid;gap:8px}
+.callout.ok{border-left-color:var(--good)}
+.callout h3{margin:0;font-size:1rem}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--soft)}
+tbody tr:last-child td{border-bottom:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.facts{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.facts li{padding-left:16px;position:relative}
+.facts li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--s1)}
+ol.acts{margin:0;padding-left:22px;display:grid;gap:12px}
+ol.acts li{padding-left:4px} ol.acts b{display:block}
+.pill{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--ink-2)}
+footer{padding-top:28px;font-size:.8rem;color:var(--muted);display:grid;gap:6px}
+@media (max-width:720px){.periods{grid-template-columns:1fr}.two{grid-template-columns:1fr}.frow,.brow{grid-template-columns:110px 1fr 84px;gap:8px}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Parte de marketing · miércoles 23 de septiembre de 2026</div>
+  <h1>Buena semana de visitas; el anuncio de Meta lleva dos semanas apagado</h1>
+  <p>Datos de Google Analytics, del CRM de Tiroriro y de Instagram (Metricool). «Ayer» es el lunes 22; la semana va del 16 al 22 de septiembre; el mes, del 1 al 22.</p>
+</header>
+
+<section>
+  <div class="eyebrow">En 30 segundos</div>
+  <ul class="verdict">
+    <li><span class="chip up">SUBE</span><p><b>La web crece sin pagar:</b> 738 personas esta semana (+27 % frente a la anterior), casi todas desde Instagram orgánico, Google y ChatGPT.</p></li>
+    <li><span class="chip up">SUBE</span><p><b>El doble de leads que la semana pasada:</b> 14 en el CRM (7 la anterior). Son contactos, todavía no ventas.</p></li>
+    <li><span class="chip down">BAJA</span><p><b>Ventas cerradas:</b> 3 esta semana (1.190 €) frente a 7 la anterior (3.885 €). El embudo tiene 32 clientes en negociación esperando cierre.</p></li>
+    <li><span class="chip down">PARADO</span><p><b>Campaña de Meta «ES_Cabeceros_Leads_Sep26»:</b> sin visitas desde el 9 de septiembre. No está gastando.</p></li>
+    <li><span class="chip flat">FRENO</span><p><b>El configurador engancha, pero no convierte:</b> 1.278 personas lo usaron en 30 días y solo 33 empezaron el formulario.</p></li>
+  </ul>
+</section>
+
+<section>
+  <div class="eyebrow">Ayer, la semana y el mes</div>
+  <div class="periods">
+    <div class="per"><h3>Ayer <small>lunes 22 · vs lunes 15</small></h3>
+      <dl class="kv num">
+        <dt>Personas en la web</dt><dd>52<i class="p">+41 %</i></dd>
+        <dt>Visitas</dt><dd>77<i class="p">+54 %</i></dd>
+        <dt>Tiempo medio</dt><dd>4 min 38 s</dd>
+        <div class="sep"></div>
+        <dt>Leads (CRM)</dt><dd>2<i class="p">+1</i></dd>
+        <dt>Formularios web</dt><dd>0<i class="n">−1</i></dd>
+        <dt>Clics a WhatsApp</dt><dd>0<i class="n">−2</i></dd>
+        <dt>Ventas</dt><dd>1 · 80 €</dd>
+      </dl></div>
+    <div class="per"><h3>Semana <small>16–22 sep · vs 9–15 sep</small></h3>
+      <dl class="kv num">
+        <dt>Personas en la web</dt><dd>738<i class="p">+27 %</i></dd>
+        <dt>Visitas</dt><dd>974<i class="p">+32 %</i></dd>
+        <dt>Tiempo medio</dt><dd>3 min 47 s</dd>
+        <div class="sep"></div>
+        <dt>Leads (CRM)</dt><dd>14<i class="p">×2</i></dd>
+        <dt>Formularios web</dt><dd>7<i class="p">+4</i></dd>
+        <dt>Clics a WhatsApp</dt><dd>14<i class="z">=</i></dd>
+        <dt>Ventas</dt><dd>3 · 1.190 €<i class="n">−4</i></dd>
+      </dl></div>
+    <div class="per"><h3>Mes <small>1–22 sep</small></h3>
+      <dl class="kv num">
+        <dt>Personas en la web</dt><dd>1.911</dd>
+        <dt>Visitas</dt><dd>2.589</dd>
+        <dt>Tiempo medio</dt><dd>3 min 37 s</dd>
+        <div class="sep"></div>
+        <dt>Leads (CRM)</dt><dd>32</dd>
+        <dt>Formularios web</dt><dd>13</dd>
+        <dt>Clics a WhatsApp</dt><dd>42</dd>
+        <dt>Ventas</dt><dd>15 · 6.505 €</dd>
+      </dl></div>
+  </div>
+  <p class="note">El mes no se compara con agosto: Analytics empezó a medir bien a finales de agosto. Desde octubre ya habrá comparación mes a mes. Recuerda que Analytics solo cuenta a quien acepta las cookies; los leads y ventas de verdad salen del CRM.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Visitas día a día</div>
+  <h2>El anuncio de Meta dio un empujón del 3 al 8 de septiembre, y se apagó</h2>
+  <div class="figure" id="serie">
+    <div class="legend"><span style="--c:var(--s1)">Visitas totales</span><span style="--c:var(--s2)">Desde el anuncio de Meta</span></div>
+    {{SERIE}}
+  </div>
+  <p>Sin el anuncio, la web se mantiene en unas <b>100–150 visitas diarias</b>, casi todas de Instagram orgánico. El anuncio llegó a sumar hasta 94 visitas al día y el 9 de septiembre cayó a cero de golpe. Eso es una pausa, un presupuesto agotado o un fallo de pago, no desgaste del anuncio.</p>
+</section>
+
+<section>
+  <div class="eyebrow">De dónde viene la gente · 1–22 sep</div>
+  <div class="figure stack">{{CANALES}}</div>
+  <div class="tbl"><table>
+    <thead><tr><th>Canal</th><th>Personas</th><th>Formularios</th><th>Clics WhatsApp</th><th>Contacta 1 de cada</th></tr></thead>
+    <tbody>
+      <tr><td>Google (orgánico)</td><td>190</td><td>5</td><td>6</td><td>17</td></tr>
+      <tr><td>Anuncios Meta</td><td>334</td><td>4</td><td>12</td><td>21</td></tr>
+      <tr><td>ChatGPT y otras IA</td><td>42</td><td>1</td><td>3</td><td>11</td></tr>
+      <tr><td>Instagram orgánico</td><td>1.135</td><td>3</td><td>18</td><td>54</td></tr>
+      <tr><td>Directo</td><td>158</td><td>0</td><td>3</td><td>53</td></tr>
+      <tr><td>Google Ads (campaña pausada)</td><td>54</td><td>0</td><td>0</td><td>—</td></tr>
+    </tbody></table></div>
+  <ul class="facts">
+    <li><b>Google trae poca gente, pero la mejor:</b> se quedan casi 6 minutos y 1 de cada 17 contacta. Es el canal más rentable y es gratis.</li>
+    <li><b>ChatGPT ya te manda clientes:</b> 42 personas este mes, que leen casi 6 minutos. Buena señal para la web.</li>
+    <li><b>Instagram mueve volumen, pero curiosea:</b> 6 de cada 10 visitas vienen de ahí y solo 1 de cada 54 contacta. Además, 57 personas salen de la web hacia vuestro Instagram.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="eyebrow">Dónde se para la gente · últimos 30 días</div>
+  <h2>El freno está entre el configurador y el contacto</h2>
+  <div class="figure stack">{{EMBUDO}}</div>
+  <div class="callout">
+    <h3>El «stopper»: 1.278 personas diseñan su cabecero y casi nadie pide precio</h3>
+    <p>Pasan más de un minuto de media en el configurador, que es la página más usada de la web. Pero solo 33 empiezan el formulario, y de esos 33 solo 18 lo terminan (la mitad abandona a medias). Sumando WhatsApp, contacta aproximadamente <b>1 de cada 20</b> personas que configuran.</p>
+    <p>En el móvil, que es el 93 % del tráfico, se nota más: contacta el 0,6 % de las personas, frente al 2,9 % en ordenador. <b>Lo más probable es que al terminar de diseñar no haya un siguiente paso claro en el móvil</b> («Pedir precio de este diseño por WhatsApp»).</p>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Quién es y desde dónde se conecta</div>
+  <div class="two">
+    <div class="tbl"><table>
+      <thead><tr><th>Ciudad</th><th>Personas</th></tr></thead>
+      <tbody><tr><td>Madrid</td><td>643</td></tr><tr><td>Sevilla</td><td>135</td></tr><tr><td>Valencia</td><td>120</td></tr><tr><td>Barcelona</td><td>106</td></tr><tr><td>Bilbao</td><td>51</td></tr><tr><td>Málaga</td><td>32</td></tr></tbody></table></div>
+    <ul class="facts">
+      <li><b>Madrid es un tercio de todo</b> (Comunidad de Madrid, 920 personas). En el CRM también es la ciudad con más ventas.</li>
+      <li><b>93 % desde el móvil.</b> El ordenador trae poca gente, pero convierte cinco veces más.</li>
+      <li><b>Mejores horas: de 20:00 a 22:00</b>, con otro pico a las 14:00–15:00. Los días más fuertes son el sábado y el jueves. Buen momento para publicar y para que los anuncios pujen más.</li>
+      <li><b>Edad:</b> Google aún no la muestra porque Google Signals está recién comprobado y con pocas visitas oculta los datos. En el CRM solo hay edad en 28 leads; de ellos, 16 tienen menos de 30 años.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Quién compra · CRM, últimos 30 días</div>
+  <div class="tbl"><table>
+    <thead><tr><th>Origen del lead</th><th>Leads</th><th>Ventas</th><th>Facturado</th><th>Ticket medio</th><th>Días hasta cerrar</th></tr></thead>
+    <tbody>
+      <tr><td>WhatsApp</td><td>14</td><td>7</td><td>3.510 €</td><td>455 €</td><td>24</td></tr>
+      <tr><td>Configurador</td><td>13</td><td>4</td><td>2.040 €</td><td>489 €</td><td>13</td></tr>
+      <tr><td>Referido</td><td>10</td><td>6</td><td>2.848 €</td><td>348 €</td><td>6</td></tr>
+      <tr><td>Formulario web</td><td>5</td><td>2</td><td>2.065 €</td><td>795 €</td><td>46</td></tr>
+      <tr><td>Instagram (DM)</td><td>2</td><td>1</td><td>540 €</td><td>585 €</td><td>15</td></tr>
+    </tbody></table></div>
+  <ul class="facts">
+    <li><b>WhatsApp es tu mejor vendedor:</b> la mitad de sus leads acaba pagando.</li>
+    <li><b>Los referidos cierran en 6 días.</b> El boca a boca funciona; merece un empujón (descuento por recomendar).</li>
+    <li><b>El formulario web trae los tickets más altos (795 €) pero tarda 46 días en cerrar.</b> Son clientes que necesitan seguimiento.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="eyebrow">Campañas</div>
+  <div class="tbl"><table>
+    <thead><tr><th>Campaña</th><th>Estado</th><th>Visitas (sep)</th><th>Contactos web</th><th>Gasto</th></tr></thead>
+    <tbody>
+      <tr><td>Meta · ES_Cabeceros_Leads_Sep26</td><td><span class="chip down">Parada desde 9 sep</span></td><td>432</td><td>16</td><td>pendiente</td></tr>
+      <tr><td>Google Ads · Búsqueda – Cabeceros a medida</td><td><span class="pill">Pausada</span></td><td>58</td><td>0</td><td>—</td></tr>
+    </tbody></table></div>
+  <p class="note">Contactos web = formularios más clics a WhatsApp medidos por Analytics. El gasto de Meta aparecerá en cuanto Metricool termine de importar el histórico de la cuenta publicitaria (conectada hoy); con eso calcularé el coste por lead y por venta.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Alertas</div>
+  <div class="callout">
+    <h3>Campaña gastando sin leads</h3>
+    <p>Ninguna, porque la única campaña activa no está gastando. Revisa en el Administrador de anuncios la columna «Entrega» de «ES_Cabeceros_Leads_Sep26».</p>
+  </div>
+  <div class="callout">
+    <h3>Conversaciones de WhatsApp donde el cliente escribió lo último hace más de 24 h</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Cliente</th><th>Etapa</th><th>Último mensaje del cliente</th></tr></thead>
+      <tbody>{{SIN_RESPUESTA}}</tbody></table></div>
+    <p class="note">Algunas pueden ser un simple «gracias» que no necesita respuesta; conviene echarles un ojo.</p>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Objetivos que te propongo</div>
+  <div class="tbl"><table>
+    <thead><tr><th>Indicador</th><th>Ritmo de septiembre</th><th>Objetivo mensual</th></tr></thead>
+    <tbody>
+      <tr><td>Leads en el CRM</td><td>≈ 44 / mes</td><td>55</td></tr>
+      <tr><td>Ventas</td><td>≈ 20 / mes</td><td>22</td></tr>
+      <tr><td>Facturación</td><td>≈ 9.000 € / mes</td><td>10.000 €</td></tr>
+      <tr><td>Contactan de cada 100 que configuran</td><td>≈ 5</td><td>8</td></tr>
+      <tr><td>Coste por lead en Meta</td><td>sin datos aún</td><td>≤ 15 €</td></tr>
+    </tbody></table></div>
+  <p class="note">Si te parecen bien, desde mañana el informe dirá si vas por delante o por detrás del ritmo.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Qué haría yo hoy</div>
+  <ol class="acts">
+    <li><b>Reactivar o rehacer la campaña de Meta.</b> Del 3 al 8 de septiembre trajo el 17 % de las visitas del mes y 16 contactos. Mira por qué se paró antes de meter más presupuesto.</li>
+    <li><b>Poner un botón «Pedir precio de este diseño por WhatsApp» al final del configurador, bien visible en el móvil.</b> Es el mayor freno de la web y WhatsApp es tu canal que mejor cierra. Si quieres, lo preparo yo en la web.</li>
+    <li><b>Contestar a Javi (Luxemburgo) y repasar las conversaciones de la tabla de alertas.</b></li>
+    <li><b>Limpiar el CRM:</b> 19 «clientes potenciales» llevan unos 82 días sin moverse. O se reactivan, o pasan a perdidos, para que las cifras de conversión sean reales.</li>
+  </ol>
+</section>
+
+<footer>
+  <div>Instagram: 4.490 seguidores, +116 en los últimos 5 días (−5). Métricas completas de alcance a partir de esta semana.</div>
+  <div>Fuentes: Google Analytics 4 (propiedad Tiroriro Home) · CRM Tiroriro · Metricool. Generado el 23/09/2026.</div>
+</footer>
+</div>
+
+<script>
+(function(){
+  var fig=document.getElementById('serie'); if(!fig) return;
+  var svg=fig.querySelector('svg'), xh=svg.querySelector('.xh'), tip=document.createElement('div');
+  tip.className='tip'; tip.hidden=true; fig.appendChild(tip);
+  svg.querySelectorAll('.hit').forEach(function(r){
+    r.addEventListener('mouseenter',function(){
+      var x=+r.getAttribute('x')+ +r.getAttribute('width')/2;
+      xh.setAttribute('x1',x); xh.setAttribute('x2',x); xh.hidden=false;
+      tip.innerHTML='<b>'+r.dataset.t+'</b><br>'+r.dataset.a+' visitas'+(+r.dataset.b?'<br>'+r.dataset.b+' desde Meta':'');
+      var bb=svg.getBoundingClientRect(), fb=fig.getBoundingClientRect(), px=bb.left-fb.left+x/720*bb.width;
+      tip.hidden=false; tip.style.top='44px'; tip.style.left=Math.min(Math.max(px-tip.offsetWidth/2,8),fb.width-tip.offsetWidth-8)+'px';
+    });
+  });
+  svg.addEventListener('mouseleave',function(){tip.hidden=true; xh.hidden=true;});
+})();
+</script>

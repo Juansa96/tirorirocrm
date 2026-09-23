@@ -142,3 +142,11 @@ Reglas de negocio (decididas con Juan, no cambiarlas sin preguntarle):
 - Los mensajes de WhatsApp se guardan tal cual (datos personales): no
   exponerlos fuera del equipo (RLS `es_equipo()`), no mandarlos a servicios
   nuevos sin avisar a Juan.
+
+## Parte diario de marketing
+
+Todos los días a las 7:00 (Madrid) se genera un informe de marketing (GA4 + CRM +
+WhatsApp + Metricool) que se publica en una página y se manda por email a Juan e
+info@. El cómo, las consultas y el formato están en
+`scripts/informe-marketing/INSTRUCCIONES.md`. Si cambias el texto de un botón de
+WhatsApp de la web, actualiza la tabla de rastreo de ese archivo.
