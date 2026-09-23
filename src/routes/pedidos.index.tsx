@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Package, AlertTriangle, Sparkles, Search, Plus, X, Check, ChevronRight, Pencil, Download, Trash2, Archive, Wallet, Hammer } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ProduccionPanel } from "@/components/ProduccionPanel";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, ESTADO_PEDIDO_COLORS, DIAS_PLAZO_DEFECTO, indiceEstado, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
+import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, progresoPedido, flujoPedido, hitoLabel, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, ESTADOS_PEDIDO, ESTADO_PEDIDO_COLORS, DIAS_PLAZO_DEFECTO, indiceEstado, archivoPendienteIA, type EstadoPedido, type RutaEstado, type Pedido, type Lead, type Producto } from "@/lib/types";
 import { EstadoBadge } from "@/components/EstadoPedido";
 import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@/lib/money";
 import { formatShortDate, formatCurrency } from "@/lib/format";
@@ -46,9 +46,11 @@ type EstadoFiltro = "todos" | EstadoPedido;
 // archivos del pedido (croquis = plantilla de corte, foto de referencia de
 // Gemini), tapicero asignado, fecha de recogida de Juan y medidas obligatorias.
 const FALTAS = [
-  { key: "croquis", label: "Croquis", desc: "Sin plantilla de corte subida" },
+  { key: "croquis", label: "Croquis", desc: "Sin croquis (plantilla de corte)" },
+  { key: "croquisAprobar", label: "Croquis por aprobar", desc: "Croquis generado por Claude pendiente de revisar" },
   { key: "tapicero", label: "Tapicero", desc: "Sin tapicero asignado" },
-  { key: "referencia", label: "Foto de referencia", desc: "Sin imagen de referencia (Gemini)" },
+  { key: "referencia", label: "Foto de referencia", desc: "Sin imagen de referencia" },
+  { key: "referenciaAprobar", label: "Referencia por aprobar", desc: "Imagen generada por Gemini pendiente de revisar" },
   { key: "recogida", label: "Fecha de recogida", desc: "Sin fecha de recogida de Juan" },
   { key: "medidas", label: "Medidas", desc: "Falta alguna medida obligatoria" },
 ] as const;
@@ -88,9 +90,13 @@ function PedidosIndex() {
     if (!p.entregado && indiceEstado(p.estadoPedido) < indiceEstado("Recogido")) {
       const archivos = pedidoArchivos.filter((a) => a.pedidoId === p.id);
       const esCabecero = normalizeTipo(prod?.tipo) === "cabecero";
-      if (esCabecero && !archivos.some((a) => a.tipo === "plantilla")) faltan.push("croquis");
+      // Los archivos generados por IA cuentan como "por aprobar" hasta que
+      // alguien del equipo los aprueba (el tapicero no los ve mientras tanto).
+      const hayAprobado = (tipo: string) => archivos.some((a) => a.tipo === tipo && !archivoPendienteIA(a));
+      const hayPendiente = (tipo: string) => archivos.some((a) => a.tipo === tipo && archivoPendienteIA(a));
+      if (esCabecero && !hayAprobado("plantilla")) faltan.push(hayPendiente("plantilla") ? "croquisAprobar" : "croquis");
       if (!p.tapiceroId) faltan.push("tapicero");
-      if (!archivos.some((a) => a.tipo === "referencia")) faltan.push("referencia");
+      if (!hayAprobado("referencia")) faltan.push(hayPendiente("referencia") ? "referenciaAprobar" : "referencia");
       if (!p.fechaRecogida) faltan.push("recogida");
       if (!prod || medidasEtiquetadas(prod.tipo, prod.modelo, prod.ancho, prod.alto, prod.fondo).faltan.length > 0) faltan.push("medidas");
     }

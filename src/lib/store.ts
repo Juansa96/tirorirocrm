@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, ProductoDescuento, ProductoDibujo, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo, EstadoPedido } from "./types";
-import { DIAS_PLAZO_DEFECTO, VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
+import { DIAS_PLAZO_DEFECTO, VENDEDORES, ARCHIVO_IA_PENDIENTE, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO, formatShortDate } from "./format";
 import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, displayNombreProducto, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
@@ -25,6 +25,7 @@ interface State {
   telasBiblioteca: TelaBiblioteca[];
   telasWeb: TelaBiblioteca[];
   pedidoArchivos: PedidoArchivo[];
+  iaEnCurso: string[];   // "pedidoId:plantilla" / "pedidoId:referencia" generándose ahora mismo
   leadFotos: LeadFoto[];
   loaded: boolean;
   realtimeStatus: "connected" | "connecting" | "disconnected";
@@ -33,7 +34,7 @@ interface State {
 }
 
 let state: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [], iaEnCurso: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 const listeners = new Set<() => void>();
@@ -727,7 +728,7 @@ function subscribe(cb: () => void) {
 
 
 const SERVER: State = {
-  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [],
+  leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [], iaEnCurso: [],
   loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
 };
 function getSnapshot(): State { return state; }
@@ -746,7 +747,7 @@ export async function teardownStore() {
   } catch { /* ignore */ }
   initStarted = false;
   state = {
-    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [],
+    leads: [], tareas: [], audit: [], notas: [], productos: [], pedidos: [], pedidoTelas: [], catalogo: [], tapiceros: [], telasBiblioteca: [], telasWeb: [], pedidoArchivos: [], leadFotos: [], iaEnCurso: [],
     loaded: false, realtimeStatus: "connecting", remoteUpdateTimestamps: {}, presenceEditors: {},
   };
   emit();
@@ -1101,6 +1102,17 @@ async function reflejarTelasEnProducto(pedidoId: string) {
 export function faltaParaTallerPedido(pedido: Pedido): string[] {
   const producto = state.productos.find((pr) => pr.id === pedido.productoLeadId);
   return faltaParaTaller(producto, pedido.fechaRecogida);
+}
+
+// Al crear un pedido se lanzan solas (sin esperar) las dos generaciones
+// automáticas: el croquis de corte si es un cabecero con ancho y alto, y la
+// imagen de referencia si tiene tela principal. Quedan pendientes de aprobar
+// en la ficha. Si las claves de API no están configuradas, no molesta.
+function lanzarGeneracionIA(pedidoId: string, prod: Producto | undefined, hayTela: boolean) {
+  if (typeof window === "undefined" || !prod) return;
+  const esCabecero = normalizeTipo(prod.tipo) === "cabecero";
+  if (esCabecero && prod.ancho != null && prod.alto != null) void actions.generarArchivoIA(pedidoId, "plantilla", "", { silencioso: true });
+  if (hayTela) void actions.generarArchivoIA(pedidoId, "referencia", "", { silencioso: true });
 }
 
 export const actions = {
@@ -1770,6 +1782,7 @@ export const actions = {
     }
     await syncLeadFromPedidos(prod.leadId);
     if (!opts.silent) toast.success("Pedido creado.");
+    lanzarGeneracionIA(pedido.id, prod, rows.some((r) => !!r.nombre_tela));
     return pedido;
   },
 
@@ -1868,6 +1881,7 @@ export const actions = {
     }
     await syncLeadFromPedidos(opts.leadId);
     toast.success("Pedido creado.");
+    lanzarGeneracionIA(pedido.id, prodExistente ?? state.productos.find((p) => p.id === pedido.productoLeadId), rows.some((r) => !!r.nombre_tela));
     return pedido;
   },
 
@@ -2364,6 +2378,58 @@ export const actions = {
     if (error) { toast.error("No se pudo guardar el archivo."); return; }
     await refetchPedidoArchivos();
     await anotarCambioArchivoTapicero(pedidoId, tipo, anteriores.length > 0 ? `Cambiado el ${formatShortDate(todayISO())}` : `Añadido el ${formatShortDate(todayISO())}`);
+  },
+  // ───────── Croquis (Claude) e imagen de referencia (Gemini) generados desde el CRM ─────────
+  // Llama a la ruta de servidor, que guarda el resultado en pedido_archivos
+  // como PENDIENTE de aprobar (subido_por = "@ia:pendiente"). `indicacion` es
+  // el texto libre de "regenerar con indicación". En modo `silencioso` (auto
+  // al crear el pedido) no se avisa si las claves de API no están configuradas.
+  async generarArchivoIA(pedidoId: string, tipo: "plantilla" | "referencia", indicacion?: string, opts?: { silencioso?: boolean }): Promise<boolean> {
+    const ruta = tipo === "plantilla" ? "/api/pedidos/croquis" : "/api/pedidos/referencia";
+    const que = tipo === "plantilla" ? "croquis" : "imagen de referencia";
+    const clave = `${pedidoId}:${tipo}`;
+    if (state.iaEnCurso.includes(clave)) return false;
+    state = { ...state, iaEnCurso: [...state.iaEnCurso, clave] }; emit();
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token ?? "";
+      const res = await fetch(ruta, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId, indicacion: indicacion ?? "" }),
+      });
+      const body = await res.json().catch(() => ({})) as { error?: string; noConfigurado?: boolean };
+      if (!res.ok) {
+        if (!(opts?.silencioso && body.noConfigurado)) toast.error(body.error ?? `No se pudo generar el ${que}.`);
+        return false;
+      }
+      await refetchPedidoArchivos();
+      toast.success(tipo === "plantilla" ? "Croquis generado: revísalo y apruébalo." : "Imagen de referencia generada: revísala y apruébala.");
+      return true;
+    } catch {
+      if (!opts?.silencioso) toast.error(`No se pudo generar el ${que}.`);
+      return false;
+    } finally {
+      state = { ...state, iaEnCurso: state.iaEnCurso.filter((k) => k !== clave) }; emit();
+    }
+  },
+  // Aprobar un archivo generado: pasa a ser un archivo normal (subido_por =
+  // quien aprueba) y el tapicero ya lo ve. Los otros archivos del mismo tipo
+  // que siguieran pendientes se descartan.
+  async aprobarArchivoIA(id: string) {
+    const arch = state.pedidoArchivos.find((a) => a.id === id);
+    if (!arch) return;
+    const { error } = await supabase.from("pedido_archivos").update({ subido_por: currentUser ?? "equipo" } as never).eq("id", id);
+    if (error) { toast.error("No se pudo aprobar el archivo."); return; }
+    const otrosPendientes = state.pedidoArchivos.filter((a) => a.pedidoId === arch.pedidoId && a.tipo === arch.tipo && a.id !== id && a.subidoPor === ARCHIVO_IA_PENDIENTE);
+    for (const o of otrosPendientes) {
+      await supabase.storage.from("pedido-archivos").remove([o.storagePath]);
+      await supabase.from("pedido_archivos").delete().eq("id", o.id);
+    }
+    const habiaAprobados = state.pedidoArchivos.some((a) => a.pedidoId === arch.pedidoId && a.tipo === arch.tipo && a.id !== id && a.subidoPor !== ARCHIVO_IA_PENDIENTE);
+    await refetchPedidoArchivos();
+    toast.success(arch.tipo === "plantilla" ? "Croquis aprobado." : "Imagen de referencia aprobada.");
+    await anotarCambioArchivoTapicero(arch.pedidoId, arch.tipo, habiaAprobados ? `Cambiado el ${formatShortDate(todayISO())}` : `Añadido el ${formatShortDate(todayISO())}`);
   },
   async deleteArchivoPedido(id: string, storagePath: string) {
     const prevState = state;

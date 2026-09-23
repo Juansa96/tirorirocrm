@@ -70,3 +70,30 @@ madera**, no una ficha de tapizado:
   del croquis de Bego Gandarias ni una cúpula alta.
 - Si varios pedidos son la misma pieza (mismo modelo y medidas), un único
   croquis para todos, indicando los números de pedido y las unidades.
+
+## Croquis e imagen de referencia automáticos (IA)
+
+Desde la ficha del pedido (y solos al crear un pedido) se generan:
+
+- **Croquis** (plano de corte) con **Claude** → `POST /api/pedidos/croquis`
+  (`src/routes/api/pedidos/croquis.ts`). Devuelve un SVG A4 apaisado.
+- **Imagen de referencia** del acabado con **Gemini** → `POST /api/pedidos/referencia`
+  (`src/routes/api/pedidos/referencia.ts`). Adjunta la foto real de la tela y el
+  dibujo del configurador si existe.
+
+Los prompts viven en `src/lib/ia-prompts.ts` (funciones puras, sin claves): es el
+sitio donde afinar el estilo con los ejemplos que pase Juan. La parte común de
+servidor (auth del equipo, contexto del pedido, subida) está en
+`src/lib/ia-pedido.server.ts`. Se llama a las APIs por HTTP directo (sin SDK): el
+lockfile apunta al registro privado de Lovable y no se pueden añadir dependencias
+desde aquí con garantías.
+
+- Secrets necesarios en Lovable Cloud: `ANTHROPIC_API_KEY` y `GEMINI_API_KEY`
+  (opcionales `ANTHROPIC_MODEL`, `GEMINI_IMAGE_MODEL`). Sin ellos, la ruta
+  responde 503 con `noConfigurado: true` y la generación automática se calla.
+- El resultado entra en `pedido_archivos` con `subido_por = "@ia:pendiente"`
+  (`ARCHIVO_IA_PENDIENTE` en `src/lib/types.ts`). El tapicero NO lo ve hasta que
+  alguien del equipo pulsa **Aprobar** (entonces `subido_por` pasa a ser quien
+  aprobó). El filtro "qué falta" distingue "croquis" de "croquis por aprobar".
+- Los enchufes/huecos/anclajes se guardan en `pasos_tapicero["@huecos"]`
+  (`huecosDe` / `conHuecos` en `types.ts`) y se pasan al prompt del croquis.

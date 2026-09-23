@@ -1,4 +1,4 @@
-import { numeroPedidoLabel, ESTADOS_PEDIDO, ESTADOS_TAPICERO, ESTADO_ENTREGADO_CLIENTE, type EstadoPedido } from "@/lib/types";
+import { numeroPedidoLabel, textoHueco, ESTADOS_PEDIDO, ESTADOS_TAPICERO, ESTADO_ENTREGADO_CLIENTE, type EstadoPedido } from "@/lib/types";
 import { EstadoBadge, EstadoSelector } from "@/components/EstadoPedido";
 import { Tachado } from "@/components/Tachado";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -110,6 +110,17 @@ function FichaPanel() {
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Indicaciones importantes</div>
             {p.antes.nota_tapicero && <div className="mb-1 whitespace-pre-wrap text-amber-700/60 line-through" title="Indicaciones anteriores">{p.antes.nota_tapicero}</div>}
             <div className="whitespace-pre-wrap font-medium">{p.notaTapicero}</div>
+          </section>
+        )}
+
+        {/* Enchufes, huecos y anclajes: también van acotados en el croquis. */}
+        {p.huecos.length > 0 && (
+          <section className="rounded-xl border border-slate-200 bg-white p-3 text-[13px]">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Enchufes, huecos y anclajes</div>
+            <ul className="list-disc space-y-0.5 pl-4">
+              {p.huecos.map((h, i) => <li key={i}>{textoHueco(h)}</li>)}
+            </ul>
+            <div className="mt-1 text-[11px] text-slate-400">Distancias al centro de cada hueco, vistas de frente: desde el borde izquierdo y desde el borde inferior.</div>
           </section>
         )}
 
