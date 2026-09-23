@@ -114,13 +114,16 @@ function FichaPanel() {
         )}
 
         {/* Enchufes, huecos y anclajes: también van acotados en el croquis. */}
-        {p.huecos.length > 0 && (
+        {(p.huecos.length > 0 || p.pared) && (
           <section className="rounded-xl border border-slate-200 bg-white p-3 text-[13px]">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Enchufes, huecos y anclajes</div>
-            <ul className="list-disc space-y-0.5 pl-4">
-              {p.huecos.map((h, i) => <li key={i}>{textoHueco(h)}</li>)}
-            </ul>
-            <div className="mt-1 text-[11px] text-slate-400">Distancias al centro de cada hueco, vistas de frente: desde el borde izquierdo y desde el borde inferior.</div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Enchufes y colocación</div>
+            {p.pared && <div className="mb-1 font-medium">{p.pared}</div>}
+            {p.huecos.length > 0 && (
+              <ul className="list-disc space-y-0.5 pl-4">
+                {p.huecos.map((h, i) => <li key={i}>{textoHueco(h)}</li>)}
+              </ul>
+            )}
+            {p.huecos.length > 0 && <div className="mt-1 text-[11px] text-slate-400">Visto desde la cama: del borde lateral del cabecero al marco, y del borde inferior a la base del marco.</div>}
           </section>
         )}
 

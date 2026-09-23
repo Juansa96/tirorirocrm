@@ -969,28 +969,36 @@ export const INTERNAL_TO_CATALOG: Record<string, string> = {
 // ───────────── Enchufes, huecos y anclajes del pedido (sin columnas nuevas) ─────────────
 // Se guardan DENTRO de `pasos_tapicero` con la clave "@huecos" y un JSON corto
 // (array). Los usa el croquis (plano de corte) y se enseñan al tapicero.
-// Medidas en cm: `desdeIzq` es la distancia del borde IZQUIERDO del cabecero
-// al CENTRO del hueco (visto de frente); `desdeSuelo` la distancia desde el
-// borde INFERIOR de la pieza al centro del hueco.
+// Se miden como en los croquis de Juan, visto desde la cama y en cm:
+//   · `desdeBorde`: del borde lateral del cabecero (`lado`) al borde del MARCO
+//     más cercano a ese lado (p. ej. 27,5 del borde izquierdo al marco).
+//   · `desdeAbajo`: del borde INFERIOR del cabecero a la base del marco.
+//   · `ancho` × `alto`: tamaño del marco (un marco de 3 enchufes: 22,2 × 8).
 export const PASO_HUECOS = "@huecos";
-export const TIPOS_HUECO = ["enchufe", "hueco", "anclaje", "otro"] as const;
+export const TIPOS_HUECO = ["enchufe", "interruptor", "hueco", "anclaje", "otro"] as const;
 export type TipoHueco = (typeof TIPOS_HUECO)[number];
 export const TIPO_HUECO_LABEL: Record<TipoHueco, string> = {
-  enchufe: "Enchufe", hueco: "Hueco", anclaje: "Anclaje", otro: "Otro",
+  enchufe: "Enchufes", interruptor: "Interruptores", hueco: "Hueco", anclaje: "Anclaje", otro: "Otro",
 };
+export type LadoHueco = "izq" | "der";
 export interface HuecoPedido {
   tipo: TipoHueco;
-  desdeIzq: number | null;    // cm desde el borde izquierdo al centro
-  desdeSuelo: number | null;  // cm desde el borde inferior al centro
-  ancho: number | null;       // cm (vacío = mecanismo estándar)
-  alto: number | null;        // cm
-  nota: string;               // "doble", "interruptor", "para la mesilla"…
+  lado: LadoHueco;            // borde desde el que se mide
+  desdeBorde: number | null;  // cm del borde lateral al marco
+  desdeAbajo: number | null;  // cm del borde inferior a la base del marco
+  ancho: number | null;       // cm del marco
+  alto: number | null;        // cm del marco
+  nota: string;               // "marco de 3, huecos Ø6", "doble", "tira de enchufes"…
 }
-export function huecoVacio(tipo: TipoHueco = "enchufe"): HuecoPedido {
-  return { tipo, desdeIzq: null, desdeSuelo: null, ancho: null, alto: null, nota: "" };
+export function huecoVacio(tipo: TipoHueco = "enchufe", lado: LadoHueco = "izq"): HuecoPedido {
+  return { tipo, lado, desdeBorde: null, desdeAbajo: null, ancho: null, alto: null, nota: "" };
+}
+// El mismo hueco medido desde el otro lado (enchufes simétricos a cada lado de la cama).
+export function huecoEnEspejo(h: HuecoPedido): HuecoPedido {
+  return { ...h, lado: h.lado === "izq" ? "der" : "izq" };
 }
 function numOrNull(v: unknown): number | null {
-  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v.replace(",", ".")) : NaN;
   return Number.isFinite(n) ? n : null;
 }
 export function huecosDe(pasos: Record<string, string> | null | undefined): HuecoPedido[] {
@@ -1002,18 +1010,18 @@ export function huecosDe(pasos: Record<string, string> | null | undefined): Huec
     return arr.map((h): HuecoPedido => {
       const o = (h && typeof h === "object" ? h : {}) as Record<string, unknown>;
       const tipo = (TIPOS_HUECO as readonly string[]).includes(String(o.t)) ? (String(o.t) as TipoHueco) : "otro";
-      return { tipo, desdeIzq: numOrNull(o.x), desdeSuelo: numOrNull(o.y), ancho: numOrNull(o.w), alto: numOrNull(o.h), nota: typeof o.n === "string" ? o.n : "" };
+      return { tipo, lado: o.l === "der" ? "der" : "izq", desdeBorde: numOrNull(o.x), desdeAbajo: numOrNull(o.y), ancho: numOrNull(o.w), alto: numOrNull(o.h), nota: typeof o.n === "string" ? o.n : "" };
     });
   } catch { return []; }
 }
 export function conHuecos(pasos: Record<string, string> | null | undefined, huecos: HuecoPedido[]): Record<string, string> {
   const next: Record<string, string> = { ...(pasos || {}) };
-  const limpios = huecos.filter((h) => h.desdeIzq != null || h.desdeSuelo != null || h.nota.trim() !== "");
+  const limpios = huecos.filter((h) => h.desdeBorde != null || h.desdeAbajo != null || h.nota.trim() !== "");
   if (limpios.length === 0) { delete next[PASO_HUECOS]; return next; }
   next[PASO_HUECOS] = JSON.stringify(limpios.map((h) => {
-    const o: Record<string, unknown> = { t: h.tipo };
-    if (h.desdeIzq != null) o.x = h.desdeIzq;
-    if (h.desdeSuelo != null) o.y = h.desdeSuelo;
+    const o: Record<string, unknown> = { t: h.tipo, l: h.lado };
+    if (h.desdeBorde != null) o.x = h.desdeBorde;
+    if (h.desdeAbajo != null) o.y = h.desdeAbajo;
     if (h.ancho != null) o.w = h.ancho;
     if (h.alto != null) o.h = h.alto;
     if (h.nota.trim()) o.n = h.nota.trim();
@@ -1021,13 +1029,51 @@ export function conHuecos(pasos: Record<string, string> | null | undefined, huec
   }));
   return next;
 }
-// Texto corto de un hueco: "Enchufe · a 40 cm del borde izq. · a 25 cm del suelo · 8×8 cm · doble".
+const cm = (n: number) => String(n).replace(".", ",");
+// "Enchufes · marco 22,2×8 · a 27,5 cm del borde izquierdo · base a 44,5 cm del borde inferior · 3 huecos Ø6".
 export function textoHueco(h: HuecoPedido): string {
   const partes: string[] = [TIPO_HUECO_LABEL[h.tipo]];
-  if (h.desdeIzq != null) partes.push(`a ${h.desdeIzq} cm del borde izq.`);
-  if (h.desdeSuelo != null) partes.push(`a ${h.desdeSuelo} cm del borde inferior`);
-  if (h.ancho != null || h.alto != null) partes.push(`${h.ancho ?? "?"}×${h.alto ?? "?"} cm`);
+  if (h.ancho != null || h.alto != null) partes.push(`marco ${h.ancho != null ? cm(h.ancho) : "?"}×${h.alto != null ? cm(h.alto) : "?"}`);
+  if (h.desdeBorde != null) partes.push(`a ${cm(h.desdeBorde)} cm del borde ${h.lado === "der" ? "derecho" : "izquierdo"}`);
+  if (h.desdeAbajo != null) partes.push(`base a ${cm(h.desdeAbajo)} cm del borde inferior`);
   if (h.nota.trim()) partes.push(h.nota.trim());
+  return partes.join(" · ");
+}
+
+// ───────────── Colocación del cabecero en la pared (sin columnas nuevas) ─────────────
+// pasos_tapicero["@pared"] = {"s":25,"p":278,"c":"der"}: colgado a `s` cm del
+// suelo, pared de `p` cm, y si va centrado o pegado a una pared. Va al croquis
+// (vista "En la pared") y al panel del tapicero.
+export const PASO_PARED = "@pared";
+export type PosicionPared = "" | "centrado" | "izq" | "der";
+export interface ColocacionPared { alturaSuelo: number | null; anchoPared: number | null; posicion: PosicionPared }
+export function paredDe(pasos: Record<string, string> | null | undefined): ColocacionPared {
+  const vacio: ColocacionPared = { alturaSuelo: null, anchoPared: null, posicion: "" };
+  const raw = pasos?.[PASO_PARED];
+  if (!raw) return vacio;
+  try {
+    const o = JSON.parse(raw) as Record<string, unknown>;
+    const c = String(o.c ?? "");
+    return { alturaSuelo: numOrNull(o.s), anchoPared: numOrNull(o.p), posicion: c === "centrado" || c === "izq" || c === "der" ? c : "" };
+  } catch { return vacio; }
+}
+export function conPared(pasos: Record<string, string> | null | undefined, c: ColocacionPared): Record<string, string> {
+  const next: Record<string, string> = { ...(pasos || {}) };
+  if (c.alturaSuelo == null && c.anchoPared == null && !c.posicion) { delete next[PASO_PARED]; return next; }
+  const o: Record<string, unknown> = {};
+  if (c.alturaSuelo != null) o.s = c.alturaSuelo;
+  if (c.anchoPared != null) o.p = c.anchoPared;
+  if (c.posicion) o.c = c.posicion;
+  next[PASO_PARED] = JSON.stringify(o);
+  return next;
+}
+export function textoPared(c: ColocacionPared): string {
+  const partes: string[] = [];
+  if (c.alturaSuelo != null) partes.push(`colgado a ${cm(c.alturaSuelo)} cm del suelo`);
+  if (c.anchoPared != null) partes.push(`pared de ${cm(c.anchoPared)} cm`);
+  if (c.posicion === "centrado") partes.push("centrado en la pared");
+  if (c.posicion === "izq") partes.push("pegado a la pared izquierda");
+  if (c.posicion === "der") partes.push("pegado a la pared derecha");
   return partes.join(" · ");
 }
 

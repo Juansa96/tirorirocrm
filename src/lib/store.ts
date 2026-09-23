@@ -5,7 +5,7 @@ import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, ProductoDescuento,
 import { DIAS_PLAZO_DEFECTO, VENDEDORES, ARCHIVO_IA_PENDIENTE, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO, formatShortDate } from "./format";
-import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, displayNombreProducto, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
+import { normalizarColeccionTela, normalizeTipo, llevaCroquis, displayColeccionTela, displayNombreProducto, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
 import { TELAS_WEB } from "./telas-web-data";
@@ -1110,8 +1110,7 @@ export function faltaParaTallerPedido(pedido: Pedido): string[] {
 // en la ficha. Si las claves de API no están configuradas, no molesta.
 function lanzarGeneracionIA(pedidoId: string, prod: Producto | undefined, hayTela: boolean) {
   if (typeof window === "undefined" || !prod) return;
-  const esCabecero = normalizeTipo(prod.tipo) === "cabecero";
-  if (esCabecero && prod.ancho != null && prod.alto != null) void actions.generarArchivoIA(pedidoId, "plantilla", "", { silencioso: true });
+  if (llevaCroquis(prod.tipo, prod.modelo) && prod.ancho != null && prod.alto != null) void actions.generarArchivoIA(pedidoId, "plantilla", "", { silencioso: true });
   if (hayTela) void actions.generarArchivoIA(pedidoId, "referencia", "", { silencioso: true });
 }
 
@@ -2398,8 +2397,12 @@ export const actions = {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ pedidoId, indicacion: indicacion ?? "" }),
       });
-      const body = await res.json().catch(() => ({})) as { error?: string; noConfigurado?: boolean };
-      if (!res.ok) {
+      // La ruta responde en streaming (espacios de "latido" + JSON final) y
+      // siempre con 200: el fallo viene en `error`.
+      const texto = await res.text();
+      let body: { error?: string; noConfigurado?: boolean; archivo?: unknown } = {};
+      try { body = JSON.parse(texto.trim() || "{}"); } catch { body = { error: `Respuesta no válida del servidor (${res.status}).` }; }
+      if (!res.ok || body.error || !body.archivo) {
         if (!(opts?.silencioso && body.noConfigurado)) toast.error(body.error ?? `No se pudo generar el ${que}.`);
         return false;
       }

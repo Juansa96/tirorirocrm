@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
-import { maskApellido, marcadoresTapicero, estadoDePedido, ESTADO_ENTREGADO_CLIENTE, ARCHIVO_IA_PENDIENTE, huecosDe, type EstadoPedido, type HuecoPedido } from "@/lib/types";
+import { maskApellido, marcadoresTapicero, estadoDePedido, ESTADO_ENTREGADO_CLIENTE, ARCHIVO_IA_PENDIENTE, huecosDe, paredDe, textoPared, type EstadoPedido, type HuecoPedido } from "@/lib/types";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 import { cmpCola } from "@/lib/orden-taller";
 import { TELAS_WEB } from "@/lib/telas-web-data";
@@ -16,6 +16,7 @@ export interface PanelPedido {
   ordenProduccion: number | null; // orden manual de trabajo (1º, 2º…)
   notaTapicero: string;           // comentario para el tapicero (dirección de tela, etc.)
   huecos: HuecoPedido[];          // enchufes, huecos y anclajes (pasos_tapicero["@huecos"])
+  pared: string;                  // colocación en la pared en texto ("colgado a 25 cm del suelo · …")
   tipo: string; modelo: string;
   cantidad: number;    // nº de unidades de este producto (p. ej. pufs que van de 2 en 2)
   ancho: number | null; alto: number | null; fondo: number | null;
@@ -238,6 +239,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         ordenProduccion: p.orden_produccion != null ? Number(p.orden_produccion) : null,
         notaTapicero: (p.nota_tapicero as string) ?? "",
         huecos: huecosDe(pasos),
+        pared: textoPared(paredDe(pasos)),
         tipo: (prod.tipo as string) ?? "",
         modelo: (prod.modelo as string) ?? "",
         cantidad: Math.max(1, Number(prod.cantidad) || 1),

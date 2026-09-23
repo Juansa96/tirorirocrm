@@ -6,7 +6,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { storagePathFromUrl } from "@/lib/storage-urls";
 import { TELAS_WEB } from "@/lib/telas-web-data";
-import { normNombreTela, huecosDe, ARCHIVO_IA_PENDIENTE } from "@/lib/types";
+import { normNombreTela, huecosDe, paredDe, ARCHIVO_IA_PENDIENTE } from "@/lib/types";
 import type { DatosPedidoIA } from "@/lib/ia-prompts";
 
 export const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
@@ -83,6 +83,7 @@ export async function cargarContextoPedido(pedidoId: string): Promise<ContextoPe
     acabado: (pr.acabado as string) ?? "",
     patas: (pr.patas as string) ?? "",
     huecos: huecosDe(pasos),
+    pared: paredDe(pasos),
     telas: telasRows.map(({ rol, nombre, coleccion }) => ({ rol, nombre, coleccion })),
     notaTapicero: (p.nota_tapicero as string) ?? "",
     notasProducto: (pr.notas_producto as string) ?? "",
@@ -164,32 +165,97 @@ export function selloFecha(): string {
 // Sin SDK: el lockfile del proyecto apunta al registro privado de Lovable y
 // no se puede añadir una dependencia desde aquí con garantías.
 export const ANTHROPIC_MODEL_DEFECTO = "claude-opus-5";
-export async function llamarClaude(opts: { system: string; prompt: string; maxTokens?: number }): Promise<{ texto: string; modelo: string } | Response> {
+// Streaming (SSE): un croquis puede tardar un par de minutos y ocupar muchos
+// tokens; así no hay límite de tiempo por petición bloqueante.
+export async function llamarClaude(opts: {
+  system: string; prompt: string; maxTokens?: number;
+  documentos?: { titulo: string; pdfBase64: string }[];   // PDFs de ejemplo, antes del texto
+}): Promise<{ texto: string; modelo: string } | Response> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json({ error: "Falta configurar ANTHROPIC_API_KEY en Lovable Cloud (Secrets).", noConfigurado: true }, 503);
   const model = process.env.ANTHROPIC_MODEL || ANTHROPIC_MODEL_DEFECTO;
+  const docs = opts.documentos ?? [];
+  const content: Record<string, unknown>[] = docs.map((d, i) => ({
+    type: "document",
+    source: { type: "base64", media_type: "application/pdf", data: d.pdfBase64 },
+    title: d.titulo,
+    // Los ejemplos no cambian entre pedidos: se cachean junto al system.
+    ...(i === docs.length - 1 ? { cache_control: { type: "ephemeral" } } : {}),
+  }));
+  content.push({ type: "text", text: opts.prompt });
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model,
-      max_tokens: opts.maxTokens ?? 16000,
+      max_tokens: opts.maxTokens ?? 48000,
+      stream: true,
       system: opts.system,
       output_config: { effort: "high" },
-      messages: [{ role: "user", content: opts.prompt }],
+      messages: [{ role: "user", content }],
     }),
   });
-  const body = await res.json().catch(() => null) as Record<string, unknown> | null;
-  if (!res.ok) {
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => null) as Record<string, unknown> | null;
     const msg = (body?.error as { message?: string } | undefined)?.message ?? `HTTP ${res.status}`;
     return json({ error: `Claude no ha podido generar el croquis: ${msg}` }, 502);
   }
-  if (body?.stop_reason === "refusal") return json({ error: "Claude ha rechazado la petición." }, 502);
-  const content = Array.isArray(body?.content) ? (body!.content as { type: string; text?: string }[]) : [];
-  const texto = content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n");
+  let texto = "";
+  let modeloUsado = model;
+  let stop = "";
+  let errorStream = "";
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let k: number;
+    while ((k = buf.indexOf("\n\n")) !== -1) {
+      const evento = buf.slice(0, k);
+      buf = buf.slice(k + 2);
+      const linea = evento.split("\n").find((l) => l.startsWith("data:"));
+      if (!linea) continue;
+      let ev: Record<string, unknown>;
+      try { ev = JSON.parse(linea.slice(5).trim()) as Record<string, unknown>; } catch { continue; }
+      if (ev.type === "message_start") modeloUsado = String((ev.message as { model?: string } | undefined)?.model ?? model);
+      else if (ev.type === "content_block_delta") {
+        const delta = ev.delta as { type?: string; text?: string } | undefined;
+        if (delta?.type === "text_delta") texto += delta.text ?? "";
+      } else if (ev.type === "message_delta") stop = String((ev.delta as { stop_reason?: string } | undefined)?.stop_reason ?? stop);
+      else if (ev.type === "error") errorStream = String((ev.error as { message?: string } | undefined)?.message ?? "error");
+    }
+  }
+  if (errorStream) return json({ error: `Claude no ha podido generar el croquis: ${errorStream}` }, 502);
+  if (stop === "refusal") return json({ error: "Claude ha rechazado la petición." }, 502);
+  if (stop === "max_tokens") return json({ error: "El croquis se ha cortado por longitud; vuelve a intentarlo." }, 502);
   if (!texto.trim()) return json({ error: "Claude no ha devuelto contenido." }, 502);
-  if (body?.stop_reason === "max_tokens") return json({ error: "El croquis se ha cortado por longitud; vuelve a intentarlo." }, 502);
-  return { texto, modelo: String(body?.model ?? model) };
+  return { texto, modelo: modeloUsado };
+}
+
+// Respuesta "larga": la generación puede tardar más de lo que aguanta un
+// proxy sin recibir nada, así que se abre la respuesta enseguida y se manda
+// un espacio cada pocos segundos; al terminar se escribe el JSON final
+// (JSON.parse ignora los espacios de delante). El estado HTTP es siempre 200:
+// el cliente mira `error` en el cuerpo.
+export function respuestaLarga(trabajo: () => Promise<Response>): Response {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const latido = setInterval(() => { try { controller.enqueue(enc.encode(" ")); } catch { /* cerrado */ } }, 8000);
+      try {
+        const r = await trabajo();
+        controller.enqueue(enc.encode(await r.text()));
+      } catch (e) {
+        controller.enqueue(enc.encode(JSON.stringify({ error: `Error inesperado: ${e instanceof Error ? e.message : String(e)}` })));
+      } finally {
+        clearInterval(latido);
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 
 // Extrae el SVG de la respuesta (por si viene con texto o vallas de código).

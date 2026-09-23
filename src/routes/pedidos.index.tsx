@@ -9,7 +9,7 @@ import { resumenCobro, estadoCobro, pedidoPendiente, type ResumenCobro } from "@
 import { formatShortDate, formatCurrency } from "@/lib/format";
 import { ProductoForm, EMPTY_PROD_STATE, prodStateToProducto, prodStateValido, type ProdState } from "@/components/ProductoForm";
 import { SugerenciaEnvioCabecero } from "@/components/EnvioCabecero";
-import { displayModelo, displayNombreProducto, tipoLabelOf, medidasEtiquetadas, normalizeTipo } from "@/lib/catalogo";
+import { displayModelo, displayNombreProducto, tipoLabelOf, medidasEtiquetadas, normalizeTipo, llevaCroquis } from "@/lib/catalogo";
 import { confirmar } from "@/components/Confirmar";
 
 function exportPedidosCSV(rows: Array<Record<string, string | number>>, filename: string) {
@@ -89,7 +89,7 @@ function PedidosIndex() {
     const faltan: FaltaKey[] = [];
     if (!p.entregado && indiceEstado(p.estadoPedido) < indiceEstado("Recogido")) {
       const archivos = pedidoArchivos.filter((a) => a.pedidoId === p.id);
-      const esCabecero = normalizeTipo(prod?.tipo) === "cabecero";
+      const esCabecero = llevaCroquis(prod?.tipo, prod?.modelo);
       // Los archivos generados por IA cuentan como "por aprobar" hasta que
       // alguien del equipo los aprueba (el tapicero no los ve mientras tanto).
       const hayAprobado = (tipo: string) => archivos.some((a) => a.tipo === tipo && !archivoPendienteIA(a));

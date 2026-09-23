@@ -2,9 +2,9 @@ import { useRef, useState } from "react";
 import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus, Sparkles, RefreshCw, MessageSquarePlus, Loader2, Plug } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
-import { tapiceroNombre, archivoPendienteIA, huecosDe, conHuecos, huecoVacio, TIPOS_HUECO, TIPO_HUECO_LABEL, type Pedido, type Producto, type HuecoPedido, type TipoHueco } from "@/lib/types";
+import { tapiceroNombre, archivoPendienteIA, huecosDe, conHuecos, huecoVacio, huecoEnEspejo, paredDe, conPared, TIPOS_HUECO, TIPO_HUECO_LABEL, type Pedido, type Producto, type HuecoPedido, type TipoHueco, type ColocacionPared, type PosicionPared } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
-import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller, normalizeTipo } from "@/lib/catalogo";
+import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller, llevaCroquis } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
 import { Tachado } from "@/components/Tachado";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
@@ -50,7 +50,7 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
   const bloqueos = faltaParaTaller(producto, draft.fechaRecogida);
   // Aviso de producto incompleto (para no mandar a producción algo a medias).
   const incompletos: string[] = [];
-  const esCabecero = normalizeTipo(producto?.tipo) === "cabecero";
+  const esCabecero = llevaCroquis(producto?.tipo, producto?.modelo);
   if (esCabecero && !archivos.some((a) => a.tipo === "plantilla" && !archivoPendienteIA(a))) incompletos.push("plantilla de corte");
   if (!archivos.some((a) => a.tipo === "referencia" && !archivoPendienteIA(a))) incompletos.push("imagen de referencia");
   if (!telas.some((t) => t.tipoTela.toLowerCase() === "frontal" && t.nombreTela)) incompletos.push("tela principal");
@@ -270,7 +270,10 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
       {/* Enchufes, huecos y anclajes (van al croquis y al panel del tapicero).
           Se editan en el borrador y se guardan con "Guardar". */}
       {esCabecero && (
-        <HuecosEditor huecos={huecosDe(draft.pasosTapicero)} onChange={(hs) => patch({ pasosTapicero: conHuecos(draft.pasosTapicero, hs) })} />
+        <>
+          <HuecosEditor huecos={huecosDe(draft.pasosTapicero)} onChange={(hs) => patch({ pasosTapicero: conHuecos(draft.pasosTapicero, hs) })} />
+          <ParedEditor pared={paredDe(draft.pasosTapicero)} onChange={(c) => patch({ pasosTapicero: conPared(draft.pasosTapicero, c) })} />
+        </>
       )}
 
       {/* Archivos: plantilla + imagen de referencia + etiqueta de envío (subida inmediata).
@@ -509,45 +512,86 @@ function ArchivoSlot({ pedidoId, tipo, titulo, accept, icon, archivos, generando
   );
 }
 
-// Enchufes, huecos y anclajes del cabecero: posición (desde el borde izquierdo
-// y desde el borde inferior, al centro del hueco), tamaño opcional y nota.
-// Se guardan en pasos_tapicero["@huecos"] (sin columnas nuevas) y los usa el
-// croquis de Claude; el tapicero los ve en su panel.
+// Enchufes, interruptores, huecos y anclajes del cabecero, medidos como en los
+// croquis de Juan (visto desde la cama): del borde lateral al MARCO y del
+// borde inferior a la base del marco. Se guardan en pasos_tapicero["@huecos"]
+// (sin columnas nuevas); los usa el croquis de Claude y los ve el tapicero.
 function HuecosEditor({ huecos, onChange }: { huecos: HuecoPedido[]; onChange: (h: HuecoPedido[]) => void }) {
   const inp = "w-full rounded border border-slate-200 px-2 py-1 text-xs";
-  const num = (v: string): number | null => (v.trim() === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+  const num = (v: string): number | null => { const n = Number(v.replace(",", ".")); return v.trim() === "" || !Number.isFinite(n) ? null : n; };
   const set = (i: number, cambio: Partial<HuecoPedido>) => onChange(huecos.map((h, j) => (j === i ? { ...h, ...cambio } : h)));
+  const nuevoMarco3 = (): HuecoPedido => ({ ...huecoVacio("enchufe"), ancho: 22.2, alto: 8, nota: "marco de 3, huecos Ø6" });
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500"><Plug className="h-3.5 w-3.5" /> Enchufes, huecos y anclajes <span className="font-normal text-slate-400">(van al croquis)</span></span>
-        <button type="button" onClick={() => onChange([...huecos, huecoVacio()])} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
-          <Plus className="h-3.5 w-3.5" /> Añadir
-        </button>
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500"><Plug className="h-3.5 w-3.5" /> Enchufes, interruptores y huecos <span className="font-normal text-slate-400">(van al croquis)</span></span>
+        <div className="flex gap-1">
+          <button type="button" onClick={() => onChange([...huecos, nuevoMarco3()])} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+            <Plus className="h-3.5 w-3.5" /> Marco de 3 enchufes
+          </button>
+          <button type="button" onClick={() => onChange([...huecos, huecoVacio("otro")])} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+            <Plus className="h-3.5 w-3.5" /> Otro
+          </button>
+        </div>
       </div>
       {huecos.length === 0 ? (
-        <div className="py-1 text-[11px] text-slate-400">Ninguno. Si el cabecero lleva enchufes o huecos, añádelos aquí con sus distancias en cm.</div>
+        <div className="py-1 text-[11px] text-slate-400">Ninguno. Si el cabecero lleva enchufes, añade cada marco con sus distancias en cm.</div>
       ) : (
         <div className="space-y-1.5">
-          <div className="hidden grid-cols-[6.5rem_1fr_1fr_4rem_4rem_1fr_1.5rem] gap-1.5 text-[10px] uppercase tracking-wide text-slate-400 sm:grid">
-            <span>Tipo</span><span>Desde borde izq. (cm)</span><span>Desde borde inferior (cm)</span><span>Ancho</span><span>Alto</span><span>Nota</span><span />
+          <div className="hidden grid-cols-[7rem_5.5rem_1fr_1fr_4rem_4rem_1fr_3rem] gap-1.5 text-[10px] uppercase tracking-wide text-slate-400 sm:grid">
+            <span>Tipo</span><span>Medido desde</span><span>Borde → marco</span><span>Abajo → base</span><span>Ancho</span><span>Alto</span><span>Nota</span><span />
           </div>
           {huecos.map((h, i) => (
-            <div key={i} className="grid grid-cols-2 gap-1.5 sm:grid-cols-[6.5rem_1fr_1fr_4rem_4rem_1fr_1.5rem]">
+            <div key={i} className="grid grid-cols-2 gap-1.5 sm:grid-cols-[7rem_5.5rem_1fr_1fr_4rem_4rem_1fr_3rem]">
               <select className={inp} value={h.tipo} onChange={(e) => set(i, { tipo: e.target.value as TipoHueco })}>
                 {TIPOS_HUECO.map((t) => <option key={t} value={t}>{TIPO_HUECO_LABEL[t]}</option>)}
               </select>
-              <input type="number" inputMode="decimal" min={0} className={inp} placeholder="desde izq." value={h.desdeIzq ?? ""} onChange={(e) => set(i, { desdeIzq: num(e.target.value) })} />
-              <input type="number" inputMode="decimal" min={0} className={inp} placeholder="desde abajo" value={h.desdeSuelo ?? ""} onChange={(e) => set(i, { desdeSuelo: num(e.target.value) })} />
-              <input type="number" inputMode="decimal" min={0} className={inp} placeholder="ancho" value={h.ancho ?? ""} onChange={(e) => set(i, { ancho: num(e.target.value) })} />
-              <input type="number" inputMode="decimal" min={0} className={inp} placeholder="alto" value={h.alto ?? ""} onChange={(e) => set(i, { alto: num(e.target.value) })} />
-              <input type="text" className={inp} placeholder="doble, interruptor…" value={h.nota} onChange={(e) => set(i, { nota: e.target.value })} />
-              <button type="button" onClick={() => onChange(huecos.filter((_, j) => j !== i))} className="inline-flex items-center justify-center text-slate-400 hover:text-rose-600" title="Quitar"><X className="h-3.5 w-3.5" /></button>
+              <select className={inp} value={h.lado} onChange={(e) => set(i, { lado: e.target.value === "der" ? "der" : "izq" })}>
+                <option value="izq">Borde izq.</option>
+                <option value="der">Borde der.</option>
+              </select>
+              <input type="text" inputMode="decimal" className={inp} placeholder="p. ej. 27,5" value={h.desdeBorde ?? ""} onChange={(e) => set(i, { desdeBorde: num(e.target.value) })} />
+              <input type="text" inputMode="decimal" className={inp} placeholder="p. ej. 44,5" value={h.desdeAbajo ?? ""} onChange={(e) => set(i, { desdeAbajo: num(e.target.value) })} />
+              <input type="text" inputMode="decimal" className={inp} placeholder="22,2" value={h.ancho ?? ""} onChange={(e) => set(i, { ancho: num(e.target.value) })} />
+              <input type="text" inputMode="decimal" className={inp} placeholder="8" value={h.alto ?? ""} onChange={(e) => set(i, { alto: num(e.target.value) })} />
+              <input type="text" className={inp} placeholder="marco de 3, Ø6…" value={h.nota} onChange={(e) => set(i, { nota: e.target.value })} />
+              <div className="flex items-center justify-end gap-1">
+                <button type="button" onClick={() => onChange([...huecos.slice(0, i + 1), huecoEnEspejo(h), ...huecos.slice(i + 1)])} className="text-[10px] font-medium text-slate-500 hover:text-slate-800" title="Añadir el mismo al otro lado">⇄</button>
+                <button type="button" onClick={() => onChange(huecos.filter((_, j) => j !== i))} className="text-slate-400 hover:text-rose-600" title="Quitar"><X className="h-3.5 w-3.5" /></button>
+              </div>
             </div>
           ))}
-          <div className="text-[10px] text-slate-400">Distancias al centro del hueco, vistas de frente. Ancho y alto solo si no es un mecanismo estándar.</div>
+          <div className="text-[10px] text-slate-400">Visto desde la cama. "Borde → marco": del borde lateral del cabecero al marco. "Abajo → base": del borde inferior del cabecero a la base del marco. ⇄ añade el mismo al otro lado.</div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Colocación del cabecero en la pared (opcional): altura de colgado, ancho de
+// la pared y si va centrado o pegado a un lado. Va al croquis ("En la pared").
+function ParedEditor({ pared, onChange }: { pared: ColocacionPared; onChange: (c: ColocacionPared) => void }) {
+  const inp = "w-full rounded border border-slate-200 px-2 py-1 text-xs";
+  const num = (v: string): number | null => { const n = Number(v.replace(",", ".")); return v.trim() === "" || !Number.isFinite(n) ? null : n; };
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
+      <div className="mb-1.5 text-xs font-medium text-slate-500">Colocación en la pared <span className="font-normal text-slate-400">(opcional, va al croquis)</span></div>
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+        <label className="text-[10px] uppercase tracking-wide text-slate-400">Colgado a (cm del suelo)
+          <input type="text" inputMode="decimal" className={inp} placeholder="p. ej. 25" value={pared.alturaSuelo ?? ""} onChange={(e) => onChange({ ...pared, alturaSuelo: num(e.target.value) })} />
+        </label>
+        <label className="text-[10px] uppercase tracking-wide text-slate-400">Ancho de la pared (cm)
+          <input type="text" inputMode="decimal" className={inp} placeholder="p. ej. 278" value={pared.anchoPared ?? ""} onChange={(e) => onChange({ ...pared, anchoPared: num(e.target.value) })} />
+        </label>
+        <label className="text-[10px] uppercase tracking-wide text-slate-400">Posición
+          <select className={inp} value={pared.posicion} onChange={(e) => onChange({ ...pared, posicion: e.target.value as PosicionPared })}>
+            <option value="">Sin indicar</option>
+            <option value="centrado">Centrado</option>
+            <option value="izq">Pegado a la izquierda</option>
+            <option value="der">Pegado a la derecha</option>
+          </select>
+        </label>
+      </div>
     </div>
   );
 }
