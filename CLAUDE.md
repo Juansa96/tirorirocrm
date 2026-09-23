@@ -91,9 +91,11 @@ servidor (auth del equipo, contexto del pedido, subida) está en
 lockfile apunta al registro privado de Lovable y no se pueden añadir dependencias
 desde aquí con garantías.
 
-- Secrets necesarios en Lovable Cloud: `ANTHROPIC_API_KEY` y `GEMINI_API_KEY`
-  (opcionales `ANTHROPIC_MODEL`, `GEMINI_IMAGE_MODEL`). Sin ellos, la ruta
-  responde 503 con `noConfigurado: true` y la generación automática se calla.
+- Claves: el croquis necesita `ANTHROPIC_API_KEY` (opcional `ANTHROPIC_MODEL`).
+  La imagen usa `GEMINI_API_KEY` si existe; si no, la pasarela de IA de Lovable
+  con `LOVABLE_API_KEY` (créditos de Lovable; modelo en `LOVABLE_IMAGE_MODEL`).
+  Sin claves, la ruta responde con `noConfigurado: true` y la generación
+  automática se calla.
 - El resultado entra en `pedido_archivos` con `subido_por = "@ia:pendiente"`
   (`ARCHIVO_IA_PENDIENTE` en `src/lib/types.ts`). El tapicero NO lo ve hasta que
   alguien del equipo pulsa **Aprobar** (entonces `subido_por` pasa a ser quien

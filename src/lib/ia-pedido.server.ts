@@ -272,6 +272,64 @@ export function extraerSVG(texto: string): string | null {
 
 // ── Llamada a Gemini (generación de imagen, HTTP directo) ──
 export const GEMINI_MODEL_DEFECTO = "gemini-2.5-flash-image";
+// Imagen con Gemini. Dos vías, por este orden:
+//   1) GEMINI_API_KEY (clave propia de Google AI Studio) → API de Google.
+//   2) Si no, la pasarela de IA de Lovable (LOVABLE_API_KEY, ya configurada en
+//      Lovable Cloud; se paga con créditos de Lovable) con el modelo de imagen
+//      de Gemini. Modelo configurable con LOVABLE_IMAGE_MODEL.
+const GATEWAY_URL = process.env.LOVABLE_AI_GATEWAY_URL || "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODELOS_IMAGEN_LOVABLE = ["google/gemini-2.5-flash-image-preview", "google/gemini-2.5-flash-image"];
+
+export async function generarImagen(opts: {
+  prompt: string;
+  imagenes: { data: string; mime: string }[];
+  aspectRatio?: string;
+}): Promise<{ bytes: Uint8Array; mime: string; modelo: string } | Response> {
+  if (process.env.GEMINI_API_KEY) return llamarGeminiImagen(opts);
+  if (process.env.LOVABLE_API_KEY) return llamarImagenLovable(opts);
+  return json({ error: "Falta configurar la IA de imágenes: activa la IA de Lovable Cloud o añade GEMINI_API_KEY.", noConfigurado: true }, 503);
+}
+
+async function llamarImagenLovable(opts: { prompt: string; imagenes: { data: string; mime: string }[] }): Promise<{ bytes: Uint8Array; mime: string; modelo: string } | Response> {
+  const apiKey = process.env.LOVABLE_API_KEY!;
+  const content: Record<string, unknown>[] = [{ type: "text", text: opts.prompt }];
+  for (const im of opts.imagenes) content.push({ type: "image_url", image_url: { url: `data:${im.mime};base64,${im.data}` } });
+  const modelos = process.env.LOVABLE_IMAGE_MODEL ? [process.env.LOVABLE_IMAGE_MODEL] : MODELOS_IMAGEN_LOVABLE;
+  let ultimoError = "";
+  for (const model of modelos) {
+    const res = await fetch(GATEWAY_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages: [{ role: "user", content }], modalities: ["image", "text"] }),
+    });
+    if (res.status === 402) return json({ error: "Sin crédito de IA en Lovable: revisa el uso en Lovable Cloud → AI." }, 502);
+    if (res.status === 429) return json({ error: "La IA de Lovable está saturada ahora mismo; vuelve a intentarlo en un minuto." }, 502);
+    const body = await res.json().catch(() => null) as Record<string, unknown> | null;
+    if (!res.ok) {
+      ultimoError = (body?.error as { message?: string } | undefined)?.message ?? `HTTP ${res.status}`;
+      // Modelo no disponible con ese nombre: se prueba el siguiente.
+      if (res.status === 400 || res.status === 404) continue;
+      return json({ error: `La IA de imágenes no ha podido generar la imagen: ${ultimoError}` }, 502);
+    }
+    const msg = (body?.choices as { message?: Record<string, unknown> }[] | undefined)?.[0]?.message;
+    const imgs = (msg?.images as { image_url?: { url?: string } }[] | undefined) ?? [];
+    let url = imgs.find((i) => i.image_url?.url)?.image_url?.url ?? "";
+    // Por si la imagen llega dentro del contenido en vez de en `images`.
+    if (!url && Array.isArray(msg?.content)) {
+      url = ((msg!.content as { type?: string; image_url?: { url?: string } }[]).find((c) => c.type === "image_url")?.image_url?.url) ?? "";
+    }
+    const m = /^data:([^;]+);base64,(.+)$/.exec(url);
+    if (m) return { bytes: base64ABytes(m[2]), mime: m[1], modelo: model };
+    if (/^https?:\/\//.test(url)) {
+      const r = await fetch(url);
+      if (r.ok) return { bytes: new Uint8Array(await r.arrayBuffer()), mime: r.headers.get("content-type") ?? "image/png", modelo: model };
+    }
+    const texto = typeof msg?.content === "string" ? msg.content.slice(0, 200) : "";
+    return json({ error: `La IA no ha devuelto ninguna imagen${texto ? `: ${texto}` : "."}` }, 502);
+  }
+  return json({ error: `La IA de imágenes no ha podido generar la imagen: ${ultimoError}` }, 502);
+}
+
 export async function llamarGeminiImagen(opts: {
   prompt: string;
   imagenes: { data: string; mime: string }[];
