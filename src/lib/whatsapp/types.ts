@@ -14,13 +14,14 @@ export type DireccionMensaje = "entrante" | "saliente";
 export type EstadoPropuesta = "pendiente" | "aceptada" | "rechazada";
 
 // Tipos de propuesta que genera la IA (el equipo decide con un toque):
+//  · crear_lead       → alguien nuevo: crear el cliente (o enlazar con un duplicado)
 //  · vincular_lead    → no está claro con qué cliente enlazar (o hay varios)
 //  · cambiar_etapa    → mover el lead de etapa en el pipeline
 //  · actualizar_campo → un dato del cliente distinto al que hay en la ficha
 //  · producto         → crear o corregir un producto (medidas, tela…)
 //  · tarea            → compromiso que se ha adquirido en el chat
 //  · nuevo_encargo    → cliente ya entregado que pide algo nuevo
-export type TipoPropuesta = "vincular_lead" | "cambiar_etapa" | "actualizar_campo" | "producto" | "tarea" | "nuevo_encargo";
+export type TipoPropuesta = "crear_lead" | "vincular_lead" | "cambiar_etapa" | "actualizar_campo" | "producto" | "tarea" | "nuevo_encargo";
 
 export interface ProductoIA {
   tipo: string;               // cabecero | banco | cojin | puf | mesa | pantalla | otro
@@ -253,6 +254,7 @@ export function tiempoRelativo(iso: string): string {
 
 // Etiquetas cortas de los tipos de propuesta (UI).
 export const TIPO_PROPUESTA_LABEL: Record<TipoPropuesta, string> = {
+  crear_lead: "Cliente nuevo por WhatsApp",
   vincular_lead: "¿Con qué cliente va?",
   cambiar_etapa: "Cambiar de etapa",
   actualizar_campo: "Dato distinto en la ficha",

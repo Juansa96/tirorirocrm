@@ -24,9 +24,16 @@ export interface MensajeNormalizado {
   raw: unknown;
 }
 
+export interface ContactoSync {
+  telefono: string;             // dígitos
+  nombre: string;               // nombre con el que está guardado en la agenda del móvil
+  accion: "add" | "remove";
+}
+
 export interface ResultadoParse {
   campos: string[];             // campos vistos (messages, smb_message_echoes, history…)
   mensajes: MensajeNormalizado[];
+  contactos: ContactoSync[];    // agenda sincronizada (smb_app_state_sync)
   numeroNegocio: string;        // display_phone_number del negocio (dígitos)
   ignorados: number;            // mensajes descartados (statuses, reacciones, sin id…)
 }
@@ -144,7 +151,7 @@ function encontrarEntries(body: unknown): Obj[] {
 }
 
 export function parsearWebhook(body: unknown): ResultadoParse {
-  const out: ResultadoParse = { campos: [], mensajes: [], numeroNegocio: "", ignorados: 0 };
+  const out: ResultadoParse = { campos: [], mensajes: [], contactos: [], numeroNegocio: "", ignorados: 0 };
   const vistos = new Set<string>();
 
   for (const entry of encontrarEntries(body)) {
@@ -175,6 +182,19 @@ export function parsearWebhook(body: unknown): ResultadoParse {
       };
 
       if (Array.isArray(value.statuses)) out.ignorados += value.statuses.length;
+
+      // Agenda del móvil (coexistencia): el nombre con el que el equipo tiene
+      // guardado a cada contacto. Es el que queremos enseñar en el CRM.
+      if (Array.isArray(value.state_sync)) {
+        for (const e of (value.state_sync as unknown[]).filter(isObj)) {
+          if (str(e.type) !== "contact" || !isObj(e.contact)) continue;
+          const c = e.contact as Obj;
+          const tel = digitosTelefono(str(c.phone_number));
+          if (!tel || (negocio && tel === negocio)) continue;
+          const nombre = (str(c.full_name) || str(c.first_name)).trim();
+          out.contactos.push({ telefono: tel, nombre, accion: str(e.action) === "remove" ? "remove" : "add" });
+        }
+      }
 
       // Mensajes de clientes (y, por si el proveedor mezcla, nuestros propios).
       if (Array.isArray(value.messages)) {

@@ -159,7 +159,7 @@ export const waActions = {
     const { error } = await supabase.from("whatsapp_conversaciones").update({ lead_id: leadId, estado: "vinculada", analizado_hasta: null } as never).eq("id", conversacionId);
     if (error) { toast.error("No se pudo enlazar: " + error.message); return false; }
     // Las propuestas de "¿con qué cliente va?" quedan resueltas.
-    await supabase.from("whatsapp_propuestas").update({ estado: "aceptada", resuelta_at: new Date().toISOString() } as never).eq("conversacion_id", conversacionId).eq("tipo", "vincular_lead").eq("estado", "pendiente");
+    await supabase.from("whatsapp_propuestas").update({ estado: "aceptada", resuelta_at: new Date().toISOString() } as never).eq("conversacion_id", conversacionId).in("tipo", ["vincular_lead", "crear_lead"]).eq("estado", "pendiente");
     toast.success("Conversación enlazada. Se volverá a analizar con la ficha.");
     return true;
   },
@@ -271,6 +271,19 @@ export const waActions = {
           if (!leadId) throw new Error("Elige un cliente");
           await waActions.vincular(p.conversacionId, leadId);
           return true; // vincular() ya marca la propuesta
+        }
+        case "crear_lead": {
+          const conv = extra.conv as WaConversacion | undefined;
+          if (!conv) throw new Error("No se encontró la conversación");
+          const leadId = String(extra.leadId ?? "");
+          if (leadId) {
+            // Era un duplicado: se enlaza con el cliente que ya existía.
+            await waActions.vincular(p.conversacionId, leadId);
+          } else {
+            const lead = await waActions.crearCliente(conv, String(extra.vendedor ?? usuario));
+            if (!lead) throw new Error("No se pudo crear el cliente");
+          }
+          break;
         }
         case "nuevo_encargo": {
           if (!p.leadId) throw new Error("La propuesta no tiene cliente");

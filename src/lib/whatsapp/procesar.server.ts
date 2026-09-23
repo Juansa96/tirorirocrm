@@ -7,14 +7,17 @@
 //   HACE SOLO (sin preguntar)
 //   · Enlazar la conversación con el cliente cuando el teléfono coincide con
 //     UN solo lead.
-//   · Crear el cliente (etapa Discovery, vendedora por defecto) cuando no hay
-//     ningún lead con ese teléfono y nadie con el mismo nombre o email, y la
-//     IA ve que es un posible cliente. Con sus productos si se han concretado.
 //   · Rellenar datos VACÍOS de la ficha (ciudad, provincia, email, dirección,
 //     teléfono, nombre si no lo había).
 //   · Dejar una nota en la ficha con las novedades del chat y el resumen.
 //
+//   NUNCA crea clientes: los crea el equipo (Rocío, Juan, Bea, Iñaki). Cuando
+//   escribe alguien que no está en el CRM, deja la propuesta "crear cliente"
+//   con los datos extraídos y los posibles duplicados (misma persona que
+//   entró por el formulario web o por Instagram con otro teléfono).
+//
 //   PROPONE (el equipo acepta o rechaza desde /whatsapp)
+//   · Crear el cliente (con candidatos a duplicado para enlazar en su lugar).
 //   · Cambiar de etapa (nunca se mueve sola, ni hacia delante ni hacia atrás).
 //   · Un dato distinto al que ya hay en la ficha.
 //   · Crear o corregir un producto (medidas, tela, modelo).
@@ -146,55 +149,27 @@ interface Resultado { auto: string[]; propuestas: number; creado: boolean; vincu
 
 function idxEtapa(e: string): number { return (ETAPAS as readonly string[]).indexOf(e); }
 
-function candidatosPorNombreEmail(cat: Catalogo, nombre: string, email: string, excluir: Set<string>): LeadMin[] {
-  const n = norm(nombre);
+// Posibles duplicados: misma persona que ya entró por otro canal (formulario
+// web, Instagram…) con otro teléfono o sin él. Se busca por email exacto y por
+// nombre parecido (mismo nombre completo, o mismo nombre y apellido aunque
+// haya más palabras, o el nombre del chat contenido en el de la ficha).
+function candidatosDuplicado(cat: Catalogo, nombres: string[], email: string, excluir: Set<string>): LeadMin[] {
   const em = normEmail(email);
+  const claves = nombres.map(norm).filter((n) => n.length >= 3);
+  const tokensDe = (n: string) => n.split(" ").filter((x) => x.length >= 3);
   return cat.leads.filter((l) => {
     if (excluir.has(l.id)) return false;
     if (em && em.includes("@") && normEmail(l.email) === em) return true;
-    if (n.length >= 6 && n.includes(" ") && norm(l.nombre) === n) return true;
+    const ln = norm(l.nombre);
+    if (!ln) return false;
+    for (const n of claves) {
+      if (ln === n) return true;
+      const a = tokensDe(n), b = tokensDe(ln);
+      if (a.length >= 2 && b.length >= 2 && a[0] === b[0] && a.some((x, i) => i > 0 && b.includes(x))) return true;
+      if (n.length >= 8 && ln.includes(n)) return true;
+    }
     return false;
-  });
-}
-
-async function crearLead(conv: Row, a: AnalisisIA, cfg: Cfg): Promise<LeadMin> {
-  const tel = s(conv.telefono);
-  const nombre = s(a.contacto.nombre) || s(conv.nombre_wa) || `WhatsApp ${formatTelefonoWa(tel)}`;
-  const primerTipo = a.productos[0] ? normalizeTipo(a.productos[0].tipo) : null;
-  const insert = {
-    nombre: nombre.slice(0, 200),
-    email: s(a.contacto.email).slice(0, 254),
-    telefono: formatTelefonoWa(tel),
-    ciudad: s(a.contacto.ciudad).slice(0, 100),
-    provincia: s(a.contacto.provincia).slice(0, 100) || null,
-    direccion: s(a.contacto.direccion).slice(0, 300) || null,
-    producto: primerTipo ? TIPO_LABEL[primerTipo] : "Sin especificar",
-    vendedor: cfg.vendedorDefecto,
-    etapa: "Discovery",
-    valor: 0, valor_producto: 0, valor_envio: 0,
-    origen: "WhatsApp",
-    red_social: "",
-    tipo: "B2C",
-  };
-  const { data, error } = await supabaseAdmin.from("leads").insert(insert as never).select("id, created_at").single();
-  if (error || !data) throw new Error("No se pudo crear el cliente: " + (error?.message ?? "sin datos"));
-  const r = data as Row;
-  // Productos concretados en el chat (sin precio salvo que se haya dicho).
-  for (const p of a.productos.slice(0, 6)) {
-    const tipo = normalizeTipo(p.tipo) ?? "otro";
-    await supabaseAdmin.from("productos_lead").insert({
-      lead_id: s(r.id), tipo, modelo: s(p.modelo).slice(0, 200),
-      ancho: p.ancho ?? null, alto: p.alto ?? null, fondo: p.fondo ?? null,
-      tela: s(p.tela).slice(0, 200), color: s(p.color).slice(0, 200), relleno: "",
-      patas: p.montaje === "colgar" ? "Montaje: pared" : p.montaje === "apoyar" ? "Montaje: suelo" : "",
-      acabado: "", coleccion_tela: null,
-      cantidad: Math.max(1, Math.floor(Number(p.cantidad) || 1)),
-      precio_unitario: Math.max(0, Number(p.precio) || 0),
-      notas_producto: ["Desde WhatsApp", s(p.notas)].filter(Boolean).join(" · ").slice(0, 1000),
-      created_by: "whatsapp",
-    } as never);
-  }
-  return { id: s(r.id), nombre: insert.nombre, telefono: insert.telefono, email: insert.email, ciudad: insert.ciudad, provincia: insert.provincia ?? "", direccion: insert.direccion ?? "", etapa: "Discovery", tipo: "B2C", origen: "WhatsApp", createdAt: s(r.created_at) };
+  }).slice(0, 6);
 }
 
 async function rellenarVacios(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resultado, propuestasPermitidas: boolean) {
@@ -220,11 +195,12 @@ async function rellenarVacios(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resu
     }
   }
   // Nombre: solo si la ficha no tiene uno de verdad.
-  const nombreIA = s(a.contacto.nombre).slice(0, 200);
+  // Nombre: el del chat y, si no, el de la agenda del móvil (nunca el número).
+  const nombreIA = (s(a.contacto.nombre) || s(conv.nombre_wa)).slice(0, 200);
   const nombreFicha = lead.nombre.trim();
   const sinNombre = !nombreFicha || /^whatsapp\b/i.test(nombreFicha) || /^\+?[\d\s]+$/.test(nombreFicha);
   if (nombreIA && sinNombre) { patch.nombre = nombreIA; res.auto.push(`nombre: ${nombreIA}`); }
-  else if (nombreIA && propuestasPermitidas && !norm(nombreFicha).includes(norm(nombreIA)) && !norm(nombreIA).includes(norm(nombreFicha))) {
+  else if (nombreIA && propuestasPermitidas && s(a.contacto.nombre) && !norm(nombreFicha).includes(norm(nombreIA)) && !norm(nombreIA).includes(norm(nombreFicha))) {
     const ok = await proponer(s(conv.id), lead.id, "actualizar_campo", `campo:nombre:${hashCorto(norm(nombreIA))}`, { campo: "nombre", actual: nombreFicha, nuevo: nombreIA }, "El nombre que da en el chat no coincide con el de la ficha.");
     if (ok) res.propuestas++;
   }
@@ -320,7 +296,7 @@ async function notaDeNovedades(lead: LeadMin, conv: Row, a: AnalisisIA, res: Res
   return hash;
 }
 
-async function aplicarAnalisis(conv: Row, a: AnalisisIA, cat: Catalogo, cfg: Cfg, modo: "normal" | "historico"): Promise<Resultado> {
+async function aplicarAnalisis(conv: Row, a: AnalisisIA, cat: Catalogo, _cfg: Cfg, modo: "normal" | "historico"): Promise<Resultado> {
   const convId = s(conv.id);
   const estadoPrevio = (s(conv.estado) as Resultado["estado"]) || "nueva";
   const res: Resultado = {
@@ -350,20 +326,21 @@ async function aplicarAnalisis(conv: Row, a: AnalisisIA, cat: Catalogo, cfg: Cfg
     } else if (!a.es_cliente) {
       res.estado = "no_cliente";
     } else if (modo === "normal") {
-      const cands = candidatosPorNombreEmail(cat, s(a.contacto.nombre) || s(conv.nombre_wa), s(a.contacto.email), new Set());
-      if (cands.length > 0) {
-        const ok = await proponer(convId, null, "vincular_lead", "vincular", {
-          candidatos: cands.map((l) => ({ id: l.id, nombre: l.nombre, etapa: l.etapa, ciudad: l.ciudad, telefono: l.telefono })),
-          duplicados: false,
-        }, `El teléfono no está en el CRM, pero el nombre o el email coincide con ${cands.length === 1 ? "un cliente" : cands.length + " clientes"}. ¿Es la misma persona?`);
-        if (ok) res.propuestas++;
-      } else {
-        lead = await crearLead(conv, a, cfg);
-        cat.leads.push(lead);
-        res.creado = true;
-        recienEnlazada = true;
-        res.auto.push("cliente creado en Discovery");
-      }
+      // Nadie con este teléfono: NO se crea el cliente. Se propone crearlo,
+      // con los posibles duplicados por nombre/email para enlazar en su lugar.
+      const cands = candidatosDuplicado(cat, [s(a.contacto.nombre), s(conv.nombre_wa)], s(a.contacto.email), new Set());
+      const nombre = s(a.contacto.nombre) || s(conv.nombre_wa);
+      const ok = await proponer(convId, null, "crear_lead", "crear", {
+        sugerido: {
+          nombre, ciudad: s(a.contacto.ciudad), provincia: s(a.contacto.provincia), email: s(a.contacto.email), direccion: s(a.contacto.direccion),
+          telefono: formatTelefonoWa(s(conv.telefono)),
+        },
+        productos: a.productos.slice(0, 6),
+        candidatos: cands.map((l) => ({ id: l.id, nombre: l.nombre, etapa: l.etapa, ciudad: l.ciudad, telefono: l.telefono, origen: l.origen })),
+      }, cands.length > 0
+        ? `${nombre || "Esta persona"} no está en el CRM con este teléfono, pero hay ${cands.length === 1 ? "un cliente" : cands.length + " clientes"} con nombre o email parecido (puede haber entrado por la web o Instagram). Enlaza si es la misma persona; si no, créalo.`
+        : `${nombre || "Esta persona"} escribe por WhatsApp y no está en el CRM. ${a.resumen}`);
+      if (ok) res.propuestas++;
     }
   }
 
