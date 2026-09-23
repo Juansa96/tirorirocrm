@@ -997,7 +997,6 @@ export type Database = {
         }
         Relationships: []
       }
-    }
       whatsapp_config: {
         Row: {
           activo: boolean
@@ -1242,33 +1241,16 @@ export type Database = {
           },
         ]
       }
+    }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      delete_email: {
-        Args: { message_id: number; queue_name: string }
-        Returns: boolean
-      }
-      email_queue_dispatch: { Args: never; Returns: undefined }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
-      }
       es_admin: { Args: never; Returns: boolean }
       es_equipo: { Args: never; Returns: boolean }
       mask_apellido: { Args: { full_name: string }; Returns: string }
       mi_rol: { Args: never; Returns: string }
       mi_tapicero_id: { Args: never; Returns: string }
-      move_to_dlq: {
-        Args: {
-          dlq_name: string
-          message_id: number
-          payload: Json
-          source_queue: string
-        }
-        Returns: number
-      }
       panel_cliente_nombres: {
         Args: { p_ids: string[] }
         Returns: {
@@ -1352,14 +1334,6 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
-      }
-      read_email_batch: {
-        Args: { batch_size: number; queue_name: string; vt: number }
-        Returns: {
-          message: Json
-          msg_id: number
-          read_ct: number
-        }[]
       }
       recalc_lead_valor: { Args: { _lead_id: string }; Returns: undefined }
     }
