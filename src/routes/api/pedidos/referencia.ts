@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { fotoBaseProducto, promptReferencia, type ImagenesReferencia } from "@/lib/ia-prompts";
-import { autenticarEquipo, cargarContextoPedido, descargarImagenBase64, guardarArchivoIA, json, generarImagen, respuestaLarga, selloFecha } from "@/lib/ia-pedido.server";
+import { fotoBaseProducto, promptCorreccionImagen, promptReferencia, tituloPedidoIA, type ImagenesReferencia } from "@/lib/ia-prompts";
+import { autenticarEquipo, cargarArchivoAnterior, cargarContextoPedido, traducirIndicacionImagen, descargarImagenBase64, guardarArchivoIA, json, generarImagen, respuestaLarga, selloFecha } from "@/lib/ia-pedido.server";
 
 // Imagen de referencia del acabado generada por Gemini con el método de Juan:
 // se parte de una FOTO REAL del producto (la de la web para las piezas de
@@ -19,7 +19,29 @@ export const Route = createFileRoute("/api/pedidos/referencia")({
         const body = await request.json().catch(() => null) as Record<string, unknown> | null;
         const pedidoId = String(body?.pedidoId ?? "");
         const indicacion = typeof body?.indicacion === "string" ? body.indicacion.slice(0, 1000) : "";
+        const corregir = typeof body?.corregir === "string" ? body.corregir : "";
         if (!pedidoId) return json({ error: "Falta pedidoId" }, 400);
+
+        // Corregir una imagen ya generada: se edita esa imagen con la indicación.
+        if (corregir) {
+          if (!indicacion.trim()) return json({ error: "Escribe qué hay que corregir." }, 400);
+          const prev = await cargarArchivoAnterior(pedidoId, corregir, "referencia");
+          if (prev instanceof Response) return prev;
+          const ctxC = await cargarContextoPedido(pedidoId);
+          const contexto = ctxC instanceof Response ? "producto tapizado" : tituloPedidoIA(ctxC.datos);
+          return respuestaLarga(async () => {
+            const base = await descargarImagenBase64("", { bucket: "pedido-archivos", path: prev.storagePath });
+            if (!base) return json({ error: "No se pudo leer la imagen anterior." }, 500);
+            // Claude traduce la corrección a una instrucción de edición precisa.
+            const instruccion = await traducirIndicacionImagen(indicacion, base, contexto);
+            const r = await generarImagen({ prompt: promptCorreccionImagen(instruccion), imagenes: [base] });
+            if (r instanceof Response) return r;
+            const ext = r.mime.includes("jpeg") ? "jpg" : r.mime.includes("webp") ? "webp" : "png";
+            const guardado = await guardarArchivoIA({ pedidoId, tipo: "referencia", nombre: `referencia-ia-${selloFecha()}.${ext}`, bytes: r.bytes, contentType: r.mime });
+            if (guardado instanceof Response) return guardado;
+            return json({ archivo: guardado, modelo: r.modelo });
+          });
+        }
 
         const ctx = await cargarContextoPedido(pedidoId);
         if (ctx instanceof Response) return ctx;
@@ -50,12 +72,13 @@ export const Route = createFileRoute("/api/pedidos/referencia")({
           // El dibujo del configurador solo hace falta si no hay foto base.
           if (!im.base && dibujoPngUrl) { const x = await descargarImagenBase64(dibujoPngUrl); if (x) { adjuntas.push(x); im.dibujo = true; } }
 
-          const r = await generarImagen({ prompt: promptReferencia(datos, im, indicacion), imagenes: adjuntas, aspectRatio: im.base ? undefined : "4:3" });
+          const indicacionIA = indicacion.trim() ? await traducirIndicacionImagen(indicacion, adjuntas[0] ?? null, tituloPedidoIA(datos)) : "";
+          const r = await generarImagen({ prompt: promptReferencia(datos, im, indicacionIA), imagenes: adjuntas, aspectRatio: im.base ? undefined : "4:3" });
           if (r instanceof Response) return r;
           const ext = r.mime.includes("jpeg") ? "jpg" : r.mime.includes("webp") ? "webp" : "png";
           const guardado = await guardarArchivoIA({
             pedidoId, tipo: "referencia",
-            nombre: `referencia-gemini-${selloFecha()}.${ext}`,
+            nombre: `referencia-ia-${selloFecha()}.${ext}`,
             bytes: r.bytes, contentType: r.mime,
           });
           if (guardado instanceof Response) return guardado;
