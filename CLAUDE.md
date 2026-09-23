@@ -78,8 +78,11 @@ Desde la ficha del pedido (y solos al crear un pedido) se generan:
 - **Croquis** (plano de corte) con **Claude** → `POST /api/pedidos/croquis`
   (`src/routes/api/pedidos/croquis.ts`). Devuelve un SVG A4 apaisado.
 - **Imagen de referencia** del acabado con **Gemini** → `POST /api/pedidos/referencia`
-  (`src/routes/api/pedidos/referencia.ts`). Adjunta la foto real de la tela y el
-  dibujo del configurador si existe.
+  (`src/routes/api/pedidos/referencia.ts`). Método de Juan: se parte de una
+  **foto real del producto** (la de la web, `fotoBaseProducto` en `ia-prompts.ts`;
+  si la pieza no es de catálogo, la foto de referencia subida a mano por el
+  equipo) y se pide cambiar **solo la tela y el vivo**, adjuntando las fotos
+  reales de las telas. No inventar la forma desde cero salvo que no haya foto.
 
 Los prompts viven en `src/lib/ia-prompts.ts` (funciones puras, sin claves): es el
 sitio donde afinar el estilo con los ejemplos que pase Juan. La parte común de

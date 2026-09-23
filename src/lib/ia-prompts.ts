@@ -96,44 +96,108 @@ export function promptCroquis(d: DatosPedidoIA, indicacion?: string): string {
 }
 
 // ───────────── Imagen de referencia (Gemini) ─────────────
+// Método que le funciona a Juan: partir de una FOTO REAL del producto (la
+// forma ya hecha) y pedir a Gemini que cambie SOLO la tela y el vivo. Así la
+// forma, las proporciones, la luz y el estilo salen siempre bien. Las fotos
+// base son las de la web (repo tiroriro, public/productos-fotos).
 
-const TIPO_ESCENA: Record<string, string> = {
-  cabecero: "un cabecero de cama tapizado, montado en la pared detrás de una cama de matrimonio hecha con ropa de cama lisa en tonos neutros, en un dormitorio luminoso y sereno",
-  banco: "un banco pie de cama tapizado, colocado a los pies de una cama hecha con ropa de cama lisa en tonos neutros, en un dormitorio luminoso",
-  puf: "un puf tapizado en un salón o dormitorio luminoso, sobre suelo de madera clara",
-  cojin: "un almohadón / cojín tapizado sobre una cama o sofá de tonos neutros",
-  mesa: "una mesa de centro tapizada en un salón luminoso con sofá de tonos neutros",
-  pantalla: "una pantalla de lámpara tapizada en tela, sobre una lámpara de mesa encendida en una mesilla, en un dormitorio luminoso",
-  otro: "la pieza tapizada en un dormitorio luminoso y sereno",
-};
+export const WEB_FOTOS = "https://tirorirohome.com/productos-fotos";
 
-export function promptReferencia(d: DatosPedidoIA, opts: { hayFotoTela: boolean; hayDibujo: boolean; indicacion?: string }): string {
-  const tipo = normalizeTipo(d.tipo) ?? "otro";
-  const forma = formaDeModelo(d.modelo);
-  const lineas: string[] = [];
-  lineas.push(`Fotografía realista de producto, estilo catálogo de interiorismo, de ${TIPO_ESCENA[tipo] ?? TIPO_ESCENA.otro}.`);
-  lineas.push(`Pieza: ${displayNombreProducto(d.tipo, d.modelo)}${medidasTexto(d) ? ` (${medidasTexto(d)})` : ""}. Respeta las proporciones reales de las medidas.`);
+export interface FotoBase { url: string; descripcion: string }
+
+// Foto base del catálogo para el producto del pedido, o null si es una pieza
+// fuera de catálogo (entonces se usa la foto que haya subido el equipo, o se
+// genera solo con texto).
+export function fotoBaseProducto(tipoRaw: string, modelo: string): FotoBase | null {
+  const tipo = normalizeTipo(tipoRaw);
+  const m = (modelo || "").toLowerCase();
   if (tipo === "cabecero") {
-    if (forma) lineas.push(`Forma del borde superior: ${{
-      recto: "recto, rectangular",
-      semicirculo: "un único arco suave de lado a lado (semicírculo rebajado)",
-      "corona-simple": "corona simple: un escalón cóncavo suave a cada lado y un arco bajo en el centro",
-      "corona-doble": "corona doble: dos escalones cóncavos suaves a cada lado y un arco bajo y estrecho en el centro",
-      ondas: "ondas suaves (tres crestas)",
-    }[forma]}.`);
-    else if (d.modelo) lineas.push(`Forma: ${d.modelo}.`);
-    if (d.montaje === "colgar") lineas.push("Va colgado en la pared, sin patas, con la base a la altura del colchón.");
-    if (d.montaje === "apoyar") lineas.push("Va apoyado en el suelo con patas bajas discretas.");
+    const forma = formaDeModelo(modelo);
+    const porForma: Record<string, FotoBase> = {
+      recto: { url: `${WEB_FOTOS}/cabeceros/calobra-01-800.webp`, descripcion: "cabecero recto rectangular (modelo Calobra)" },
+      semicirculo: { url: `${WEB_FOTOS}/cabeceros/pregonda-02-800.webp`, descripcion: "cabecero con el borde superior en arco (modelo Pregonda)" },
+      "corona-simple": { url: `${WEB_FOTOS}/cabeceros/macarella-02-800.webp`, descripcion: "cabecero en corona simple (modelo Macarella)" },
+      "corona-doble": { url: `${WEB_FOTOS}/cabeceros/conta-01-800.webp`, descripcion: "cabecero en corona doble (modelo Conta)" },
+      ondas: { url: `${WEB_FOTOS}/cabeceros/ondas-01-800.webp`, descripcion: "cabecero de ondas (modelo Barbaria)" },
+    };
+    return forma ? porForma[forma] ?? null : null;
   }
+  if (tipo === "banco") return { url: `${WEB_FOTOS}/bancos/oyambre-nuevo-800.webp`, descripcion: "banco tapizado (modelo Oyambre)" };
+  if (tipo === "puf") {
+    return /redond|ø|cilin/i.test(m)
+      ? { url: `${WEB_FOTOS}/puff/monteferro-01-800.webp`, descripcion: "puf redondo (modelo Monteferro)" }
+      : { url: `${WEB_FOTOS}/puff/patos-01-800.webp`, descripcion: "puf cuadrado (modelo Patos)" };
+  }
+  if (tipo === "mesa") return { url: `${WEB_FOTOS}/mesas-centro/cabo-de-palos-800.webp`, descripcion: "mesa de centro tapizada (modelo Cabo de Palos)" };
+  if (tipo === "pantalla") {
+    if (/tormes|cuadrad/.test(m)) return { url: `${WEB_FOTOS}/pantallas/tormes-01-800.webp`, descripcion: "pantalla de lámpara cuadrada (modelo Tormes)" };
+    if (/serrota|rectang/.test(m)) return { url: `${WEB_FOTOS}/pantallas/serrota-01-800.webp`, descripcion: "pantalla de lámpara rectangular (modelo La Serrota)" };
+    return { url: `${WEB_FOTOS}/pantallas/almanzor-01-800.webp`, descripcion: "pantalla de lámpara cilíndrica (modelo Almanzor)" };
+  }
+  if (tipo === "cojin") {
+    if (/cilin/.test(m)) return null;
+    return /rectang|60|50x30|30x50/.test(m)
+      ? { url: `${WEB_FOTOS}/almohadones/covadonga-04-800.webp`, descripcion: "almohadón rectangular" }
+      : { url: `${WEB_FOTOS}/almohadones/rodiles-03-800.webp`, descripcion: "almohadón cuadrado" };
+  }
+  return null;
+}
+
+// `enTela`: cómo nombrar la tela del vivo ("en la tela de la imagen 3 (\"Lino\")"), o "" si no hay.
+function textoVivo(acabado: string, enTela: string): string {
+  const a = (acabado || "").toLowerCase();
+  if (a === "liso" || /sin vivo/.test(a)) return "SIN vivo: quita el ribete del borde si la foto lo tiene; el borde queda liso, en la misma tela.";
+  const tipoVivo = a.includes("doble") ? "Vivo DOBLE (dos ribetes paralelos)" : "Vivo (ribete) sencillo";
+  if (enTela) return `${tipoVivo} en todo el perímetro, ${enTela}.`;
+  if (a.startsWith("vivo")) return `${tipoVivo} en todo el perímetro, en la misma tela que la pieza.`;
+  return "Mantén el borde como en la foto.";
+}
+
+export interface ImagenesReferencia {
+  base: "catalogo" | "equipo" | null;   // de dónde sale la foto base (1ª imagen)
+  baseDescripcion: string;
+  telaPrincipal: boolean;                // hay foto de la tela principal
+  telaLateral: boolean;
+  telaVivo: boolean;
+  dibujo: boolean;                       // dibujo del configurador (última)
+}
+
+// El orden de las imágenes adjuntas es: [base] [tela principal] [tela lateral] [tela vivo] [dibujo].
+export function promptReferencia(d: DatosPedidoIA, im: ImagenesReferencia, indicacion?: string): string {
+  const tipo = normalizeTipo(d.tipo) ?? "otro";
   const frontal = d.telas.find((t) => /frontal|principal/i.test(t.rol)) ?? d.telas[0];
   const lateral = d.telas.find((t) => /lateral/i.test(t.rol));
   const vivo = d.telas.find((t) => /vivo|ribete/i.test(t.rol));
-  if (frontal?.nombre) lineas.push(`Tela principal: "${frontal.nombre}"${frontal.coleccion ? ` (colección ${frontal.coleccion})` : ""}.${opts.hayFotoTela ? " Usa EXACTAMENTE la tela de la imagen adjunta: mismo estampado, escala del dibujo, color y textura, tapizada tensa y lisa sobre la pieza (sin capitoné)." : ""}`);
-  if (lateral?.nombre && lateral.nombre !== frontal?.nombre) lineas.push(`Laterales/canto en tela "${lateral.nombre}".`);
-  if (vivo?.nombre) lineas.push(`Con vivo (ribete) perimetral en tela "${vivo.nombre}".`);
-  else if (d.acabado && /liso|sin vivo/i.test(d.acabado)) lineas.push("Sin vivo: acabado liso.");
-  if (opts.hayDibujo) lineas.push("La silueta de la pieza debe seguir el dibujo adjunto (silueta del configurador): misma forma y proporciones.");
-  lineas.push("Vista frontal ligeramente elevada, luz natural suave, colores fieles, sin personas, sin texto, sin logotipos ni marcas de agua. Formato horizontal.");
-  if (opts.indicacion?.trim()) lineas.push(`Indicación adicional de quien revisa (prioritaria): ${opts.indicacion.trim()}`);
+  const lineas: string[] = [];
+  let n = 0;
+  const idx: Record<string, number> = {};
+  if (im.base) idx.base = ++n;
+  if (im.telaPrincipal) idx.principal = ++n;
+  if (im.telaLateral) idx.lateral = ++n;
+  if (im.telaVivo) idx.vivo = ++n;
+  if (im.dibujo) idx.dibujo = ++n;
+
+  if (im.base) {
+    lineas.push(`Edita la imagen ${idx.base} (${im.base === "catalogo" ? `foto real de nuestro ${im.baseDescripcion}` : "foto de referencia del pedido"}).`);
+    lineas.push("Mantén EXACTAMENTE la misma pieza: misma forma y silueta, mismas proporciones, mismo encuadre, misma habitación, muebles, ropa de cama, luz y sombras. No cambies nada más que lo que se pide aquí.");
+  } else {
+    const nombre = displayNombreProducto(d.tipo, d.modelo);
+    lineas.push(`Fotografía realista de producto, estilo catálogo de interiorismo, de un ${nombre.toLowerCase()} tapizado en un dormitorio luminoso y sereno, con ropa de cama lisa en tonos neutros.${d.modelo ? ` Forma: ${d.modelo}.` : ""}`);
+    if (im.dibujo) lineas.push(`La silueta debe seguir el dibujo de la imagen ${idx.dibujo}.`);
+  }
+
+  if (frontal?.nombre) {
+    lineas.push(idx.principal
+      ? `${im.base ? "Cambia la tela de la pieza por" : "Tapiza la pieza con"} la tela de la imagen ${idx.principal} ("${frontal.nombre}"): mismo estampado, misma escala del dibujo, mismo color y textura. Tapizado tenso y liso, sin capitoné, con el estampado recto y centrado.`
+      : `${im.base ? "Cambia la tela de la pieza por" : "Tapiza la pieza con"} la tela "${frontal.nombre}".`);
+  }
+  if (lateral?.nombre && lateral.nombre !== frontal?.nombre && tipo !== "pantalla") {
+    lineas.push(idx.lateral ? `Los laterales / cantos, en la tela de la imagen ${idx.lateral} ("${lateral.nombre}").` : `Los laterales / cantos, en tela "${lateral.nombre}".`);
+  }
+  const enTelaVivo = idx.vivo ? `en la tela de la imagen ${idx.vivo}${vivo?.nombre ? ` ("${vivo.nombre}")` : ""}` : vivo?.nombre ? `en tela "${vivo.nombre}"` : "";
+  if (tipo !== "pantalla" && tipo !== "mesa") lineas.push(textoVivo(d.acabado, enTelaVivo));
+  if (tipo === "cabecero" && d.montaje === "apoyar") lineas.push("El cabecero va apoyado en el suelo.");
+  lineas.push("Resultado: fotografía realista, colores fieles a las telas, sin texto, sin logotipos ni marcas de agua, sin personas.");
+  if (indicacion?.trim()) lineas.push(`Indicación adicional de quien revisa (prioritaria): ${indicacion.trim()}`);
   return lineas.join("\n");
 }
