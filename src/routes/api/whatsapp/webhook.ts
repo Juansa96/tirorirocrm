@@ -125,10 +125,10 @@ async function guardarMensajes(mensajes: MensajeNormalizado[]): Promise<number> 
     const nombre = nombreDe(lista);
     if (nombre && !s(conv.nombre_wa)) patch.nombre_wa = nombre;
     if (Object.keys(patch).length === 0) continue;
-    updates.push(
-      supabaseAdmin.from("whatsapp_conversaciones").update(patch as never).eq("id", convId)
-        .then(({ error }: { error: { message: string } | null }) => { if (error) throw new Error("No se pudo actualizar la conversación: " + error.message); }),
-    );
+    updates.push((async () => {
+      const { error } = await supabaseAdmin.from("whatsapp_conversaciones").update(patch as never).eq("id", convId);
+      if (error) throw new Error("No se pudo actualizar la conversación: " + error.message);
+    })());
   }
   await Promise.all(updates);
 
@@ -158,10 +158,10 @@ async function guardarContactos(contactos: ContactoSync[]): Promise<number> {
     if (!conv) { altas.push({ telefono, nombre_wa: nombre, origen: "historial" }); continue; }
     if (s(conv.nombre_wa) === nombre) continue;
     n++;
-    updates.push(
-      supabaseAdmin.from("whatsapp_conversaciones").update({ nombre_wa: nombre } as never).eq("id", s(conv.id))
-        .then(({ error }: { error: { message: string } | null }) => { if (error) throw new Error("No se pudo guardar el nombre del contacto: " + error.message); }),
-    );
+    updates.push((async () => {
+      const { error } = await supabaseAdmin.from("whatsapp_conversaciones").update({ nombre_wa: nombre } as never).eq("id", s(conv.id));
+      if (error) throw new Error("No se pudo guardar el nombre del contacto: " + error.message);
+    })());
   }
   for (let i = 0; i < altas.length; i += 200) {
     const { data, error } = await supabaseAdmin.from("whatsapp_conversaciones")
