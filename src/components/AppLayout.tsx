@@ -1,10 +1,11 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Columns3, List, LogOut, Search, X, BarChart2, Package, Users, WifiOff, RefreshCw, Scissors,
+  LayoutDashboard, Columns3, List, LogOut, Search, X, BarChart2, Package, Users, WifiOff, RefreshCw, Scissors, MessageCircle,
 } from "lucide-react";
 import { useState, useEffect, useRef, type ComponentType } from "react";
 import { useAuth } from "@/lib/auth";
 import { useStore, actions } from "@/lib/store";
+import { useWhatsapp, pendientesDe } from "@/lib/whatsapp/store";
 import { vendorName } from "@/lib/types";
 import { StageBadge } from "@/components/StageBadge";
 import { TiroritoLogo } from "./TiroritoLogo";
@@ -20,6 +21,8 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/pipeline", label: "Pipeline", icon: Columns3 },
+  // WhatsApp: chats enlazados a clientes y propuestas de la IA por revisar.
+  { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { to: "/clientes", label: "Clientes", icon: List },
   { to: "/datos", label: "Datos", icon: BarChart2 },
   { to: "/pedidos", label: "Pedidos", icon: Package },
@@ -164,6 +167,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const effective: "connected" | "connecting" | "disconnected" =
     !online ? "disconnected" : realtimeStatus;
   const showBanner = !online || realtimeStatus === "disconnected";
+  // Propuestas de WhatsApp sin revisar (contador en el menú).
+  const pendientesWa = pendientesDe(useWhatsapp());
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -193,9 +198,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               const active = isActive(path, item);
               const Icon = item.icon;
               return (
-                <Link key={item.to} to={item.to} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${active ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"}`}>
+                <Link key={item.to} to={item.to} className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${active ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"}`}>
                   <Icon className="h-5 w-5 shrink-0" />
                   <span className="hidden lg:inline">{item.label}</span>
+                  {item.to === "/whatsapp" && pendientesWa > 0 && (
+                    <>
+                      <span className="ml-auto hidden rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#1a1f36] lg:inline">{pendientesWa}</span>
+                      <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-500 lg:hidden" />
+                    </>
+                  )}
                 </Link>
               );
             })}
@@ -228,8 +239,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           const active = isActive(path, item);
           const Icon = item.icon;
           return (
-            <Link key={item.to} to={item.to} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[10px] font-medium transition-colors ${active ? "text-[#1a1f36]" : "text-slate-500"}`}>
+            <Link key={item.to} to={item.to} className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[10px] font-medium transition-colors ${active ? "text-[#1a1f36]" : "text-slate-500"}`}>
               <Icon className={`h-5 w-5 shrink-0 ${active ? "text-amber-500" : ""}`} />
+              {item.to === "/whatsapp" && pendientesWa > 0 && (
+                <span className="absolute right-[calc(50%-14px)] top-1 min-w-4 rounded-full bg-amber-500 px-1 text-center text-[9px] font-bold leading-4 text-[#1a1f36]">{pendientesWa}</span>
+              )}
               <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );

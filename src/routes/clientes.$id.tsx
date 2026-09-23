@@ -8,6 +8,7 @@ import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, CAMPANA_FIELDS, CANAL_COLORS, canalOf, vendorName, tapiceroNombre, HISTORIAL_LABELS, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
 import { MotivoPerdidaDialog } from "@/components/MotivoPerdidaDialog";
 import { ClosedLostDialog } from "@/components/ClosedLostDialog";
+import { WhatsappCliente } from "@/components/WhatsappCliente";
 import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
@@ -998,6 +999,9 @@ function ClienteDetalle() {
 
       {/* Fotos */}
       <FotosSection leadId={lead.id} />
+
+      {/* WhatsApp: chats enlazados y propuestas de la IA */}
+      <WhatsappCliente leadId={lead.id} />
 
       {/* Notas */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
