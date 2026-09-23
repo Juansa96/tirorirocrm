@@ -452,7 +452,11 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
         continue;
       }
 
-      const modo: "normal" | "historico" = cfg.conectadoAt && ultimoAt < cfg.conectadoAt ? "historico" : "normal";
+      // Historial: solo conversaciones que entraron por la sincronización de
+      // historial y que no han tenido mensajes nuevos desde que se conectó.
+      // (Comparar solo fechas fallaba: el webhook fija conectado_at con
+      // milisegundos y el primer mensaje en vivo, con segundos, quedaba "antes".)
+      const modo: "normal" | "historico" = s(conv.origen) === "historial" && (!cfg.conectadoAt || ultimoAt < cfg.conectadoAt) ? "historico" : "normal";
 
       let leadCtx: ContextoLead | null = null;
       const leadActual = conv.lead_id ? cat.leads.find((l) => l.id === s(conv.lead_id)) ?? null : null;
