@@ -1,15 +1,15 @@
-import { useRef } from "react";
-import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus } from "lucide-react";
+import { useRef, useState } from "react";
+import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus, Sparkles, RefreshCw, MessageSquarePlus, Loader2, Plug } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
-import { tapiceroNombre, type Pedido, type Producto } from "@/lib/types";
+import { tapiceroNombre, archivoPendienteIA, huecosDe, conHuecos, huecoVacio, TIPOS_HUECO, TIPO_HUECO_LABEL, type Pedido, type Producto, type HuecoPedido, type TipoHueco } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
-import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller } from "@/lib/catalogo";
+import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller, normalizeTipo } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
 import { Tachado } from "@/components/Tachado";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
 import { toast } from "sonner";
-import { confirmar } from "@/components/Confirmar";
+import { confirmar, pedirTexto } from "@/components/Confirmar";
 
 // Panel del EQUIPO dentro de la ficha del pedido. Trabaja sobre el BORRADOR
 // (nada se persiste hasta pulsar "Guardar" en la ficha): las telas y los campos
@@ -24,7 +24,7 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
   telas: TelaDraft[];
   setTelas: (updater: (prev: TelaDraft[]) => TelaDraft[]) => void;
 }) {
-  const { pedidoArchivos, tapiceros } = useStore();
+  const { pedidoArchivos, tapiceros, iaEnCurso } = useStore();
   const roles = telasDeProducto(producto?.tipo);
   const telaDe = (rol: string) => telas.find((t) => t.tipoTela.toLowerCase() === rol.toLowerCase());
   const tapicero = tapiceros.find((t) => t.id === pedido.tapiceroId);
@@ -50,8 +50,9 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
   const bloqueos = faltaParaTaller(producto, draft.fechaRecogida);
   // Aviso de producto incompleto (para no mandar a producción algo a medias).
   const incompletos: string[] = [];
-  if (!archivos.some((a) => a.tipo === "plantilla")) incompletos.push("plantilla de corte");
-  if (!archivos.some((a) => a.tipo === "referencia")) incompletos.push("imagen de referencia");
+  const esCabecero = normalizeTipo(producto?.tipo) === "cabecero";
+  if (esCabecero && !archivos.some((a) => a.tipo === "plantilla" && !archivoPendienteIA(a))) incompletos.push("plantilla de corte");
+  if (!archivos.some((a) => a.tipo === "referencia" && !archivoPendienteIA(a))) incompletos.push("imagen de referencia");
   if (!telas.some((t) => t.tipoTela.toLowerCase() === "frontal" && t.nombreTela)) incompletos.push("tela principal");
 
   // Aviso por email (el tapicero ya VE el pedido en cuanto está asignado; esto
@@ -266,10 +267,23 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
         />
       </div>
 
-      {/* Archivos: plantilla + imagen de referencia + etiqueta de envío (subida inmediata) */}
+      {/* Enchufes, huecos y anclajes (van al croquis y al panel del tapicero).
+          Se editan en el borrador y se guardan con "Guardar". */}
+      {esCabecero && (
+        <HuecosEditor huecos={huecosDe(draft.pasosTapicero)} onChange={(hs) => patch({ pasosTapicero: conHuecos(draft.pasosTapicero, hs) })} />
+      )}
+
+      {/* Archivos: plantilla + imagen de referencia + etiqueta de envío (subida inmediata).
+          El croquis lo genera Claude y la imagen Gemini; quedan pendientes hasta
+          que alguien del equipo los aprueba. */}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <ArchivoSlot pedidoId={pedido.id} tipo="plantilla" titulo="Plantilla de corte (PLT/PDF/SVG)" accept=".svg,.plt,application/pdf,.pdf" icon={<FileUp className="h-3.5 w-3.5" />} archivos={archivos.filter((a) => a.tipo === "plantilla")} />
-        <ArchivoSlot pedidoId={pedido.id} tipo="referencia" titulo="Imagen de referencia del acabado" accept="image/*" icon={<ImageIcon className="h-3.5 w-3.5" />} archivos={archivos.filter((a) => a.tipo === "referencia")} />
+        <ArchivoSlot pedidoId={pedido.id} tipo="plantilla" titulo="Croquis / plantilla de corte" accept=".svg,.plt,application/pdf,.pdf,image/*" icon={<FileUp className="h-3.5 w-3.5" />}
+          archivos={archivos.filter((a) => a.tipo === "plantilla")} generando={iaEnCurso.includes(`${pedido.id}:plantilla`)}
+          puedeGenerar={esCabecero && producto?.ancho != null && producto?.alto != null}
+          motivoNoGenerar={!esCabecero ? "Solo para cabeceros" : "Faltan el ancho o el alto"} />
+        <ArchivoSlot pedidoId={pedido.id} tipo="referencia" titulo="Imagen de referencia del acabado" accept="image/*" icon={<ImageIcon className="h-3.5 w-3.5" />}
+          archivos={archivos.filter((a) => a.tipo === "referencia")} generando={iaEnCurso.includes(`${pedido.id}:referencia`)}
+          puedeGenerar={!!producto} motivoNoGenerar="Sin producto" />
       </div>
       <div className="mt-3">
         <EtiquetaEnvioSlot pedidoId={pedido.id} archivos={archivos.filter((a) => a.tipo === "etiqueta_envio" || a.tipo === "etiqueta_ctt")} />
@@ -387,29 +401,102 @@ function ComentarioTapicero({ value, onChange, notasPedido, notasProducto }: {
   );
 }
 
-function ArchivoSlot({ pedidoId, tipo, titulo, accept, icon, archivos }: {
+function ArchivoSlot({ pedidoId, tipo, titulo, accept, icon, archivos, generando, puedeGenerar, motivoNoGenerar }: {
   pedidoId: string; tipo: "plantilla" | "referencia"; titulo: string; accept: string; icon: React.ReactNode;
-  archivos: { id: string; nombre: string; url: string; storagePath: string; createdAt: string }[];
+  archivos: { id: string; nombre: string; url: string; storagePath: string; subidoPor: string; createdAt: string }[];
+  generando: boolean; puedeGenerar: boolean; motivoNoGenerar: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const [indicando, setIndicando] = useState(false);
+  const motor = tipo === "plantilla" ? "Claude" : "Gemini";
+  const pendientes = archivos.filter(archivoPendienteIA);
+  const aprobados = archivos.filter((a) => !archivoPendienteIA(a));
+  const esImagen = (a: { nombre: string }) => /\.(png|jpe?g|webp|gif|svg)$/i.test(a.nombre);
+
+  async function generar(indicacion?: string) {
+    if (indicando) return;
+    setIndicando(true);
+    try { await actions.generarArchivoIA(pedidoId, tipo, indicacion); } finally { setIndicando(false); }
+  }
+  async function regenerarConIndicacion() {
+    const texto = await pedirTexto({
+      titulo: tipo === "plantilla" ? "¿Qué debe cambiar en el croquis?" : "¿Qué debe cambiar en la imagen?",
+      texto: tipo === "plantilla" ? "Ej.: el arco central más bajo, enchufe a 40 cm del borde izquierdo…" : "Ej.: dormitorio más luminoso, sin patas, tela más clara…",
+      aceptar: `Regenerar con ${motor}`,
+    });
+    if (texto == null) return;
+    await generar(texto);
+  }
+  const ocupado = generando || indicando;
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-2.5">
-      <div className="mb-1.5 flex items-center justify-between gap-2">
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-medium text-slate-500">{titulo}</span>
-        <button onClick={() => ref.current?.click()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
-          {icon} Subir
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button type="button" disabled={ocupado || !puedeGenerar} title={puedeGenerar ? `Generar con ${motor}` : motivoNoGenerar}
+            onClick={() => void generar()}
+            className="inline-flex items-center gap-1 rounded-lg border border-violet-300 bg-violet-50 px-2 py-1 text-[11px] font-medium text-violet-700 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50">
+            {ocupado ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} {ocupado ? "Generando…" : aprobados.length + pendientes.length > 0 ? `Regenerar (${motor})` : `Generar con ${motor}`}
+          </button>
+          <button type="button" onClick={() => ref.current?.click()} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+            {icon} Subir
+          </button>
+        </div>
         <input ref={ref} type="file" accept={accept} className="hidden" onChange={(e) => {
           const f = e.target.files?.[0]; if (f) void actions.subirArchivoPedido(pedidoId, tipo, f);
           if (ref.current) ref.current.value = "";
         }} />
       </div>
-      {archivos.length === 0 ? (
-        <div className="py-2 text-center text-[11px] text-slate-400">Sin archivos</div>
+
+      {ocupado && (
+        <div className="mb-2 rounded-md bg-violet-50 px-2 py-1.5 text-[11px] text-violet-700">
+          {motor} está {tipo === "plantilla" ? "dibujando el croquis" : "creando la imagen"}… puede tardar alrededor de un minuto. Puedes seguir trabajando.
+        </div>
+      )}
+
+      {/* Pendientes de aprobar: vista previa grande + botones */}
+      {pendientes.map((a) => (
+        <div key={a.id} className="mb-2 rounded-lg border-2 border-amber-300 bg-amber-50 p-2">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700"><Sparkles className="h-3 w-3" /> Pendiente de aprobar · {motor}</span>
+            <span className="text-[10px] text-amber-700/70">{formatShortDate(a.createdAt.slice(0, 10))}</span>
+          </div>
+          {esImagen(a) ? (
+            <a href={a.url} target="_blank" rel="noreferrer" title="Abrir en grande">
+              <img src={a.url} alt={titulo} loading="lazy" className="max-h-64 w-full rounded-md border border-amber-200 bg-white object-contain" />
+            </a>
+          ) : (
+            <a href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><Download className="h-3.5 w-3.5" /> {a.nombre}</a>
+          )}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => void actions.aprobarArchivoIA(a.id)}
+              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Aprobar
+            </button>
+            <button type="button" disabled={ocupado} onClick={() => void generar()}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+              <RefreshCw className="h-3.5 w-3.5" /> Regenerar
+            </button>
+            <button type="button" disabled={ocupado} onClick={() => void regenerarConIndicacion()}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+              <MessageSquarePlus className="h-3.5 w-3.5" /> Con indicación
+            </button>
+            <button type="button" onClick={() => void confirmar({ titulo: "¿Descartar este archivo generado?", peligroso: true, aceptar: "Descartar" }).then((ok) => { if (ok) void actions.deleteArchivoPedido(a.id, a.storagePath); })}
+              className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-slate-500 hover:text-rose-600">
+              <Trash2 className="h-3.5 w-3.5" /> Descartar
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {aprobados.length === 0 ? (
+        pendientes.length === 0 && !ocupado && <div className="py-2 text-center text-[11px] text-slate-400">Sin archivos</div>
       ) : (
         <ul className="space-y-1">
-          {archivos.map((a) => (
+          {aprobados.map((a) => (
             <li key={a.id} className="flex items-center gap-2 text-xs">
+              {esImagen(a) && <a href={a.url} target="_blank" rel="noreferrer" className="shrink-0"><img src={a.url} alt="" loading="lazy" className="h-10 w-14 rounded border border-slate-200 bg-white object-cover" /></a>}
               <a href={a.url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 flex-1 items-center gap-1 text-blue-600 hover:underline">
                 <Download className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{a.nombre}</span>
               </a>
@@ -417,6 +504,49 @@ function ArchivoSlot({ pedidoId, tipo, titulo, accept, icon, archivos }: {
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+// Enchufes, huecos y anclajes del cabecero: posición (desde el borde izquierdo
+// y desde el borde inferior, al centro del hueco), tamaño opcional y nota.
+// Se guardan en pasos_tapicero["@huecos"] (sin columnas nuevas) y los usa el
+// croquis de Claude; el tapicero los ve en su panel.
+function HuecosEditor({ huecos, onChange }: { huecos: HuecoPedido[]; onChange: (h: HuecoPedido[]) => void }) {
+  const inp = "w-full rounded border border-slate-200 px-2 py-1 text-xs";
+  const num = (v: string): number | null => (v.trim() === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+  const set = (i: number, cambio: Partial<HuecoPedido>) => onChange(huecos.map((h, j) => (j === i ? { ...h, ...cambio } : h)));
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500"><Plug className="h-3.5 w-3.5" /> Enchufes, huecos y anclajes <span className="font-normal text-slate-400">(van al croquis)</span></span>
+        <button type="button" onClick={() => onChange([...huecos, huecoVacio()])} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+          <Plus className="h-3.5 w-3.5" /> Añadir
+        </button>
+      </div>
+      {huecos.length === 0 ? (
+        <div className="py-1 text-[11px] text-slate-400">Ninguno. Si el cabecero lleva enchufes o huecos, añádelos aquí con sus distancias en cm.</div>
+      ) : (
+        <div className="space-y-1.5">
+          <div className="hidden grid-cols-[6.5rem_1fr_1fr_4rem_4rem_1fr_1.5rem] gap-1.5 text-[10px] uppercase tracking-wide text-slate-400 sm:grid">
+            <span>Tipo</span><span>Desde borde izq. (cm)</span><span>Desde borde inferior (cm)</span><span>Ancho</span><span>Alto</span><span>Nota</span><span />
+          </div>
+          {huecos.map((h, i) => (
+            <div key={i} className="grid grid-cols-2 gap-1.5 sm:grid-cols-[6.5rem_1fr_1fr_4rem_4rem_1fr_1.5rem]">
+              <select className={inp} value={h.tipo} onChange={(e) => set(i, { tipo: e.target.value as TipoHueco })}>
+                {TIPOS_HUECO.map((t) => <option key={t} value={t}>{TIPO_HUECO_LABEL[t]}</option>)}
+              </select>
+              <input type="number" inputMode="decimal" min={0} className={inp} placeholder="desde izq." value={h.desdeIzq ?? ""} onChange={(e) => set(i, { desdeIzq: num(e.target.value) })} />
+              <input type="number" inputMode="decimal" min={0} className={inp} placeholder="desde abajo" value={h.desdeSuelo ?? ""} onChange={(e) => set(i, { desdeSuelo: num(e.target.value) })} />
+              <input type="number" inputMode="decimal" min={0} className={inp} placeholder="ancho" value={h.ancho ?? ""} onChange={(e) => set(i, { ancho: num(e.target.value) })} />
+              <input type="number" inputMode="decimal" min={0} className={inp} placeholder="alto" value={h.alto ?? ""} onChange={(e) => set(i, { alto: num(e.target.value) })} />
+              <input type="text" className={inp} placeholder="doble, interruptor…" value={h.nota} onChange={(e) => set(i, { nota: e.target.value })} />
+              <button type="button" onClick={() => onChange(huecos.filter((_, j) => j !== i))} className="inline-flex items-center justify-center text-slate-400 hover:text-rose-600" title="Quitar"><X className="h-3.5 w-3.5" /></button>
+            </div>
+          ))}
+          <div className="text-[10px] text-slate-400">Distancias al centro del hueco, vistas de frente. Ancho y alto solo si no es un mecanismo estándar.</div>
+        </div>
       )}
     </div>
   );

@@ -965,3 +965,79 @@ export const INTERNAL_TO_CATALOG: Record<string, string> = {
 };
 
 
+
+// ───────────── Enchufes, huecos y anclajes del pedido (sin columnas nuevas) ─────────────
+// Se guardan DENTRO de `pasos_tapicero` con la clave "@huecos" y un JSON corto
+// (array). Los usa el croquis (plano de corte) y se enseñan al tapicero.
+// Medidas en cm: `desdeIzq` es la distancia del borde IZQUIERDO del cabecero
+// al CENTRO del hueco (visto de frente); `desdeSuelo` la distancia desde el
+// borde INFERIOR de la pieza al centro del hueco.
+export const PASO_HUECOS = "@huecos";
+export const TIPOS_HUECO = ["enchufe", "hueco", "anclaje", "otro"] as const;
+export type TipoHueco = (typeof TIPOS_HUECO)[number];
+export const TIPO_HUECO_LABEL: Record<TipoHueco, string> = {
+  enchufe: "Enchufe", hueco: "Hueco", anclaje: "Anclaje", otro: "Otro",
+};
+export interface HuecoPedido {
+  tipo: TipoHueco;
+  desdeIzq: number | null;    // cm desde el borde izquierdo al centro
+  desdeSuelo: number | null;  // cm desde el borde inferior al centro
+  ancho: number | null;       // cm (vacío = mecanismo estándar)
+  alto: number | null;        // cm
+  nota: string;               // "doble", "interruptor", "para la mesilla"…
+}
+export function huecoVacio(tipo: TipoHueco = "enchufe"): HuecoPedido {
+  return { tipo, desdeIzq: null, desdeSuelo: null, ancho: null, alto: null, nota: "" };
+}
+function numOrNull(v: unknown): number | null {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+export function huecosDe(pasos: Record<string, string> | null | undefined): HuecoPedido[] {
+  const raw = pasos?.[PASO_HUECOS];
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr)) return [];
+    return arr.map((h): HuecoPedido => {
+      const o = (h && typeof h === "object" ? h : {}) as Record<string, unknown>;
+      const tipo = (TIPOS_HUECO as readonly string[]).includes(String(o.t)) ? (String(o.t) as TipoHueco) : "otro";
+      return { tipo, desdeIzq: numOrNull(o.x), desdeSuelo: numOrNull(o.y), ancho: numOrNull(o.w), alto: numOrNull(o.h), nota: typeof o.n === "string" ? o.n : "" };
+    });
+  } catch { return []; }
+}
+export function conHuecos(pasos: Record<string, string> | null | undefined, huecos: HuecoPedido[]): Record<string, string> {
+  const next: Record<string, string> = { ...(pasos || {}) };
+  const limpios = huecos.filter((h) => h.desdeIzq != null || h.desdeSuelo != null || h.nota.trim() !== "");
+  if (limpios.length === 0) { delete next[PASO_HUECOS]; return next; }
+  next[PASO_HUECOS] = JSON.stringify(limpios.map((h) => {
+    const o: Record<string, unknown> = { t: h.tipo };
+    if (h.desdeIzq != null) o.x = h.desdeIzq;
+    if (h.desdeSuelo != null) o.y = h.desdeSuelo;
+    if (h.ancho != null) o.w = h.ancho;
+    if (h.alto != null) o.h = h.alto;
+    if (h.nota.trim()) o.n = h.nota.trim();
+    return o;
+  }));
+  return next;
+}
+// Texto corto de un hueco: "Enchufe · a 40 cm del borde izq. · a 25 cm del suelo · 8×8 cm · doble".
+export function textoHueco(h: HuecoPedido): string {
+  const partes: string[] = [TIPO_HUECO_LABEL[h.tipo]];
+  if (h.desdeIzq != null) partes.push(`a ${h.desdeIzq} cm del borde izq.`);
+  if (h.desdeSuelo != null) partes.push(`a ${h.desdeSuelo} cm del borde inferior`);
+  if (h.ancho != null || h.alto != null) partes.push(`${h.ancho ?? "?"}×${h.alto ?? "?"} cm`);
+  if (h.nota.trim()) partes.push(h.nota.trim());
+  return partes.join(" · ");
+}
+
+// ───────────── Archivos generados por IA pendientes de aprobar ─────────────
+// El croquis (Claude) y la imagen de referencia (Gemini) se generan desde el
+// CRM y entran en `pedido_archivos` como cualquier otro archivo, pero con
+// `subido_por` = "@ia:pendiente" hasta que alguien del equipo los aprueba
+// (entonces `subido_por` pasa a ser el nombre de quien aprobó). El panel del
+// tapicero NO enseña los pendientes. Sin columnas nuevas.
+export const ARCHIVO_IA_PENDIENTE = "@ia:pendiente";
+export function archivoPendienteIA(a: { subidoPor: string }): boolean {
+  return a.subidoPor === ARCHIVO_IA_PENDIENTE;
+}

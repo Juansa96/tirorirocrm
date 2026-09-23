@@ -43,6 +43,8 @@ import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-
 import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
 import { Route as ApiPedidosEmailEntregaRouteImport } from './routes/api/pedidos/email-entrega'
+import { Route as ApiPedidosCroquisRouteImport } from './routes/api/pedidos/croquis'
+import { Route as ApiPedidosReferenciaRouteImport } from './routes/api/pedidos/referencia'
 import { Route as ApiAdminUsuariosRouteImport } from './routes/api/admin/usuarios'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -218,6 +220,16 @@ const ApiPedidosEmailEntregaRoute = ApiPedidosEmailEntregaRouteImport.update({
   path: '/api/pedidos/email-entrega',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPedidosCroquisRoute = ApiPedidosCroquisRouteImport.update({
+  id: '/api/pedidos/croquis',
+  path: '/api/pedidos/croquis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPedidosReferenciaRoute = ApiPedidosReferenciaRouteImport.update({
+  id: '/api/pedidos/referencia',
+  path: '/api/pedidos/referencia',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminUsuariosRoute = ApiAdminUsuariosRouteImport.update({
   id: '/api/admin/usuarios',
   path: '/api/admin/usuarios',
@@ -266,6 +278,8 @@ export interface FileRoutesByFullPath {
   '/whatsapp/': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
+  '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
+  '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -305,6 +319,8 @@ export interface FileRoutesByTo {
   '/whatsapp': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
+  '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
+  '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -346,6 +362,8 @@ export interface FileRoutesById {
   '/whatsapp/': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
+  '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
+  '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -388,6 +406,8 @@ export interface FileRouteTypes {
     | '/whatsapp/'
     | '/api/admin/usuarios'
     | '/api/pedidos/email-entrega'
+    | '/api/pedidos/croquis'
+    | '/api/pedidos/referencia'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -427,6 +447,8 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/api/admin/usuarios'
     | '/api/pedidos/email-entrega'
+    | '/api/pedidos/croquis'
+    | '/api/pedidos/referencia'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -467,6 +489,8 @@ export interface FileRouteTypes {
     | '/whatsapp/'
     | '/api/admin/usuarios'
     | '/api/pedidos/email-entrega'
+    | '/api/pedidos/croquis'
+    | '/api/pedidos/referencia'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -506,6 +530,8 @@ export interface RootRouteChildren {
   WhatsappIndexRoute: typeof WhatsappIndexRoute
   ApiAdminUsuariosRoute: typeof ApiAdminUsuariosRoute
   ApiPedidosEmailEntregaRoute: typeof ApiPedidosEmailEntregaRoute
+  ApiPedidosCroquisRoute: typeof ApiPedidosCroquisRoute
+  ApiPedidosReferenciaRoute: typeof ApiPedidosReferenciaRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
@@ -761,6 +787,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPedidosEmailEntregaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pedidos/croquis': {
+      id: '/api/pedidos/croquis'
+      path: '/api/pedidos/croquis'
+      fullPath: '/api/pedidos/croquis'
+      preLoaderRoute: typeof ApiPedidosCroquisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pedidos/referencia': {
+      id: '/api/pedidos/referencia'
+      path: '/api/pedidos/referencia'
+      fullPath: '/api/pedidos/referencia'
+      preLoaderRoute: typeof ApiPedidosReferenciaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/usuarios': {
       id: '/api/admin/usuarios'
       path: '/api/admin/usuarios'
@@ -828,6 +868,8 @@ const rootRouteChildren: RootRouteChildren = {
   WhatsappIndexRoute: WhatsappIndexRoute,
   ApiAdminUsuariosRoute: ApiAdminUsuariosRoute,
   ApiPedidosEmailEntregaRoute: ApiPedidosEmailEntregaRoute,
+  ApiPedidosCroquisRoute: ApiPedidosCroquisRoute,
+  ApiPedidosReferenciaRoute: ApiPedidosReferenciaRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicCatalogRoute: ApiPublicCatalogRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
