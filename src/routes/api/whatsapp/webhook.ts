@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { parsearWebhook, type MensajeNormalizado } from "@/lib/whatsapp/parse";
+import { parsearWebhook, type MensajeNormalizado, type ContactoSync } from "@/lib/whatsapp/parse";
 
 // ── Webhook de WhatsApp (Cloud API / proveedor de coexistencia) ─────────────
 // URL a poner en el proveedor:  https://<crm>/api/whatsapp/webhook?token=<webhook_token>
@@ -57,7 +57,9 @@ async function guardarMensajes(mensajes: MensajeNormalizado[]): Promise<number> 
     let convId: string;
     if (existente) {
       convId = s((existente as Row).id);
-      if (nombre && nombre !== s((existente as Row).nombre_wa)) {
+      // El nombre de perfil de WhatsApp solo rellena si no hay ninguno: el de
+      // la agenda del móvil (smb_app_state_sync) manda.
+      if (nombre && !s((existente as Row).nombre_wa)) {
         await supabaseAdmin.from("whatsapp_conversaciones").update({ nombre_wa: nombre } as never).eq("id", convId);
       }
     } else {
@@ -99,6 +101,26 @@ async function guardarMensajes(mensajes: MensajeNormalizado[]): Promise<number> 
   return nuevos;
 }
 
+// Agenda del móvil: guarda el nombre del contacto en su conversación (y la
+// crea sin mensajes si aún no existe, para tener el nombre cuando escriba).
+async function guardarContactos(contactos: ContactoSync[]): Promise<number> {
+  let n = 0;
+  for (const c of contactos) {
+    if (c.accion === "remove" || !c.nombre) continue;
+    const { data: existente } = await supabaseAdmin.from("whatsapp_conversaciones").select("id, nombre_wa").eq("telefono", c.telefono).maybeSingle();
+    if (existente) {
+      if (s((existente as Row).nombre_wa) !== c.nombre) {
+        await supabaseAdmin.from("whatsapp_conversaciones").update({ nombre_wa: c.nombre } as never).eq("id", s((existente as Row).id));
+        n++;
+      }
+    } else {
+      const { error } = await supabaseAdmin.from("whatsapp_conversaciones").insert({ telefono: c.telefono, nombre_wa: c.nombre, origen: "historial" } as never);
+      if (!error) n++;
+    }
+  }
+  return n;
+}
+
 export const Route = createFileRoute("/api/whatsapp/webhook")({
   server: {
     handlers: {
@@ -114,7 +136,7 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
         }
         // Comprobación manual desde el navegador con ?token=
         if (safeEqual(url.searchParams.get("token") ?? "", s(cfg.webhook_token))) {
-          return json({ ok: true, mensaje: "Webhook de WhatsApp listo", ultimoEvento: cfg.ultimo_evento_at ?? null });
+          return json({ ok: true, version: 2, mensaje: "Webhook de WhatsApp listo", ultimoEvento: cfg.ultimo_evento_at ?? null });
         }
         return json({ error: "No autorizado" }, 403);
       },
@@ -140,6 +162,7 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
           if (body == null) throw new Error("El cuerpo no es JSON");
           const parsed = parsearWebhook(body);
           const nuevos = parsed.mensajes.length ? await guardarMensajes(parsed.mensajes) : 0;
+          const contactos = parsed.contactos.length ? await guardarContactos(parsed.contactos) : 0;
 
           const patch: Record<string, unknown> = { ultimo_evento_at: ahora };
           if (parsed.numeroNegocio && !s(cfg.numero_negocio)) patch.numero_negocio = parsed.numeroNegocio;
@@ -149,7 +172,7 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
 
           await supabaseAdmin.from("whatsapp_eventos").insert({
             campo: parsed.campos.join(",").slice(0, 200) || "(sin campo)",
-            mensajes: nuevos,
+            mensajes: nuevos + contactos,
             // Solo guardamos el payload de los eventos pequeños (los de historial son enormes).
             payload: cuerpo.length < 20_000 ? (body as never) : ({ resumen: `payload de ${cuerpo.length} bytes`, campos: parsed.campos } as never),
           } as never);

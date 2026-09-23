@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Check, X, ArrowRight, UserPlus, Search, Sparkles, Ban } from "lucide-react";
+import { Check, X, ArrowRight, UserPlus, Search, Sparkles, Ban, Link2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { StageBadge } from "@/components/StageBadge";
@@ -57,6 +57,7 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
       return run({ productoActual });
     }
     if (p.tipo === "tarea") return run({ vendedor: lead?.vendedor || usuario });
+    if (p.tipo === "crear_lead") return run({ conv, vendedor: config?.vendedorDefecto || usuario });
     return run();
   }
 
@@ -122,6 +123,61 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
     case "tarea":
       cuerpo = <p className="text-sm text-slate-700"><span className="font-medium">Tarea:</span> {String(pl.descripcion ?? "")}{pl.fecha ? <span className="text-slate-500"> · {formatShortDate(String(pl.fecha))}</span> : null}</p>;
       break;
+    case "crear_lead": {
+      const sug = (pl.sugerido ?? {}) as Record<string, string>;
+      const prods = (Array.isArray(pl.productos) ? pl.productos : []) as ProductoIA[];
+      const cands = (Array.isArray(pl.candidatos) ? pl.candidatos : []) as Array<{ id: string; nombre: string; etapa: string; ciudad: string; telefono: string; origen?: string }>;
+      const datos = [sug.nombre, sug.telefono, sug.ciudad, sug.provincia, sug.email, sug.direccion].filter(Boolean).join(" · ");
+      cuerpo = (
+        <div className="space-y-2 text-sm text-slate-700">
+          <p><span className="font-medium">Datos del chat:</span> {datos || "sin datos todavía"}</p>
+          {prods.length > 0 && <ul className="space-y-0.5 text-xs">{prods.map((pr, i) => <li key={i}>• {describirProductoIA(pr)}</li>)}</ul>}
+          {!resuelta && cands.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-semibold text-amber-800">¿Es alguno de estos? (posible duplicado)</p>
+              <ul className="space-y-1">
+                {cands.map((c) => (
+                  <li key={c.id}>
+                    <button disabled={busy} onClick={() => run({ leadId: c.id, conv })} className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:border-emerald-400 hover:bg-emerald-50 disabled:opacity-50">
+                      <Link2 className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="font-medium">{c.nombre}</span>
+                      {c.etapa && <StageBadge etapa={c.etapa as Etapa} />}
+                      {c.origen && <span className="text-xs text-slate-500">{c.origen}</span>}
+                      {c.ciudad && <span className="text-xs text-slate-500">{c.ciudad}</span>}
+                      {c.telefono && <span className="text-xs text-slate-400">{c.telefono}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!resuelta && (
+            <>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <input value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="¿Ya está en el CRM con otro teléfono? Busca por nombre o email…" className="w-full rounded-lg border border-slate-200 py-2 pl-8 pr-2 text-sm" />
+              </div>
+              {candidatosBusqueda.length > 0 && (
+                <ul className="space-y-1">
+                  {candidatosBusqueda.map((l) => (
+                    <li key={l.id}>
+                      <button disabled={busy} onClick={() => run({ leadId: l.id, conv })} className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:border-emerald-400 hover:bg-emerald-50 disabled:opacity-50">
+                        <Link2 className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="font-medium">{l.nombre}</span>
+                        <StageBadge etapa={l.etapa} />
+                        {l.origen && <span className="text-xs text-slate-500">{l.origen}</span>}
+                        {l.telefono && <span className="text-xs text-slate-400">{l.telefono}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      );
+      break;
+    }
     case "nuevo_encargo":
       cuerpo = <p className="text-sm text-slate-700"><span className="font-medium">Nuevo encargo</span> de un cliente ya entregado: se crearía una ficha nueva con sus datos, en Discovery.</p>;
       break;
@@ -206,12 +262,12 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
       ) : (
         <div className="mt-2 flex flex-wrap gap-2">
           {p.tipo !== "vincular_lead" && (
-            <button disabled={busy} onClick={() => void aceptar()} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-              <Check className="h-3.5 w-3.5" /> Aceptar
+            <button disabled={busy || (p.tipo === "crear_lead" && !conv)} onClick={() => void aceptar()} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+              {p.tipo === "crear_lead" ? <><UserPlus className="h-3.5 w-3.5" /> Crear cliente</> : <><Check className="h-3.5 w-3.5" /> Aceptar</>}
             </button>
           )}
           <button disabled={busy} onClick={() => void rechazar()} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-            {p.tipo === "vincular_lead" ? <Ban className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />} {p.tipo === "vincular_lead" ? "Dejarlo así" : "Rechazar"}
+            {p.tipo === "vincular_lead" ? <Ban className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />} {p.tipo === "vincular_lead" ? "Dejarlo así" : p.tipo === "crear_lead" ? "No crear" : "Rechazar"}
           </button>
         </div>
       )}

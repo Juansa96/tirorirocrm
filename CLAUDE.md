@@ -116,12 +116,17 @@ Reglas de negocio (decididas con Juan, no cambiarlas sin preguntarle):
 
 - La IA (pasarela de Lovable, `LOVABLE_API_KEY`, modelo en `whatsapp_config.modelo`)
   **solo extrae**; las reglas están en `procesar.server.ts`.
-- **Hace sola**: enlazar por teléfono (un único lead), crear el cliente si no
-  existe nadie con ese teléfono/nombre/email, rellenar campos VACÍOS, dejar
-  una nota con novedades. **Nunca** cambia la etapa ni sobreescribe datos.
-- **Propone** (Aceptar/Rechazar en `/whatsapp` o en la ficha): etapa, dato
-  distinto, producto nuevo o corregido, tarea, con qué cliente enlazar,
-  nuevo encargo. Closed Won/Lost abren los mismos diálogos que el pipeline.
+- **Hace sola**: enlazar por teléfono (un único lead), rellenar campos VACÍOS,
+  dejar una nota con novedades. **Nunca** cambia la etapa ni sobreescribe datos.
+- **NUNCA crea clientes** (decisión de Juan, 23/09/2026: los leads los crean
+  Rocío, Juan, Bea o Iñaki). Si escribe alguien nuevo, deja la propuesta
+  "crear cliente" con los datos y los **posibles duplicados** por nombre/email
+  (la misma persona entra por formulario web, Instagram y WhatsApp).
+- **Propone** (Aceptar/Rechazar en `/whatsapp` o en la ficha): crear cliente,
+  etapa, dato distinto, producto nuevo o corregido, tarea, con qué cliente
+  enlazar, nuevo encargo. Closed Won/Lost abren los mismos diálogos que el pipeline.
+- El nombre que se enseña es el del chat o el de la **agenda del móvil**
+  (`smb_app_state_sync` → `nombre_wa`), nunca el número si hay nombre.
 - **No toca pedidos** ni leads cerrados (solo nota + tarea + nuevo encargo).
   El traspaso a Rocío es la etapa Closed Won: a partir del pedido, la IA es
   solo "secretaria" que anota.
