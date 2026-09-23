@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { fotoBaseProducto, promptReferencia, type ImagenesReferencia } from "@/lib/ia-prompts";
-import { autenticarEquipo, cargarContextoPedido, descargarImagenBase64, guardarArchivoIA, json, llamarGeminiImagen, respuestaLarga, selloFecha } from "@/lib/ia-pedido.server";
+import { autenticarEquipo, cargarContextoPedido, descargarImagenBase64, guardarArchivoIA, json, generarImagen, respuestaLarga, selloFecha } from "@/lib/ia-pedido.server";
 
 // Imagen de referencia del acabado generada por Gemini con el método de Juan:
 // se parte de una FOTO REAL del producto (la de la web para las piezas de
@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/pedidos/referencia")({
           // El dibujo del configurador solo hace falta si no hay foto base.
           if (!im.base && dibujoPngUrl) { const x = await descargarImagenBase64(dibujoPngUrl); if (x) { adjuntas.push(x); im.dibujo = true; } }
 
-          const r = await llamarGeminiImagen({ prompt: promptReferencia(datos, im, indicacion), imagenes: adjuntas, aspectRatio: im.base ? undefined : "4:3" });
+          const r = await generarImagen({ prompt: promptReferencia(datos, im, indicacion), imagenes: adjuntas, aspectRatio: im.base ? undefined : "4:3" });
           if (r instanceof Response) return r;
           const ext = r.mime.includes("jpeg") ? "jpg" : r.mime.includes("webp") ? "webp" : "png";
           const guardado = await guardarArchivoIA({
