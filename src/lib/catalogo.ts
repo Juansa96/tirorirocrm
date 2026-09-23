@@ -886,3 +886,12 @@ export function faltaParaTaller(
   if (!fechaRecogida) faltan.push("fecha de recogida");
   return faltan;
 }
+
+// ¿Este producto lleva croquis (plano de corte de la madera)? Los cabeceros
+// siempre; los productos libres ("otro") cuando son un cabecero o paneles de
+// cabecero a medida (p. ej. los de Alejandra Blanc: "Cabecero Habitación 3").
+export function llevaCroquis(tipo: unknown, modelo?: unknown): boolean {
+  const t = normalizeTipo(tipo);
+  if (t === "cabecero") return true;
+  return t === "otro" && /cabecero|panel/i.test(String(modelo ?? ""));
+}

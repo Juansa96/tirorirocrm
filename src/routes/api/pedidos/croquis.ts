@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { normalizeTipo } from "@/lib/catalogo";
+import { llevaCroquis } from "@/lib/catalogo";
 import { CROQUIS_SYSTEM, promptCroquis } from "@/lib/ia-prompts";
-import { autenticarEquipo, cargarContextoPedido, extraerSVG, guardarArchivoIA, json, llamarClaude, selloFecha } from "@/lib/ia-pedido.server";
+import { autenticarEquipo, cargarContextoPedido, extraerSVG, guardarArchivoIA, json, llamarClaude, respuestaLarga, selloFecha } from "@/lib/ia-pedido.server";
 
 // Croquis (plano de corte de la madera) generado por Claude a partir de los
 // datos del pedido: forma, medidas, grosor y enchufes/huecos. Entra en la ficha
@@ -23,21 +23,24 @@ export const Route = createFileRoute("/api/pedidos/croquis")({
         const ctx = await cargarContextoPedido(pedidoId);
         if (ctx instanceof Response) return ctx;
         const { datos } = ctx;
-        if (normalizeTipo(datos.tipo) !== "cabecero") return json({ error: "El croquis de corte solo se genera para cabeceros." }, 400);
+        if (!llevaCroquis(datos.tipo, datos.modelo)) return json({ error: "El croquis de corte solo se genera para cabeceros." }, 400);
         if (datos.ancho == null || datos.alto == null) return json({ error: "Faltan el ancho o el alto del cabecero: confírmalos antes de generar el croquis." }, 400);
 
-        const r = await llamarClaude({ system: CROQUIS_SYSTEM, prompt: promptCroquis(datos, indicacion) });
-        if (r instanceof Response) return r;
-        const svg = extraerSVG(r.texto);
-        if (!svg) return json({ error: "Claude no ha devuelto un SVG válido; vuelve a intentarlo." }, 502);
+        return respuestaLarga(async () => {
+          const fecha = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" });
+          const r = await llamarClaude({ system: CROQUIS_SYSTEM, prompt: promptCroquis(datos, { fecha, indicacion }) });
+          if (r instanceof Response) return r;
+          const svg = extraerSVG(r.texto);
+          if (!svg) return json({ error: "Claude no ha devuelto un SVG válido; vuelve a intentarlo." }, 502);
 
-        const guardado = await guardarArchivoIA({
-          pedidoId, tipo: "plantilla",
-          nombre: `croquis-claude-${selloFecha()}.svg`,
-          bytes: new TextEncoder().encode(svg), contentType: "image/svg+xml",
+          const guardado = await guardarArchivoIA({
+            pedidoId, tipo: "plantilla",
+            nombre: `croquis-claude-${selloFecha()}.svg`,
+            bytes: new TextEncoder().encode(svg), contentType: "image/svg+xml",
+          });
+          if (guardado instanceof Response) return guardado;
+          return json({ archivo: guardado, modelo: r.modelo });
         });
-        if (guardado instanceof Response) return guardado;
-        return json({ archivo: guardado, modelo: r.modelo });
       },
     },
   },

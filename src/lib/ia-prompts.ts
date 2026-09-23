@@ -6,7 +6,7 @@
 // (los croquis e imágenes que le gustan a Juan) sin tocar las rutas.
 
 import { CABECERO_FORMAS, CABECERO_GROSOR_CM, normalizeTipo, displayNombreProducto, modeloDetalle, esDetalleMedida } from "@/lib/catalogo";
-import { numeroPedidoLabel, textoHueco, type HuecoPedido } from "@/lib/types";
+import { numeroPedidoLabel, textoHueco, textoPared, type HuecoPedido, type ColocacionPared } from "@/lib/types";
 
 export interface DatosPedidoIA {
   numero: number | null;
@@ -22,6 +22,7 @@ export interface DatosPedidoIA {
   acabado: string;         // vivo, etc. (texto del producto)
   patas: string;           // extras en texto (montaje, tapetes…)
   huecos: HuecoPedido[];
+  pared: ColocacionPared;  // colocación en la pared (pasos_tapicero["@pared"])
   telas: { rol: string; nombre: string; coleccion: string }[];
   notaTapicero: string;
   notasProducto: string;
@@ -60,37 +61,53 @@ export function tituloPedidoIA(d: DatosPedidoIA): string {
 
 // ───────────── Croquis (Claude) ─────────────
 
-export const CROQUIS_SYSTEM = `Eres el delineante de un taller de tapicería (Tiroriro Home, cabeceros tapizados a medida). Dibujas PLANOS DE CORTE de la madera (tablero) de cada pieza para que el carpintero corte la forma exacta. No eres diseñador de interiores: no dibujas telas, ni vivos, ni montaje, ni notas comerciales.
+export const CROQUIS_SYSTEM = `Eres el delineante de Tiroriro Home, un taller de cabeceros tapizados a medida. Dibujas el CROQUIS de cada pieza: el plano de la madera (tablero) que el carpintero corta y el tapicero monta. Juan quiere EXACTAMENTE el estilo de sus croquis de referencia, que se describen abajo (composición, jerarquía, colores y forma de acotar). Si se adjuntan croquis de ejemplo en PDF, imítalos.
 
-Devuelves SIEMPRE un único documento SVG completo y nada más (sin explicaciones antes ni después, sin bloques de código). Requisitos del SVG:
-- A4 apaisado: <svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" viewBox="0 0 297 210">. Unidades del viewBox = milímetros de papel. Fondo blanco, líneas negras, tipografía sans-serif (font-family="Helvetica, Arial, sans-serif"). Sin imágenes externas, sin scripts, sin fuentes externas, sin CSS externo.
-- Contenido: (1) cabecera mínima arriba (producto y forma, medidas, nº de pedido y cliente, unidades si son varias); (2) ALZADO acotado de la pieza vista de frente, a escala uniforme dentro de la hoja, ocupando la mayor parte del papel; (3) VISTA LATERAL pequeña con el grosor acotado; (4) nota "Medidas en cm. Dibujo NO a escala 1:1" en pequeño. Nada más.
-- Cotas claras: líneas de cota con extremos, texto de la medida en cm (número + "cm"), centrado y legible (tamaño 4–5 en unidades del viewBox para cotas normales). Ancho total y alto total siempre. En cabeceros con forma: a la IZQUIERDA del alzado dos cotas grandes (tamaño 6–7, negrita) "RECTO · N cm · P %" y "CURVA · N cm · P %" que reparten el alto total en tramo recto (parte baja, rectangular) y tramo curvo (parte alta, con la forma). Reparto por defecto: 75 % recto y 25 % curvo del alto total (redondea a cm enteros y que sumen el alto).
-- Los tramos curvos se dibujan con arcos de <path> (comandos A o C) suaves y tangentes, nunca con polilíneas dentadas. La pieza es simétrica respecto a su eje vertical salvo que se indique lo contrario.
-- Si el pedido incluye enchufes, huecos o anclajes: dibújalos en el alzado en su posición (rectángulo o círculo pequeño) y acótalos desde el borde IZQUIERDO y desde el borde INFERIOR de la pieza, más su tamaño si se indica. Si no hay, no inventes ninguno.
-- No incluyas telas, colores, vivo, montaje, avisos ni logotipos. No hagas página a escala 1:1.
-Comprueba mentalmente que el path del contorno cierra, que las cotas coinciden con las medidas del pedido y que todo cabe dentro de 297×210.`;
+Devuelves SIEMPRE un único documento SVG completo y nada más (sin explicaciones, sin vallas de código).
 
-export function promptCroquis(d: DatosPedidoIA, indicacion?: string): string {
+FORMATO
+- A4 apaisado: <svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" viewBox="0 0 1190 842">. Fondo blanco. font-family="Helvetica, Arial, sans-serif". Sin imágenes, scripts, fuentes ni CSS externos.
+- Colores de los ejemplos: franja de cabecera #22333f con texto blanco; madera #d3c4a6 con contorno #1f1f1f de 2 px y, detrás y desplazada unos px hacia arriba-derecha, una copia #b9a37a que sugiere el grosor; cotas generales en azul #1f4e79; enchufes y sus cotas en rojo #c0282d con relleno del marco #f6d9d9; textos secundarios gris #555.
+
+COMPOSICIÓN (como los ejemplos)
+1. Franja superior oscura a todo el ancho: título grande "CABECERO A MEDIDA · <nombre de la pieza> · <forma en palabras>" y debajo una línea: "<ancho> ancho × <alto> alto × <grosor> grosor (madera + goma + guata + tela) · <colocación si se conoce> · cotas en cm". A la derecha, "Tiroriro Home · <fecha>" y el nº de pedido y cliente.
+2. ALZADO grande (etiqueta "ALZADO 1:N · visto desde la cama" arriba a la izquierda), a escala uniforme, ocupando la mitad superior de la hoja. Eje vertical discontinuo en cabeceros simétricos. Cota del ancho total arriba y del alto total a la derecha, en azul y grandes. Un texto centrado dentro de la madera que describe la forma en una frase en negrita ("FORMA RECTA: rectángulo de 272 × 100, sin curvas ni rebajes en las esquinas") y otra en pequeño con el detalle.
+3. Fila inferior, separada por una línea discontinua gris, con hasta tres bloques:
+   - "GROSOR · sección a tamaño real (1:1)": sección con la pared a la izquierda y las capas madera (tablero), goma (espuma), guata y tela con su leyenda, cota "N cm en total" y la nota "Madera + goma + guata + tela = N cm de grosor final. El reparto entre capas es orientativo; manda el total."
+   - Si hay enchufes o huecos: "ENCHUFES · esquina inferior izquierda a 1:N (la derecha, igual en espejo)" con el detalle ampliado y acotado, y al lado un texto en rojo con las reglas en viñetas (a cuántos cm de cada borde, a qué altura desde el borde inferior, tamaño del marco, nº de huecos, distancia entre marcos).
+   - Si se conoce la colocación en la pared: "EN LA PARED · 1:N · centrado / pegado a la derecha…" con la pared, el suelo, el cabecero y los enchufes en rojo, la altura de colgado y los huecos libres; debajo, 2–3 líneas de explicación.
+   Si no hay enchufes ni colocación, la fila inferior lleva solo el bloque de grosor (más ancho).
+
+COTAS Y FORMA
+- Todas las medidas en cm, con coma decimal (27,5). Líneas de cota finas con flechas o marcas en los extremos y el número centrado encima. Las cotas deben cuadrar: las parciales suman el total (p. ej. 27,5 + 22,2 + 154,6 + 22,2 + 27,5 = 254).
+- Cabeceros con forma: a la derecha del alzado, además del alto total, las dos cotas parciales "N" (tramo recto, abajo) y "N (curva)" (tramo curvo, arriba). Reparto por defecto 75 % recto y 25 % curvo. Acota también el ancho de cada tramo curvo y los radios ("r 8").
+- Los tramos curvos son <path> con arcos (A) o curvas (C) suaves y tangentes; sin polilíneas dentadas. Comprueba que el contorno cierra.
+- Enchufes: cada marco es un rectángulo rojo claro con un círculo por hueco (con un punto en el centro), acotado desde el borde lateral más cercano hasta el marco y desde el borde inferior del cabecero hasta la base del marco, más su ancho. Si no se indican, no inventes ninguno.
+- No dibujes telas, estampados, vivo ni avisos comerciales. Sin página a escala 1:1 del alzado.`;
+
+const PERFIL_POR_DEFECTO = (modelo: string) => `forma fuera de catálogo descrita como "${modelo}". Interprétala con criterio a partir del nombre y de las notas (perfil simétrico, curvas suaves y tangentes) y acótala por tramos. Si las notas no bastan para saber la forma, dibuja un rectángulo y di en la frase de la forma "forma por confirmar".`;
+
+export function promptCroquis(d: DatosPedidoIA, opts: { fecha: string; indicacion?: string }): string {
   const forma = formaDeModelo(d.modelo);
   const tipo = normalizeTipo(d.tipo) ?? d.tipo;
-  const grosor = d.fondo ?? (tipo === "cabecero" ? CABECERO_GROSOR_CM : null);
+  const grosor = d.fondo ?? CABECERO_GROSOR_CM;
   const lineas: string[] = [];
-  lineas.push(`PEDIDO ${numeroPedidoLabel(d.numero, d.numeroSufijo)} · Cliente: ${d.clienteNombre || "—"}${d.cantidad > 1 ? ` · ${d.cantidad} unidades iguales` : ""}`);
-  lineas.push(`Producto: ${displayNombreProducto(d.tipo, d.modelo)} (tipo: ${tipo}; modelo/forma: ${d.modelo || "sin indicar"})`);
-  lineas.push(`Medidas: ${medidasTexto(d) || "sin confirmar"}${grosor != null && d.fondo == null ? ` · grosor ${grosor} cm (estándar)` : ""}`);
-  if (tipo === "cabecero") {
-    lineas.push(`Perfil: ${forma ? PERFIL_FORMA[forma] : `forma fuera de catálogo descrita como "${d.modelo}". Interprétala con criterio (perfil simétrico, curvas suaves y tangentes) y acótala por tramos.`}`);
-  } else {
-    lineas.push("No es un cabecero: dibuja el alzado y la vista lateral (o planta, si aporta más) con todas las medidas del pedido acotadas.");
-  }
+  lineas.push(`Fecha: ${opts.fecha}`);
+  lineas.push(`Pedido nº ${numeroPedidoLabel(d.numero, d.numeroSufijo) || "—"} · Cliente: ${d.clienteNombre || "—"}${d.cantidad > 1 ? ` · ${d.cantidad} unidades iguales (indícalo en la cabecera)` : ""}`);
+  lineas.push(`Pieza: ${d.modelo || displayNombreProducto(d.tipo, d.modelo)} (tipo ${tipo})`);
+  lineas.push(`Medidas: ancho ${d.ancho ?? "?"} × alto ${d.alto ?? "?"} × grosor ${grosor} cm${d.fondo == null ? " (grosor estándar)" : ""}`);
+  lineas.push(`Forma: ${forma ? PERFIL_FORMA[forma] : PERFIL_POR_DEFECTO(d.modelo)}`);
+  const pared = textoPared(d.pared);
+  lineas.push(pared ? `Colocación en la pared: ${pared}.` : "Colocación en la pared: no indicada (no dibujes el bloque EN LA PARED salvo que las notas den las medidas).");
   if (d.huecos.length > 0) {
-    lineas.push("Enchufes / huecos / anclajes (posiciones vistas de frente, al CENTRO de cada uno):");
+    lineas.push("Enchufes / interruptores / huecos (vistos desde la cama; distancias hasta el MARCO):");
     for (const h of d.huecos) lineas.push(`  - ${textoHueco(h)}`);
   } else {
-    lineas.push("Sin enchufes, huecos ni anclajes.");
+    lineas.push("Enchufes / huecos: ninguno registrado en el pedido.");
   }
-  if (indicacion?.trim()) lineas.push(`Indicación de quien revisa el croquis (prioritaria): ${indicacion.trim()}`);
+  const notas = [d.notasProducto, d.notaTapicero].map((x) => (x || "").trim()).filter(Boolean);
+  if (notas.length) lineas.push(`Notas del pedido (úsalas SOLO para medidas de forma, grosor, enchufes o colocación; no copies lo comercial ni teléfonos): ${notas.join(" | ")}`);
+  if (opts.indicacion?.trim()) lineas.push(`Indicación de Juan al revisar (prioritaria): ${opts.indicacion.trim()}`);
   lineas.push("Devuelve solo el SVG.");
   return lineas.join("\n");
 }
@@ -124,7 +141,8 @@ export function fotoBaseProducto(tipoRaw: string, modelo: string): FotoBase | nu
   }
   if (tipo === "banco") return { url: `${WEB_FOTOS}/bancos/oyambre-nuevo-800.webp`, descripcion: "banco tapizado (modelo Oyambre)" };
   if (tipo === "puf") {
-    return /redond|ø|cilin/i.test(m)
+    const redondo = /redond|ø|cilin/i.test(m);
+    return redondo
       ? { url: `${WEB_FOTOS}/puff/monteferro-01-800.webp`, descripcion: "puf redondo (modelo Monteferro)" }
       : { url: `${WEB_FOTOS}/puff/patos-01-800.webp`, descripcion: "puf cuadrado (modelo Patos)" };
   }
