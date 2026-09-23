@@ -5,6 +5,7 @@ import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { numeroPedidoLabel, DIAS_PLAZO_DEFECTO, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, esPantalla, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
+import { DibujoCliente } from "@/components/DibujoCliente";
 import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas, rellenoEsTelaVivo } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { ProductoForm, productoToState } from "@/components/ProductoForm";
@@ -180,7 +181,9 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
                 ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
                 : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
               {displayExtras(producto.patas) && <Info k="Extras" v={displayExtras(producto.patas)} />}
+              {producto.descuento && <Info k="Descuento web" v={`${producto.descuento.codigo} · ${producto.descuento.tipo === "fixed" ? `−${producto.descuento.valor} €` : `−${producto.descuento.valor} %`}${producto.descuento.precioOriginal != null ? ` (antes ${formatCurrency(producto.descuento.precioOriginal)})` : ""}`} />}
               {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
+              {producto.dibujo && <div className="col-span-2 sm:col-span-3"><DibujoCliente dibujo={producto.dibujo} /></div>}
             </div>
           )}
         </div>
