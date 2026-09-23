@@ -154,8 +154,9 @@ export function fotoBaseProducto(tipoRaw: string, modelo: string): FotoBase | nu
   }
   if (tipo === "cojin") {
     if (/cilin/.test(m)) return null;
+    // Una sola pieza en la foto: con varios cojines Gemini no sabe cuál cambiar.
     return /rectang|60|50x30|30x50/.test(m)
-      ? { url: `${WEB_FOTOS}/almohadones/covadonga-04-800.webp`, descripcion: "almohadón rectangular" }
+      ? { url: `${WEB_FOTOS}/almohadones/rodiles-03-800.webp`, descripcion: "almohadón (en la foto es cuadrado: hazlo RECTANGULAR, más ancho que alto, con las medidas del pedido)" }
       : { url: `${WEB_FOTOS}/almohadones/rodiles-03-800.webp`, descripcion: "almohadón cuadrado" };
   }
   return null;
@@ -197,7 +198,7 @@ export function promptReferencia(d: DatosPedidoIA, im: ImagenesReferencia, indic
 
   if (im.base) {
     lineas.push(`Edita la imagen ${idx.base} (${im.base === "catalogo" ? `foto real de nuestro ${im.baseDescripcion}` : "foto de referencia del pedido"}).`);
-    lineas.push("Mantén EXACTAMENTE la misma pieza: misma forma y silueta, mismas proporciones, mismo encuadre, misma habitación, muebles, ropa de cama, luz y sombras. No cambies nada más que lo que se pide aquí.");
+    lineas.push("La pieza a tapizar es la PRINCIPAL de la foto (la más grande y en primer plano). Mantén su forma y silueta, sus proporciones, el encuadre, la habitación, la luz y las sombras. No cambies nada más que lo que se pide aquí.");
   } else {
     const nombre = displayNombreProducto(d.tipo, d.modelo);
     lineas.push(`Fotografía realista de producto, estilo catálogo de interiorismo, de un ${nombre.toLowerCase()} tapizado en un dormitorio luminoso y sereno, con ropa de cama lisa en tonos neutros.${d.modelo ? ` Forma: ${d.modelo}.` : ""}`);
@@ -216,6 +217,28 @@ export function promptReferencia(d: DatosPedidoIA, im: ImagenesReferencia, indic
   if (tipo !== "pantalla" && tipo !== "mesa") lineas.push(textoVivo(d.acabado, enTelaVivo));
   if (tipo === "cabecero" && d.montaje === "apoyar") lineas.push("El cabecero va apoyado en el suelo.");
   lineas.push("Resultado: fotografía realista, colores fieles a las telas, sin texto, sin logotipos ni marcas de agua, sin personas.");
-  if (indicacion?.trim()) lineas.push(`Indicación adicional de quien revisa (prioritaria): ${indicacion.trim()}`);
+  if (indicacion?.trim()) lineas.push(`INDICACIÓN DE QUIEN REVISA (manda sobre todo lo anterior, aunque pida cambiar o quitar cosas de la foto): ${indicacion.trim()}`);
   return lineas.join("\n");
+}
+
+// Corrección sobre una imagen ya generada: se manda la imagen anterior y solo
+// se pide el cambio, para no empezar de cero (lo que Juan hace a mano en Gemini).
+export function promptCorreccionImagen(indicacion: string): string {
+  return [
+    "Edita la imagen adjunta aplicando SOLO esta corrección:",
+    indicacion.trim(),
+    "Mantén todo lo demás exactamente igual: la pieza, su forma, la tela y el estampado, el vivo, el encuadre, la luz y los colores. Resultado: fotografía realista, sin texto ni marcas de agua.",
+  ].join("\n");
+}
+
+// Corrección sobre un croquis ya generado: Claude recibe el SVG anterior y
+// devuelve el mismo croquis con solo ese cambio.
+export function promptCorreccionCroquis(svgAnterior: string, indicacion: string): string {
+  return [
+    "Este es el croquis anterior (SVG):",
+    svgAnterior,
+    "",
+    `Corrección de Juan: ${indicacion.trim()}`,
+    "Devuelve el croquis COMPLETO con esa corrección aplicada y todo lo demás igual (mismo estilo, composición y cotas que no cambien; ajusta las cotas que dependan del cambio para que sigan cuadrando). Solo el SVG.",
+  ].join("\n");
 }

@@ -49,7 +49,7 @@ export async function cargarContextoPedido(pedidoId: string): Promise<ContextoPe
   // Foto de referencia subida A MANO por el equipo (p. ej. la que manda el
   // cliente): sirve de base cuando la pieza no es de catálogo.
   const refManual = ((refs ?? []) as Record<string, unknown>[]).find((r) =>
-    r.subido_por !== ARCHIVO_IA_PENDIENTE && !/^referencia-gemini-/.test(String(r.nombre ?? "")) && /\.(png|jpe?g|webp)$/i.test(String(r.nombre ?? "")));
+    r.subido_por !== ARCHIVO_IA_PENDIENTE && !/^referencia-(gemini|ia)-/.test(String(r.nombre ?? "")) && /\.(png|jpe?g|webp)$/i.test(String(r.nombre ?? "")));
   const referenciaEquipo = (refManual?.storage_path as string) ?? "";
   const pr = (prod ?? {}) as Record<string, unknown>;
   const pasos = (p.pasos_tapicero && typeof p.pasos_tapicero === "object" ? p.pasos_tapicero : {}) as Record<string, string>;
@@ -374,4 +374,53 @@ export async function llamarGeminiImagen(opts: {
   const bloqueo = (body?.promptFeedback as { blockReason?: string } | undefined)?.blockReason
     ?? (cands[0]?.finishReason as string | undefined);
   return json({ error: `Gemini no ha devuelto ninguna imagen${bloqueo ? ` (${bloqueo})` : ""}.` }, 502);
+}
+
+// Archivo anterior del pedido para corregirlo (imagen o croquis pendiente).
+// Se comprueba que es del mismo pedido y del tipo pedido.
+export async function cargarArchivoAnterior(pedidoId: string, archivoId: string, tipo: "plantilla" | "referencia"): Promise<{ storagePath: string; nombre: string } | Response> {
+  const { data } = await supabaseAdmin.from("pedido_archivos").select("storage_path, nombre, pedido_id, tipo").eq("id", archivoId).maybeSingle();
+  const a = data as { storage_path?: string; nombre?: string; pedido_id?: string; tipo?: string } | null;
+  if (!a || a.pedido_id !== pedidoId || a.tipo !== tipo || !a.storage_path) return json({ error: "No se encuentra el archivo a corregir." }, 404);
+  return { storagePath: a.storage_path, nombre: a.nombre ?? "" };
+}
+export async function descargarTexto(bucket: string, path: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
+  if (error || !data) return null;
+  return await data.text();
+}
+
+// Traduce la indicación de Juan ("quita los de alrededor") a una instrucción de
+// edición precisa para el modelo de imagen, mirando la imagen que se va a
+// editar. Lo hace Claude (ANTHROPIC_API_KEY). Si no hay clave o falla, se usa
+// la indicación tal cual: nunca bloquea la generación.
+const SYSTEM_TRADUCTOR = `Eres experto en escribir instrucciones para modelos de edición de imágenes (Gemini image / Nano Banana). Recibes una imagen de un producto tapizado (cabecero, puf, banco, cojín…) y una corrección escrita deprisa por el dueño del taller, en español. Reescríbela como UNA instrucción de edición en inglés, concreta y visual: di exactamente qué elementos de la imagen cambiar, quitar o añadir, nombrándolos por su posición, color y forma tal como se ven ("the navy cushion on the left", "the striped cushion behind"), y qué debe quedar igual. No inventes cambios que no pida. No expliques nada: devuelve solo la instrucción, en 1–4 frases.`;
+
+export async function traducirIndicacionImagen(indicacion: string, imagen: { data: string; mime: string } | null, contexto: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || !indicacion.trim()) return indicacion;
+  try {
+    const content: Record<string, unknown>[] = [];
+    if (imagen && /^image\/(png|jpeg|webp|gif)$/.test(imagen.mime)) content.push({ type: "image", source: { type: "base64", media_type: imagen.mime, data: imagen.data } });
+    content.push({ type: "text", text: `Producto: ${contexto}\nCorrección de Juan: ${indicacion.trim()}` });
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL || ANTHROPIC_MODEL_DEFECTO,
+        max_tokens: 2000,
+        system: SYSTEM_TRADUCTOR,
+        output_config: { effort: "low" },
+        messages: [{ role: "user", content }],
+      }),
+    });
+    if (!res.ok) return indicacion;
+    const body = await res.json() as { stop_reason?: string; content?: { type: string; text?: string }[] };
+    if (body.stop_reason === "refusal") return indicacion;
+    const texto = (body.content ?? []).filter((b) => b.type === "text").map((b) => b.text ?? "").join(" ").trim();
+    // Se mantiene también la frase original por si la traducción pierde matices.
+    return texto ? `${texto}\n(Original request in Spanish: "${indicacion.trim()}")` : indicacion;
+  } catch {
+    return indicacion;
+  }
 }

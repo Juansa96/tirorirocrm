@@ -2383,7 +2383,7 @@ export const actions = {
   // como PENDIENTE de aprobar (subido_por = "@ia:pendiente"). `indicacion` es
   // el texto libre de "regenerar con indicación". En modo `silencioso` (auto
   // al crear el pedido) no se avisa si las claves de API no están configuradas.
-  async generarArchivoIA(pedidoId: string, tipo: "plantilla" | "referencia", indicacion?: string, opts?: { silencioso?: boolean }): Promise<boolean> {
+  async generarArchivoIA(pedidoId: string, tipo: "plantilla" | "referencia", indicacion?: string, opts?: { silencioso?: boolean; corregir?: string }): Promise<boolean> {
     const ruta = tipo === "plantilla" ? "/api/pedidos/croquis" : "/api/pedidos/referencia";
     const que = tipo === "plantilla" ? "croquis" : "imagen de referencia";
     const clave = `${pedidoId}:${tipo}`;
@@ -2395,7 +2395,7 @@ export const actions = {
       const res = await fetch(ruta, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoId, indicacion: indicacion ?? "" }),
+        body: JSON.stringify({ pedidoId, indicacion: indicacion ?? "", corregir: opts?.corregir ?? "" }),
       });
       // La ruta responde en streaming (espacios de "latido" + JSON final) y
       // siempre con 200: el fallo viene en `error`.

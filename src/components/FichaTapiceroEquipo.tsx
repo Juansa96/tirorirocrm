@@ -277,7 +277,7 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
       )}
 
       {/* Archivos: plantilla + imagen de referencia + etiqueta de envío (subida inmediata).
-          El croquis lo genera Claude y la imagen Gemini; quedan pendientes hasta
+          El croquis lo genera Claude y la imagen la IA de Lovable; quedan pendientes hasta
           que alguien del equipo los aprueba. */}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <ArchivoSlot pedidoId={pedido.id} tipo="plantilla" titulo="Croquis / plantilla de corte" accept=".svg,.plt,application/pdf,.pdf,image/*" icon={<FileUp className="h-3.5 w-3.5" />}
@@ -411,24 +411,27 @@ function ArchivoSlot({ pedidoId, tipo, titulo, accept, icon, archivos, generando
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [indicando, setIndicando] = useState(false);
-  const motor = tipo === "plantilla" ? "Claude" : "Gemini";
+  // La imagen se genera con la IA de Lovable (modelo de imagen de Gemini).
+  const motor = tipo === "plantilla" ? "Claude" : "Lovable";
   const pendientes = archivos.filter(archivoPendienteIA);
   const aprobados = archivos.filter((a) => !archivoPendienteIA(a));
   const esImagen = (a: { nombre: string }) => /\.(png|jpe?g|webp|gif|svg)$/i.test(a.nombre);
 
-  async function generar(indicacion?: string) {
+  async function generar(indicacion?: string, corregir?: string) {
     if (indicando) return;
     setIndicando(true);
-    try { await actions.generarArchivoIA(pedidoId, tipo, indicacion); } finally { setIndicando(false); }
+    try { await actions.generarArchivoIA(pedidoId, tipo, indicacion, corregir ? { corregir } : undefined); } finally { setIndicando(false); }
   }
-  async function regenerarConIndicacion() {
+  // Corrige ESTA versión: se manda la imagen o el croquis anterior con la
+  // indicación y solo cambia eso (no se empieza de cero).
+  async function corregirEsta(archivoId: string) {
     const texto = await pedirTexto({
-      titulo: tipo === "plantilla" ? "¿Qué debe cambiar en el croquis?" : "¿Qué debe cambiar en la imagen?",
-      texto: tipo === "plantilla" ? "Ej.: el arco central más bajo, enchufe a 40 cm del borde izquierdo…" : "Ej.: dormitorio más luminoso, sin patas, tela más clara…",
-      aceptar: `Regenerar con ${motor}`,
+      titulo: tipo === "plantilla" ? "¿Qué corrijo en este croquis?" : "¿Qué corrijo en esta imagen?",
+      texto: tipo === "plantilla" ? "Ej.: el arco central más bajo, enchufe a 40 cm del borde izquierdo…" : "Ej.: quita los otros cojines, el vivo más fino, la tela más clara…",
+      aceptar: "Corregir",
     });
-    if (texto == null) return;
-    await generar(texto);
+    if (texto == null || !texto.trim()) return;
+    await generar(texto, archivoId);
   }
   const ocupado = generando || indicando;
 
@@ -481,9 +484,9 @@ function ArchivoSlot({ pedidoId, tipo, titulo, accept, icon, archivos, generando
               className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
               <RefreshCw className="h-3.5 w-3.5" /> Regenerar
             </button>
-            <button type="button" disabled={ocupado} onClick={() => void regenerarConIndicacion()}
+            <button type="button" disabled={ocupado} onClick={() => void corregirEsta(a.id)}
               className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-              <MessageSquarePlus className="h-3.5 w-3.5" /> Con indicación
+              <MessageSquarePlus className="h-3.5 w-3.5" /> Corregir esta
             </button>
             <button type="button" onClick={() => void confirmar({ titulo: "¿Descartar este archivo generado?", peligroso: true, aceptar: "Descartar" }).then((ok) => { if (ok) void actions.deleteArchivoPedido(a.id, a.storagePath); })}
               className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-slate-500 hover:text-rose-600">
