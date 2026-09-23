@@ -29,6 +29,7 @@ export async function autenticarEquipo(request: Request): Promise<{ userId: stri
 export interface ContextoPedidoIA {
   datos: DatosPedidoIA;
   fotosTela: { rol: string; url: string }[];   // url pública (web) o ruta del bucket "telas"
+  referenciaEquipo: string;                      // ruta (bucket pedido-archivos) de la última imagen de referencia subida a mano, "" si no hay
   dibujoPngUrl: string;                          // dibujo del configurador (web), si lo hay
 }
 
@@ -39,11 +40,17 @@ export async function cargarContextoPedido(pedidoId: string): Promise<ContextoPe
   if (!pedido) return json({ error: "Pedido no encontrado" }, 404);
   const p = pedido as Record<string, unknown>;
   const prodId = p.producto_lead_id as string | null;
-  const [{ data: prod }, { data: telas }, { data: lead }] = await Promise.all([
+  const [{ data: prod }, { data: telas }, { data: lead }, { data: refs }] = await Promise.all([
     prodId ? supabaseAdmin.from("productos_lead").select("tipo, modelo, ancho, alto, fondo, cantidad, acabado, patas, notas_producto, config_json").eq("id", prodId).maybeSingle() : Promise.resolve({ data: null }),
     supabaseAdmin.from("pedido_telas").select("tipo_tela, nombre_tela, tela_foto_url, tela_coleccion, orden").eq("pedido_id", pedidoId).order("orden"),
     p.lead_id ? supabaseAdmin.from("leads").select("nombre").eq("id", p.lead_id as string).maybeSingle() : Promise.resolve({ data: null }),
+    supabaseAdmin.from("pedido_archivos").select("storage_path, nombre, subido_por, created_at").eq("pedido_id", pedidoId).eq("tipo", "referencia").order("created_at", { ascending: false }),
   ]);
+  // Foto de referencia subida A MANO por el equipo (p. ej. la que manda el
+  // cliente): sirve de base cuando la pieza no es de catálogo.
+  const refManual = ((refs ?? []) as Record<string, unknown>[]).find((r) =>
+    r.subido_por !== ARCHIVO_IA_PENDIENTE && !/^referencia-gemini-/.test(String(r.nombre ?? "")) && /\.(png|jpe?g|webp)$/i.test(String(r.nombre ?? "")));
+  const referenciaEquipo = (refManual?.storage_path as string) ?? "";
   const pr = (prod ?? {}) as Record<string, unknown>;
   const pasos = (p.pasos_tapicero && typeof p.pasos_tapicero === "object" ? p.pasos_tapicero : {}) as Record<string, string>;
   const num = (v: unknown) => (v == null || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
@@ -80,20 +87,21 @@ export async function cargarContextoPedido(pedidoId: string): Promise<ContextoPe
     notaTapicero: (p.nota_tapicero as string) ?? "",
     notasProducto: (pr.notas_producto as string) ?? "",
   };
-  return { datos, fotosTela, dibujoPngUrl };
+  return { datos, fotosTela, dibujoPngUrl, referenciaEquipo };
 }
 
 // ── Descarga de una imagen (foto de tela o dibujo) a base64 para adjuntarla ──
 // Las fotos de tela subidas a mano viven en el bucket privado "telas": se
 // descargan con service_role. Las de la web son públicas.
 const MAX_IMG_BYTES = 6 * 1024 * 1024;
-export async function descargarImagenBase64(url: string): Promise<{ data: string; mime: string } | null> {
+export async function descargarImagenBase64(url: string, bucketPath?: { bucket: string; path: string }): Promise<{ data: string; mime: string } | null> {
   try {
     let bytes: ArrayBuffer | null = null;
     let mime = "";
-    const path = storagePathFromUrl(url, "telas");
+    const bucket = bucketPath?.bucket ?? "telas";
+    const path = bucketPath?.path ?? storagePathFromUrl(url, "telas");
     if (path) {
-      const { data, error } = await supabaseAdmin.storage.from("telas").download(path);
+      const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
       if (error || !data) return null;
       bytes = await data.arrayBuffer();
       mime = data.type || "";
@@ -213,7 +221,8 @@ export async function llamarGeminiImagen(opts: {
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
       contents: [{ role: "user", parts }],
-      generationConfig: { responseModalities: modalidades, imageConfig: { aspectRatio: opts.aspectRatio ?? "4:3" } },
+      // Sin aspectRatio al editar una foto: Gemini conserva el encuadre de la base.
+      generationConfig: { responseModalities: modalidades, ...(opts.aspectRatio ? { imageConfig: { aspectRatio: opts.aspectRatio } } : {}) },
     }),
   });
   let res = await pedir(["IMAGE"]);
