@@ -39,6 +39,22 @@ async function cargarConfig(): Promise<Row | null> {
 }
 
 // Guarda los mensajes agrupados por conversación. Devuelve cuántos son nuevos.
+// Todo por lotes (una lectura de conversaciones, un alta conjunta de las que
+// faltan, upserts de 200 mensajes y actualizaciones en paralelo): los paquetes
+// de historial traen cientos de mensajes y, si el webhook tarda en responder,
+// Meta lo da por fallido y reenvía el mismo paquete una y otra vez sin pasar
+// al siguiente (se vio el 23/09/2026: un paquete de 77 KB repetido 28 veces).
+const CAMPOS_CONV = "id, telefono, nombre_wa, mensajes, ultimo_mensaje_at, ultimo_mensaje_entrante_at";
+const ms = (v: unknown): number => { const n = Date.parse(s(v)); return Number.isFinite(n) ? n : 0; };
+
+async function leerConversaciones(telefonos: string[], destino: Map<string, Row>): Promise<void> {
+  for (let i = 0; i < telefonos.length; i += 200) {
+    const { data, error } = await supabaseAdmin.from("whatsapp_conversaciones").select(CAMPOS_CONV).in("telefono", telefonos.slice(i, i + 200));
+    if (error) throw new Error("No se pudieron leer las conversaciones: " + error.message);
+    for (const r of (data ?? []) as Row[]) destino.set(s(r.telefono), r);
+  }
+}
+
 async function guardarMensajes(mensajes: MensajeNormalizado[]): Promise<number> {
   const porTelefono = new Map<string, MensajeNormalizado[]>();
   for (const m of mensajes) {
@@ -46,78 +62,115 @@ async function guardarMensajes(mensajes: MensajeNormalizado[]): Promise<number> 
     arr.push(m);
     porTelefono.set(m.telefono, arr);
   }
-  let nuevos = 0;
+  for (const lista of porTelefono.values()) lista.sort((a, b) => a.enviadoAt.localeCompare(b.enviadoAt));
+  const telefonos = [...porTelefono.keys()];
+  const nombreDe = (lista: MensajeNormalizado[]) => lista.map((m) => m.nombreWa).filter(Boolean).pop() ?? "";
+
+  // 1. Conversaciones que ya existen.
+  const convs = new Map<string, Row>();
+  await leerConversaciones(telefonos, convs);
+
+  // 2. Alta de las que faltan (origen historial si solo llega historial). Si
+  //    otro evento la crea a la vez, el upsert la ignora y se relee.
+  const altas = telefonos.filter((t) => !convs.has(t)).map((telefono) => {
+    const lista = porTelefono.get(telefono) ?? [];
+    return { telefono, nombre_wa: nombreDe(lista), origen: lista.every((m) => m.historial) ? "historial" : "webhook" };
+  });
+  if (altas.length) {
+    const { data, error } = await supabaseAdmin.from("whatsapp_conversaciones")
+      .upsert(altas as never, { onConflict: "telefono", ignoreDuplicates: true })
+      .select(CAMPOS_CONV);
+    if (error) throw new Error("No se pudo crear la conversación: " + error.message);
+    for (const r of (data ?? []) as Row[]) convs.set(s(r.telefono), r);
+    const faltan = altas.map((a) => a.telefono).filter((t) => !convs.has(t));
+    if (faltan.length) await leerConversaciones(faltan, convs);
+  }
+
+  // 3. Mensajes (idempotente por wa_id) en lotes; se cuentan los nuevos por conversación.
+  const filas: Row[] = [];
   for (const [telefono, lista] of porTelefono) {
-    lista.sort((a, b) => a.enviadoAt.localeCompare(b.enviadoAt));
-    const nombre = lista.map((m) => m.nombreWa).filter(Boolean).pop() ?? "";
-    const todoHistorial = lista.every((m) => m.historial);
-
-    // Conversación: crear si no existe (origen historial si solo llega historial).
-    const { data: existente } = await supabaseAdmin.from("whatsapp_conversaciones").select("id, nombre_wa, ultimo_mensaje_at, ultimo_mensaje_entrante_at").eq("telefono", telefono).maybeSingle();
-    let convId: string;
-    if (existente) {
-      convId = s((existente as Row).id);
-      // El nombre de perfil de WhatsApp solo rellena si no hay ninguno: el de
-      // la agenda del móvil (smb_app_state_sync) manda.
-      if (nombre && !s((existente as Row).nombre_wa)) {
-        await supabaseAdmin.from("whatsapp_conversaciones").update({ nombre_wa: nombre } as never).eq("id", convId);
-      }
-    } else {
-      const { data: creada, error } = await supabaseAdmin.from("whatsapp_conversaciones")
-        .insert({ telefono, nombre_wa: nombre, origen: todoHistorial ? "historial" : "webhook" } as never)
-        .select("id").single();
-      if (error || !creada) {
-        // Carrera con otro evento: releer.
-        const { data: otra } = await supabaseAdmin.from("whatsapp_conversaciones").select("id").eq("telefono", telefono).maybeSingle();
-        if (!otra) throw new Error("No se pudo crear la conversación: " + (error?.message ?? ""));
-        convId = s((otra as Row).id);
-      } else {
-        convId = s((creada as Row).id);
-      }
+    const conv = convs.get(telefono);
+    if (!conv) throw new Error("No se pudo crear la conversación de " + telefono);
+    for (const m of lista) {
+      filas.push({ wa_id: m.waId, conversacion_id: s(conv.id), direccion: m.direccion, tipo: m.tipo, texto: m.texto, enviado_at: m.enviadoAt, raw: m.raw });
     }
-
-    // Mensajes (idempotente por wa_id), en lotes.
-    const filas = lista.map((m) => ({
-      wa_id: m.waId, conversacion_id: convId, direccion: m.direccion, tipo: m.tipo, texto: m.texto, enviado_at: m.enviadoAt, raw: m.raw as never,
-    }));
-    for (let i = 0; i < filas.length; i += 200) {
-      const { data, error } = await supabaseAdmin.from("whatsapp_mensajes")
-        .upsert(filas.slice(i, i + 200) as never, { onConflict: "wa_id", ignoreDuplicates: true })
-        .select("id");
-      if (error) throw new Error("No se pudieron guardar los mensajes: " + error.message);
-      nuevos += data?.length ?? 0;
+  }
+  const nuevosPorConv = new Map<string, number>();
+  for (let i = 0; i < filas.length; i += 200) {
+    const { data, error } = await supabaseAdmin.from("whatsapp_mensajes")
+      .upsert(filas.slice(i, i + 200) as never, { onConflict: "wa_id", ignoreDuplicates: true })
+      .select("conversacion_id");
+    if (error) throw new Error("No se pudieron guardar los mensajes: " + error.message);
+    for (const r of (data ?? []) as Row[]) {
+      const id = s(r.conversacion_id);
+      nuevosPorConv.set(id, (nuevosPorConv.get(id) ?? 0) + 1);
     }
+  }
 
-    // Contadores de la conversación.
-    const { count } = await supabaseAdmin.from("whatsapp_mensajes").select("id", { count: "exact", head: true }).eq("conversacion_id", convId);
+  // 4. Contadores, fechas y nombre de perfil: solo donde cambie algo, en paralelo.
+  const updates: Promise<void>[] = [];
+  for (const [telefono, lista] of porTelefono) {
+    const conv = convs.get(telefono);
+    if (!conv) continue;
+    const convId = s(conv.id);
+    const patch: Record<string, unknown> = {};
+    const nuevos = nuevosPorConv.get(convId) ?? 0;
+    if (nuevos) patch.mensajes = (Number(conv.mensajes) || 0) + nuevos;
     const ultimo = lista[lista.length - 1].enviadoAt;
     const ultimoEntrante = [...lista].reverse().find((m) => m.direccion === "entrante")?.enviadoAt ?? "";
-    const prev = (existente ?? {}) as Row;
-    const patch: Record<string, unknown> = { mensajes: count ?? filas.length };
-    if (!s(prev.ultimo_mensaje_at) || ultimo > s(prev.ultimo_mensaje_at)) patch.ultimo_mensaje_at = ultimo;
-    if (ultimoEntrante && (!s(prev.ultimo_mensaje_entrante_at) || ultimoEntrante > s(prev.ultimo_mensaje_entrante_at))) patch.ultimo_mensaje_entrante_at = ultimoEntrante;
-    await supabaseAdmin.from("whatsapp_conversaciones").update(patch as never).eq("id", convId);
+    if (ms(ultimo) > ms(conv.ultimo_mensaje_at)) patch.ultimo_mensaje_at = ultimo;
+    if (ultimoEntrante && ms(ultimoEntrante) > ms(conv.ultimo_mensaje_entrante_at)) patch.ultimo_mensaje_entrante_at = ultimoEntrante;
+    // El nombre de perfil de WhatsApp solo rellena si no hay ninguno: el de
+    // la agenda del móvil (smb_app_state_sync) manda.
+    const nombre = nombreDe(lista);
+    if (nombre && !s(conv.nombre_wa)) patch.nombre_wa = nombre;
+    if (Object.keys(patch).length === 0) continue;
+    updates.push(
+      supabaseAdmin.from("whatsapp_conversaciones").update(patch as never).eq("id", convId)
+        .then(({ error }: { error: { message: string } | null }) => { if (error) throw new Error("No se pudo actualizar la conversación: " + error.message); }),
+    );
   }
-  return nuevos;
+  await Promise.all(updates);
+
+  let total = 0;
+  for (const n of nuevosPorConv.values()) total += n;
+  return total;
 }
 
 // Agenda del móvil: guarda el nombre del contacto en su conversación (y la
 // crea sin mensajes si aún no existe, para tener el nombre cuando escriba).
+// También por lotes: al conectar llega la agenda entera de golpe.
 async function guardarContactos(contactos: ContactoSync[]): Promise<number> {
-  let n = 0;
+  const porTelefono = new Map<string, string>();
   for (const c of contactos) {
     if (c.accion === "remove" || !c.nombre) continue;
-    const { data: existente } = await supabaseAdmin.from("whatsapp_conversaciones").select("id, nombre_wa").eq("telefono", c.telefono).maybeSingle();
-    if (existente) {
-      if (s((existente as Row).nombre_wa) !== c.nombre) {
-        await supabaseAdmin.from("whatsapp_conversaciones").update({ nombre_wa: c.nombre } as never).eq("id", s((existente as Row).id));
-        n++;
-      }
-    } else {
-      const { error } = await supabaseAdmin.from("whatsapp_conversaciones").insert({ telefono: c.telefono, nombre_wa: c.nombre, origen: "historial" } as never);
-      if (!error) n++;
-    }
+    porTelefono.set(c.telefono, c.nombre);
   }
+  if (porTelefono.size === 0) return 0;
+  const convs = new Map<string, Row>();
+  await leerConversaciones([...porTelefono.keys()], convs);
+
+  let n = 0;
+  const updates: Promise<void>[] = [];
+  const altas: Row[] = [];
+  for (const [telefono, nombre] of porTelefono) {
+    const conv = convs.get(telefono);
+    if (!conv) { altas.push({ telefono, nombre_wa: nombre, origen: "historial" }); continue; }
+    if (s(conv.nombre_wa) === nombre) continue;
+    n++;
+    updates.push(
+      supabaseAdmin.from("whatsapp_conversaciones").update({ nombre_wa: nombre } as never).eq("id", s(conv.id))
+        .then(({ error }: { error: { message: string } | null }) => { if (error) throw new Error("No se pudo guardar el nombre del contacto: " + error.message); }),
+    );
+  }
+  for (let i = 0; i < altas.length; i += 200) {
+    const { data, error } = await supabaseAdmin.from("whatsapp_conversaciones")
+      .upsert(altas.slice(i, i + 200) as never, { onConflict: "telefono", ignoreDuplicates: true })
+      .select("id");
+    if (error) throw new Error("No se pudo crear la conversación del contacto: " + error.message);
+    n += data?.length ?? 0;
+  }
+  await Promise.all(updates);
   return n;
 }
 
@@ -173,8 +226,8 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
           await supabaseAdmin.from("whatsapp_eventos").insert({
             campo: parsed.campos.join(",").slice(0, 200) || "(sin campo)",
             mensajes: nuevos + contactos,
-            // Solo guardamos el payload de los eventos pequeños (los de historial son enormes).
-            payload: cuerpo.length < 20_000 ? (body as never) : ({ resumen: `payload de ${cuerpo.length} bytes`, campos: parsed.campos } as never),
+            // Solo guardamos el payload hasta 120 KB (un paquete de historial ronda los 80 KB).
+            payload: cuerpo.length < 120_000 ? (body as never) : ({ resumen: `payload de ${cuerpo.length} bytes`, campos: parsed.campos } as never),
           } as never);
 
           return json({ ok: true, mensajes: nuevos, ignorados: parsed.ignorados });
