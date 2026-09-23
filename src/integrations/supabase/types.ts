@@ -998,6 +998,250 @@ export type Database = {
         Relationships: []
       }
     }
+      whatsapp_config: {
+        Row: {
+          activo: boolean
+          app_secret: string | null
+          conectado_at: string | null
+          created_at: string
+          id: number
+          modelo: string
+          numero_negocio: string | null
+          ultimo_error: string | null
+          ultimo_error_at: string | null
+          ultimo_evento_at: string | null
+          ultimo_proceso_at: string | null
+          updated_at: string
+          vendedor_defecto: string
+          verify_token: string
+          webhook_token: string
+        }
+        Insert: {
+          activo?: boolean
+          app_secret?: string | null
+          conectado_at?: string | null
+          created_at?: string
+          id?: number
+          modelo?: string
+          numero_negocio?: string | null
+          ultimo_error?: string | null
+          ultimo_error_at?: string | null
+          ultimo_evento_at?: string | null
+          ultimo_proceso_at?: string | null
+          updated_at?: string
+          vendedor_defecto?: string
+          verify_token: string
+          webhook_token: string
+        }
+        Update: {
+          activo?: boolean
+          app_secret?: string | null
+          conectado_at?: string | null
+          created_at?: string
+          id?: number
+          modelo?: string
+          numero_negocio?: string | null
+          ultimo_error?: string | null
+          ultimo_error_at?: string | null
+          ultimo_evento_at?: string | null
+          ultimo_proceso_at?: string | null
+          updated_at?: string
+          vendedor_defecto?: string
+          verify_token?: string
+          webhook_token?: string
+        }
+        Relationships: []
+      }
+      whatsapp_conversaciones: {
+        Row: {
+          analizado_hasta: string | null
+          created_at: string
+          datos: Json
+          estado: string
+          id: string
+          lead_id: string | null
+          mensajes: number
+          nombre_wa: string
+          origen: string
+          resumen: string
+          telefono: string
+          ultimo_analisis_at: string | null
+          ultimo_mensaje_at: string | null
+          ultimo_mensaje_entrante_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          analizado_hasta?: string | null
+          created_at?: string
+          datos?: Json
+          estado?: string
+          id?: string
+          lead_id?: string | null
+          mensajes?: number
+          nombre_wa?: string
+          origen?: string
+          resumen?: string
+          telefono: string
+          ultimo_analisis_at?: string | null
+          ultimo_mensaje_at?: string | null
+          ultimo_mensaje_entrante_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          analizado_hasta?: string | null
+          created_at?: string
+          datos?: Json
+          estado?: string
+          id?: string
+          lead_id?: string | null
+          mensajes?: number
+          nombre_wa?: string
+          origen?: string
+          resumen?: string
+          telefono?: string
+          ultimo_analisis_at?: string | null
+          ultimo_mensaje_at?: string | null
+          ultimo_mensaje_entrante_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversaciones_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_eventos: {
+        Row: {
+          campo: string
+          error: string | null
+          id: number
+          mensajes: number
+          payload: Json | null
+          recibido_at: string
+        }
+        Insert: {
+          campo?: string
+          error?: string | null
+          id?: number
+          mensajes?: number
+          payload?: Json | null
+          recibido_at?: string
+        }
+        Update: {
+          campo?: string
+          error?: string | null
+          id?: number
+          mensajes?: number
+          payload?: Json | null
+          recibido_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_mensajes: {
+        Row: {
+          conversacion_id: string
+          created_at: string
+          direccion: string
+          enviado_at: string
+          id: string
+          raw: Json | null
+          texto: string
+          tipo: string
+          wa_id: string
+        }
+        Insert: {
+          conversacion_id: string
+          created_at?: string
+          direccion: string
+          enviado_at: string
+          id?: string
+          raw?: Json | null
+          texto?: string
+          tipo?: string
+          wa_id: string
+        }
+        Update: {
+          conversacion_id?: string
+          created_at?: string
+          direccion?: string
+          enviado_at?: string
+          id?: string
+          raw?: Json | null
+          texto?: string
+          tipo?: string
+          wa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_mensajes_conversacion_id_fkey"
+            columns: ["conversacion_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_propuestas: {
+        Row: {
+          clave: string
+          conversacion_id: string
+          created_at: string
+          estado: string
+          id: string
+          lead_id: string | null
+          motivo: string
+          payload: Json
+          resuelta_at: string | null
+          resuelta_por: string | null
+          tipo: string
+        }
+        Insert: {
+          clave: string
+          conversacion_id: string
+          created_at?: string
+          estado?: string
+          id?: string
+          lead_id?: string | null
+          motivo?: string
+          payload?: Json
+          resuelta_at?: string | null
+          resuelta_por?: string | null
+          tipo: string
+        }
+        Update: {
+          clave?: string
+          conversacion_id?: string
+          created_at?: string
+          estado?: string
+          id?: string
+          lead_id?: string | null
+          motivo?: string
+          payload?: Json
+          resuelta_at?: string | null
+          resuelta_por?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_propuestas_conversacion_id_fkey"
+            columns: ["conversacion_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_propuestas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     Views: {
       [_ in never]: never
     }

@@ -21,11 +21,13 @@ import { Route as DuplicadosRouteImport } from './routes/duplicados'
 import { Route as DatosRouteImport } from './routes/datos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidosIndexRouteImport } from './routes/pedidos.index'
+import { Route as WhatsappIndexRouteImport } from './routes/whatsapp.index'
 import { Route as PanelIndexRouteImport } from './routes/panel.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as B2bIndexRouteImport } from './routes/b2b.index'
 import { Route as TTokenRouteImport } from './routes/t.$token'
 import { Route as PedidosIdRouteImport } from './routes/pedidos.$id'
+import { Route as WhatsappIdRouteImport } from './routes/whatsapp.$id'
 import { Route as PanelIdRouteImport } from './routes/panel.$id'
 import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
@@ -34,6 +36,8 @@ import { Route as ApiTapiceroFotoRouteImport } from './routes/api/tapicero/foto'
 import { Route as ApiTapiceroEnviarRouteImport } from './routes/api/tapicero/enviar'
 import { Route as ApiTapiceroEnlaceRouteImport } from './routes/api/tapicero/enlace'
 import { Route as ApiTapiceroAccionRouteImport } from './routes/api/tapicero/accion'
+import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
+import { Route as ApiWhatsappProcesarRouteImport } from './routes/api/whatsapp/procesar'
 import { Route as ApiPublicTelasRouteImport } from './routes/api/public/telas'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
@@ -104,6 +108,11 @@ const PedidosIndexRoute = PedidosIndexRouteImport.update({
   path: '/pedidos/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WhatsappIndexRoute = WhatsappIndexRouteImport.update({
+  id: '/whatsapp/',
+  path: '/whatsapp/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PanelIndexRoute = PanelIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -127,6 +136,11 @@ const TTokenRoute = TTokenRouteImport.update({
 const PedidosIdRoute = PedidosIdRouteImport.update({
   id: '/pedidos/$id',
   path: '/pedidos/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WhatsappIdRoute = WhatsappIdRouteImport.update({
+  id: '/whatsapp/$id',
+  path: '/whatsapp/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PanelIdRoute = PanelIdRouteImport.update({
@@ -167,6 +181,16 @@ const ApiTapiceroEnlaceRoute = ApiTapiceroEnlaceRouteImport.update({
 const ApiTapiceroAccionRoute = ApiTapiceroAccionRouteImport.update({
   id: '/api/tapicero/accion',
   path: '/api/tapicero/accion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
+  id: '/api/whatsapp/webhook',
+  path: '/api/whatsapp/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWhatsappProcesarRoute = ApiWhatsappProcesarRouteImport.update({
+  id: '/api/whatsapp/procesar',
+  path: '/api/whatsapp/procesar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicTelasRoute = ApiPublicTelasRouteImport.update({
@@ -233,11 +257,13 @@ export interface FileRoutesByFullPath {
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/panel/$id': typeof PanelIdRoute
   '/pedidos/$id': typeof PedidosIdRoute
+  '/whatsapp/$id': typeof WhatsappIdRoute
   '/t/$token': typeof TTokenRoute
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/panel/': typeof PanelIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
+  '/whatsapp/': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -245,6 +271,8 @@ export interface FileRoutesByFullPath {
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
+  '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
@@ -268,11 +296,13 @@ export interface FileRoutesByTo {
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/panel/$id': typeof PanelIdRoute
   '/pedidos/$id': typeof PedidosIdRoute
+  '/whatsapp/$id': typeof WhatsappIdRoute
   '/t/$token': typeof TTokenRoute
   '/b2b': typeof B2bIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/panel': typeof PanelIndexRoute
   '/pedidos': typeof PedidosIndexRoute
+  '/whatsapp': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -280,6 +310,8 @@ export interface FileRoutesByTo {
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
+  '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
@@ -305,11 +337,13 @@ export interface FileRoutesById {
   '/clientes/nuevo': typeof ClientesNuevoRoute
   '/panel/$id': typeof PanelIdRoute
   '/pedidos/$id': typeof PedidosIdRoute
+  '/whatsapp/$id': typeof WhatsappIdRoute
   '/t/$token': typeof TTokenRoute
   '/b2b/': typeof B2bIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/panel/': typeof PanelIndexRoute
   '/pedidos/': typeof PedidosIndexRoute
+  '/whatsapp/': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
@@ -317,6 +351,8 @@ export interface FileRoutesById {
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
+  '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
+  '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
@@ -343,11 +379,13 @@ export interface FileRouteTypes {
     | '/clientes/nuevo'
     | '/panel/$id'
     | '/pedidos/$id'
+    | '/whatsapp/$id'
     | '/t/$token'
     | '/b2b/'
     | '/clientes/'
     | '/panel/'
     | '/pedidos/'
+    | '/whatsapp/'
     | '/api/admin/usuarios'
     | '/api/pedidos/email-entrega'
     | '/api/public/bootstrap'
@@ -355,6 +393,8 @@ export interface FileRouteTypes {
     | '/api/public/lead-form'
     | '/api/public/telas'
     | '/api/tapicero/accion'
+    | '/api/whatsapp/webhook'
+    | '/api/whatsapp/procesar'
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
@@ -378,11 +418,13 @@ export interface FileRouteTypes {
     | '/clientes/nuevo'
     | '/panel/$id'
     | '/pedidos/$id'
+    | '/whatsapp/$id'
     | '/t/$token'
     | '/b2b'
     | '/clientes'
     | '/panel'
     | '/pedidos'
+    | '/whatsapp'
     | '/api/admin/usuarios'
     | '/api/pedidos/email-entrega'
     | '/api/public/bootstrap'
@@ -390,6 +432,8 @@ export interface FileRouteTypes {
     | '/api/public/lead-form'
     | '/api/public/telas'
     | '/api/tapicero/accion'
+    | '/api/whatsapp/webhook'
+    | '/api/whatsapp/procesar'
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
@@ -414,11 +458,13 @@ export interface FileRouteTypes {
     | '/clientes/nuevo'
     | '/panel/$id'
     | '/pedidos/$id'
+    | '/whatsapp/$id'
     | '/t/$token'
     | '/b2b/'
     | '/clientes/'
     | '/panel/'
     | '/pedidos/'
+    | '/whatsapp/'
     | '/api/admin/usuarios'
     | '/api/pedidos/email-entrega'
     | '/api/public/bootstrap'
@@ -426,6 +472,8 @@ export interface FileRouteTypes {
     | '/api/public/lead-form'
     | '/api/public/telas'
     | '/api/tapicero/accion'
+    | '/api/whatsapp/webhook'
+    | '/api/whatsapp/procesar'
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
@@ -450,10 +498,12 @@ export interface RootRouteChildren {
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNuevoRoute: typeof ClientesNuevoRoute
   PedidosIdRoute: typeof PedidosIdRoute
+  WhatsappIdRoute: typeof WhatsappIdRoute
   TTokenRoute: typeof TTokenRoute
   B2bIndexRoute: typeof B2bIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   PedidosIndexRoute: typeof PedidosIndexRoute
+  WhatsappIndexRoute: typeof WhatsappIndexRoute
   ApiAdminUsuariosRoute: typeof ApiAdminUsuariosRoute
   ApiPedidosEmailEntregaRoute: typeof ApiPedidosEmailEntregaRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
@@ -461,6 +511,8 @@ export interface RootRouteChildren {
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
   ApiPublicTelasRoute: typeof ApiPublicTelasRoute
   ApiTapiceroAccionRoute: typeof ApiTapiceroAccionRoute
+  ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
+  ApiWhatsappProcesarRoute: typeof ApiWhatsappProcesarRoute
   ApiTapiceroEnlaceRoute: typeof ApiTapiceroEnlaceRoute
   ApiTapiceroEnviarRoute: typeof ApiTapiceroEnviarRoute
   ApiTapiceroFotoRoute: typeof ApiTapiceroFotoRoute
@@ -555,6 +607,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PedidosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/whatsapp/': {
+      id: '/whatsapp/'
+      path: '/whatsapp'
+      fullPath: '/whatsapp/'
+      preLoaderRoute: typeof WhatsappIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/panel/': {
       id: '/panel/'
       path: '/'
@@ -588,6 +647,13 @@ declare module '@tanstack/react-router' {
       path: '/pedidos/$id'
       fullPath: '/pedidos/$id'
       preLoaderRoute: typeof PedidosIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/whatsapp/$id': {
+      id: '/whatsapp/$id'
+      path: '/whatsapp/$id'
+      fullPath: '/whatsapp/$id'
+      preLoaderRoute: typeof WhatsappIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/panel/$id': {
@@ -644,6 +710,20 @@ declare module '@tanstack/react-router' {
       path: '/api/tapicero/accion'
       fullPath: '/api/tapicero/accion'
       preLoaderRoute: typeof ApiTapiceroAccionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/whatsapp/webhook': {
+      id: '/api/whatsapp/webhook'
+      path: '/api/whatsapp/webhook'
+      fullPath: '/api/whatsapp/webhook'
+      preLoaderRoute: typeof ApiWhatsappWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/whatsapp/procesar': {
+      id: '/api/whatsapp/procesar'
+      path: '/api/whatsapp/procesar'
+      fullPath: '/api/whatsapp/procesar'
+      preLoaderRoute: typeof ApiWhatsappProcesarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/telas': {
@@ -740,10 +820,12 @@ const rootRouteChildren: RootRouteChildren = {
   ClientesIdRoute: ClientesIdRoute,
   ClientesNuevoRoute: ClientesNuevoRoute,
   PedidosIdRoute: PedidosIdRoute,
+  WhatsappIdRoute: WhatsappIdRoute,
   TTokenRoute: TTokenRoute,
   B2bIndexRoute: B2bIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   PedidosIndexRoute: PedidosIndexRoute,
+  WhatsappIndexRoute: WhatsappIndexRoute,
   ApiAdminUsuariosRoute: ApiAdminUsuariosRoute,
   ApiPedidosEmailEntregaRoute: ApiPedidosEmailEntregaRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
@@ -751,6 +833,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
   ApiPublicTelasRoute: ApiPublicTelasRoute,
   ApiTapiceroAccionRoute: ApiTapiceroAccionRoute,
+  ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
+  ApiWhatsappProcesarRoute: ApiWhatsappProcesarRoute,
   ApiTapiceroEnlaceRoute: ApiTapiceroEnlaceRoute,
   ApiTapiceroEnviarRoute: ApiTapiceroEnviarRoute,
   ApiTapiceroFotoRoute: ApiTapiceroFotoRoute,
