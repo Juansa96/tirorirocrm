@@ -229,7 +229,7 @@ export function ProduccionProducto({ producto }: { producto: Producto; esCanje?:
   }
 
   // Sin pedido no hay producción. Antes este desplegable CREABA el pedido al
-  // elegir un tapicero (con plazo 20, reserva 0 y envío 0 sin avisar). Ahora
+  // elegir un tapicero (con el plazo por defecto, reserva 0 y envío 0 sin avisar). Ahora
   // hay un solo camino: el botón «Crear pedido» del producto.
   return (
     <div className="space-y-1 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">

@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo, EstadoPedido } from "./types";
-import { VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, ProductoDescuento, ProductoDibujo, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo, EstadoPedido } from "./types";
+import { DIAS_PLAZO_DEFECTO, VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO, formatShortDate } from "./format";
 import { normalizarColeccionTela, normalizeTipo, displayColeccionTela, displayNombreProducto, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
@@ -155,6 +155,43 @@ function mapNota(r: Record<string, unknown>): Nota {
   };
 }
 
+function numOrUndef(v: unknown): number | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+// productos_lead.config_json.descuento → ProductoDescuento (o null si no hay).
+export function parseDescuento(config: unknown): ProductoDescuento | null {
+  const c = config && typeof config === "object" ? (config as Record<string, unknown>) : null;
+  const d = c?.descuento && typeof c.descuento === "object" ? (c.descuento as Record<string, unknown>) : null;
+  if (!d) return null;
+  const codigo = typeof d.codigo === "string" ? d.codigo.trim() : "";
+  const valor = numOrUndef(d.valor);
+  if (!codigo || valor === undefined) return null;
+  return {
+    codigo,
+    etiqueta: typeof d.etiqueta === "string" && d.etiqueta ? d.etiqueta : undefined,
+    tipo: d.tipo === "fixed" ? "fixed" : "percent",
+    valor,
+    importe: numOrUndef(d.importe),
+    precioOriginal: numOrUndef(d.precio_original),
+    precioFinal: numOrUndef(d.precio_final),
+    texto: typeof d.texto === "string" && d.texto ? d.texto : undefined,
+  };
+}
+
+// productos_lead.config_json.dibujo → ProductoDibujo (o null si no hay).
+export function parseDibujo(config: unknown): ProductoDibujo | null {
+  const c = config && typeof config === "object" ? (config as Record<string, unknown>) : null;
+  const d = c?.dibujo && typeof c.dibujo === "object" ? (c.dibujo as Record<string, unknown>) : null;
+  if (!d) return null;
+  const pngUrl = typeof d.png_url === "string" && /^https:\/\//.test(d.png_url) ? d.png_url : undefined;
+  const svg = typeof d.svg === "string" && d.svg.includes("<svg") ? d.svg : undefined;
+  if (!pngUrl && !svg) return null;
+  return { pngUrl, svg };
+}
+
 function mapProducto(r: Record<string, unknown>): Producto {
   return {
     id: r.id as string,
@@ -178,6 +215,8 @@ function mapProducto(r: Record<string, unknown>): Producto {
     caracteristicasConfirmadas: !!r.caracteristicas_confirmadas,
     fechaConfirmacion: (r.fecha_confirmacion as string) ?? "",
     pagado50: !!r.pagado_50,
+    descuento: parseDescuento(r.config_json),
+    dibujo: parseDibujo(r.config_json),
   };
 }
 
@@ -192,7 +231,7 @@ function mapPedido(r: Record<string, unknown>): Pedido {
     leadId: (r.lead_id as string) ?? "",
     clienteNombreLibre: (r.cliente_nombre_libre as string) ?? "",
     fechaCreacionPedido: (r.fecha_creacion_pedido as string) ?? "",
-    diasPlazo: Number(r.dias_plazo) || 20,
+    diasPlazo: Number(r.dias_plazo) || DIAS_PLAZO_DEFECTO,
     fechaLimite: (r.fecha_limite as string) ?? "",
     fechaEntregaReal: (r.fecha_entrega_real as string) ?? "",
     pagado50: !!r.pagado_50,
@@ -848,6 +887,18 @@ async function anotarAntesPedidos(pedidoIds: string[], cambios: Record<string, s
   };
   emit();
   await Promise.all(afectados.map((a) => supabase.from("pedidos").update({ pasos_tapicero: nuevos.get(a.id) } as never).eq("id", a.id)));
+}
+
+// Croquis (plantilla de corte) y foto de referencia: si el pedido ya está en
+// el panel de un tapicero, se le deja una nota corta y con fecha ("Cambiado el
+// 21 sep") junto al documento, con la misma mecánica "@antes" del resto de
+// cambios (desaparece al llegar a Recogido). Solo esos dos tipos: las
+// etiquetas de envío no le afectan al trabajo.
+async function anotarCambioArchivoTapicero(pedidoId: string, tipo: string, texto: string) {
+  if (tipo !== "plantilla" && tipo !== "referencia") return;
+  const ped = state.pedidos.find((p) => p.id === pedidoId);
+  if (!ped?.tapiceroId) return; // aún no está en ningún panel: no hay nada que avisar
+  await anotarAntesPedidos([pedidoId], { [tipo]: texto });
 }
 
 // Texto legible del montaje para el tachado.
@@ -1697,7 +1748,7 @@ export const actions = {
       // Montaje elegido por el cliente (web o formulario de producto) → el
       // pedido nace con él, que es lo que lee el panel del tapicero.
       montaje: montajeDeExtras(prod.patas) || "",
-      dias_plazo: opts.diasPlazo ?? 20,
+      dias_plazo: opts.diasPlazo ?? DIAS_PLAZO_DEFECTO,
       pagado_50: opts.pagado50,
       creado_manualmente: opts.creadoManualmente,
       precio,
@@ -2301,6 +2352,7 @@ export const actions = {
   // La subida es solo del equipo (RLS lo garantiza). `transportista` solo aplica
   // a la etiqueta de envío.
   async subirArchivoPedido(pedidoId: string, tipo: "plantilla" | "etiqueta_ctt" | "etiqueta_envio" | "referencia", file: File, transportista?: string) {
+    const anteriores = state.pedidoArchivos.filter((a) => a.pedidoId === pedidoId && a.tipo === tipo);
     const path = `${pedidoId}/${tipo}/${crypto.randomUUID()}-${file.name}`;
     const { error: upErr } = await supabase.storage.from("pedido-archivos").upload(path, file, { upsert: false });
     if (upErr) { toast.error("No se pudo subir el archivo."); return; }
@@ -2311,15 +2363,23 @@ export const actions = {
     } as never);
     if (error) { toast.error("No se pudo guardar el archivo."); return; }
     await refetchPedidoArchivos();
+    await anotarCambioArchivoTapicero(pedidoId, tipo, anteriores.length > 0 ? `Cambiado el ${formatShortDate(todayISO())}` : `Añadido el ${formatShortDate(todayISO())}`);
   },
   async deleteArchivoPedido(id: string, storagePath: string) {
     const prevState = state;
+    const borrado = state.pedidoArchivos.find((a) => a.id === id);
     state = { ...state, pedidoArchivos: state.pedidoArchivos.filter((a) => a.id !== id) };
     emit();
     await supabase.storage.from("pedido-archivos").remove([storagePath]);
     const { error } = await supabase.from("pedido_archivos").delete().eq("id", id);
     if (error) { state = prevState; emit(); toast.error("No se pudo eliminar el archivo."); return; }
     await refetchPedidoArchivos();
+    // Si tras borrar no queda ningún archivo de ese tipo, el tapicero lo ve
+    // como "retirado"; si queda otro, como "cambiado".
+    if (borrado) {
+      const quedan = state.pedidoArchivos.some((a) => a.pedidoId === borrado.pedidoId && a.tipo === borrado.tipo);
+      await anotarCambioArchivoTapicero(borrado.pedidoId, borrado.tipo, `${quedan ? "Cambiado" : "Retirado"} el ${formatShortDate(todayISO())}`);
+    }
   },
 
   // deleteAuditEntry intentionally removed — audit log is append-only

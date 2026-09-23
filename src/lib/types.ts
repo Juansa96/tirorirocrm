@@ -311,6 +311,28 @@ export interface Nota {
   createdAt: string;
 }
 
+// Descuento que el cliente aplicó en el formulario web (código oculto de la
+// web). Llega dentro de productos_lead.config_json.descuento; el precio
+// unitario del producto YA viene con el descuento aplicado.
+export interface ProductoDescuento {
+  codigo: string;
+  etiqueta?: string;
+  tipo: "percent" | "fixed";
+  valor: number;
+  importe?: number;         // euros descontados (si había precio)
+  precioOriginal?: number;  // precio del producto antes del descuento
+  precioFinal?: number;     // precio del producto con descuento
+  texto?: string;           // línea ya formateada por la web
+}
+
+// Dibujo de la pieza tal y como la montó el cliente en el configurador web.
+// Llega en productos_lead.config_json.dibujo: normalmente la URL del PNG
+// subido a Storage; si esa subida falló, el SVG en texto.
+export interface ProductoDibujo {
+  pngUrl?: string;
+  svg?: string;
+}
+
 export interface Producto {
   id: string;
   leadId: string;
@@ -333,6 +355,8 @@ export interface Producto {
   caracteristicasConfirmadas: boolean;
   fechaConfirmacion: string;
   pagado50: boolean;
+  descuento?: ProductoDescuento | null;
+  dibujo?: ProductoDibujo | null;
 }
 
 export interface AuditEntry {
@@ -353,6 +377,10 @@ export function numeroPedidoLabel(numero: number | null | undefined, sufijo?: st
   if (numero == null) return "";
   return `${numero}${(sufijo ?? "").trim().toUpperCase()}`;
 }
+
+// Plazo de entrega por defecto de un pedido nuevo (días naturales): un mes.
+// Antes eran 20 días. Cada pedido puede cambiarlo en su ficha.
+export const DIAS_PLAZO_DEFECTO = 30;
 
 export interface Pedido {
   id: string;
@@ -585,6 +613,8 @@ export const ANTES_LABELS: Record<string, string> = {
   nota_tapicero: "indicaciones",
   fecha_recogida: "fecha de recogida",
   precio: "precio",
+  plantilla: "croquis (plantilla de corte)",
+  referencia: "foto de referencia",
 };
 
 // Lee el mapa de valores anteriores guardado en pasos_tapicero["@antes"].

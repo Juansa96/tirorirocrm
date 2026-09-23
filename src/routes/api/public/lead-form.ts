@@ -15,6 +15,26 @@ function sanitize(val: unknown, maxLen = 200): string {
   return String(val).trim().slice(0, maxLen);
 }
 
+// Código de descuento aplicado en la web (src/data/discounts.ts de la web).
+// El precio del producto llega YA con el descuento; aquí queda el detalle.
+const descuentoSchema = z.object({
+  codigo: z.string().trim().min(1).max(40),
+  etiqueta: z.string().max(80).optional(),
+  tipo: z.enum(["percent", "fixed"]).optional(),
+  valor: z.coerce.number().min(0).max(100_000),
+  importe: z.coerce.number().min(0).max(1_000_000).optional(),
+  precio_original: z.coerce.number().min(0).max(1_000_000).optional(),
+  precio_final: z.coerce.number().min(0).max(1_000_000).optional(),
+  texto: z.string().max(300).optional(),
+}).passthrough();
+
+// Dibujo de la pieza que montó el cliente en el configurador: URL del PNG en
+// Storage de la web o, como respaldo si la subida falló, el SVG en texto.
+const dibujoSchema = z.object({
+  png_url: z.string().url().max(600).refine((u) => u.startsWith("https://"), "https").optional(),
+  svg: z.string().max(60_000).refine((v) => v.includes("<svg"), "svg").optional(),
+}).passthrough();
+
 // Objeto `config` que el configurador web envía con toda la configuración
 // (sección 7.3). Se guarda íntegro en productos_lead.config_json.
 const configSchema = z.object({
@@ -26,6 +46,8 @@ const configSchema = z.object({
   extras: z.array(z.string().max(200)).max(50).optional(),
   resumen: z.string().max(2000).optional(),
   desglose_precio: z.record(z.string(), z.union([z.number(), z.string(), z.null()])).optional(),
+  descuento: descuentoSchema.optional().catch(undefined),
+  dibujo: dibujoSchema.optional().catch(undefined),
 }).passthrough();
 
 // Schema por producto (contrato sección 7.2). `.passthrough()` para no
@@ -66,6 +88,9 @@ const bodySchema = z.object({
   valor_envio: z.coerce.number().min(0).max(100_000).optional(),
   productos: z.array(productoSchema).max(50).optional(),
   configurador: productoSchema.optional(),
+  // Descuento a nivel de lead: lo usa el formulario directo (sin producto).
+  // `.catch(undefined)`: un descuento mal formado se ignora, nunca tira el lead.
+  descuento: descuentoSchema.optional().catch(undefined),
   gclid: z.string().trim().max(500).optional(),
   gbraid: z.string().trim().max(500).optional(),
   wbraid: z.string().trim().max(500).optional(),
@@ -138,7 +163,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
           if (!parsed.success) {
             return json({ error: "Datos inválidos", issues: parsed.error.flatten() }, 400);
           }
-          const { nombre, email, telefono, ciudad, mensaje, origen, configurador, productos, valor_envio } = parsed.data;
+          const { nombre, email, telefono, ciudad, mensaje, origen, configurador, productos, valor_envio, descuento } = parsed.data;
           const nombreClean = sanitize(nombre);
           const emailClean = sanitize(email, 254);
 
@@ -204,6 +229,23 @@ export const Route = createFileRoute("/api/public/lead-form")({
 
           if (mensaje) {
             await supabaseAdmin.from("notas").insert({ lead_id: lead.id, contenido: sanitize(mensaje, 2000), usuario: "formulario-web" });
+          }
+
+          // Código de descuento: nota fija + etiqueta en el lead, para que se
+          // vea en la ficha y en el listado (filtro por etiqueta) sin columnas nuevas.
+          const descuentoLead = descuento
+            ?? prodConfigs.map((p) => (p.raw.config as Record<string, unknown> | undefined)?.descuento)
+              .find((d): d is z.infer<typeof descuentoSchema> => !!d && typeof d === "object");
+          if (descuentoLead) {
+            const codigo = sanitize(descuentoLead.codigo, 40).toUpperCase();
+            const texto = sanitize(descuentoLead.texto, 300)
+              || `${codigo} · ${descuentoLead.tipo === "fixed" ? `−${descuentoLead.valor} €` : `−${descuentoLead.valor} %`}`;
+            await supabaseAdmin.from("notas").insert({
+              lead_id: lead.id,
+              contenido: `🎟️ Código de descuento aplicado en la web: ${texto}`,
+              usuario: "sistema",
+            });
+            await supabaseAdmin.from("leads").update({ etiquetas: [`Descuento ${codigo}`] } as never).eq("id", lead.id);
           }
           if (valor_envio === undefined && !isMadrid && ciudadClean) {
             await supabaseAdmin.from("notas").insert({

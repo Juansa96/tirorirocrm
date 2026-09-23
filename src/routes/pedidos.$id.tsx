@@ -3,8 +3,9 @@ import { useState } from "react";
 import { ArrowLeft, Trash2, Package, ExternalLink, Save, Ruler, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { numeroPedidoLabel, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, esPantalla, type Pedido, type Lead } from "@/lib/types";
+import { numeroPedidoLabel, DIAS_PLAZO_DEFECTO, semaforoPedido, mensajeRitmoPedido, flujoPedido, tapiceroNombre, FORMATOS_COLAB, TIPOS_COLAB, esPantalla, type Pedido, type Lead } from "@/lib/types";
 import { formatCurrency, formatShortDate } from "@/lib/format";
+import { DibujoCliente } from "@/components/DibujoCliente";
 import { displayNombreProducto, displayColeccionTela, vivoLabel, tipoLlevaVivo, displayExtras, medidasEtiquetadas, rellenoEsTelaVivo } from "@/lib/catalogo";
 import { FichaTapiceroEquipo } from "@/components/FichaTapiceroEquipo";
 import { ProductoForm, productoToState } from "@/components/ProductoForm";
@@ -180,7 +181,9 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
                 ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
                 : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
               {displayExtras(producto.patas) && <Info k="Extras" v={displayExtras(producto.patas)} />}
+              {producto.descuento && <Info k="Descuento web" v={`${producto.descuento.codigo} · ${producto.descuento.tipo === "fixed" ? `−${producto.descuento.valor} €` : `−${producto.descuento.valor} %`}${producto.descuento.precioOriginal != null ? ` (antes ${formatCurrency(producto.descuento.precioOriginal)})` : ""}`} />}
               {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
+              {producto.dibujo && <div className="col-span-2 sm:col-span-3"><DibujoCliente dibujo={producto.dibujo} /></div>}
             </div>
           )}
         </div>
@@ -205,7 +208,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
               <input
                 type="number" inputMode="decimal" min={1}
                 value={draft.diasPlazo}
-                onChange={(e) => patch({ diasPlazo: Math.max(1, parseInt(e.target.value) || 20) })}
+                onChange={(e) => patch({ diasPlazo: Math.max(1, parseInt(e.target.value) || DIAS_PLAZO_DEFECTO) })}
                 className="mt-1 w-24 rounded border border-slate-200 px-2 py-1 text-sm focus:border-slate-400 focus:outline-none"
               />
             </div>

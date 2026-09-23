@@ -13,6 +13,7 @@ import { formatCurrency, todayISO } from "@/lib/format";
 import { SellerBadge } from "@/components/SellerBadge";
 import { DeleteLeadButton } from "@/components/DeleteLeadButton";
 import { FormaBadge } from "@/components/FormaBadge";
+import { DibujoCliente } from "@/components/DibujoCliente";
 import {
   ProductoForm, EMPTY_PROD_STATE, productoToState,
   TIPOS_PRODUCTO,
@@ -710,6 +711,11 @@ function ClienteDetalle() {
                       {formatCurrency(leadProductos.reduce((acc, p) => acc + (p.precioUnitario || 0) * (p.cantidad || 1), 0))}
                     </span>
                   </div>
+                  {leadProductos.some((p) => p.descuento) && (
+                    <div className="text-[11px] text-emerald-800">
+                      🎟️ Incluye descuento {leadProductos.filter((p) => p.descuento).map((p) => `${p.descuento!.codigo} (${p.descuento!.tipo === "fixed" ? `−${p.descuento!.valor} €` : `−${p.descuento!.valor} %`})`).join(", ")}
+                    </div>
+                  )}
                 </div>
               ) : valorProductoEdit ? (
                 <input type="number" inputMode="decimal" value={localValorProducto ?? lead.valorProducto} autoFocus
@@ -854,6 +860,15 @@ function ClienteDetalle() {
                         {p.precioUnitario > 0 && <span>Precio: <strong>{formatCurrency(p.precioUnitario)}</strong></span>}
                         {p.precioUnitario > 0 && p.cantidad > 1 && <span>Total: <strong>{formatCurrency(p.precioUnitario * p.cantidad)}</strong></span>}
                       </div>
+                      {p.descuento && (
+                        <div className="mt-1.5 inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-900" title="Código de descuento que el cliente escribió en el formulario web. El precio de arriba ya lo incluye.">
+                          <span>🎟️ Descuento <strong>{p.descuento.codigo}</strong>{p.descuento.etiqueta ? ` (${p.descuento.etiqueta})` : ""}</span>
+                          <span>{p.descuento.tipo === "fixed" ? `−${p.descuento.valor} €` : `−${p.descuento.valor} %`}</span>
+                          {p.descuento.importe != null && <span>= −{formatCurrency(p.descuento.importe)}</span>}
+                          {p.descuento.precioOriginal != null && <span className="text-emerald-700">antes <s>{formatCurrency(p.descuento.precioOriginal)}</s></span>}
+                        </div>
+                      )}
+                      {p.dibujo && <DibujoCliente dibujo={p.dibujo} className="mt-2" />}
                       {(() => {
                         // Valores anteriores tachados: los apunta el pedido del producto (mientras no esté recogido).
                         const antes = pedidos.find((pd) => pd.productoLeadId === p.id && Object.keys(pd.antes).length > 0)?.antes;
