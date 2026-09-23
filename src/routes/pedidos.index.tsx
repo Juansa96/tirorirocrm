@@ -201,6 +201,10 @@ function PedidosIndex() {
 
   const atrasados = baseTab.filter(({ pedido, sem }) => !pedido.entregado && sem.estado === "rojo");
 
+  // Filtros activos (para poder quitarlos de golpe cuando la lista se queda vacía).
+  const hayFiltros = !!search.trim() || semF !== "todos" || estadoF !== "todos" || faltaF !== "todos";
+  const quitarFiltros = () => { setSearch(""); setSemF("todos"); setEstadoF("todos"); setFaltaF("todos"); };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -360,16 +364,21 @@ function PedidosIndex() {
 
         {view === "activos" && (
           <FiltroFila etiqueta="Le falta">
-            {FALTAS.every((f) => (porFaltaN.get(f.key) ?? 0) === 0) ? (
+            {FALTAS.every((f) => (porFaltaN.get(f.key) ?? 0) === 0) && faltaF === "todos" ? (
               <span className="inline-flex h-9 items-center gap-1.5 text-[13px] text-emerald-700">
                 <Check className="h-4 w-4" /> Todo en orden: ningún pedido tiene nada pendiente
               </span>
             ) : (
-              FALTAS.filter((f) => (porFaltaN.get(f.key) ?? 0) > 0).map((f) => (
-                <Pastilla key={f.key} tono="ambar" activa={faltaF === f.key} onClick={() => setFaltaF(faltaF === f.key ? "todos" : f.key)} n={porFaltaN.get(f.key) ?? 0} title={f.desc}>
-                  {f.label}
-                </Pastilla>
-              ))
+              <>
+                <Pastilla activa={faltaF === "todos"} onClick={() => setFaltaF("todos")}>Todos</Pastilla>
+                {/* La pastilla activa se enseña aunque su contador baje a 0 (p. ej.
+                    al añadir el croquis que faltaba): así siempre se puede quitar. */}
+                {FALTAS.filter((f) => (porFaltaN.get(f.key) ?? 0) > 0 || faltaF === f.key).map((f) => (
+                  <Pastilla key={f.key} tono="ambar" activa={faltaF === f.key} onClick={() => setFaltaF(faltaF === f.key ? "todos" : f.key)} n={porFaltaN.get(f.key) ?? 0} title={f.desc}>
+                    {f.label}
+                  </Pastilla>
+                ))}
+              </>
             )}
           </FiltroFila>
         )}
@@ -382,7 +391,16 @@ function PedidosIndex() {
         ))}
         {groups.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-400">
-            {view === "archivo" ? "Sin pedidos en el archivo" : "Sin pedidos activos"}
+            {hayFiltros ? (
+              <>
+                <p>Ningún pedido coincide con los filtros.</p>
+                <button type="button" onClick={quitarFiltros} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-slate-700">
+                  <X className="h-3.5 w-3.5" /> Quitar filtros
+                </button>
+              </>
+            ) : (
+              view === "archivo" ? "Sin pedidos en el archivo" : "Sin pedidos activos"
+            )}
           </div>
         )}
       </div>
