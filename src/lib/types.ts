@@ -311,6 +311,28 @@ export interface Nota {
   createdAt: string;
 }
 
+// Descuento que el cliente aplicó en el formulario web (código oculto de la
+// web). Llega dentro de productos_lead.config_json.descuento; el precio
+// unitario del producto YA viene con el descuento aplicado.
+export interface ProductoDescuento {
+  codigo: string;
+  etiqueta?: string;
+  tipo: "percent" | "fixed";
+  valor: number;
+  importe?: number;         // euros descontados (si había precio)
+  precioOriginal?: number;  // precio del producto antes del descuento
+  precioFinal?: number;     // precio del producto con descuento
+  texto?: string;           // línea ya formateada por la web
+}
+
+// Dibujo de la pieza tal y como la montó el cliente en el configurador web.
+// Llega en productos_lead.config_json.dibujo: normalmente la URL del PNG
+// subido a Storage; si esa subida falló, el SVG en texto.
+export interface ProductoDibujo {
+  pngUrl?: string;
+  svg?: string;
+}
+
 export interface Producto {
   id: string;
   leadId: string;
@@ -333,6 +355,8 @@ export interface Producto {
   caracteristicasConfirmadas: boolean;
   fechaConfirmacion: string;
   pagado50: boolean;
+  descuento?: ProductoDescuento | null;
+  dibujo?: ProductoDibujo | null;
 }
 
 export interface AuditEntry {

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo, EstadoPedido } from "./types";
+import type { Lead, Tarea, Etapa, AuditEntry, Nota, Producto, ProductoDescuento, ProductoDibujo, Pedido, PedidoTela, CatalogoProducto, LeadFoto, Tapicero, TelaBiblioteca, PedidoArchivo, EstadoPedido } from "./types";
 import { DIAS_PLAZO_DEFECTO, VENDEDORES, flujoPedido, esPantalla, vendorName, normNombreTela, marcadoresTapicero, tablaHistorialProducto, tablaHistorialPedido, PASO_INICIADO, PASO_INICIADO_POR, PASO_ANTES, PASO_CAMBIO_LEGACY, conAntes, estadoDePedido, indiceEstado, patchParaEstado } from "./types";
 import { pedidoPendiente } from "./money";
 import { todayISO, formatShortDate } from "./format";
@@ -155,6 +155,43 @@ function mapNota(r: Record<string, unknown>): Nota {
   };
 }
 
+function numOrUndef(v: unknown): number | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+// productos_lead.config_json.descuento → ProductoDescuento (o null si no hay).
+export function parseDescuento(config: unknown): ProductoDescuento | null {
+  const c = config && typeof config === "object" ? (config as Record<string, unknown>) : null;
+  const d = c?.descuento && typeof c.descuento === "object" ? (c.descuento as Record<string, unknown>) : null;
+  if (!d) return null;
+  const codigo = typeof d.codigo === "string" ? d.codigo.trim() : "";
+  const valor = numOrUndef(d.valor);
+  if (!codigo || valor === undefined) return null;
+  return {
+    codigo,
+    etiqueta: typeof d.etiqueta === "string" && d.etiqueta ? d.etiqueta : undefined,
+    tipo: d.tipo === "fixed" ? "fixed" : "percent",
+    valor,
+    importe: numOrUndef(d.importe),
+    precioOriginal: numOrUndef(d.precio_original),
+    precioFinal: numOrUndef(d.precio_final),
+    texto: typeof d.texto === "string" && d.texto ? d.texto : undefined,
+  };
+}
+
+// productos_lead.config_json.dibujo → ProductoDibujo (o null si no hay).
+export function parseDibujo(config: unknown): ProductoDibujo | null {
+  const c = config && typeof config === "object" ? (config as Record<string, unknown>) : null;
+  const d = c?.dibujo && typeof c.dibujo === "object" ? (c.dibujo as Record<string, unknown>) : null;
+  if (!d) return null;
+  const pngUrl = typeof d.png_url === "string" && /^https:\/\//.test(d.png_url) ? d.png_url : undefined;
+  const svg = typeof d.svg === "string" && d.svg.includes("<svg") ? d.svg : undefined;
+  if (!pngUrl && !svg) return null;
+  return { pngUrl, svg };
+}
+
 function mapProducto(r: Record<string, unknown>): Producto {
   return {
     id: r.id as string,
@@ -178,6 +215,8 @@ function mapProducto(r: Record<string, unknown>): Producto {
     caracteristicasConfirmadas: !!r.caracteristicas_confirmadas,
     fechaConfirmacion: (r.fecha_confirmacion as string) ?? "",
     pagado50: !!r.pagado_50,
+    descuento: parseDescuento(r.config_json),
+    dibujo: parseDibujo(r.config_json),
   };
 }
 
