@@ -93,6 +93,9 @@ export function textoDeMensaje(m: Obj): string {
       return str(cuerpo.text);
     case "order":
       return "[Pedido del catálogo]";
+    case "errors":
+      // Encuestas, mensajes de ver una vez… que WhatsApp no reenvía por la API.
+      return "[Mensaje que WhatsApp no deja leer]";
     default:
       return ETIQUETA_TIPO[tipo] ?? `[${tipo}]`;
   }

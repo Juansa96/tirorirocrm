@@ -270,3 +270,10 @@ export const CAMPO_LABEL: Record<string, string> = {
   email: "Email",
   direccion: "Dirección",
 };
+
+/** Separa la etiqueta de una nota de voz transcrita: "[Nota de voz] «hola»" → { etiqueta, texto }. */
+export function partesAudio(texto: string): { etiqueta: string; texto: string } | null {
+  const m = /^\[(Nota de voz|Audio)\]\s*(?:«([\s\S]*)»|(.*))$/.exec(texto.trim());
+  if (!m) return null;
+  return { etiqueta: m[1], texto: (m[2] ?? m[3] ?? "").trim() };
+}

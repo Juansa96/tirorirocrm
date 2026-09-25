@@ -147,6 +147,7 @@ REGLAS
 - Extrae SOLO lo que diga el chat. No inventes ni completes con suposiciones. Si algo no aparece, déjalo en null o vacío.
 - Tipos de producto: ${tipos}. Formas de cabecero: ${formas}. Formas de pantalla: ${pantallas}. Un cabecero se define por ancho (cm), alto (100, 120 o 130 cm normalmente), forma, tela y color, y montaje (colgar en la pared o apoyar en el suelo). Un banco (modelo Oyambre) por ancho. Envío: Madrid 40 €, resto de España 60 €.
 - Los mensajes marcados [Tiroriro] los escribe el equipo (Rocío, Juan, Iñaki o Bea); los marcados [Cliente] los escribe la persona.
+- "[Nota de voz] «…»" es la transcripción automática de un audio: trátala como si esa persona lo hubiera escrito (puede tener alguna palabra mal transcrita). "[Audio]" o "[Nota de voz]" sin texto es un audio que aún no se ha podido transcribir: no supongas lo que dice.
 - Etapas del pipeline (elige la que refleje el chat, o null si dudas):
   · Discovery: la persona ha escrito y aún no le hemos contestado con información.
   · Primer Contacto: ya le hemos respondido (precio orientativo, preguntas sobre medidas…) pero no hay negociación concreta.
