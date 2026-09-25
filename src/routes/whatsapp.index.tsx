@@ -138,7 +138,7 @@ function WhatsappPage() {
             <li>Escribir un WhatsApp de prueba al número del negocio: en un minuto debe aparecer aquí como conversación nueva.</li>
           </ol>
           <p className="text-xs text-slate-400">Modelo de IA: {cfg.modelo} · Vendedora por defecto de los clientes nuevos: {cfg.vendedorDefecto}. Los mensajes se analizan solos cada 2 minutos (cron de la base de datos) y también al pulsar «Analizar ahora».</p>
-          <p className="text-xs text-slate-500">Notas de voz: se transcriben solas y la IA las lee como un mensaje más. Para descargarlas hace falta una clave de la API de Dualhook (<span className="font-mono">dh_live_…</span>) guardada en Lovable Cloud → Secrets como <span className="font-mono">DUALHOOK_API_KEY</span>. Solo se pueden recuperar los audios de los últimos 7 días.</p>
+          <p className="text-xs text-slate-500">Notas de voz: se descargan al llegar, se transcriben con la IA de Lovable y la IA las lee como un mensaje más. El audio se borra en cuanto está transcrito.</p>
           {wa.eventos.length > 0 && (
             <details className="text-xs text-slate-500">
               <summary className="cursor-pointer font-medium">Últimos eventos recibidos</summary>

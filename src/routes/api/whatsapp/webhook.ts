@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { parsearWebhook, type MensajeNormalizado, type ContactoSync } from "@/lib/whatsapp/parse";
+import { capturarAudiosWebhook } from "@/lib/whatsapp/audio.server";
 
 // ── Webhook de WhatsApp (Cloud API / proveedor de coexistencia) ─────────────
 // URL a poner en el proveedor:  https://<crm>/api/whatsapp/webhook?token=<webhook_token>
@@ -216,6 +217,11 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
           const parsed = parsearWebhook(body);
           const nuevos = parsed.mensajes.length ? await guardarMensajes(parsed.mensajes) : 0;
           const contactos = parsed.contactos.length ? await guardarContactos(parsed.contactos) : 0;
+          // Audios: su enlace caduca en minutos, así que se descargan ya (la
+          // transcripción la hace el ciclo de análisis). Nunca rompe el webhook.
+          if (parsed.mensajes.some((m) => m.tipo === "audio" || m.tipo === "voice")) {
+            await capturarAudiosWebhook(parsed.mensajes).catch((e) => console.error("[whatsapp/webhook] audio", e));
+          }
 
           const patch: Record<string, unknown> = { ultimo_evento_at: ahora };
           if (parsed.numeroNegocio && !s(cfg.numero_negocio)) patch.numero_negocio = parsed.numeroNegocio;

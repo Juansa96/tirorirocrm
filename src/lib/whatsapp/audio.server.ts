@@ -1,20 +1,20 @@
 // ══════════════════════════════════════════════════════════════════════════
 // Notas de voz y audios de WhatsApp → texto (solo servidor, service_role).
 //
-// El webhook solo trae el id del audio en WhatsApp (válido 7 días); el
-// archivo se descarga aparte con una clave:
-//   · DUALHOOK_API_KEY (dh_live_…): API de Dualhook, que es quien reenvía los
-//     mensajes (GET https://api.dualhook.com/v25.0/<id> → url /content).
-//   · o WHATSAPP_ACCESS_TOKEN: token de sistema de Meta (Graph API).
-// Sin ninguna de las dos no se hace nada y los audios siguen como "[Audio]".
+// 1. CAPTURA (webhook, al instante): cada audio en vivo trae un enlace de
+//    WhatsApp que caduca en ~5 minutos. El webhook lo descarga en ese momento
+//    y lo deja en el bucket privado "lead-fotos" (solo equipo), carpeta
+//    whatsapp-audio/. Si WhatsApp exige clave para ese enlace, se usa
+//    WHATSAPP_ACCESS_TOKEN si existe; si no, queda anotado el fallo en
+//    raw._audio y, con DUALHOOK_API_KEY, se reintenta en el paso 2 por el id
+//    del audio (válido 7 días).
+// 2. TRANSCRIPCIÓN (cron cada 2 minutos, antes del análisis): lee el audio
+//    guardado, lo transcribe con la IA de Lovable (LOVABLE_API_KEY, créditos
+//    de Lovable) o con GEMINI_API_KEY si algún día se añade, guarda el texto
+//    en el mensaje ("[Nota de voz] «…»") y BORRA el archivo. El estado va en
+//    raw._transcripcion: sin columnas nuevas.
 //
-// Transcripción con Gemini: GEMINI_API_KEY si existe (API de Google) y, si
-// no, la pasarela de IA de Lovable (LOVABLE_API_KEY), la misma que ya lee los
-// chats. El audio no se guarda: solo la transcripción, en el propio mensaje
-// (texto) y el estado en raw._transcripcion, sin columnas nuevas.
-//
-// Se hace ANTES del análisis de la conversación (procesar.server.ts), así la
-// IA lee lo que dice el audio como un mensaje más y propone igual que con el
+// La IA lee la transcripción como un mensaje más y propone igual que con el
 // texto (tarea, cliente, producto…). Si una conversación ya se había
 // analizado sin la transcripción, se marca para volver a analizarla.
 // ══════════════════════════════════════════════════════════════════════════
@@ -35,9 +35,11 @@ const GATEWAY_URL = process.env.LOVABLE_AI_GATEWAY_URL || "https://ai.gateway.lo
 
 export interface InformeAudios { transcritos: number; errores: string[] }
 
-export function audioConfigurado(): boolean {
-  return !!(process.env.DUALHOOK_API_KEY || process.env.WHATSAPP_ACCESS_TOKEN) && !!(process.env.GEMINI_API_KEY || process.env.LOVABLE_API_KEY);
-}
+const BUCKET = "lead-fotos";
+const CARPETA = "whatsapp-audio";
+
+function iaConfigurada(): boolean { return !!(process.env.GEMINI_API_KEY || process.env.LOVABLE_API_KEY); }
+function claveMedios(): boolean { return !!(process.env.DUALHOOK_API_KEY || process.env.WHATSAPP_ACCESS_TOKEN); }
 
 class ErrorAudio extends Error {
   constructor(message: string, public definitivo = false) { super(message); this.name = "ErrorAudio"; }
@@ -132,12 +134,51 @@ async function transcribirLovable(b64: string, mime: string): Promise<string> {
     varianteBuena = i;
     return limpiarTranscripcion(bruto);
   }
-  throw new ErrorAudio(`La pasarela de IA de Lovable no acepta el audio: ${ultimo}. Añade GEMINI_API_KEY para transcribir con Google.`);
+  throw new ErrorAudio(`La pasarela de IA de Lovable no acepta el audio: ${ultimo}`);
 }
 
 async function transcribir(bytes: Uint8Array, mime: string): Promise<string> {
   const b64 = bytesABase64(bytes);
   return process.env.GEMINI_API_KEY ? transcribirGemini(b64, mime) : transcribirLovable(b64, mime);
+}
+
+// ── Captura en el webhook ───────────────────────────────────────────────────
+interface MensajeAudio { waId: string; tipo: string; historial: boolean; raw: unknown }
+
+/** Descarga al momento los audios en vivo (el enlace caduca en minutos) y los guarda aparte. */
+export async function capturarAudiosWebhook(mensajes: MensajeAudio[]): Promise<void> {
+  const audios = mensajes.filter((m) => TIPOS_AUDIO.includes(m.tipo) && !m.historial && isObj(m.raw)).slice(0, 10);
+  await Promise.all(audios.map(async (m) => {
+    const raw = m.raw as Row;
+    const cuerpo = isObj(raw[m.tipo]) ? (raw[m.tipo] as Row) : {};
+    const url = s(cuerpo.url);
+    let info: Row;
+    try {
+      if (!url) throw new Error("sin enlace en el webhook");
+      const token = process.env.WHATSAPP_ACCESS_TOKEN; // nunca la clave de Dualhook: esto va a Meta
+      const res = await fetchConTiempo(url, token ? { headers: { Authorization: `Bearer ${token}` } } : {}, 10_000);
+      const ctype = (res.headers.get("content-type") ?? "").split(";")[0].trim();
+      if (!res.ok) throw new Error(`WhatsApp respondió ${res.status}${ctype ? ` (${ctype})` : ""}`);
+      if (/text\/html|application\/json/i.test(ctype)) throw new Error(`WhatsApp no devolvió el audio (${ctype})`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (bytes.length === 0) throw new Error("audio vacío");
+      if (bytes.length > MAX_BYTES) throw new Error("audio demasiado largo");
+      const mime = (s(cuerpo.mime_type) || ctype || "audio/ogg").split(";")[0].trim();
+      const path = `${CARPETA}/${m.waId.replace(/[^A-Za-z0-9_-]/g, "_").slice(-120)}.${mime.split("/")[1] || "ogg"}`;
+      const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: mime, upsert: true });
+      if (error) throw new Error("no se pudo guardar: " + error.message);
+      info = { path, mime, at: new Date().toISOString() };
+    } catch (e) {
+      info = { error: (e instanceof Error ? e.message : String(e)).slice(0, 300), at: new Date().toISOString() };
+    }
+    await supabaseAdmin.from("whatsapp_mensajes").update({ raw: { ...raw, _audio: info } } as never).eq("wa_id", m.waId);
+  }));
+}
+
+async function leerGuardado(path: string): Promise<{ bytes: Uint8Array; mime: string }> {
+  const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(path);
+  if (error || !data) throw new ErrorAudio("El audio guardado ya no está", true);
+  return { bytes: new Uint8Array(await data.arrayBuffer()), mime: (data.type || "audio/ogg").split(";")[0] };
 }
 
 // ── Punto de entrada ────────────────────────────────────────────────────────
@@ -152,7 +193,8 @@ function mediaIdDe(raw: Row, tipo: string): string {
  */
 export async function transcribirAudiosPendientes(opts: { conversacionId?: string; limite?: number } = {}): Promise<InformeAudios> {
   const informe: InformeAudios = { transcritos: 0, errores: [] };
-  if (!audioConfigurado()) return informe;
+  if (!iaConfigurada()) return informe;
+  const conClave = claveMedios();
 
   const desde = new Date(Date.now() - DIAS_VALIDEZ * 86_400_000).toISOString();
   let q = supabaseAdmin.from("whatsapp_mensajes")
@@ -168,6 +210,8 @@ export async function transcribirAudiosPendientes(opts: { conversacionId?: strin
   const pendientes = ((data ?? []) as Row[]).filter((m) => {
     const raw = isObj(m.raw) ? m.raw : {};
     const t = isObj(raw._transcripcion) ? raw._transcripcion : null;
+    const guardado = isObj(raw._audio) && !!s((raw._audio as Row).path);
+    if (!guardado && !conClave) return false; // ni capturado ni forma de descargarlo
     if (!t) return true;
     return s(t.estado) === "error" && Number(t.intentos) < MAX_INTENTOS;
   }).slice(0, Math.max(1, Math.min(opts.limite ?? 4, 10)));
@@ -182,12 +226,19 @@ export async function transcribirAudiosPendientes(opts: { conversacionId?: strin
     const esVoz = cuerpo.voice === true || tipo === "voice";
     const caption = s(cuerpo.caption);
     const ahora = new Date().toISOString();
+    const path = isObj(raw._audio) ? s((raw._audio as Row).path) : "";
     let patch: Row;
     try {
-      const mediaId = mediaIdDe(raw, tipo);
-      if (!mediaId) throw new ErrorAudio("El mensaje no trae el id del audio", true);
-      const { bytes, mime } = await descargarMedia(mediaId);
-      const texto = await transcribir(bytes, mime);
+      let audio: { bytes: Uint8Array; mime: string };
+      if (path) audio = await leerGuardado(path);
+      else {
+        const mediaId = mediaIdDe(raw, tipo);
+        if (!mediaId) throw new ErrorAudio("El mensaje no trae el id del audio", true);
+        audio = await descargarMedia(mediaId);
+      }
+      const texto = await transcribir(audio.bytes, audio.mime);
+      // Transcrito: el audio no se conserva.
+      if (path) await supabaseAdmin.storage.from(BUCKET).remove([path]);
       const etiqueta = esVoz ? "[Nota de voz]" : "[Audio]";
       patch = {
         texto: texto ? `${etiqueta} «${texto}»${caption ? ` ${caption}` : ""}` : `${etiqueta} (sin voz reconocible)${caption ? ` ${caption}` : ""}`,
@@ -200,11 +251,14 @@ export async function transcribirAudiosPendientes(opts: { conversacionId?: strin
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       informe.errores.push(`Audio: ${msg}`);
-      // Clave inválida o IA caída: es de configuración, no del audio. No se
-      // gastan sus intentos y se para hasta el siguiente ciclo.
-      if (/clave|no atiende|no acepta/i.test(msg)) break;
+      // Clave inválida o IA saturada/sin crédito: es de configuración, no del
+      // audio. No se gastan sus intentos y se para hasta el siguiente ciclo.
+      // ("no acepta el audio" sí gasta intento: así no se reintenta sin fin.)
+      if (/clave|no atiende/i.test(msg)) break;
       const definitivo = e instanceof ErrorAudio && e.definitivo;
       patch = { raw: { ...raw, _transcripcion: { estado: definitivo ? "no_disponible" : "error", intentos, error: msg.slice(0, 300), at: ahora } } };
+      // Sin más intentos: tampoco se conserva el audio.
+      if (path && (definitivo || intentos >= MAX_INTENTOS)) await supabaseAdmin.storage.from(BUCKET).remove([path]);
     }
     const { error: upErr } = await supabaseAdmin.from("whatsapp_mensajes").update(patch as never).eq("id", s(m.id));
     if (upErr) informe.errores.push("No se pudo guardar la transcripción: " + upErr.message);

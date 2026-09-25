@@ -139,6 +139,14 @@ Reglas de negocio (decididas con Juan, no cambiarlas sin preguntarle):
   ahora". Debounce de 2 min desde el último mensaje. Sin secretos nuevos en
   Lovable: los tokens están en `whatsapp_config` (se ven en la configuración
   de `/whatsapp`, solo admin).
+- Audios / notas de voz (`src/lib/whatsapp/audio.server.ts`): el webhook
+  descarga al instante el enlace del audio (caduca en ~5 min) al bucket
+  privado `lead-fotos/whatsapp-audio/`; el ciclo de `/procesar` lo transcribe
+  con la IA de Lovable (Juan quiere gastar solo créditos de Lovable, sin
+  claves nuevas), guarda el texto en `texto` (`[Nota de voz] «…»`) y borra el
+  archivo. Estado en `raw._audio` (descarga) y `raw._transcripcion`. Con
+  `DUALHOOK_API_KEY`/`WHATSAPP_ACCESS_TOKEN` (opcionales) también se recuperan
+  por id los de los últimos 7 días.
 - Los mensajes de WhatsApp se guardan tal cual (datos personales): no
   exponerlos fuera del equipo (RLS `es_equipo()`), no mandarlos a servicios
   nuevos sin avisar a Juan.
