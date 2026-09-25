@@ -108,7 +108,20 @@ async function guardarMensajes(mensajes: MensajeNormalizado[]): Promise<number> 
     }
   }
 
-  // 4. Contadores, fechas y nombre de perfil: solo donde cambie algo, en paralelo.
+  // 4. Contador de mensajes: se RECUENTA en la BD, no se suma. Si una entrega
+  //    falló a medias (mensajes guardados pero contador sin actualizar), el
+  //    reintento de Meta llega con 0 nuevos y sumar dejaba el contador mal para
+  //    siempre (y a 0 el chat no salía en la bandeja). Por lotes de 25.
+  const reales = new Map<string, number>();
+  const convIds = [...new Set([...porTelefono.keys()].map((t) => s(convs.get(t)?.id)).filter(Boolean))];
+  for (let i = 0; i < convIds.length; i += 25) {
+    await Promise.all(convIds.slice(i, i + 25).map(async (id) => {
+      const { count, error } = await supabaseAdmin.from("whatsapp_mensajes").select("id", { count: "exact", head: true }).eq("conversacion_id", id);
+      if (!error && count != null) reales.set(id, count);
+    }));
+  }
+
+  // 5. Contadores, fechas y nombre de perfil: solo donde cambie algo, en paralelo.
   const updates: Promise<void>[] = [];
   for (const [telefono, lista] of porTelefono) {
     const conv = convs.get(telefono);
@@ -116,7 +129,8 @@ async function guardarMensajes(mensajes: MensajeNormalizado[]): Promise<number> 
     const convId = s(conv.id);
     const patch: Record<string, unknown> = {};
     const nuevos = nuevosPorConv.get(convId) ?? 0;
-    if (nuevos) patch.mensajes = (Number(conv.mensajes) || 0) + nuevos;
+    const total = reales.get(convId) ?? (Number(conv.mensajes) || 0) + nuevos;
+    if (total !== (Number(conv.mensajes) || 0)) patch.mensajes = total;
     const ultimo = lista[lista.length - 1].enviadoAt;
     const ultimoEntrante = [...lista].reverse().find((m) => m.direccion === "entrante")?.enviadoAt ?? "";
     if (ms(ultimo) > ms(conv.ultimo_mensaje_at)) patch.ultimo_mensaje_at = ultimo;
