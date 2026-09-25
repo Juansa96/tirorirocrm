@@ -4,6 +4,7 @@ import { parsearWebhookInstagram } from "@/lib/whatsapp/instagram";
 import { guardarMensajes, leerConversaciones, safeEqual, firmaValida, tokensBandeja } from "@/lib/whatsapp/guardar.server";
 import { leerCanal, guardarCanal, perfilInstagram, nombreInstagram } from "@/lib/whatsapp/canales.server";
 import { idDeClave, instagramDeNombre } from "@/lib/whatsapp/canales";
+import { capturarAudiosWebhook } from "@/lib/whatsapp/audio.server";
 
 // ── Webhook de mensajes directos de Instagram ───────────────────────────────
 // URL a poner en la app de Meta (producto Instagram → Webhooks):
@@ -71,6 +72,8 @@ export const Route = createFileRoute("/api/instagram/webhook")({
           const propia = s(fila?.datos.cuenta_id);
           const mensajes = parsed.mensajes.filter((m) => !propia || idDeClave(m.telefono) !== propia);
           const nuevos = mensajes.length ? await guardarMensajes(mensajes) : 0;
+          // Notas de voz: su enlace caduca, se descargan ya (la transcripción va en el ciclo de análisis).
+          if (mensajes.some((m) => m.tipo === "ig_audio")) await capturarAudiosWebhook(mensajes).catch((e) => console.error("[instagram/webhook] audio", e));
           if (mensajes.length) await completarPerfiles([...new Set(mensajes.map((m) => m.telefono))]).catch((e) => console.error("[instagram/webhook] perfil", e));
 
           await guardarCanal("instagram", {
