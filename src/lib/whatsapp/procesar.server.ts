@@ -41,6 +41,7 @@ import { normalizeTipo, TIPO_LABEL, stripDiacritics, mismoTipo } from "@/lib/cat
 import { normTel, normEmail } from "@/lib/duplicados";
 import { analizarConversacionIA, ErrorIA, type ContextoLead, type MensajeParaIA } from "./ia.server";
 import { transcribirAudiosPendientes } from "./audio.server";
+import { TIPOS_SIN_CONTENIDO } from "./parse";
 import { claveTelefono, formatTelefonoWa, type AnalisisIA, type ProductoIA, type TipoPropuesta } from "./types";
 
 type Row = Record<string, unknown>;
@@ -434,12 +435,16 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
         .order("enviado_at", { ascending: false })
         .limit(80);
       const mensajes: MensajeParaIA[] = ((msgs ?? []) as Row[]).reverse()
-        .filter((m) => s(m.texto))
+        // Sin los avisos de "mensaje no disponible/no soportado": no dicen nada
+        // y, solos, hacían que la IA propusiera crear un cliente fantasma.
+        .filter((m) => s(m.texto) && !TIPOS_SIN_CONTENIDO.includes(s(m.tipo)))
         .map((m) => ({ direccion: s(m.direccion) === "saliente" ? "saliente" : "entrante", texto: s(m.texto), enviadoAt: s(m.enviado_at) }));
       const ultimoAt = s(conv.ultimo_mensaje_at) || (mensajes.length ? mensajes[mensajes.length - 1].enviadoAt : new Date().toISOString());
 
       if (mensajes.length === 0) {
-        await supabaseAdmin.from("whatsapp_conversaciones").update({ analizado_hasta: ultimoAt } as never).eq("id", convId);
+        const patch: Record<string, unknown> = { analizado_hasta: ultimoAt };
+        if ((msgs ?? []).length > 0 && !conv.lead_id) patch.resumen = "Solo hay mensajes que WhatsApp no deja leer (mensajes temporales, borrados o de un tipo no compatible). No hay nada que proponer.";
+        await supabaseAdmin.from("whatsapp_conversaciones").update(patch as never).eq("id", convId);
         continue;
       }
 

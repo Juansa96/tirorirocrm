@@ -58,6 +58,11 @@ const ETIQUETA_TIPO: Record<string, string> = {
   document: "[Documento]", location: "[Ubicación]", contacts: "[Contacto]", unsupported: "[Mensaje no soportado]",
 };
 
+export const MENSAJE_NO_DISPONIBLE = "[Mensaje no disponible: la persona tiene mensajes temporales o lo borró]";
+export const MENSAJE_ILEGIBLE = "[Mensaje que WhatsApp no deja leer]";
+/** Tipos que nunca traen contenido: no cuentan para la IA. */
+export const TIPOS_SIN_CONTENIDO = ["errors", "unsupported"];
+
 /** Texto legible de un mensaje según su tipo. */
 export function textoDeMensaje(m: Obj): string {
   const tipo = str(m.type) || "text";
@@ -93,9 +98,13 @@ export function textoDeMensaje(m: Obj): string {
       return str(cuerpo.text);
     case "order":
       return "[Pedido del catálogo]";
-    case "errors":
-      // Encuestas, mensajes de ver una vez… que WhatsApp no reenvía por la API.
-      return "[Mensaje que WhatsApp no deja leer]";
+    case "errors": case "unsupported": {
+      // WhatsApp no reenvía el contenido por la API. 131060 = "no disponible":
+      // típico de quien tiene activados los mensajes temporales (o lo borró).
+      const errs = Array.isArray(m.errors) ? (m.errors as Obj[]) : [];
+      if (errs.some((e) => Number(e.code) === 131060)) return MENSAJE_NO_DISPONIBLE;
+      return MENSAJE_ILEGIBLE;
+    }
     default:
       return ETIQUETA_TIPO[tipo] ?? `[${tipo}]`;
   }
