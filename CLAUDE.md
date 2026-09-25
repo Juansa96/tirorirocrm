@@ -151,6 +151,19 @@ Reglas de negocio (decididas con Juan, no cambiarlas sin preguntarle):
   exponerlos fuera del equipo (RLS `es_equipo()`), no mandarlos a servicios
   nuevos sin avisar a Juan.
 
+## Formularios web de profesionales (IMPORTANTE)
+
+Decisión de Juan (26/09/2026): los formularios de la web que son de
+**profesionales** (tiendas, estudios de interiorismo o decoración, arquitectos,
+hoteles, reventa, "descuento profesional", B2B…) se asignan a **Juan**
+(`sangradortorresjuan@gmail.com`) en vez de a Rocío, con etiqueta
+"Profesional (B2B)", nota con el motivo, tarea "Responder a…" y un **correo de
+aviso a Juan** para que responda. Detector (frases concretas, sin IA):
+`src/lib/lead-profesional.ts`; correo: `src/lib/aviso-profesional.server.ts`;
+se aplica en `src/routes/api/public/lead-form.ts`. El lead sigue siendo tipo
+B2C (así los llevaba Juan a mano). Ojo con falsos positivos: "¿tenéis tienda
+física?" o "el estudio de casa" son de particulares.
+
 ## Parte diario de marketing
 
 Todos los días a las 7:00 (Madrid) se genera un informe de marketing (GA4 + CRM +

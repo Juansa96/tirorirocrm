@@ -4,8 +4,12 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { buildProducto } from "@/lib/product-schema";
 import { TIPO_LABEL, normalizeTipo, esColeccionTelaInvalida, esVarianteBancoInvalida } from "@/lib/catalogo";
+import { motivoProfesional, VENDEDOR_PROFESIONALES, ETIQUETA_PROFESIONAL } from "@/lib/lead-profesional";
+import { avisarLeadProfesional } from "@/lib/aviso-profesional.server";
 
-// Todos los leads del formulario web se asignan a Rocío por defecto.
+// Los leads del formulario web se asignan a Rocío por defecto, salvo los de
+// PROFESIONALES (tiendas, estudios de interiorismo/decoración, arquitectos,
+// hoteles…), que van a Juan con un correo de aviso (lead-profesional.ts).
 // El vendedor se puede reasignar manualmente desde la ficha del lead.
 const DEFAULT_VENDEDOR = "rocionavarreteurdiales98@gmail.com";
 
@@ -167,7 +171,8 @@ export const Route = createFileRoute("/api/public/lead-form")({
           const nombreClean = sanitize(nombre);
           const emailClean = sanitize(email, 254);
 
-          const vendedor = DEFAULT_VENDEDOR;
+          const motivoPro = motivoProfesional({ mensaje, nombre: nombreClean, email: emailClean });
+          const vendedor = motivoPro ? VENDEDOR_PROFESIONALES : DEFAULT_VENDEDOR;
 
           // Aceptar `productos: [...]` (contrato nuevo) o `configurador: {...}` (legacy).
           type ProdConfig = { raw: Record<string, unknown>; precio: number; cantidad: number };
@@ -223,7 +228,8 @@ export const Route = createFileRoute("/api/public/lead-form")({
             fecha_hold: null,
             ...trackingCols,
             tipo: "B2C",
-          }).select().single();
+            ...(motivoPro ? { etiquetas: [ETIQUETA_PROFESIONAL] } : {}),
+          } as never).select().single();
 
           if (leadErr || !lead) return json({ error: leadErr?.message ?? "Error creando lead" }, 500);
 
@@ -245,7 +251,7 @@ export const Route = createFileRoute("/api/public/lead-form")({
               contenido: `🎟️ Código de descuento aplicado en la web: ${texto}`,
               usuario: "sistema",
             });
-            await supabaseAdmin.from("leads").update({ etiquetas: [`Descuento ${codigo}`] } as never).eq("id", lead.id);
+            await supabaseAdmin.from("leads").update({ etiquetas: [...(motivoPro ? [ETIQUETA_PROFESIONAL] : []), `Descuento ${codigo}`] } as never).eq("id", lead.id);
           }
           if (valor_envio === undefined && !isMadrid && ciudadClean) {
             await supabaseAdmin.from("notas").insert({
@@ -328,9 +334,25 @@ export const Route = createFileRoute("/api/public/lead-form")({
           const today = new Date().toISOString().slice(0, 10);
           await supabaseAdmin.from("tareas").insert({
             lead_id: lead.id,
-            descripcion: `Primer contacto con ${nombreClean} (formulario web)`,
+            descripcion: motivoPro
+              ? `Responder a ${nombreClean} (profesional, formulario web)`
+              : `Primer contacto con ${nombreClean} (formulario web)`,
             fecha: today, hora: "", vendedor, completada: false,
           });
+
+          // Profesional: nota con el motivo y correo a Juan para que responda.
+          if (motivoPro) {
+            await supabaseAdmin.from("notas").insert({
+              lead_id: lead.id,
+              contenido: `💼 Parece un profesional (${motivoPro}). Asignado a Juan automáticamente y avisado por correo.`,
+              usuario: "sistema",
+            });
+            await avisarLeadProfesional({
+              leadId: String(lead.id), nombre: nombreClean, email: emailClean, telefono: sanitize(telefono, 20),
+              ciudad: ciudadClean, mensaje: sanitize(mensaje, 2000), motivo: motivoPro,
+              urlFicha: `${new URL(request.url).origin}/clientes/${lead.id}`,
+            }).catch((e) => console.error("[lead-form] aviso profesional", e));
+          }
 
           return json({ ok: true, leadId: lead.id }, 201);
         } catch (e) {
