@@ -57,7 +57,8 @@ function WhatsappPage() {
   const leadDe = (c: WaConversacion) => (c.leadId ? leads.find((l) => l.id === c.leadId) : undefined);
 
   const listas = useMemo(() => {
-    const conMensajes = wa.conversaciones.filter((c) => c.mensajes > 0);
+    // Con mensajes = contador > 0 o algún mensaje recibido (por si el contador se quedó atrás).
+    const conMensajes = wa.conversaciones.filter((c) => c.mensajes > 0 || !!c.ultimoMensajeAt);
     const todas = conMensajes.filter((c) => c.estado !== "ignorada");
     const pendientes = todas.filter((c) => (pendientesPorConv.get(c.id)?.length ?? 0) > 0 || (c.estado === "nueva" && c.analizadoHasta && c.datos?.es_cliente !== false && !esHistorico(c)));
     const sinCliente = todas.filter((c) => !c.leadId && (c.estado === "nueva" || c.estado === "no_cliente"));
