@@ -151,6 +151,27 @@ Reglas de negocio (decididas con Juan, no cambiarlas sin preguntarle):
   exponerlos fuera del equipo (RLS `es_equipo()`), no mandarlos a servicios
   nuevos sin avisar a Juan.
 
+## Instagram y email en la bandeja "Mensajes"
+
+La bandeja `/whatsapp` (menú "Mensajes") junta WhatsApp, mensajes directos de
+Instagram y el correo de info@tirorirohome.com (25/09/2026). Mismas tablas
+`whatsapp_*` y mismo motor de IA, sin columnas nuevas: el canal va en la clave
+de la conversación (`telefono` = "ig:<IGSID>" o "mail:<correo>") y en el id
+del mensaje. Todo en `src/lib/whatsapp/canales.ts` (+ `canales.server.ts`).
+La configuración de Instagram y email está en `mensajeria_canales` (solo admin;
+ya aplicada en producción).
+
+- Instagram: webhook `/api/instagram/webhook?token=<webhook_token>` desde una
+  app de Meta de Juan (API de Instagram con inicio de sesión de Instagram); la
+  clave se pega en Configuración y se renueva sola. Las notas de voz se
+  transcriben como las de WhatsApp (tipo `ig_audio`).
+- Email: script de Google Apps Script en la cuenta de info@ (se copia desde
+  Configuración, `apps-script.ts`) → `/api/correo/entrada` cada 5 min. Solo se
+  guardan correos de personas (filtro `esRemitenteAutomatico`).
+- Unir canales: enlaza sola si teléfono/email/@ casan con UN cliente o con otra
+  conversación ya enlazada, y deja nota "🔀 Ha pasado de canal…". Nunca crea
+  clientes: propuesta con Rocío o Juan (si `motivoProfesional`).
+
 ## Formularios web de profesionales (IMPORTANTE)
 
 Decisión de Juan (26/09/2026): los formularios de la web que son de
