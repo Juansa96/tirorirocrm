@@ -5,7 +5,6 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildProducto } from "@/lib/product-schema";
 import { TIPO_LABEL, normalizeTipo, esColeccionTelaInvalida, esVarianteBancoInvalida } from "@/lib/catalogo";
 import { motivoProfesional, VENDEDOR_PROFESIONALES, ETIQUETA_PROFESIONAL } from "@/lib/lead-profesional";
-import { avisarLeadProfesional } from "@/lib/aviso-profesional.server";
 
 // Los leads del formulario web se asignan a Rocío por defecto, salvo los de
 // PROFESIONALES (tiendas, estudios de interiorismo/decoración, arquitectos,
@@ -340,18 +339,14 @@ export const Route = createFileRoute("/api/public/lead-form")({
             fecha: today, hora: "", vendedor, completada: false,
           });
 
-          // Profesional: nota con el motivo y correo a Juan para que responda.
+          // Profesional: nota con el motivo (el correo "Se te ha asignado un
+          // contacto" lo manda el trigger de la BD al asignarlo a Juan).
           if (motivoPro) {
             await supabaseAdmin.from("notas").insert({
               lead_id: lead.id,
-              contenido: `💼 Parece un profesional (${motivoPro}). Asignado a Juan automáticamente y avisado por correo.`,
+              contenido: `💼 Parece un profesional (${motivoPro}). Asignado a Juan automáticamente.`,
               usuario: "sistema",
             });
-            await avisarLeadProfesional({
-              leadId: String(lead.id), nombre: nombreClean, email: emailClean, telefono: sanitize(telefono, 20),
-              ciudad: ciudadClean, mensaje: sanitize(mensaje, 2000), motivo: motivoPro,
-              urlFicha: `${new URL(request.url).origin}/clientes/${lead.id}`,
-            }).catch((e) => console.error("[lead-form] aviso profesional", e));
           }
 
           return json({ ok: true, leadId: lead.id }, 201);
