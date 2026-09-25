@@ -33,6 +33,7 @@ import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
+import { Route as ApiLeadsAvisoAsignacionRouteImport } from './routes/api/leads/aviso-asignacion'
 import { Route as ApiWhatsappProcesarRouteImport } from './routes/api/whatsapp/procesar'
 import { Route as ApiTapiceroFotoRouteImport } from './routes/api/tapicero/foto'
 import { Route as ApiTapiceroEnviarRouteImport } from './routes/api/tapicero/enviar'
@@ -170,8 +171,15 @@ const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   path: '/api/whatsapp/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLeadsAvisoAsignacionRoute = ApiLeadsAvisoAsignacionRouteImport.update({
+  id: '/api/leads/aviso-asignacion',
+  path: '/api/leads/aviso-asignacion',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWhatsappProcesarRoute = ApiWhatsappProcesarRouteImport.update({
+  id: '/api/leads/aviso-asignacion',
   id: '/api/whatsapp/procesar',
+  path: '/api/leads/aviso-asignacion',
   path: '/api/whatsapp/procesar',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -288,6 +296,7 @@ export interface FileRoutesByFullPath {
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
+  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -329,6 +338,7 @@ export interface FileRoutesByTo {
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
+  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -372,6 +382,7 @@ export interface FileRoutesById {
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
+  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -416,6 +427,7 @@ export interface FileRouteTypes {
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
+    | '/api/leads/aviso-asignacion'
     | '/api/whatsapp/procesar'
     | '/api/whatsapp/webhook'
     | '/lovable/email/auth/preview'
@@ -457,6 +469,7 @@ export interface FileRouteTypes {
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
+    | '/api/leads/aviso-asignacion'
     | '/api/whatsapp/procesar'
     | '/api/whatsapp/webhook'
     | '/lovable/email/auth/preview'
@@ -499,6 +512,7 @@ export interface FileRouteTypes {
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
+    | '/api/leads/aviso-asignacion'
     | '/api/whatsapp/procesar'
     | '/api/whatsapp/webhook'
     | '/lovable/email/auth/preview'
@@ -540,6 +554,7 @@ export interface RootRouteChildren {
   ApiTapiceroEnlaceRoute: typeof ApiTapiceroEnlaceRoute
   ApiTapiceroEnviarRoute: typeof ApiTapiceroEnviarRoute
   ApiTapiceroFotoRoute: typeof ApiTapiceroFotoRoute
+  ApiLeadsAvisoAsignacionRoute: typeof ApiLeadsAvisoAsignacionRoute
   ApiWhatsappProcesarRoute: typeof ApiWhatsappProcesarRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -717,10 +732,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/leads/aviso-asignacion': {
+      id: '/api/leads/aviso-asignacion'
+      path: '/api/leads/aviso-asignacion'
+      fullPath: '/api/leads/aviso-asignacion'
+      preLoaderRoute: typeof ApiLeadsAvisoAsignacionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/whatsapp/procesar': {
+      id: '/api/leads/aviso-asignacion'
       id: '/api/whatsapp/procesar'
+      path: '/api/leads/aviso-asignacion'
       path: '/api/whatsapp/procesar'
+      fullPath: '/api/leads/aviso-asignacion'
       fullPath: '/api/whatsapp/procesar'
+      preLoaderRoute: typeof ApiLeadsAvisoAsignacionRouteImport
       preLoaderRoute: typeof ApiWhatsappProcesarRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -878,6 +904,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTapiceroEnlaceRoute: ApiTapiceroEnlaceRoute,
   ApiTapiceroEnviarRoute: ApiTapiceroEnviarRoute,
   ApiTapiceroFotoRoute: ApiTapiceroFotoRoute,
+  ApiLeadsAvisoAsignacionRoute: ApiLeadsAvisoAsignacionRoute,
   ApiWhatsappProcesarRoute: ApiWhatsappProcesarRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,

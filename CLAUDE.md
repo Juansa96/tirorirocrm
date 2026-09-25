@@ -157,10 +157,16 @@ Decisión de Juan (26/09/2026): los formularios de la web que son de
 **profesionales** (tiendas, estudios de interiorismo o decoración, arquitectos,
 hoteles, reventa, "descuento profesional", B2B…) se asignan a **Juan**
 (`sangradortorresjuan@gmail.com`) en vez de a Rocío, con etiqueta
-"Profesional (B2B)", nota con el motivo, tarea "Responder a…" y un **correo de
-aviso a Juan** para que responda. Detector (frases concretas, sin IA):
-`src/lib/lead-profesional.ts`; correo: `src/lib/aviso-profesional.server.ts`;
-se aplica en `src/routes/api/public/lead-form.ts`. El lead sigue siendo tipo
+"Profesional (B2B)", nota con el motivo y tarea "Responder a…". Detector
+(frases concretas, sin IA): `src/lib/lead-profesional.ts`; se aplica en
+`src/routes/api/public/lead-form.ts`.
+
+**Correo "Se te ha asignado un contacto"**: cada vez que un lead se crea o se
+reasigna a Juan (por el formulario, a mano o como sea), el trigger de la BD
+`leads_aviso_asignacion` (pg_net) llama a `/api/leads/aviso-asignacion`, que le
+manda el correo (`src/lib/aviso-profesional.server.ts`, lista
+`AVISAR_ASIGNACION_A`; el email de Juan está también en el trigger). SQL en
+`supabase/migrations/20260926120000_aviso_asignacion_lead.sql`, ya aplicado. El lead sigue siendo tipo
 B2C (así los llevaba Juan a mano). Ojo con falsos positivos: "¿tenéis tienda
 física?" o "el estudio de casa" son de particulares.
 
