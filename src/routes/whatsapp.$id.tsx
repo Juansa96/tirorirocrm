@@ -7,11 +7,13 @@ import { StageBadge } from "@/components/StageBadge";
 import { PropuestaCard } from "@/components/whatsapp/PropuestaCard";
 import { confirmar } from "@/components/Confirmar";
 import { useWhatsapp, waActions } from "@/lib/whatsapp/store";
-import { nombreConversacion, formatTelefonoWa, tiempoRelativo, partesAudio, type WaMensaje } from "@/lib/whatsapp/types";
+import { nombreConversacion, identificadorConversacion, tiempoRelativo, partesAudio, type WaMensaje } from "@/lib/whatsapp/types";
+import { canalDe, CANAL_LABEL, type Canal } from "@/lib/whatsapp/canales";
+import { CanalChip, CanalIcono, CANAL_ESTILO } from "@/components/whatsapp/CanalIcono";
 import { TIPO_LABEL, normalizeTipo } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/whatsapp/$id")({
-  head: () => ({ meta: [{ title: "Conversación de WhatsApp — TiroCRM" }] }),
+  head: () => ({ meta: [{ title: "Conversación — TiroCRM" }] }),
   component: ConversacionPage,
 });
 
@@ -36,7 +38,19 @@ function TextoMensaje({ m }: { m: WaMensaje }) {
   );
 }
 
-function Burbujas({ mensajes }: { mensajes: WaMensaje[] }) {
+// Correo: el asunto en negrita encima del cuerpo.
+function TextoCorreo({ texto }: { texto: string }) {
+  const m = /^Asunto: (.*)\n\n?([\s\S]*)$/.exec(texto);
+  if (!m) return <p className="whitespace-pre-wrap break-words">{texto}</p>;
+  return (
+    <div>
+      <p className="font-semibold">{m[1]}</p>
+      {m[2].trim() && <p className="mt-1 whitespace-pre-wrap break-words">{m[2].trim()}</p>}
+    </div>
+  );
+}
+
+function Burbujas({ mensajes, canal }: { mensajes: WaMensaje[]; canal: Canal }) {
   let ultimoDia = "";
   return (
     <div className="space-y-1.5">
@@ -49,9 +63,9 @@ function Burbujas({ mensajes }: { mensajes: WaMensaje[] }) {
           <div key={m.id}>
             {separador && <div className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-slate-400">{dia}</div>}
             <div className={`flex ${mio ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm ${mio ? "rounded-br-sm bg-emerald-100 text-emerald-950" : "rounded-bl-sm border border-slate-200 bg-white text-slate-800"}`}>
-                <TextoMensaje m={m} />
-                <p className={`mt-0.5 text-right text-[10px] ${mio ? "text-emerald-700/70" : "text-slate-400"}`}>{horaDe(m.enviadoAt)}</p>
+              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm ${mio ? `rounded-br-sm ${CANAL_ESTILO[canal].burbuja}` : "rounded-bl-sm border border-slate-200 bg-white text-slate-800"}`}>
+                {canal === "email" ? <TextoCorreo texto={m.texto} /> : <TextoMensaje m={m} />}
+                <p className={`mt-0.5 text-right text-[10px] ${mio ? CANAL_ESTILO[canal].hora : "text-slate-400"}`}>{horaDe(m.enviadoAt)}</p>
               </div>
             </div>
           </div>
@@ -89,17 +103,22 @@ function ConversacionPage() {
   if (!conv) {
     return (
       <div className="space-y-3">
-        <Link to="/whatsapp" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"><ArrowLeft className="h-4 w-4" /> Volver a WhatsApp</Link>
+        <Link to="/whatsapp" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"><ArrowLeft className="h-4 w-4" /> Volver a Mensajes</Link>
         <p className="text-sm text-slate-500">Esta conversación no existe.</p>
       </div>
     );
   }
 
   const nombre = nombreConversacion(conv, lead?.nombre);
+  const canal = canalDe(conv.telefono);
+  // La misma persona en otros canales (conversaciones enlazadas al mismo cliente).
+  const otrosCanales = lead ? wa.conversaciones.filter((c) => c.leadId === lead.id && c.id !== conv.id) : [];
   const d = conv.datos ?? {};
   const contacto = d.contacto ?? {};
   const datosContacto = [
     contacto.nombre ? ["Nombre", contacto.nombre] : null,
+    contacto.telefono ? ["Teléfono", contacto.telefono] : null,
+    contacto.instagram ? ["Instagram", contacto.instagram] : null,
     contacto.ciudad ? ["Ciudad", contacto.ciudad] : null,
     contacto.provincia ? ["Provincia", contacto.provincia] : null,
     contacto.email ? ["Email", contacto.email] : null,
@@ -113,13 +132,13 @@ function ConversacionPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/whatsapp" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"><ArrowLeft className="h-4 w-4" /> Volver a WhatsApp</Link>
+      <Link to="/whatsapp" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"><ArrowLeft className="h-4 w-4" /> Volver a Mensajes</Link>
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-base font-bold text-emerald-700">{nombre.slice(0, 1).toUpperCase()}</div>
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold ${CANAL_ESTILO[canal].avatar}`}>{nombre.replace(/^@/, "").slice(0, 1).toUpperCase()}</div>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-bold text-slate-900">{nombre}</h1>
-          <p className="text-xs text-slate-500">{formatTelefonoWa(conv.telefono)}{conv.nombreWa && conv.nombreWa !== nombre ? ` · perfil «${conv.nombreWa}»` : ""} · {conv.mensajes} mensajes · último {tiempoRelativo(conv.ultimoMensajeAt)}</p>
+          <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold text-slate-900"><span className="truncate">{nombre}</span> <CanalChip canal={canal} /></h1>
+          <p className="text-xs text-slate-500">{identificadorConversacion(conv)}{conv.nombreWa && conv.nombreWa !== nombre ? ` · ${canal === "email" ? "remitente" : "perfil"} «${conv.nombreWa}»` : ""} · {conv.mensajes} mensajes · último {tiempoRelativo(conv.ultimoMensajeAt)}</p>
         </div>
         <button onClick={() => void accion(() => waActions.analizar(conv.id))} disabled={busy || wa.analizando} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3 py-2 text-sm font-semibold text-white hover:bg-[#2a2f46] disabled:opacity-50">
           <Sparkles className={`h-4 w-4 ${wa.analizando ? "animate-pulse" : ""}`} /> Analizar ahora
@@ -134,7 +153,7 @@ function ConversacionPage() {
           ) : mensajes.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-400">Sin mensajes.</p>
           ) : (
-            <Burbujas mensajes={mensajes} />
+            <Burbujas mensajes={mensajes} canal={canal} />
           )}
         </div>
 
@@ -150,6 +169,16 @@ function ConversacionPage() {
                   <StageBadge etapa={lead.etapa} />
                 </div>
                 <p className="text-xs text-slate-500">{[lead.ciudad, lead.telefono, lead.email].filter(Boolean).join(" · ")}</p>
+                {otrosCanales.length > 0 && (
+                  <div className="space-y-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">
+                    <p className="font-medium text-slate-500">También escribe por:</p>
+                    {otrosCanales.map((c) => (
+                      <Link key={c.id} to="/whatsapp/$id" params={{ id: c.id }} className="flex items-center gap-1.5 hover:underline">
+                        <CanalIcono canal={canalDe(c.telefono)} className="h-3 w-3" /> {CANAL_LABEL[canalDe(c.telefono)]} · {identificadorConversacion(c)} · {tiempoRelativo(c.ultimoMensajeAt)}
+                      </Link>
+                    ))}
+                  </div>
+                )}
                 <button disabled={busy} onClick={() => void confirmar({ titulo: "¿Desenlazar esta conversación?", texto: "La ficha del cliente no se borra; solo se deja de asociar el chat.", aceptar: "Desenlazar" }).then((ok) => { if (ok) void accion(() => waActions.desvincular(conv.id)); })} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-rose-600">
                   <Unlink className="h-3 w-3" /> Desenlazar
                 </button>
@@ -157,7 +186,7 @@ function ConversacionPage() {
             ) : (
               <div className="space-y-2">
                 <p className="text-xs text-slate-500">
-                  {conv.estado === "ignorada" ? "Conversación descartada." : conv.estado === "no_cliente" ? "La IA cree que no es un cliente (proveedor, spam…)." : "Sin cliente asociado."}
+                  {conv.estado === "ignorada" ? "Conversación descartada." : conv.estado === "no_cliente" ? "La IA cree que no es un cliente (proveedor, spam, aviso automático…)." : "Sin cliente asociado."}
                 </p>
                 {conv.estado === "ignorada" ? (
                   <button disabled={busy} onClick={() => void accion(() => waActions.ignorar(conv.id, false))} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"><RotateCcw className="h-3.5 w-3.5" /> Recuperar</button>

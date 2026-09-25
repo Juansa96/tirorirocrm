@@ -1,5 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════════
-// Integración de WhatsApp — tipos compartidos entre servidor y navegador.
+// Bandeja de mensajes (WhatsApp, Instagram y email) — tipos compartidos entre
+// servidor y navegador. El canal de cada conversación va en su clave
+// (`telefono`): ver canales.ts.
 //
 // Flujo: el proveedor (coexistencia app + Cloud API) manda cada mensaje al
 // webhook → se guarda en whatsapp_mensajes → una IA lee la conversación,
@@ -7,6 +9,8 @@
 // deja PROPUESTAS (etapa, producto, fusión…) que el equipo acepta o rechaza
 // desde /whatsapp. Ver procesar.server.ts para las reglas.
 // ══════════════════════════════════════════════════════════════════════════
+
+import { canalDe, idDeClave, instagramDeNombre } from "./canales";
 
 export type EstadoConversacion = "nueva" | "vinculada" | "no_cliente" | "ignorada";
 export type OrigenConversacion = "webhook" | "historial";
@@ -39,6 +43,8 @@ export interface ProductoIA {
 
 export interface ContactoIA {
   nombre?: string | null;
+  telefono?: string | null;   // teléfono que da en el chat o en la firma del correo
+  instagram?: string | null;  // @usuario de Instagram que mencione
   ciudad?: string | null;
   provincia?: string | null;
   email?: string | null;
@@ -204,6 +210,8 @@ export function mapWaEvento(r: Row): WaEvento {
 }
 
 // ── Teléfonos ───────────────────────────────────────────────────────────────
+// Solo las conversaciones de WhatsApp tienen teléfono en la clave; las de
+// Instagram ("ig:…") y email ("mail:…") devuelven cadena vacía.
 /** Solo dígitos del wa_id (Meta ya lo manda así: 34660786453). */
 export function digitosTelefono(t: string | null | undefined): string {
   return (t ?? "").replace(/\D/g, "");
@@ -211,12 +219,14 @@ export function digitosTelefono(t: string | null | undefined): string {
 
 /** Los últimos 9 dígitos: clave para casar con leads.telefono (ver normTel en duplicados.ts). */
 export function claveTelefono(t: string | null | undefined): string {
+  if (canalDe(t) !== "whatsapp") return "";
   const d = digitosTelefono(t);
   return d.length >= 9 ? d.slice(-9) : d;
 }
 
 /** "34660786453" → "+34 660 786 453" (lo que se guarda en la ficha del cliente). */
 export function formatTelefonoWa(waId: string): string {
+  if (canalDe(waId) !== "whatsapp") return "";
   const d = digitosTelefono(waId);
   if (!d) return "";
   if (d.length === 11 && d.startsWith("34")) {
@@ -227,13 +237,33 @@ export function formatTelefonoWa(waId: string): string {
   return `+${d}`;
 }
 
+/** Teléfono formateado a partir de lo que diga el chat ("660 78 64 53", "+34 660…"). */
+export function formatTelefonoLibre(t: string | null | undefined): string {
+  const d = digitosTelefono(t);
+  if (d.length === 9) return formatTelefonoWa(d);
+  if (d.length === 11 && d.startsWith("34")) return formatTelefonoWa(d);
+  return d.length >= 9 ? `+${d}` : "";
+}
+
+/**
+ * Cómo se identifica la conversación en su canal: el teléfono (WhatsApp), el
+ * @usuario (Instagram) o la dirección de correo (email).
+ */
+export function identificadorConversacion(c: Pick<WaConversacion, "telefono" | "nombreWa">): string {
+  const canal = canalDe(c.telefono);
+  if (canal === "whatsapp") return formatTelefonoWa(c.telefono);
+  if (canal === "email") return idDeClave(c.telefono);
+  const usuario = instagramDeNombre(c.nombreWa);
+  return usuario ? `@${usuario}` : "Instagram";
+}
+
 /** Nombre a mostrar para una conversación. */
 export function nombreConversacion(c: Pick<WaConversacion, "nombreWa" | "telefono" | "datos">, leadNombre?: string): string {
   if (leadNombre?.trim()) return leadNombre.trim();
   const ia = c.datos?.contacto?.nombre?.trim();
   if (ia) return ia;
   if (c.nombreWa.trim()) return c.nombreWa.trim();
-  return formatTelefonoWa(c.telefono);
+  return identificadorConversacion(c);
 }
 
 /** "hace 5 min", "hace 3 h", "ayer", "12 sep". */
@@ -254,7 +284,7 @@ export function tiempoRelativo(iso: string): string {
 
 // Etiquetas cortas de los tipos de propuesta (UI).
 export const TIPO_PROPUESTA_LABEL: Record<TipoPropuesta, string> = {
-  crear_lead: "Cliente nuevo por WhatsApp",
+  crear_lead: "Cliente nuevo",
   vincular_lead: "¿Con qué cliente va?",
   cambiar_etapa: "Cambiar de etapa",
   actualizar_campo: "Dato distinto en la ficha",
@@ -265,6 +295,7 @@ export const TIPO_PROPUESTA_LABEL: Record<TipoPropuesta, string> = {
 
 export const CAMPO_LABEL: Record<string, string> = {
   nombre: "Nombre",
+  telefono: "Teléfono",
   ciudad: "Ciudad",
   provincia: "Provincia",
   email: "Email",
