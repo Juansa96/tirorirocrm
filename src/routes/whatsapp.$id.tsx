@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Sparkles, User, UserPlus, Link2, Unlink, Ban, RotateCcw, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Mic, Sparkles, User, UserPlus, Link2, Unlink, Ban, RotateCcw, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { StageBadge } from "@/components/StageBadge";
 import { PropuestaCard } from "@/components/whatsapp/PropuestaCard";
 import { confirmar } from "@/components/Confirmar";
 import { useWhatsapp, waActions } from "@/lib/whatsapp/store";
-import { nombreConversacion, formatTelefonoWa, tiempoRelativo, type WaMensaje } from "@/lib/whatsapp/types";
+import { nombreConversacion, formatTelefonoWa, tiempoRelativo, partesAudio, type WaMensaje } from "@/lib/whatsapp/types";
 import { TIPO_LABEL, normalizeTipo } from "@/lib/catalogo";
 
 export const Route = createFileRoute("/whatsapp/$id")({
@@ -20,6 +20,20 @@ function diaDe(iso: string): string {
 }
 function horaDe(iso: string): string {
   return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Las notas de voz se ven con su icono y, cuando ya están transcritas, con lo que dicen.
+function TextoMensaje({ m }: { m: WaMensaje }) {
+  const audio = partesAudio(m.texto);
+  if (!audio) return <p className="whitespace-pre-wrap break-words">{m.texto || <span className="italic text-slate-400">[{m.tipo}]</span>}</p>;
+  return (
+    <div>
+      <p className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide opacity-70"><Mic className="h-3 w-3" /> {audio.etiqueta}</p>
+      {audio.texto
+        ? <p className="whitespace-pre-wrap break-words italic">«{audio.texto}»</p>
+        : <p className="text-xs italic opacity-60">Sin transcribir todavía</p>}
+    </div>
+  );
 }
 
 function Burbujas({ mensajes }: { mensajes: WaMensaje[] }) {
@@ -36,7 +50,7 @@ function Burbujas({ mensajes }: { mensajes: WaMensaje[] }) {
             {separador && <div className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-slate-400">{dia}</div>}
             <div className={`flex ${mio ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm ${mio ? "rounded-br-sm bg-emerald-100 text-emerald-950" : "rounded-bl-sm border border-slate-200 bg-white text-slate-800"}`}>
-                <p className="whitespace-pre-wrap break-words">{m.texto || <span className="italic text-slate-400">[{m.tipo}]</span>}</p>
+                <TextoMensaje m={m} />
                 <p className={`mt-0.5 text-right text-[10px] ${mio ? "text-emerald-700/70" : "text-slate-400"}`}>{horaDe(m.enviadoAt)}</p>
               </div>
             </div>

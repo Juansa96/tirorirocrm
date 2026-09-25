@@ -40,6 +40,7 @@ import { ETAPAS, RAZONES_PERDIDA_B2C, type Etapa } from "@/lib/types";
 import { normalizeTipo, TIPO_LABEL, stripDiacritics, mismoTipo } from "@/lib/catalogo";
 import { normTel, normEmail } from "@/lib/duplicados";
 import { analizarConversacionIA, ErrorIA, type ContextoLead, type MensajeParaIA } from "./ia.server";
+import { transcribirAudiosPendientes } from "./audio.server";
 import { claveTelefono, formatTelefonoWa, type AnalisisIA, type ProductoIA, type TipoPropuesta } from "./types";
 
 type Row = Record<string, unknown>;
@@ -52,6 +53,7 @@ export interface InformeProceso {
   vinculadas: number;
   propuestas: number;
   saltadas: number;
+  audios: number;         // notas de voz transcritas en esta pasada
   errores: string[];
   detenido?: string;      // motivo por el que se paró antes de tiempo (429, 402…)
 }
@@ -370,10 +372,22 @@ async function aplicarAnalisis(conv: Row, a: AnalisisIA, cat: Catalogo, _cfg: Cf
 
 // ── Punto de entrada ────────────────────────────────────────────────────────
 export async function procesarConversaciones(opts: { conversacionId?: string; forzar?: boolean; limite?: number; debounceSeg?: number } = {}): Promise<InformeProceso> {
-  const informe: InformeProceso = { procesadas: 0, creadas: 0, vinculadas: 0, propuestas: 0, saltadas: 0, errores: [] };
+  const informe: InformeProceso = { procesadas: 0, creadas: 0, vinculadas: 0, propuestas: 0, saltadas: 0, audios: 0, errores: [] };
   const cfg = await cargarConfig();
   if (!cfg) { informe.errores.push("Falta la fila de whatsapp_config"); return informe; }
   if (!cfg.activo && !opts.forzar) { informe.detenido = "Integración desactivada"; return informe; }
+
+  // Audios primero: la transcripción entra como texto del mensaje y la IA la
+  // lee en el análisis de abajo (si ya estaba analizada, vuelve a la cola).
+  try {
+    const au = await transcribirAudiosPendientes({ conversacionId: opts.conversacionId });
+    informe.audios = au.transcritos;
+    if (au.errores.length) { informe.errores.push(...au.errores); await anotarError(au.errores[au.errores.length - 1]); }
+  } catch (e) {
+    const msg = "Audio: " + (e instanceof Error ? e.message : String(e));
+    informe.errores.push(msg);
+    await anotarError(msg);
+  }
 
   const ahora = Date.now();
   const debounce = Math.max(0, opts.debounceSeg ?? 120);

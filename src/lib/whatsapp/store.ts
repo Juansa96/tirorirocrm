@@ -94,6 +94,13 @@ function init() {
       if (!lista || lista.some((x) => x.id === m.id)) return;
       set({ mensajes: { ...state.mensajes, [m.conversacionId]: [...lista, m].sort((a, b) => a.enviadoAt.localeCompare(b.enviadoAt)) } });
     })
+    // Transcripción de una nota de voz: el mensaje cambia de "[Audio]" al texto.
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "whatsapp_mensajes" }, (payload) => {
+      const m = mapWaMensaje(payload.new as Record<string, unknown>);
+      const lista = state.mensajes[m.conversacionId];
+      if (!lista || !lista.some((x) => x.id === m.id)) return;
+      set({ mensajes: { ...state.mensajes, [m.conversacionId]: lista.map((x) => (x.id === m.id ? m : x)) } });
+    })
     .subscribe();
 }
 
@@ -144,6 +151,7 @@ export const waActions = {
       const partes: string[] = [];
       if (body.procesadas) partes.push(`${body.procesadas} analizada${Number(body.procesadas) === 1 ? "" : "s"}`);
       if (body.creadas) partes.push(`${body.creadas} cliente${Number(body.creadas) === 1 ? "" : "s"} nuevo${Number(body.creadas) === 1 ? "" : "s"}`);
+      if (body.audios) partes.push(`${body.audios} audio${Number(body.audios) === 1 ? "" : "s"} transcrito${Number(body.audios) === 1 ? "" : "s"}`);
       if (body.propuestas) partes.push(`${body.propuestas} propuesta${Number(body.propuestas) === 1 ? "" : "s"}`);
       const errores = Array.isArray(body.errores) ? (body.errores as string[]) : [];
       const texto = partes.length ? partes.join(" · ") : errores.length ? errores[0] : body.detenido ? String(body.detenido) : "Nada nuevo que analizar";
