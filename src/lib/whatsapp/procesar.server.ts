@@ -1,12 +1,17 @@
 // ══════════════════════════════════════════════════════════════════════════
-// Motor de la integración de WhatsApp (solo servidor, service_role).
+// Motor de la bandeja de mensajes: WhatsApp, Instagram y email (solo
+// servidor, service_role). Los tres canales pasan por las mismas reglas; el
+// canal va en la clave de la conversación (ver canales.ts).
 //
 // Coge las conversaciones con mensajes sin analizar, se las pasa a la IA y
 // aplica estas REGLAS (deterministas, la IA solo extrae):
 //
 //   HACE SOLO (sin preguntar)
-//   · Enlazar la conversación con el cliente cuando el teléfono coincide con
-//     UN solo lead.
+//   · Enlazar la conversación con el cliente cuando el teléfono, el email o
+//     el @ de Instagram (el del canal o el que dé la persona en el chat)
+//     coincide con UN solo lead. También si la misma persona ya escribió por
+//     otro canal y esa conversación está enlazada ("pasó de Instagram a
+//     WhatsApp"): se deja nota con el recorrido.
 //   · Rellenar datos VACÍOS de la ficha (ciudad, provincia, email, dirección,
 //     teléfono, nombre si no lo había).
 //   · Dejar una nota en la ficha con las novedades del chat y el resumen.
@@ -21,8 +26,11 @@
 //   · Cambiar de etapa (nunca se mueve sola, ni hacia delante ni hacia atrás).
 //   · Un dato distinto al que ya hay en la ficha.
 //   · Crear o corregir un producto (medidas, tela, modelo).
-//   · Con qué cliente enlazar cuando hay varios candidatos o coincide el
-//     nombre/email pero no el teléfono (para no crear duplicados).
+//   · Con qué cliente enlazar cuando hay varios candidatos (p. ej. el teléfono
+//     coincide con un cliente y el email con otro: posible duplicado).
+//   · Al proponer crear un cliente se sugiere a quién asignarlo: Rocío, o
+//     Juan si es un profesional (estudio de decoración, tienda…), igual que
+//     con los formularios web.
 //   · Una tarea si Tiroriro se ha comprometido a algo concreto.
 //   · "Nuevo encargo" si un cliente ya entregado pide otra cosa.
 //
@@ -42,7 +50,14 @@ import { normTel, normEmail } from "@/lib/duplicados";
 import { analizarConversacionIA, ErrorIA, type ContextoLead, type MensajeParaIA } from "./ia.server";
 import { transcribirAudiosPendientes } from "./audio.server";
 import { TIPOS_SIN_CONTENIDO } from "./parse";
-import { claveTelefono, formatTelefonoWa, type AnalisisIA, type ProductoIA, type TipoPropuesta } from "./types";
+import { claveTelefono, formatTelefonoWa, formatTelefonoLibre, type AnalisisIA, type ProductoIA, type TipoPropuesta } from "./types";
+import {
+  canalDe, idDeClave, normInstagram, instagramsDeLead, instagramDeNombre, nombreSinUsuario, esCorreoPropio,
+  CANAL_LABEL, CANAL_ORIGEN, CANAL_EMOJI, type Canal,
+} from "./canales";
+import { conexionesCanales, leerCanal, renovarTokenInstagram } from "./canales.server";
+import { VENDEDORES } from "@/lib/types";
+import { motivoProfesional, VENDEDOR_PROFESIONALES } from "@/lib/lead-profesional";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown): string => (v == null ? "" : String(v).trim());
@@ -69,6 +84,13 @@ interface Cfg {
 interface LeadMin {
   id: string; nombre: string; telefono: string; email: string; ciudad: string; provincia: string;
   direccion: string; etapa: string; tipo: string; origen: string; createdAt: string;
+  instagrams: string[];      // @ de Instagram de la ficha (red social, usuario, instagram)
+}
+// Otras conversaciones de la bandeja (de cualquier canal), para reconocer a
+// la misma persona cuando cambia de canal.
+interface ConvMin {
+  id: string; clave: string; canal: Canal; leadId: string | null; nombreWa: string;
+  telefono: string; email: string; instagram: string;   // lo que la IA sacó de esa conversación
 }
 interface ProductoMin { id: string; leadId: string; tipo: string; modelo: string; ancho: number | null; alto: number | null; fondo: number | null; tela: string; color: string; cantidad: number; precioUnitario: number }
 interface PedidoMin { id: string; leadId: string; entregado: boolean; numero: number | null; estado: string }
@@ -78,6 +100,8 @@ interface Catalogo {
   productos: ProductoMin[];
   pedidos: PedidoMin[];
   tareasPendientes: Set<string>;
+  convs: ConvMin[];
+  propios: { telefono: string; instagram: string };   // números/cuentas de Tiroriro (nunca son el cliente)
 }
 
 const CLAIM_SEG = 90;
@@ -95,16 +119,20 @@ async function anotarError(msg: string) {
 }
 
 async function cargarCatalogo(): Promise<Catalogo> {
-  const [{ data: leads }, { data: productos }, { data: pedidos }, { data: tareas }] = await Promise.all([
-    supabaseAdmin.from("leads").select("id, nombre, telefono, email, ciudad, provincia, direccion, etapa, tipo, origen, created_at"),
+  const [{ data: leads }, { data: productos }, { data: pedidos }, { data: tareas }, { data: convs }, { data: waCfg }, igCfg] = await Promise.all([
+    supabaseAdmin.from("leads").select("id, nombre, telefono, email, ciudad, provincia, direccion, etapa, tipo, origen, created_at, red_social, usuario, instagram"),
     supabaseAdmin.from("productos_lead").select("id, lead_id, tipo, modelo, ancho, alto, fondo, tela, color, cantidad, precio_unitario"),
     supabaseAdmin.from("pedidos").select("id, lead_id, entregado, numero, estado_pedido"),
     supabaseAdmin.from("tareas").select("lead_id").eq("completada", false),
+    supabaseAdmin.from("whatsapp_conversaciones").select("id, telefono, lead_id, nombre_wa, datos").neq("estado", "ignorada"),
+    supabaseAdmin.from("whatsapp_config").select("numero_negocio").eq("id", 1).maybeSingle(),
+    leerCanal("instagram"),
   ]);
   return {
     leads: ((leads ?? []) as Row[]).map((r) => ({
       id: s(r.id), nombre: s(r.nombre), telefono: s(r.telefono), email: s(r.email), ciudad: s(r.ciudad),
       provincia: s(r.provincia), direccion: s(r.direccion), etapa: s(r.etapa), tipo: s(r.tipo) || "B2C", origen: s(r.origen), createdAt: s(r.created_at),
+      instagrams: instagramsDeLead({ redSocial: s(r.red_social), usuario: s(r.usuario), instagram: s(r.instagram) }),
     })),
     productos: ((productos ?? []) as Row[]).map((r) => ({
       id: s(r.id), leadId: s(r.lead_id), tipo: s(r.tipo), modelo: s(r.modelo),
@@ -113,11 +141,19 @@ async function cargarCatalogo(): Promise<Catalogo> {
     })),
     pedidos: ((pedidos ?? []) as Row[]).map((r) => ({ id: s(r.id), leadId: s(r.lead_id), entregado: !!r.entregado, numero: r.numero == null ? null : Number(r.numero), estado: s(r.estado_pedido) })),
     tareasPendientes: new Set(((tareas ?? []) as Row[]).map((r) => s(r.lead_id))),
+    convs: ((convs ?? []) as Row[]).map((r) => {
+      const contacto = ((r.datos as Row | null)?.contacto ?? {}) as Row;
+      return {
+        id: s(r.id), clave: s(r.telefono), canal: canalDe(s(r.telefono)), leadId: r.lead_id ? s(r.lead_id) : null, nombreWa: s(r.nombre_wa),
+        telefono: normTel(s(contacto.telefono)), email: normEmail(s(contacto.email)), instagram: normInstagram(s(contacto.instagram)),
+      };
+    }),
+    propios: { telefono: normTel(s((waCfg as Row | null)?.numero_negocio)), instagram: normInstagram(s(igCfg?.datos.usuario)) },
   };
 }
 
-async function nota(leadId: string, contenido: string) {
-  await supabaseAdmin.from("notas").insert({ lead_id: leadId, contenido: contenido.slice(0, 4000), usuario: "whatsapp" } as never);
+async function nota(leadId: string, contenido: string, canal: Canal = "whatsapp") {
+  await supabaseAdmin.from("notas").insert({ lead_id: leadId, contenido: contenido.slice(0, 4000), usuario: canal } as never);
 }
 
 async function proponer(conversacionId: string, leadId: string | null, tipo: TipoPropuesta, clave: string, payload: Record<string, unknown>, motivo: string): Promise<boolean> {
@@ -156,13 +192,15 @@ function idxEtapa(e: string): number { return (ETAPAS as readonly string[]).inde
 // web, Instagram…) con otro teléfono o sin él. Se busca por email exacto y por
 // nombre parecido (mismo nombre completo, o mismo nombre y apellido aunque
 // haya más palabras, o el nombre del chat contenido en el de la ficha).
-function candidatosDuplicado(cat: Catalogo, nombres: string[], email: string, excluir: Set<string>): LeadMin[] {
+function candidatosDuplicado(cat: Catalogo, nombres: string[], email: string, excluir: Set<string>, instagram = ""): LeadMin[] {
   const em = normEmail(email);
+  const ig = normInstagram(instagram);
   const claves = nombres.map(norm).filter((n) => n.length >= 3);
   const tokensDe = (n: string) => n.split(" ").filter((x) => x.length >= 3);
   return cat.leads.filter((l) => {
     if (excluir.has(l.id)) return false;
     if (em && em.includes("@") && normEmail(l.email) === em) return true;
+    if (ig && l.instagrams.includes(ig)) return true;
     const ln = norm(l.nombre);
     if (!ln) return false;
     for (const n of claves) {
@@ -175,17 +213,95 @@ function candidatosDuplicado(cat: Catalogo, nombres: string[], email: string, ex
   }).slice(0, 6);
 }
 
-async function rellenarVacios(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resultado, propuestasPermitidas: boolean) {
+// ── Identidad entre canales ─────────────────────────────────────────────────
+// Lo que identifica a la persona de una conversación: la clave del canal
+// (teléfono, correo o @) y lo que ella misma haya dado en el chat.
+interface Identidad { canal: Canal; telefonos: string[]; emails: string[]; instagrams: string[] }
+
+function identidadDe(conv: Row, a: AnalisisIA | null, cat: Catalogo): Identidad {
+  const clave = s(conv.telefono);
+  const canal = canalDe(clave);
+  const tels = new Set<string>(), emails = new Set<string>(), igs = new Set<string>();
+  if (canal === "whatsapp") { const t = claveTelefono(clave); if (t.length >= 9) tels.add(t); }
+  if (canal === "email") { const e = normEmail(idDeClave(clave)); if (e.includes("@")) emails.add(e); }
+  if (canal === "instagram") { const u = instagramDeNombre(s(conv.nombre_wa)); if (u) igs.add(u); }
+  if (a) {
+    const t = normTel(s(a.contacto.telefono));
+    if (t.length >= 9 && t !== cat.propios.telefono) tels.add(t);
+    const e = normEmail(s(a.contacto.email));
+    if (e.includes("@") && !esCorreoPropio(e, [...VENDEDORES])) emails.add(e);
+    const u = normInstagram(s(a.contacto.instagram));
+    if (u && u !== cat.propios.instagram) igs.add(u);
+  }
+  return { canal, telefonos: [...tels], emails: [...emails], instagrams: [...igs] };
+}
+
+/** Clientes que casan con la identidad por teléfono, email o @ (coincidencia exacta). */
+function leadsPorIdentidad(cat: Catalogo, id: Identidad): Array<{ lead: LeadMin; por: string[] }> {
+  const out = new Map<string, { lead: LeadMin; por: string[] }>();
+  const add = (l: LeadMin, por: string) => {
+    const e = out.get(l.id) ?? { lead: l, por: [] };
+    if (!e.por.includes(por)) e.por.push(por);
+    out.set(l.id, e);
+  };
+  for (const l of cat.leads) {
+    if (id.telefonos.length && id.telefonos.includes(normTel(l.telefono))) add(l, "teléfono");
+    if (id.emails.length && id.emails.includes(normEmail(l.email))) add(l, "email");
+    if (id.instagrams.length && l.instagrams.some((u) => id.instagrams.includes(u))) add(l, "Instagram");
+  }
+  return [...out.values()];
+}
+
+/**
+ * Otras conversaciones de la misma persona en la bandeja: su clave coincide
+ * con algo de esta identidad, o lo que la IA sacó de ellas coincide con la
+ * clave de esta (p. ej. en Instagram dio el móvil con el que luego escribe
+ * por WhatsApp).
+ */
+function convsRelacionadas(cat: Catalogo, convId: string, id: Identidad, propia: Identidad): ConvMin[] {
+  return cat.convs.filter((c) => {
+    if (c.id === convId) return false;
+    if (c.canal === "whatsapp" && id.telefonos.includes(claveTelefono(c.clave))) return true;
+    if (c.canal === "email" && id.emails.includes(normEmail(idDeClave(c.clave)))) return true;
+    if (c.canal === "instagram") { const u = instagramDeNombre(c.nombreWa); if (u && id.instagrams.includes(u)) return true; }
+    if (c.telefono && propia.telefonos.includes(c.telefono)) return true;
+    if (c.email && propia.emails.includes(c.email)) return true;
+    if (c.instagram && propia.instagrams.includes(c.instagram)) return true;
+    return false;
+  });
+}
+
+function describirConv(c: Pick<ConvMin, "canal" | "clave" | "nombreWa">): string {
+  if (c.canal === "whatsapp") return `WhatsApp ${formatTelefonoWa(c.clave)}`;
+  if (c.canal === "email") return `email ${idDeClave(c.clave)}`;
+  const u = instagramDeNombre(c.nombreWa);
+  return u ? `Instagram @${u}` : "Instagram";
+}
+
+function identificadorDe(conv: Row): string {
+  return describirConv({ canal: canalDe(s(conv.telefono)), clave: s(conv.telefono), nombreWa: s(conv.nombre_wa) });
+}
+
+async function rellenarVacios(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resultado, propuestasPermitidas: boolean, cat: Catalogo) {
   const patch: Record<string, unknown> = {};
+  const canal = canalDe(s(conv.telefono));
+  const emailIA = s(a.contacto.email);
   const nuevos: Record<string, string> = {
     ciudad: s(a.contacto.ciudad).slice(0, 100),
     provincia: s(a.contacto.provincia).slice(0, 100),
-    email: s(a.contacto.email).slice(0, 254),
+    // En el email, la dirección desde la que escribe (y, si la IA ve otra, se propone).
+    email: (emailIA && !esCorreoPropio(emailIA, [...VENDEDORES]) ? emailIA : "").slice(0, 254),
     direccion: s(a.contacto.direccion).slice(0, 300),
   };
+  if (canal === "email" && !lead.email.trim()) {
+    const dir = idDeClave(s(conv.telefono));
+    patch.email = dir;
+    res.auto.push(`email: ${dir}`);
+    nuevos.email = "";
+  }
   for (const [campo, nuevo] of Object.entries(nuevos)) {
     if (!nuevo) continue;
-    const actual = (lead as unknown as Record<string, string>)[campo] ?? "";
+    const actual = s(patch[campo]) || ((lead as unknown as Record<string, string>)[campo] ?? "");
     if (!actual.trim()) {
       patch[campo] = nuevo;
       res.auto.push(`${campo}: ${nuevo}`);
@@ -199,17 +315,26 @@ async function rellenarVacios(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resu
   }
   // Nombre: solo si la ficha no tiene uno de verdad.
   // Nombre: el del chat y, si no, el de la agenda del móvil (nunca el número).
-  const nombreIA = (s(a.contacto.nombre) || s(conv.nombre_wa)).slice(0, 200);
+  const nombreIA = (s(a.contacto.nombre) || nombreSinUsuario(s(conv.nombre_wa))).slice(0, 200);
   const nombreFicha = lead.nombre.trim();
-  const sinNombre = !nombreFicha || /^whatsapp\b/i.test(nombreFicha) || /^\+?[\d\s]+$/.test(nombreFicha);
+  const sinNombre = !nombreFicha || /^(whatsapp|instagram|email)\b/i.test(nombreFicha) || /^@/.test(nombreFicha) || /^\+?[\d\s]+$/.test(nombreFicha);
   if (nombreIA && sinNombre) { patch.nombre = nombreIA; res.auto.push(`nombre: ${nombreIA}`); }
   else if (nombreIA && propuestasPermitidas && s(a.contacto.nombre) && !norm(nombreFicha).includes(norm(nombreIA)) && !norm(nombreIA).includes(norm(nombreFicha))) {
     const ok = await proponer(s(conv.id), lead.id, "actualizar_campo", `campo:nombre:${hashCorto(norm(nombreIA))}`, { campo: "nombre", actual: nombreFicha, nuevo: nombreIA }, "El nombre que da en el chat no coincide con el de la ficha.");
     if (ok) res.propuestas++;
   }
   // Teléfono: si la ficha no lo tenía (lead enlazado por nombre/email o creado desde la web).
-  if (!lead.telefono.trim()) { patch.telefono = formatTelefonoWa(s(conv.telefono)); res.auto.push(`teléfono: ${patch.telefono}`); }
-  if (!lead.origen.trim()) patch.origen = "WhatsApp";
+  // (en Instagram y email, el que dé la persona en la conversación).
+  if (!lead.telefono.trim()) {
+    const tel = canal === "whatsapp" ? formatTelefonoWa(s(conv.telefono)) : formatTelefonoLibre(a.contacto.telefono);
+    if (tel) { patch.telefono = tel; res.auto.push(`teléfono: ${tel}`); }
+  }
+  // Instagram: el @ de la conversación (o el que mencione) si la ficha no tiene ninguno.
+  if (lead.instagrams.length === 0) {
+    const ig = canal === "instagram" ? instagramDeNombre(s(conv.nombre_wa)) : normInstagram(s(a.contacto.instagram));
+    if (ig && ig !== cat.propios.instagram) { patch.red_social = `@${ig}`; res.auto.push(`Instagram: @${ig}`); }
+  }
+  if (!lead.origen.trim()) patch.origen = CANAL_ORIGEN[canal];
 
   if (Object.keys(patch).length > 0) {
     const { error } = await supabaseAdmin.from("leads").update(patch as never).eq("id", lead.id);
@@ -285,21 +410,62 @@ async function proponerEtapaYResto(lead: LeadMin, conv: Row, a: AnalisisIA, cat:
   }
 }
 
-async function notaDeNovedades(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resultado, recienEnlazada: boolean): Promise<string | undefined> {
+/**
+ * Recorrido de la persona por los canales, del primer contacto al actual:
+ * "Formulario web (12/09) → Instagram @ana (15/09) → WhatsApp +34 … (18/09)".
+ * Solo si ha pasado por más de un canal.
+ */
+async function recorridoCanales(lead: LeadMin, conv: Row, cat: Catalogo): Promise<string> {
+  const convId = s(conv.id);
+  const otras = cat.convs.filter((c) => c.leadId === lead.id && c.id !== convId);
+  if (otras.length === 0 && !lead.origen.trim()) return "";
+  const ids = [convId, ...otras.map((c) => c.id)];
+  const primeros = new Map<string, string>();
+  await Promise.all(ids.map(async (id) => {
+    const { data } = await supabaseAdmin.from("whatsapp_mensajes").select("enviado_at").eq("conversacion_id", id).order("enviado_at", { ascending: true }).limit(1);
+    const f = s((data as Row[] | null)?.[0]?.enviado_at);
+    if (f) primeros.set(id, f);
+  }));
+  const pasos: Array<{ etiqueta: string; canalKey: string; at: string }> = [];
+  const origen = lead.origen.trim();
+  const canalActual = canalDe(s(conv.telefono));
+  if (origen && lead.createdAt) pasos.push({ etiqueta: origen, canalKey: norm(origen), at: lead.createdAt });
+  for (const c of otras) pasos.push({ etiqueta: describirConv(c), canalKey: c.canal, at: primeros.get(c.id) ?? "" });
+  pasos.push({ etiqueta: identificadorDe(conv), canalKey: canalActual, at: primeros.get(convId) ?? s(conv.ultimo_mensaje_at) });
+  const ordenados = pasos.filter((p) => p.at).sort((x, y) => x.at.localeCompare(y.at));
+  // El origen "WhatsApp"/"Instagram"/"Email" de la ficha es el mismo canal que su conversación.
+  const sinRepetir = ordenados.filter((p, i) => i === 0 || norm(p.canalKey) !== norm(ordenados[i - 1].canalKey)
+    && !(norm(p.canalKey) === norm(CANAL_ORIGEN[p.canalKey as Canal] ?? "") && norm(ordenados[i - 1].canalKey) === norm(p.canalKey)));
+  const canalesDistintos = new Set(sinRepetir.map((p) => {
+    const k = norm(p.canalKey);
+    const c = (Object.keys(CANAL_ORIGEN) as Canal[]).find((x) => norm(CANAL_ORIGEN[x]) === k);
+    return c ?? k;
+  }));
+  if (canalesDistintos.size < 2) return "";
+  const fecha = (iso: string) => new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  return `🔀 Ha pasado de canal: ${sinRepetir.map((p) => `${p.etiqueta} (${fecha(p.at)})`).join(" → ")}`;
+}
+
+async function notaDeNovedades(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resultado, recienEnlazada: boolean, cat: Catalogo, motivoEnlace: string): Promise<string | undefined> {
   const datos = (conv.datos && typeof conv.datos === "object" ? conv.datos : {}) as Record<string, unknown>;
+  const canal = canalDe(s(conv.telefono));
   const lineas: string[] = [];
-  if (recienEnlazada) lineas.push(`Conversación de WhatsApp enlazada (${formatTelefonoWa(s(conv.telefono))}). ${a.resumen}`.trim());
+  if (recienEnlazada) {
+    lineas.push(`Conversación de ${CANAL_LABEL[canal]} enlazada (${identificadorDe(conv)}${motivoEnlace ? `; ${motivoEnlace}` : ""}). ${a.resumen}`.trim());
+    const recorrido = await recorridoCanales(lead, conv, cat);
+    if (recorrido) lineas.push(recorrido);
+  }
   for (const n of a.novedades) lineas.push(`• ${n}`);
   if (res.auto.length) lineas.push(`Datos rellenados desde el chat: ${res.auto.join(" · ")}`);
   if (lineas.length === 0) return undefined;
   const hash = hashCorto(lineas.join("\n"));
   if (s(datos.nota_hash) === hash) return hash;
   const fecha = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
-  await nota(lead.id, `📱 WhatsApp · ${fecha}\n${lineas.join("\n")}`);
+  await nota(lead.id, `${CANAL_EMOJI[canal]} ${CANAL_LABEL[canal]} · ${fecha}\n${lineas.join("\n")}`, canal);
   return hash;
 }
 
-async function aplicarAnalisis(conv: Row, a: AnalisisIA, cat: Catalogo, _cfg: Cfg, modo: "normal" | "historico"): Promise<Resultado> {
+async function aplicarAnalisis(conv: Row, a: AnalisisIA, cat: Catalogo, cfg: Cfg, modo: "normal" | "historico", textoCliente: string): Promise<Resultado> {
   const convId = s(conv.id);
   const estadoPrevio = (s(conv.estado) as Resultado["estado"]) || "nueva";
   const res: Resultado = {
@@ -308,42 +474,89 @@ async function aplicarAnalisis(conv: Row, a: AnalisisIA, cat: Catalogo, _cfg: Cf
     estado: conv.lead_id ? "vinculada" : estadoPrevio === "vinculada" ? "nueva" : estadoPrevio,
     leadId: conv.lead_id ? s(conv.lead_id) : null,
   };
-  const clave = claveTelefono(s(conv.telefono));
+  const canal = canalDe(s(conv.telefono));
   let lead: LeadMin | null = res.leadId ? cat.leads.find((l) => l.id === res.leadId) ?? null : null;
   let recienEnlazada = false;
+  let motivoEnlace = "";
 
-  // 1) Enlazar por teléfono (o crear) si aún no tiene cliente.
+  // 1) Enlazar si aún no tiene cliente: por teléfono, email o @ (el del canal
+  //    o el que la persona haya dado en la conversación), y si no, por otra
+  //    conversación suya de otro canal que ya esté enlazada.
   if (!lead) {
-    const porTel = clave.length >= 9 ? cat.leads.filter((l) => normTel(l.telefono) === clave) : [];
-    if (porTel.length === 1) {
-      lead = porTel[0];
+    const propia = identidadDe(conv, null, cat);
+    const ident = identidadDe(conv, a, cat);
+    const porDatos = leadsPorIdentidad(cat, ident);
+    const relacionadas = convsRelacionadas(cat, convId, ident, propia);
+    const leadsRel = [...new Set(relacionadas.map((c) => c.leadId).filter((x): x is string => !!x))]
+      .map((id) => cat.leads.find((l) => l.id === id)).filter((l): l is LeadMin => !!l);
+
+    if (porDatos.length === 1) {
+      lead = porDatos[0].lead;
       recienEnlazada = true;
-    } else if (porTel.length > 1) {
+      motivoEnlace = `mismo ${porDatos[0].por.join(" y ")} que la ficha`;
+    } else if (porDatos.length > 1) {
       if (modo === "normal") {
         const ok = await proponer(convId, null, "vincular_lead", "vincular", {
-          candidatos: porTel.map((l) => ({ id: l.id, nombre: l.nombre, etapa: l.etapa, ciudad: l.ciudad, telefono: l.telefono })),
+          candidatos: porDatos.map(({ lead: l, por }) => ({ id: l.id, nombre: l.nombre, etapa: l.etapa, ciudad: l.ciudad, telefono: l.telefono, por })),
           duplicados: true,
-        }, `Hay ${porTel.length} clientes con este teléfono. Elige con cuál va (y revisa si son duplicados).`);
+        }, `Hay ${porDatos.length} clientes que casan con esta persona (${porDatos.map(({ lead: l, por }) => `${l.nombre}: ${por.join(" y ")}`).join(" · ")}). Elige con cuál va y revisa si son duplicados.`);
+        if (ok) res.propuestas++;
+      }
+    } else if (leadsRel.length === 1) {
+      lead = leadsRel[0];
+      recienEnlazada = true;
+      const rel = relacionadas.find((c) => c.leadId === lead!.id);
+      motivoEnlace = rel ? `es la misma persona que en ${describirConv(rel)}` : "";
+    } else if (leadsRel.length > 1) {
+      if (modo === "normal") {
+        const ok = await proponer(convId, null, "vincular_lead", "vincular", {
+          candidatos: leadsRel.map((l) => ({ id: l.id, nombre: l.nombre, etapa: l.etapa, ciudad: l.ciudad, telefono: l.telefono })),
+          duplicados: true,
+        }, `Esta persona también escribe por otros canales enlazados a ${leadsRel.length} clientes distintos. Elige con cuál va y revisa si son duplicados.`);
         if (ok) res.propuestas++;
       }
     } else if (!a.es_cliente) {
       res.estado = "no_cliente";
     } else if (modo === "normal") {
-      // Nadie con este teléfono: NO se crea el cliente. Se propone crearlo,
-      // con los posibles duplicados por nombre/email para enlazar en su lugar.
-      const cands = candidatosDuplicado(cat, [s(a.contacto.nombre), s(conv.nombre_wa)], s(a.contacto.email), new Set());
-      const nombre = s(a.contacto.nombre) || s(conv.nombre_wa);
-      const ok = await proponer(convId, null, "crear_lead", "crear", {
-        sugerido: {
-          nombre, ciudad: s(a.contacto.ciudad), provincia: s(a.contacto.provincia), email: s(a.contacto.email), direccion: s(a.contacto.direccion),
-          telefono: formatTelefonoWa(s(conv.telefono)),
-        },
-        productos: a.productos.slice(0, 6),
-        candidatos: cands.map((l) => ({ id: l.id, nombre: l.nombre, etapa: l.etapa, ciudad: l.ciudad, telefono: l.telefono, origen: l.origen })),
-      }, cands.length > 0
-        ? `${nombre || "Esta persona"} no está en el CRM con este teléfono, pero hay ${cands.length === 1 ? "un cliente" : cands.length + " clientes"} con nombre o email parecido (puede haber entrado por la web o Instagram). Enlaza si es la misma persona; si no, créalo.`
-        : `${nombre || "Esta persona"} escribe por WhatsApp y no está en el CRM. ${a.resumen}`);
-      if (ok) res.propuestas++;
+      // Nadie en el CRM: NO se crea el cliente. Se propone crearlo, con los
+      // posibles duplicados por nombre/email/@ para enlazar en su lugar. Si
+      // la misma persona tiene otra conversación con la propuesta de crear
+      // pendiente, no se repite: al aceptar aquella se enlazan las dos.
+      const relIds = relacionadas.map((c) => c.id);
+      let yaPropuesta = false;
+      if (relIds.length) {
+        const { data } = await supabaseAdmin.from("whatsapp_propuestas").select("id").in("conversacion_id", relIds).eq("tipo", "crear_lead").eq("estado", "pendiente").limit(1);
+        yaPropuesta = (data?.length ?? 0) > 0;
+      }
+      if (!yaPropuesta) {
+        const igConv = canal === "instagram" ? instagramDeNombre(s(conv.nombre_wa)) : "";
+        const nombre = s(a.contacto.nombre) || nombreSinUsuario(s(conv.nombre_wa));
+        const email = canal === "email" ? idDeClave(s(conv.telefono)) : (ident.emails[0] ?? "");
+        const instagram = igConv || ident.instagrams[0] || "";
+        const cands = candidatosDuplicado(cat, [s(a.contacto.nombre), nombreSinUsuario(s(conv.nombre_wa))], email, new Set(), instagram);
+        const profesional = motivoProfesional({ mensaje: textoCliente, nombre, email });
+        const vendedor = profesional ? VENDEDOR_PROFESIONALES : cfg.vendedorDefecto;
+        const telefono = canal === "whatsapp" ? formatTelefonoWa(s(conv.telefono)) : formatTelefonoLibre(a.contacto.telefono);
+        const ok = await proponer(convId, null, "crear_lead", "crear", {
+          canal,
+          sugerido: {
+            nombre, ciudad: s(a.contacto.ciudad), provincia: s(a.contacto.provincia), email, direccion: s(a.contacto.direccion),
+            telefono, instagram: instagram ? `@${instagram}` : "",
+          },
+          vendedor,
+          profesional,
+          productos: a.productos.slice(0, 6),
+          candidatos: cands.map((l) => ({ id: l.id, nombre: l.nombre, etapa: l.etapa, ciudad: l.ciudad, telefono: l.telefono, origen: l.origen })),
+          relacionadas: relacionadas.map((c) => ({ id: c.id, canal: c.canal, etiqueta: describirConv(c) })),
+        }, [
+          cands.length > 0
+            ? `${nombre || "Esta persona"} no está en el CRM con estos datos, pero hay ${cands.length === 1 ? "un cliente" : cands.length + " clientes"} con nombre, email o Instagram parecido (puede haber entrado por otro canal). Enlaza si es la misma persona; si no, créalo.`
+            : `${nombre || "Esta persona"} escribe por ${CANAL_LABEL[canal]} y no está en el CRM. ${a.resumen}`,
+          relacionadas.length ? `También ha escrito por ${relacionadas.map(describirConv).join(" y ")}: se enlazará igual.` : "",
+          profesional ? `Parece un profesional (${profesional}): se sugiere asignarlo a Juan.` : "",
+        ].filter(Boolean).join(" "));
+        if (ok) res.propuestas++;
+      }
     }
   }
 
@@ -359,14 +572,14 @@ async function aplicarAnalisis(conv: Row, a: AnalisisIA, cat: Catalogo, _cfg: Cf
   res.estado = "vinculada";
 
   // 3) Rellenar vacíos (siempre) y proponer diferencias (solo modo normal).
-  await rellenarVacios(lead, conv, a, res, modo === "normal" && !res.creado);
+  await rellenarVacios(lead, conv, a, res, modo === "normal" && !res.creado, cat);
 
   // 4) Etapa, productos, tareas: solo modo normal y no en un cliente recién creado
   //    (sus productos ya se han creado con él).
   if (modo === "normal" && !res.creado) await proponerEtapaYResto(lead, conv, a, cat, res);
 
   // 5) Nota con novedades.
-  const hash = await notaDeNovedades(lead, conv, a, res, recienEnlazada);
+  const hash = await notaDeNovedades(lead, conv, a, res, recienEnlazada, cat, motivoEnlace);
   if (hash) (conv as Record<string, unknown>).__nota_hash = hash;
   return res;
 }
@@ -377,6 +590,9 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
   const cfg = await cargarConfig();
   if (!cfg) { informe.errores.push("Falta la fila de whatsapp_config"); return informe; }
   if (!cfg.activo && !opts.forzar) { informe.detenido = "Integración desactivada"; return informe; }
+
+  // La clave de Instagram caduca a los 60 días: se renueva sola cada 20.
+  await renovarTokenInstagram().catch((e) => console.error("[mensajes] renovar clave de Instagram", e));
 
   // Audios primero: la transcripción entra como texto del mensaje y la IA la
   // lee en el análisis de abajo (si ya estaba analizada, vuelve a la cola).
@@ -413,7 +629,7 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
     return informe;
   }
 
-  const cat = await cargarCatalogo();
+  const [cat, conexiones] = await Promise.all([cargarCatalogo(), conexionesCanales()]);
   const hoy = new Date().toISOString().slice(0, 10);
 
   for (const conv of pendientes) {
@@ -452,7 +668,9 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
       // historial y que no han tenido mensajes nuevos desde que se conectó.
       // (Comparar solo fechas fallaba: el webhook fija conectado_at con
       // milisegundos y el primer mensaje en vivo, con segundos, quedaba "antes".)
-      const modo: "normal" | "historico" = s(conv.origen) === "historial" && (!cfg.conectadoAt || ultimoAt < cfg.conectadoAt) ? "historico" : "normal";
+      const canal = canalDe(s(conv.telefono));
+      const conectadoAt = canal === "whatsapp" ? cfg.conectadoAt : conexiones[canal];
+      const modo: "normal" | "historico" = s(conv.origen) === "historial" && (!conectadoAt || ultimoAt < conectadoAt) ? "historico" : "normal";
 
       let leadCtx: ContextoLead | null = null;
       const leadActual = conv.lead_id ? cat.leads.find((l) => l.id === s(conv.lead_id)) ?? null : null;
@@ -467,10 +685,13 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
       }
 
       const analisis = await analizarConversacionIA({
-        telefono: s(conv.telefono), nombreWa: s(conv.nombre_wa), mensajes, lead: leadCtx, modo, modelo: cfg.modelo, hoy,
+        canal,
+        identificador: canal === "whatsapp" ? s(conv.telefono) : identificadorDe(conv).replace(/^(email|Instagram)\s*/, ""),
+        nombreWa: s(conv.nombre_wa), mensajes, lead: leadCtx, modo, modelo: cfg.modelo, hoy,
       });
 
-      const res = await aplicarAnalisis(conv, analisis, cat, cfg, modo);
+      const textoCliente = mensajes.filter((m) => m.direccion === "entrante").map((m) => m.texto).join("\n").slice(0, 6000);
+      const res = await aplicarAnalisis(conv, analisis, cat, cfg, modo, textoCliente);
       const datosPrevios = (conv.datos && typeof conv.datos === "object" ? conv.datos : {}) as Record<string, unknown>;
       const notaHash = s((conv as Record<string, unknown>).__nota_hash) || s(datosPrevios.nota_hash);
       await supabaseAdmin.from("whatsapp_conversaciones").update({
@@ -481,6 +702,15 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
         analizado_hasta: ultimoAt,
         ultimo_analisis_at: new Date().toISOString(),
       } as never).eq("id", convId);
+
+      // Para las siguientes conversaciones de esta misma pasada (misma persona en otro canal).
+      const enCat = cat.convs.find((c) => c.id === convId);
+      if (enCat) {
+        enCat.leadId = res.leadId;
+        enCat.telefono = normTel(s(analisis.contacto.telefono));
+        enCat.email = normEmail(s(analisis.contacto.email));
+        enCat.instagram = normInstagram(s(analisis.contacto.instagram));
+      }
 
       informe.procesadas++;
       if (res.creado) informe.creadas++;

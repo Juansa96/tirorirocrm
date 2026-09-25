@@ -17,6 +17,10 @@ const NAMES: Record<string, string> = {
   "rocio@tiroriro.com": "Rocío",
   "juan@tiroriro.com": "Juan",
   "bea@tiroriro.com": "Bea",
+  // Autores de las notas automáticas de la bandeja de mensajes
+  whatsapp: "WhatsApp",
+  instagram: "Instagram",
+  email: "Email",
 };
 
 export function vendorName(v: string): string {

@@ -21,8 +21,9 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/pipeline", label: "Pipeline", icon: Columns3 },
-  // WhatsApp: chats enlazados a clientes y propuestas de la IA por revisar.
-  { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  // Mensajes: WhatsApp, Instagram y email enlazados a clientes y propuestas
+  // de la IA por revisar (la ruta sigue siendo /whatsapp para no romper enlaces).
+  { to: "/whatsapp", label: "Mensajes", icon: MessageCircle },
   { to: "/clientes", label: "Clientes", icon: List },
   { to: "/datos", label: "Datos", icon: BarChart2 },
   { to: "/pedidos", label: "Pedidos", icon: Package },

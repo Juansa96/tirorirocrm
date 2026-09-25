@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════
-// Lectura de una conversación de WhatsApp con IA (solo servidor).
+// Lectura de una conversación (WhatsApp, Instagram o email) con IA (solo servidor).
 //
 // Usa la pasarela de IA de Lovable (ya disponible en el proyecto con
 // LOVABLE_API_KEY, sin claves nuevas). Es compatible con la API de chat de
@@ -11,6 +11,7 @@ import { z } from "zod";
 import { ETAPAS, RAZONES_PERDIDA_B2C } from "@/lib/types";
 import { CABECERO_FORMAS, PANTALLA_FORMAS, TIPO_LABEL } from "@/lib/catalogo";
 import type { AnalisisIA } from "./types";
+import type { Canal } from "./canales";
 
 const GATEWAY_URL = process.env.LOVABLE_AI_GATEWAY_URL || "https://ai.gateway.lovable.dev/v1/chat/completions";
 
@@ -33,8 +34,9 @@ export interface ContextoLead {
 }
 
 export interface EntradaAnalisis {
-  telefono: string;
-  nombreWa: string;
+  canal: Canal;
+  identificador: string;     // teléfono, @usuario o correo de la persona
+  nombreWa: string;          // nombre del perfil / agenda / remitente
   mensajes: MensajeParaIA[];
   lead: ContextoLead | null;
   modo: "normal" | "historico";
@@ -61,6 +63,8 @@ const analisisSchema = z.object({
   resumen: z.string().default(""),
   contacto: z.object({
     nombre: z.string().nullish(),
+    telefono: z.string().nullish(),
+    instagram: z.string().nullish(),
     ciudad: z.string().nullish(),
     provincia: z.string().nullish(),
     email: z.string().nullish(),
@@ -90,9 +94,11 @@ const PARAMETROS_FUNCION = {
       type: "object",
       properties: {
         nombre: { type: "string", description: "Nombre y apellidos del cliente si aparecen en el chat (no el nombre del perfil). Vacío si no." },
+        telefono: { type: "string", description: "Teléfono del cliente si lo da en la conversación o en la firma del correo (p. ej. para seguir por WhatsApp). Nunca el de Tiroriro. Vacío si no." },
+        instagram: { type: "string", description: "@usuario de Instagram del cliente si lo menciona. Vacío si no." },
         ciudad: { type: "string" },
         provincia: { type: "string" },
-        email: { type: "string" },
+        email: { type: "string", description: "Correo del cliente si lo da. Nunca uno de Tiroriro (@tirorirohome.com, @tiroriro.com)." },
         direccion: { type: "string", description: "Dirección de entrega completa si la ha dado." },
       },
     },
@@ -141,12 +147,14 @@ function promptSistema(hoy: string): string {
   const formas = Object.values(CABECERO_FORMAS).join(", ");
   const pantallas = Object.values(PANTALLA_FORMAS).join(", ");
   const tipos = Object.entries(TIPO_LABEL).map(([k, v]) => `${k} (${v})`).join(", ");
-  return `Eres el asistente del CRM de Tiroriro Home, un taller de Madrid que fabrica cabeceros de cama tapizados a medida y otros muebles tapizados (bancos, almohadones, pufs, mesas de centro tapizadas y pantallas de lámpara). Los clientes escriben por WhatsApp; tú lees la conversación y extraes lo que sirve para la ficha del cliente en el CRM. Hoy es ${hoy}.
+  return `Eres el asistente del CRM de Tiroriro Home, un taller de Madrid que fabrica cabeceros de cama tapizados a medida y otros muebles tapizados (bancos, almohadones, pufs, mesas de centro tapizadas y pantallas de lámpara). Los clientes escriben por WhatsApp, por mensaje directo de Instagram o por correo a info@tirorirohome.com; tú lees la conversación y extraes lo que sirve para la ficha del cliente en el CRM. Hoy es ${hoy}.
 
 REGLAS
 - Extrae SOLO lo que diga el chat. No inventes ni completes con suposiciones. Si algo no aparece, déjalo en null o vacío.
 - Tipos de producto: ${tipos}. Formas de cabecero: ${formas}. Formas de pantalla: ${pantallas}. Un cabecero se define por ancho (cm), alto (100, 120 o 130 cm normalmente), forma, tela y color, y montaje (colgar en la pared o apoyar en el suelo). Un banco (modelo Oyambre) por ancho. Envío: Madrid 40 €, resto de España 60 €.
 - Los mensajes marcados [Tiroriro] los escribe el equipo (Rocío, Juan, Iñaki o Bea); los marcados [Cliente] los escribe la persona.
+- Si la persona da otro medio de contacto (su teléfono para seguir por WhatsApp, su correo, su Instagram), apúntalo en contacto: sirve para unir la misma persona entre canales. Los datos de Tiroriro (sus teléfonos, correos y cuentas) no son del cliente.
+- En los correos, ignora firmas legales, avisos de confidencialidad y publicidad del pie.
 - "[Nota de voz] «…»" es la transcripción automática de un audio: trátala como si esa persona lo hubiera escrito (puede tener alguna palabra mal transcrita). "[Audio]" o "[Nota de voz]" sin texto es un audio que aún no se ha podido transcribir: no supongas lo que dice.
 - Etapas del pipeline (elige la que refleje el chat, o null si dudas):
   · Discovery: la persona ha escrito y aún no le hemos contestado con información.
@@ -156,7 +164,7 @@ REGLAS
   · Closed Won: SOLO si ha confirmado el pedido de forma clara ("adelante", ha enviado la dirección para el pedido, ha pagado o manda justificante).
   · Closed Lost: SOLO si ha dicho que no de forma clara, ha comprado en otro sitio, o lleva más de 3 semanas sin contestar a un presupuesto.
   Si el cliente ya tiene un pedido en marcha o entregado y solo pregunta por él, no cambies la etapa (etapa_sugerida null) y explica en novedades.
-- es_cliente: false para proveedores de tela, transportistas, tapiceros, bancos, publicidad, spam, contactos personales o conversaciones sin relación con comprar un producto.
+- es_cliente: false para proveedores de tela, transportistas, tapiceros, bancos, publicidad, spam, contactos personales, ofertas de servicios (agencias, SEO, colaboraciones pagadas), avisos automáticos o conversaciones sin relación con comprar un producto.
 - novedades: solo hechos nuevos que un comercial querría ver en la ficha. Nada de "el cliente saluda".
 - siguiente_accion: solo compromisos concretos de Tiroriro con fecha o acción clara. Nunca "responder", "contestar" o "hacer seguimiento" a secas.
 - Responde llamando a la función registrar_analisis. Todo en español.`;
@@ -164,7 +172,9 @@ REGLAS
 
 function promptUsuario(e: EntradaAnalisis): string {
   const partes: string[] = [];
-  partes.push(`Teléfono del cliente: +${e.telefono}. Nombre del perfil de WhatsApp: ${e.nombreWa || "(sin nombre)"}.`);
+  if (e.canal === "whatsapp") partes.push(`Canal: WhatsApp. Teléfono del cliente: +${e.identificador}. Nombre del perfil de WhatsApp: ${e.nombreWa || "(sin nombre)"}.`);
+  else if (e.canal === "instagram") partes.push(`Canal: mensajes directos de Instagram. Cuenta del cliente: ${e.identificador || "(desconocida)"}. Nombre del perfil: ${e.nombreWa || "(sin nombre)"}.`);
+  else partes.push(`Canal: correo electrónico. Dirección del cliente: ${e.identificador}. Nombre del remitente: ${e.nombreWa || "(sin nombre)"}. Cada mensaje empieza por su asunto.`);
   if (e.modo === "historico") {
     partes.push("Esta conversación es HISTORIAL antiguo (anterior a conectar el CRM). Resume y extrae datos; la etapa y las acciones tienen poca importancia.");
   }
@@ -182,7 +192,7 @@ function promptUsuario(e: EntradaAnalisis): string {
   for (const m of e.mensajes) {
     const quien = m.direccion === "saliente" ? "[Tiroriro]" : "[Cliente]";
     const fecha = m.enviadoAt.slice(0, 16).replace("T", " ");
-    partes.push(`${fecha} ${quien} ${m.texto.replace(/\s+/g, " ").slice(0, 1200)}`);
+    partes.push(`${fecha} ${quien} ${m.texto.replace(/\s+/g, " ").slice(0, e.canal === "email" ? 2500 : 1200)}`);
   }
   return partes.join("\n");
 }
@@ -213,7 +223,7 @@ export async function analizarConversacionIA(e: EntradaAnalisis): Promise<Analis
       type: "function",
       function: {
         name: "registrar_analisis",
-        description: "Registra en el CRM lo extraído de la conversación de WhatsApp.",
+        description: "Registra en el CRM lo extraído de la conversación.",
         parameters: PARAMETROS_FUNCION,
       },
     }],

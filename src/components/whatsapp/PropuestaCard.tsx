@@ -7,9 +7,11 @@ import { StageBadge } from "@/components/StageBadge";
 import { ClosedWonDialog } from "@/components/ClosedWonDialog";
 import { ClosedLostDialog } from "@/components/ClosedLostDialog";
 import { useWhatsapp, waActions } from "@/lib/whatsapp/store";
-import { TIPO_PROPUESTA_LABEL, CAMPO_LABEL, formatTelefonoWa, tiempoRelativo, type WaPropuesta, type WaConversacion, type ProductoIA } from "@/lib/whatsapp/types";
+import { TIPO_PROPUESTA_LABEL, CAMPO_LABEL, identificadorConversacion, tiempoRelativo, type WaPropuesta, type WaConversacion, type ProductoIA } from "@/lib/whatsapp/types";
+import { canalDe, CANAL_LABEL, type Canal } from "@/lib/whatsapp/canales";
+import { CanalIcono } from "@/components/whatsapp/CanalIcono";
 import { TIPO_LABEL, normalizeTipo } from "@/lib/catalogo";
-import { vendorName, type Etapa } from "@/lib/types";
+import { vendorName, VENDEDORES, type Etapa } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 
 // ── Una propuesta de la IA con sus botones de Aceptar / Rechazar ────────────
@@ -30,6 +32,8 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
   const [busy, setBusy] = useState(false);
   const [dialogo, setDialogo] = useState<"won" | "lost" | null>(null);
   const [buscar, setBuscar] = useState("");
+  // Crear cliente: a quién se asigna (Rocío por defecto, Juan si es profesional).
+  const [vendedorElegido, setVendedorElegido] = useState<string>(String(p.payload.vendedor ?? "") || config?.vendedorDefecto || "");
   const usuario = email ?? "";
   const lead = p.leadId ? leads.find((l) => l.id === p.leadId) : undefined;
   const pl = p.payload;
@@ -57,7 +61,7 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
       return run({ productoActual });
     }
     if (p.tipo === "tarea") return run({ vendedor: lead?.vendedor || usuario });
-    if (p.tipo === "crear_lead") return run({ conv, vendedor: config?.vendedorDefecto || usuario });
+    if (p.tipo === "crear_lead") return run({ conv, vendedor: vendedorElegido || config?.vendedorDefecto || usuario });
     return run();
   }
 
@@ -69,7 +73,7 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
   async function crearNuevo() {
     if (!conv) return;
     setBusy(true);
-    try { await waActions.crearCliente(conv, config?.vendedorDefecto || usuario); } finally { setBusy(false); }
+    try { await waActions.crearCliente(conv, vendedorElegido || config?.vendedorDefecto || usuario); } finally { setBusy(false); }
   }
 
   const resuelta = p.estado !== "pendiente";
@@ -127,10 +131,29 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
       const sug = (pl.sugerido ?? {}) as Record<string, string>;
       const prods = (Array.isArray(pl.productos) ? pl.productos : []) as ProductoIA[];
       const cands = (Array.isArray(pl.candidatos) ? pl.candidatos : []) as Array<{ id: string; nombre: string; etapa: string; ciudad: string; telefono: string; origen?: string }>;
-      const datos = [sug.nombre, sug.telefono, sug.ciudad, sug.provincia, sug.email, sug.direccion].filter(Boolean).join(" · ");
+      const relacionadas = (Array.isArray(pl.relacionadas) ? pl.relacionadas : []) as Array<{ id: string; canal: Canal; etiqueta: string }>;
+      const datos = [sug.nombre, sug.telefono, sug.instagram, sug.ciudad, sug.provincia, sug.email, sug.direccion].filter(Boolean).join(" · ");
+      const vendedores = [...new Set([...VENDEDORES, vendedorElegido].filter(Boolean))];
       cuerpo = (
         <div className="space-y-2 text-sm text-slate-700">
-          <p><span className="font-medium">Datos del chat:</span> {datos || "sin datos todavía"}</p>
+          <p><span className="font-medium">Datos de la conversación:</span> {datos || "sin datos todavía"}</p>
+          {relacionadas.length > 0 && (
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+              <span className="font-medium">También ha escrito por:</span>
+              {relacionadas.map((r) => (
+                <Link key={r.id} to="/whatsapp/$id" params={{ id: r.id }} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 hover:bg-slate-200"><CanalIcono canal={r.canal} className="h-3 w-3" /> {r.etiqueta}</Link>
+              ))}
+            </p>
+          )}
+          {!resuelta && (
+            <label className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              <span className="font-medium">Asignar a</span>
+              <select value={vendedorElegido} onChange={(e) => setVendedorElegido(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs">
+                {vendedores.map((v) => <option key={v} value={v}>{vendorName(v)}</option>)}
+              </select>
+              {pl.profesional ? <span className="text-violet-700">Profesional: {String(pl.profesional)}</span> : null}
+            </label>
+          )}
           {prods.length > 0 && <ul className="space-y-0.5 text-xs">{prods.map((pr, i) => <li key={i}>• {describirProductoIA(pr)}</li>)}</ul>}
           {!resuelta && cands.length > 0 && (
             <div>
@@ -182,7 +205,7 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
       cuerpo = <p className="text-sm text-slate-700"><span className="font-medium">Nuevo encargo</span> de un cliente ya entregado: se crearía una ficha nueva con sus datos, en Discovery.</p>;
       break;
     case "vincular_lead": {
-      const cands = (Array.isArray(pl.candidatos) ? pl.candidatos : []) as Array<{ id: string; nombre: string; etapa: string; ciudad: string; telefono: string }>;
+      const cands = (Array.isArray(pl.candidatos) ? pl.candidatos : []) as Array<{ id: string; nombre: string; etapa: string; ciudad: string; telefono: string; por?: string[] }>;
       cuerpo = resuelta ? null : (
         <div className="space-y-2">
           {cands.length > 0 && (
@@ -195,6 +218,7 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
                     {c.etapa && <StageBadge etapa={c.etapa as Etapa} />}
                     {c.ciudad && <span className="text-xs text-slate-500">{c.ciudad}</span>}
                     {c.telefono && <span className="text-xs text-slate-400">{c.telefono}</span>}
+                    {c.por && c.por.length > 0 && <span className="text-xs text-amber-700">coincide {c.por.join(" y ")}</span>}
                   </button>
                 </li>
               ))}
@@ -246,11 +270,11 @@ export function PropuestaCard({ p, conv, mostrarCliente = false }: { p: WaPropue
       )}
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
         <Sparkles className={`h-3.5 w-3.5 ${resuelta ? "text-slate-400" : "text-amber-500"}`} />
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">{TIPO_PROPUESTA_LABEL[p.tipo] ?? p.tipo}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">{TIPO_PROPUESTA_LABEL[p.tipo] ?? p.tipo}{p.tipo === "crear_lead" && conv ? ` por ${CANAL_LABEL[canalDe(conv.telefono)]}` : ""}</span>
         {mostrarCliente && lead && (
           <Link to="/clientes/$id" params={{ id: lead.id }} className="text-xs font-medium text-[#1a4b5b] hover:underline">{lead.nombre}</Link>
         )}
-        {mostrarCliente && !lead && conv && <span className="text-xs text-slate-500">{conv.nombreWa || formatTelefonoWa(conv.telefono)}</span>}
+        {mostrarCliente && !lead && conv && <span className="text-xs text-slate-500">{conv.nombreWa || identificadorConversacion(conv)}</span>}
         <span className="ml-auto text-[11px] text-slate-400">{tiempoRelativo(p.createdAt)}</span>
       </div>
       {cuerpo}

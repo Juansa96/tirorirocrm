@@ -26,7 +26,8 @@ type Row = Record<string, unknown>;
 const s = (v: unknown): string => (v == null ? "" : String(v).trim());
 const isObj = (v: unknown): v is Row => !!v && typeof v === "object" && !Array.isArray(v);
 
-const TIPOS_AUDIO = ["audio", "voice"];
+// ig_audio: nota de voz de Instagram (su enlace no necesita clave, pero caduca).
+const TIPOS_AUDIO = ["audio", "voice", "ig_audio"];
 const DIAS_VALIDEZ = 7;          // los ids de medios de los webhooks caducan a los 7 días de recibirlos
 const MAX_BYTES = 15 * 1024 * 1024;
 const MAX_INTENTOS = 3;
@@ -79,7 +80,7 @@ async function descargarMedia(mediaId: string): Promise<{ bytes: Uint8Array; mim
 }
 
 // ── Transcripción ───────────────────────────────────────────────────────────
-const INSTRUCCION = `Transcribe literalmente esta nota de voz de WhatsApp (normalmente en español; es de Tiroriro Home, un taller de cabeceros y muebles tapizados, o de uno de sus clientes). Devuelve SOLO la transcripción, sin comillas, sin comentarios ni explicaciones. Escribe los números y las medidas con cifras (160 x 120 cm). Si no se entiende nada o no hay voz, responde exactamente ${SIN_AUDIO}. Si no has recibido ningún audio, responde exactamente ${SIN_AUDIO}.`;
+const INSTRUCCION = `Transcribe literalmente esta nota de voz de WhatsApp o Instagram (normalmente en español; es de Tiroriro Home, un taller de cabeceros y muebles tapizados, o de uno de sus clientes). Devuelve SOLO la transcripción, sin comillas, sin comentarios ni explicaciones. Escribe los números y las medidas con cifras (160 x 120 cm). Si no se entiende nada o no hay voz, responde exactamente ${SIN_AUDIO}. Si no has recibido ningún audio, responde exactamente ${SIN_AUDIO}.`;
 
 function limpiarTranscripcion(t: string): string {
   const limpio = t.trim().replace(/^["«“]+|["»”]+$/g, "").trim();
@@ -150,6 +151,14 @@ async function transcribir(bytes: Uint8Array, mime: string): Promise<string> {
 }
 
 // ── Captura en el webhook ───────────────────────────────────────────────────
+/** Enlace del audio en un evento de Instagram (message.attachments[type=audio].payload.url). */
+function urlAudioInstagram(raw: Row): string {
+  const msg = isObj(raw.message) ? (raw.message as Row) : {};
+  const adjuntos = Array.isArray(msg.attachments) ? (msg.attachments as unknown[]).filter(isObj) : [];
+  const audio = adjuntos.find((a) => s(a.type) === "audio");
+  return s(isObj(audio?.payload) ? (audio!.payload as Row).url : "");
+}
+
 interface MensajeAudio { waId: string; tipo: string; historial: boolean; raw: unknown }
 
 /** Descarga al momento los audios en vivo (el enlace caduca en minutos) y los guarda aparte. */
@@ -157,12 +166,13 @@ export async function capturarAudiosWebhook(mensajes: MensajeAudio[]): Promise<v
   const audios = mensajes.filter((m) => TIPOS_AUDIO.includes(m.tipo) && !m.historial && isObj(m.raw)).slice(0, 10);
   await Promise.all(audios.map(async (m) => {
     const raw = m.raw as Row;
-    const cuerpo = isObj(raw[m.tipo]) ? (raw[m.tipo] as Row) : {};
-    const url = s(cuerpo.url);
+    const esIg = m.tipo === "ig_audio";
+    const cuerpo = esIg ? {} : isObj(raw[m.tipo]) ? (raw[m.tipo] as Row) : {};
+    const url = esIg ? urlAudioInstagram(raw) : s(cuerpo.url);
     let info: Row;
     try {
       if (!url) throw new Error("sin enlace en el webhook");
-      const token = process.env.WHATSAPP_ACCESS_TOKEN; // nunca la clave de Dualhook: esto va a Meta
+      const token = esIg ? "" : process.env.WHATSAPP_ACCESS_TOKEN; // nunca la clave de Dualhook: esto va a Meta
       const res = await fetchConTiempo(url, token ? { headers: { Authorization: `Bearer ${token}` } } : {}, 10_000);
       const ctype = (res.headers.get("content-type") ?? "").split(";")[0].trim();
       if (!res.ok) throw new Error(`WhatsApp respondió ${res.status}${ctype ? ` (${ctype})` : ""}`);
@@ -170,7 +180,8 @@ export async function capturarAudiosWebhook(mensajes: MensajeAudio[]): Promise<v
       const bytes = new Uint8Array(await res.arrayBuffer());
       if (bytes.length === 0) throw new Error("audio vacío");
       if (bytes.length > MAX_BYTES) throw new Error("audio demasiado largo");
-      const mime = (s(cuerpo.mime_type) || ctype || "audio/ogg").split(";")[0].trim();
+      // Instagram manda las notas de voz como MP4/AAC (a veces etiquetadas como vídeo).
+      const mime = (s(cuerpo.mime_type) || ctype || (esIg ? "audio/mp4" : "audio/ogg")).split(";")[0].trim().replace(/^video\//, "audio/");
       const path = `${CARPETA}/${m.waId.replace(/[^A-Za-z0-9_-]/g, "_").slice(-120)}.${mime.split("/")[1] || "ogg"}`;
       const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: mime, upsert: true });
       if (error) throw new Error("no se pudo guardar: " + error.message);
@@ -218,7 +229,7 @@ export async function transcribirAudiosPendientes(opts: { conversacionId?: strin
     const raw = isObj(m.raw) ? m.raw : {};
     const t = isObj(raw._transcripcion) ? raw._transcripcion : null;
     const guardado = isObj(raw._audio) && !!s((raw._audio as Row).path);
-    if (!guardado && !conClave) return false; // ni capturado ni forma de descargarlo
+    if (!guardado && (!conClave || s(m.tipo) === "ig_audio")) return false; // ni capturado ni forma de descargarlo
     if (!t) return true;
     return s(t.estado) === "error" && Number(t.intentos) < MAX_INTENTOS;
   }).slice(0, Math.max(1, Math.min(opts.limite ?? 4, 10)));
@@ -230,7 +241,7 @@ export async function transcribirAudiosPendientes(opts: { conversacionId?: strin
     const intentos = (Number(previo.intentos) || 0) + 1;
     const tipo = s(m.tipo);
     const cuerpo = isObj(raw[tipo]) ? (raw[tipo] as Row) : {};
-    const esVoz = cuerpo.voice === true || tipo === "voice";
+    const esVoz = cuerpo.voice === true || tipo === "voice" || tipo === "ig_audio";
     const caption = s(cuerpo.caption);
     const ahora = new Date().toISOString();
     const path = isObj(raw._audio) ? s((raw._audio as Row).path) : "";

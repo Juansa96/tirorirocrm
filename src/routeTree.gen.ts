@@ -33,7 +33,6 @@ import { Route as ClientesNuevoRouteImport } from './routes/clientes.nuevo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
-import { Route as ApiLeadsAvisoAsignacionRouteImport } from './routes/api/leads/aviso-asignacion'
 import { Route as ApiWhatsappProcesarRouteImport } from './routes/api/whatsapp/procesar'
 import { Route as ApiTapiceroFotoRouteImport } from './routes/api/tapicero/foto'
 import { Route as ApiTapiceroEnviarRouteImport } from './routes/api/tapicero/enviar'
@@ -46,6 +45,10 @@ import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/boot
 import { Route as ApiPedidosReferenciaRouteImport } from './routes/api/pedidos/referencia'
 import { Route as ApiPedidosEmailEntregaRouteImport } from './routes/api/pedidos/email-entrega'
 import { Route as ApiPedidosCroquisRouteImport } from './routes/api/pedidos/croquis'
+import { Route as ApiLeadsAvisoAsignacionRouteImport } from './routes/api/leads/aviso-asignacion'
+import { Route as ApiInstagramWebhookRouteImport } from './routes/api/instagram/webhook'
+import { Route as ApiInstagramConfigRouteImport } from './routes/api/instagram/config'
+import { Route as ApiCorreoEntradaRouteImport } from './routes/api/correo/entrada'
 import { Route as ApiAdminUsuariosRouteImport } from './routes/api/admin/usuarios'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -171,15 +174,8 @@ const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   path: '/api/whatsapp/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLeadsAvisoAsignacionRoute = ApiLeadsAvisoAsignacionRouteImport.update({
-  id: '/api/leads/aviso-asignacion',
-  path: '/api/leads/aviso-asignacion',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiWhatsappProcesarRoute = ApiWhatsappProcesarRouteImport.update({
-  id: '/api/leads/aviso-asignacion',
   id: '/api/whatsapp/procesar',
-  path: '/api/leads/aviso-asignacion',
   path: '/api/whatsapp/procesar',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -238,6 +234,26 @@ const ApiPedidosCroquisRoute = ApiPedidosCroquisRouteImport.update({
   path: '/api/pedidos/croquis',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLeadsAvisoAsignacionRoute = ApiLeadsAvisoAsignacionRouteImport.update({
+  id: '/api/leads/aviso-asignacion',
+  path: '/api/leads/aviso-asignacion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInstagramWebhookRoute = ApiInstagramWebhookRouteImport.update({
+  id: '/api/instagram/webhook',
+  path: '/api/instagram/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInstagramConfigRoute = ApiInstagramConfigRouteImport.update({
+  id: '/api/instagram/config',
+  path: '/api/instagram/config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCorreoEntradaRoute = ApiCorreoEntradaRouteImport.update({
+  id: '/api/correo/entrada',
+  path: '/api/correo/entrada',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminUsuariosRoute = ApiAdminUsuariosRouteImport.update({
   id: '/api/admin/usuarios',
   path: '/api/admin/usuarios',
@@ -285,6 +301,10 @@ export interface FileRoutesByFullPath {
   '/pedidos/': typeof PedidosIndexRoute
   '/whatsapp/': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
+  '/api/correo/entrada': typeof ApiCorreoEntradaRoute
+  '/api/instagram/config': typeof ApiInstagramConfigRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
+  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
@@ -296,7 +316,6 @@ export interface FileRoutesByFullPath {
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
-  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -327,6 +346,10 @@ export interface FileRoutesByTo {
   '/pedidos': typeof PedidosIndexRoute
   '/whatsapp': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
+  '/api/correo/entrada': typeof ApiCorreoEntradaRoute
+  '/api/instagram/config': typeof ApiInstagramConfigRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
+  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
@@ -338,7 +361,6 @@ export interface FileRoutesByTo {
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
-  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -371,6 +393,10 @@ export interface FileRoutesById {
   '/pedidos/': typeof PedidosIndexRoute
   '/whatsapp/': typeof WhatsappIndexRoute
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
+  '/api/correo/entrada': typeof ApiCorreoEntradaRoute
+  '/api/instagram/config': typeof ApiInstagramConfigRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
+  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
@@ -382,7 +408,6 @@ export interface FileRoutesById {
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
-  '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -416,6 +441,10 @@ export interface FileRouteTypes {
     | '/pedidos/'
     | '/whatsapp/'
     | '/api/admin/usuarios'
+    | '/api/correo/entrada'
+    | '/api/instagram/config'
+    | '/api/instagram/webhook'
+    | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
     | '/api/pedidos/referencia'
@@ -427,7 +456,6 @@ export interface FileRouteTypes {
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
-    | '/api/leads/aviso-asignacion'
     | '/api/whatsapp/procesar'
     | '/api/whatsapp/webhook'
     | '/lovable/email/auth/preview'
@@ -458,6 +486,10 @@ export interface FileRouteTypes {
     | '/pedidos'
     | '/whatsapp'
     | '/api/admin/usuarios'
+    | '/api/correo/entrada'
+    | '/api/instagram/config'
+    | '/api/instagram/webhook'
+    | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
     | '/api/pedidos/referencia'
@@ -469,7 +501,6 @@ export interface FileRouteTypes {
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
-    | '/api/leads/aviso-asignacion'
     | '/api/whatsapp/procesar'
     | '/api/whatsapp/webhook'
     | '/lovable/email/auth/preview'
@@ -501,6 +532,10 @@ export interface FileRouteTypes {
     | '/pedidos/'
     | '/whatsapp/'
     | '/api/admin/usuarios'
+    | '/api/correo/entrada'
+    | '/api/instagram/config'
+    | '/api/instagram/webhook'
+    | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
     | '/api/pedidos/referencia'
@@ -512,7 +547,6 @@ export interface FileRouteTypes {
     | '/api/tapicero/enlace'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
-    | '/api/leads/aviso-asignacion'
     | '/api/whatsapp/procesar'
     | '/api/whatsapp/webhook'
     | '/lovable/email/auth/preview'
@@ -543,6 +577,10 @@ export interface RootRouteChildren {
   PedidosIndexRoute: typeof PedidosIndexRoute
   WhatsappIndexRoute: typeof WhatsappIndexRoute
   ApiAdminUsuariosRoute: typeof ApiAdminUsuariosRoute
+  ApiCorreoEntradaRoute: typeof ApiCorreoEntradaRoute
+  ApiInstagramConfigRoute: typeof ApiInstagramConfigRoute
+  ApiInstagramWebhookRoute: typeof ApiInstagramWebhookRoute
+  ApiLeadsAvisoAsignacionRoute: typeof ApiLeadsAvisoAsignacionRoute
   ApiPedidosCroquisRoute: typeof ApiPedidosCroquisRoute
   ApiPedidosEmailEntregaRoute: typeof ApiPedidosEmailEntregaRoute
   ApiPedidosReferenciaRoute: typeof ApiPedidosReferenciaRoute
@@ -554,7 +592,6 @@ export interface RootRouteChildren {
   ApiTapiceroEnlaceRoute: typeof ApiTapiceroEnlaceRoute
   ApiTapiceroEnviarRoute: typeof ApiTapiceroEnviarRoute
   ApiTapiceroFotoRoute: typeof ApiTapiceroFotoRoute
-  ApiLeadsAvisoAsignacionRoute: typeof ApiLeadsAvisoAsignacionRoute
   ApiWhatsappProcesarRoute: typeof ApiWhatsappProcesarRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -732,21 +769,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/leads/aviso-asignacion': {
-      id: '/api/leads/aviso-asignacion'
-      path: '/api/leads/aviso-asignacion'
-      fullPath: '/api/leads/aviso-asignacion'
-      preLoaderRoute: typeof ApiLeadsAvisoAsignacionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/whatsapp/procesar': {
-      id: '/api/leads/aviso-asignacion'
       id: '/api/whatsapp/procesar'
-      path: '/api/leads/aviso-asignacion'
       path: '/api/whatsapp/procesar'
-      fullPath: '/api/leads/aviso-asignacion'
       fullPath: '/api/whatsapp/procesar'
-      preLoaderRoute: typeof ApiLeadsAvisoAsignacionRouteImport
       preLoaderRoute: typeof ApiWhatsappProcesarRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -827,6 +853,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPedidosCroquisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/leads/aviso-asignacion': {
+      id: '/api/leads/aviso-asignacion'
+      path: '/api/leads/aviso-asignacion'
+      fullPath: '/api/leads/aviso-asignacion'
+      preLoaderRoute: typeof ApiLeadsAvisoAsignacionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/instagram/webhook': {
+      id: '/api/instagram/webhook'
+      path: '/api/instagram/webhook'
+      fullPath: '/api/instagram/webhook'
+      preLoaderRoute: typeof ApiInstagramWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/instagram/config': {
+      id: '/api/instagram/config'
+      path: '/api/instagram/config'
+      fullPath: '/api/instagram/config'
+      preLoaderRoute: typeof ApiInstagramConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/correo/entrada': {
+      id: '/api/correo/entrada'
+      path: '/api/correo/entrada'
+      fullPath: '/api/correo/entrada'
+      preLoaderRoute: typeof ApiCorreoEntradaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/usuarios': {
       id: '/api/admin/usuarios'
       path: '/api/admin/usuarios'
@@ -893,6 +947,10 @@ const rootRouteChildren: RootRouteChildren = {
   PedidosIndexRoute: PedidosIndexRoute,
   WhatsappIndexRoute: WhatsappIndexRoute,
   ApiAdminUsuariosRoute: ApiAdminUsuariosRoute,
+  ApiCorreoEntradaRoute: ApiCorreoEntradaRoute,
+  ApiInstagramConfigRoute: ApiInstagramConfigRoute,
+  ApiInstagramWebhookRoute: ApiInstagramWebhookRoute,
+  ApiLeadsAvisoAsignacionRoute: ApiLeadsAvisoAsignacionRoute,
   ApiPedidosCroquisRoute: ApiPedidosCroquisRoute,
   ApiPedidosEmailEntregaRoute: ApiPedidosEmailEntregaRoute,
   ApiPedidosReferenciaRoute: ApiPedidosReferenciaRoute,
@@ -904,7 +962,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTapiceroEnlaceRoute: ApiTapiceroEnlaceRoute,
   ApiTapiceroEnviarRoute: ApiTapiceroEnviarRoute,
   ApiTapiceroFotoRoute: ApiTapiceroFotoRoute,
-  ApiLeadsAvisoAsignacionRoute: ApiLeadsAvisoAsignacionRoute,
   ApiWhatsappProcesarRoute: ApiWhatsappProcesarRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,

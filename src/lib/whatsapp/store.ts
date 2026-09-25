@@ -1,5 +1,6 @@
 // ══════════════════════════════════════════════════════════════════════════
-// Estado de WhatsApp en el navegador (bandeja /whatsapp y ficha del cliente).
+// Estado de la bandeja de mensajes en el navegador (/whatsapp y ficha del
+// cliente): WhatsApp, Instagram y email.
 //
 // Separado del store principal para no tocar src/lib/store.ts: carga las
 // conversaciones, propuestas y configuración, se suscribe a realtime y
@@ -15,13 +16,41 @@ import { actions } from "@/lib/store";
 import { todayISO } from "@/lib/format";
 import { normalizeTipo, TIPO_LABEL } from "@/lib/catalogo";
 import type { Lead, Producto, Etapa } from "@/lib/types";
+import { ETIQUETA_PROFESIONAL } from "@/lib/lead-profesional";
+import { canalDe, idDeClave, instagramDeNombre, nombreSinUsuario, CANAL_LABEL, CANAL_ORIGEN, CANAL_EMOJI, type Canal } from "./canales";
 import {
-  mapWaConversacion, mapWaMensaje, mapWaPropuesta, mapWaConfig, mapWaEvento, formatTelefonoWa,
+  mapWaConversacion, mapWaMensaje, mapWaPropuesta, mapWaConfig, mapWaEvento, formatTelefonoWa, formatTelefonoLibre, identificadorConversacion,
   type WaConversacion, type WaMensaje, type WaPropuesta, type WaConfig, type WaEvento, type ProductoIA,
 } from "./types";
 
+/** Estado de Instagram y email (tabla mensajeria_canales; solo la leen los admin). */
+export interface EstadoCanal {
+  canal: "instagram" | "email";
+  activo: boolean;
+  conectadoAt: string;
+  ultimoEventoAt: string;
+  ultimoError: string;
+  ultimoErrorAt: string;
+  usuario: string;            // Instagram: @ de la cuenta conectada
+  cuenta: string;             // Email: buzón
+  conClave: boolean;          // Instagram: hay clave guardada
+}
+
+function mapCanal(r: Record<string, unknown>): EstadoCanal {
+  const d = (r.datos && typeof r.datos === "object" ? r.datos : {}) as Record<string, unknown>;
+  const s = (v: unknown) => (v == null ? "" : String(v));
+  return {
+    canal: s(r.canal) === "email" ? "email" : "instagram",
+    activo: r.activo !== false,
+    conectadoAt: s(r.conectado_at), ultimoEventoAt: s(r.ultimo_evento_at),
+    ultimoError: s(r.ultimo_error), ultimoErrorAt: s(r.ultimo_error_at),
+    usuario: s(d.usuario), cuenta: s(d.cuenta), conClave: !!s(d.access_token),
+  };
+}
+
 interface WaState {
   loaded: boolean;
+  canales: EstadoCanal[];
   cargando: boolean;
   config: WaConfig | null;
   conversaciones: WaConversacion[];
@@ -31,7 +60,7 @@ interface WaState {
   analizando: boolean;
 }
 
-let state: WaState = { loaded: false, cargando: false, config: null, conversaciones: [], propuestas: [], mensajes: {}, eventos: [], analizando: false };
+let state: WaState = { loaded: false, canales: [], cargando: false, config: null, conversaciones: [], propuestas: [], mensajes: {}, eventos: [], analizando: false };
 const SERVER: WaState = state;
 const listeners = new Set<() => void>();
 function emit() { listeners.forEach((l) => l()); }
@@ -46,11 +75,13 @@ function ordenar(cs: WaConversacion[]): WaConversacion[] {
 
 async function cargarTodo() {
   set({ cargando: true });
-  const [cfg, convs, props, evs] = await Promise.all([
+  const [cfg, convs, props, evs, canales] = await Promise.all([
     supabase.from("whatsapp_config").select("*").eq("id", 1).maybeSingle(),
     supabase.from("whatsapp_conversaciones").select("*").order("ultimo_mensaje_at", { ascending: false, nullsFirst: false }).limit(1000),
     supabase.from("whatsapp_propuestas").select("*").order("created_at", { ascending: false }).limit(400),
     supabase.from("whatsapp_eventos").select("id, recibido_at, campo, mensajes, error").order("id", { ascending: false }).limit(20),
+    // Solo admin (RLS); para el resto vuelve vacío.
+    supabase.from("mensajeria_canales" as never).select("*"),
   ]);
   set({
     loaded: true,
@@ -59,6 +90,7 @@ async function cargarTodo() {
     conversaciones: ordenar(((convs.data ?? []) as Record<string, unknown>[]).map(mapWaConversacion)),
     propuestas: ((props.data ?? []) as Record<string, unknown>[]).map(mapWaPropuesta),
     eventos: ((evs.data ?? []) as Record<string, unknown>[]).map(mapWaEvento),
+    canales: ((canales.data ?? []) as Record<string, unknown>[]).map(mapCanal),
   });
 }
 
@@ -163,12 +195,12 @@ export const waActions = {
     }
   },
 
-  async vincular(conversacionId: string, leadId: string) {
+  async vincular(conversacionId: string, leadId: string, silencioso = false) {
     const { error } = await supabase.from("whatsapp_conversaciones").update({ lead_id: leadId, estado: "vinculada", analizado_hasta: null } as never).eq("id", conversacionId);
     if (error) { toast.error("No se pudo enlazar: " + error.message); return false; }
     // Las propuestas de "¿con qué cliente va?" quedan resueltas.
     await supabase.from("whatsapp_propuestas").update({ estado: "aceptada", resuelta_at: new Date().toISOString() } as never).eq("conversacion_id", conversacionId).in("tipo", ["vincular_lead", "crear_lead"]).eq("estado", "pendiente");
-    toast.success("Conversación enlazada. Se volverá a analizar con la ficha.");
+    if (!silencioso) toast.success("Conversación enlazada. Se volverá a analizar con la ficha.");
     return true;
   },
 
@@ -183,30 +215,43 @@ export const waActions = {
     if (ignorar) await supabase.from("whatsapp_propuestas").update({ estado: "rechazada", resuelta_at: new Date().toISOString() } as never).eq("conversacion_id", conversacionId).eq("estado", "pendiente");
   },
 
-  /** Crea el cliente con lo que la IA ha extraído y enlaza la conversación. */
-  async crearCliente(conv: WaConversacion, vendedor: string): Promise<Lead | null> {
+  /**
+   * Crea el cliente con lo que la IA ha extraído y enlaza la conversación (y
+   * las de la misma persona en otros canales, si se pasan).
+   */
+  async crearCliente(conv: WaConversacion, vendedor: string, opts: { relacionadas?: string[]; profesional?: string | null } = {}): Promise<Lead | null> {
     const d = conv.datos ?? {};
     const contacto = d.contacto ?? {};
+    const canal: Canal = canalDe(conv.telefono);
     const primerTipo = d.productos?.[0] ? normalizeTipo(d.productos[0].tipo) : null;
+    const ig = canal === "instagram" ? instagramDeNombre(conv.nombreWa) : (contacto.instagram ?? "").replace(/^@/, "").trim();
+    const nombrePerfil = nombreSinUsuario(conv.nombreWa);
     const lead = await actions.addLead({
-      nombre: (contacto.nombre || conv.nombreWa || `WhatsApp ${formatTelefonoWa(conv.telefono)}`).trim(),
-      email: contacto.email ?? "",
-      telefono: formatTelefonoWa(conv.telefono),
+      nombre: (contacto.nombre || nombrePerfil || `${CANAL_LABEL[canal]} ${identificadorConversacion(conv)}`).trim(),
+      email: canal === "email" ? idDeClave(conv.telefono) : contacto.email ?? "",
+      telefono: canal === "whatsapp" ? formatTelefonoWa(conv.telefono) : formatTelefonoLibre(contacto.telefono),
       ciudad: contacto.ciudad ?? "",
       provincia: contacto.provincia ?? "",
       producto: primerTipo ? TIPO_LABEL[primerTipo] : "Sin especificar",
       vendedor,
       etapa: "Discovery",
-      valor: 0, origen: "WhatsApp", redSocial: "", fechaHold: "", valorProducto: 0, valorEnvio: 0, edad: "",
-      clienteTipo: "normal", etiquetas: [], cobrado: false, fechaCobro: "",
+      valor: 0, origen: CANAL_ORIGEN[canal], redSocial: ig ? `@${ig}` : "", fechaHold: "", valorProducto: 0, valorEnvio: 0, edad: "",
+      clienteTipo: "normal", etiquetas: opts.profesional ? [ETIQUETA_PROFESIONAL] : [], cobrado: false, fechaCobro: "",
       tipo: "B2C", razonSocial: "", nif: "", contactoNombre: "", contactoApellidos: "", contactoCargo: "",
       direccion: contacto.direccion ?? "", web: "", instagram: "", notasB2b: "", asignados: [],
       seguidores: 0, redPrincipal: "", usuario: "",
     });
     if (!lead) return null;
-    for (const p of (d.productos ?? []).slice(0, 6)) await actions.addProducto(lead.id, productoDesdeIA(p));
-    if (conv.resumen) await actions.addNota(lead.id, `📱 Conversación de WhatsApp enlazada (${formatTelefonoWa(conv.telefono)}). ${conv.resumen}`);
+    for (const p of (d.productos ?? []).slice(0, 6)) await actions.addProducto(lead.id, productoDesdeIA(p, canal));
+    if (conv.resumen) await actions.addNota(lead.id, `${CANAL_EMOJI[canal]} Conversación de ${CANAL_LABEL[canal]} enlazada (${identificadorConversacion(conv)}). ${conv.resumen}`);
+    if (opts.profesional) await actions.addNota(lead.id, `Asignado a Juan: parece un profesional (${opts.profesional}).`);
     await waActions.vincular(conv.id, lead.id);
+    // La misma persona escribió también por otros canales: se enlazan todas.
+    for (const otra of opts.relacionadas ?? []) {
+      if (otra === conv.id) continue;
+      const c = state.conversaciones.find((x) => x.id === otra);
+      if (c && !c.leadId) await waActions.vincular(otra, lead.id, true);
+    }
     return lead;
   },
 
@@ -254,7 +299,7 @@ export const waActions = {
           if (!p.leadId) throw new Error("La propuesta no tiene cliente");
           const ia = (pl.producto ?? {}) as ProductoIA;
           if (pl.accion === "crear") {
-            await actions.addProducto(p.leadId, productoDesdeIA(ia));
+            await actions.addProducto(p.leadId, productoDesdeIA(ia, canalDe(state.conversaciones.find((c) => c.id === p.conversacionId)?.telefono)));
           } else {
             const actual = (extra.productoActual as Producto | undefined);
             if (!actual) throw new Error("No se encontró el producto a corregir");
@@ -285,10 +330,16 @@ export const waActions = {
           if (!conv) throw new Error("No se encontró la conversación");
           const leadId = String(extra.leadId ?? "");
           if (leadId) {
-            // Era un duplicado: se enlaza con el cliente que ya existía.
+            // Era un duplicado: se enlaza con el cliente que ya existía (y las
+            // conversaciones de la misma persona en otros canales).
             await waActions.vincular(p.conversacionId, leadId);
+            for (const r of (Array.isArray(pl.relacionadas) ? pl.relacionadas : []) as Array<Record<string, unknown>>) {
+              const c = state.conversaciones.find((x) => x.id === String(r.id ?? ""));
+              if (c && !c.leadId) await waActions.vincular(c.id, leadId, true);
+            }
           } else {
-            const lead = await waActions.crearCliente(conv, String(extra.vendedor ?? usuario));
+            const relacionadas = (Array.isArray(pl.relacionadas) ? pl.relacionadas : []).map((r) => String((r as Record<string, unknown>).id ?? "")).filter(Boolean);
+            const lead = await waActions.crearCliente(conv, String(extra.vendedor ?? usuario), { relacionadas, profesional: pl.profesional ? String(pl.profesional) : null });
             if (!lead) throw new Error("No se pudo crear el cliente");
           }
           break;
@@ -323,7 +374,7 @@ function productoInput(p: Producto): ProductoInput {
   };
 }
 
-export function productoDesdeIA(p: ProductoIA): ProductoInput {
+export function productoDesdeIA(p: ProductoIA, canal: Canal = "whatsapp"): ProductoInput {
   return {
     tipo: normalizeTipo(p.tipo) ?? "otro",
     modelo: (p.modelo ?? "").trim(),
@@ -333,6 +384,6 @@ export function productoDesdeIA(p: ProductoIA): ProductoInput {
     acabado: "", coleccionTela: "",
     cantidad: Math.max(1, Math.floor(Number(p.cantidad) || 1)),
     precioUnitario: Math.max(0, Number(p.precio) || 0),
-    notasProducto: ["Desde WhatsApp", (p.notas ?? "").trim()].filter(Boolean).join(" · "),
+    notasProducto: [`Desde ${CANAL_LABEL[canal]}`, (p.notas ?? "").trim()].filter(Boolean).join(" · "),
   };
 }
