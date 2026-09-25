@@ -98,7 +98,8 @@ async function transcribirGemini(b64: string, mime: string): Promise<string> {
     }),
   }, 60_000);
   if (!res.ok) throw new ErrorAudio(`Gemini no pudo transcribir (${res.status}): ${(await res.text()).slice(0, 200)}`);
-  const data = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }> };
+  const data = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } };
+  ultimoConsumo = { modelo: model, tokensEntrada: Number(data.usageMetadata?.promptTokenCount) || 0, tokensSalida: (Number(data.usageMetadata?.candidatesTokenCount) || 0) + (Number(data.usageMetadata?.thoughtsTokenCount) || 0), segundos: 0, bytes: 0, intentosFormato: 1 };
   const texto = (data.candidates?.[0]?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("");
   return limpiarTranscripcion(texto);
 }
@@ -114,6 +115,10 @@ const VARIANTES: Variante[] = [
 ];
 let varianteBuena: number | null = null;
 
+// Consumo de la última llamada (para saber el coste real por audio).
+interface Consumo { modelo: string; tokensEntrada: number; tokensSalida: number; segundos: number; bytes: number; intentosFormato: number }
+let ultimoConsumo: Consumo | null = null;
+
 async function transcribirLovable(b64: string, mime: string): Promise<string> {
   const apiKey = process.env.LOVABLE_API_KEY ?? "";
   const model = process.env.WHATSAPP_AUDIO_MODEL_LOVABLE || "google/gemini-2.5-flash";
@@ -127,7 +132,8 @@ async function transcribirLovable(b64: string, mime: string): Promise<string> {
     }, 60_000);
     if (res.status === 429 || res.status === 402) throw new ErrorAudio(`La pasarela de IA no atiende ahora (${res.status})`);
     if (!res.ok) { ultimo = `(${res.status}) ${(await res.text()).slice(0, 160)}`; continue; }
-    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string | null } }> };
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string | null } }>; usage?: { prompt_tokens?: number; completion_tokens?: number }; model?: string };
+    ultimoConsumo = { modelo: data.model || model, tokensEntrada: Number(data.usage?.prompt_tokens) || 0, tokensSalida: Number(data.usage?.completion_tokens) || 0, segundos: 0, bytes: 0, intentosFormato: orden.indexOf(i) + 1 };
     const bruto = s(data.choices?.[0]?.message?.content);
     // Si el modelo no ha recibido el audio, contesta la marca: probar la siguiente forma.
     if (!bruto || bruto.includes(SIN_AUDIO) || /no (puedo|he recibido|veo).{0,40}audio/i.test(bruto)) { ultimo = "el modelo no recibió el audio"; continue; }
@@ -138,6 +144,7 @@ async function transcribirLovable(b64: string, mime: string): Promise<string> {
 }
 
 async function transcribir(bytes: Uint8Array, mime: string): Promise<string> {
+  ultimoConsumo = null;
   const b64 = bytesABase64(bytes);
   return process.env.GEMINI_API_KEY ? transcribirGemini(b64, mime) : transcribirLovable(b64, mime);
 }
@@ -242,7 +249,7 @@ export async function transcribirAudiosPendientes(opts: { conversacionId?: strin
       const etiqueta = esVoz ? "[Nota de voz]" : "[Audio]";
       patch = {
         texto: texto ? `${etiqueta} «${texto}»${caption ? ` ${caption}` : ""}` : `${etiqueta} (sin voz reconocible)${caption ? ` ${caption}` : ""}`,
-        raw: { ...raw, _transcripcion: { estado: "ok", texto, at: ahora } },
+        raw: { ...raw, _transcripcion: { estado: "ok", texto, at: ahora, consumo: ultimoConsumo ? { ...ultimoConsumo, segundos: Number(cuerpo.seconds) || null, bytes: audio.bytes.length, via: process.env.GEMINI_API_KEY ? "gemini" : "lovable" } : null } },
       };
       informe.transcritos++;
       const convId = s(m.conversacion_id);
