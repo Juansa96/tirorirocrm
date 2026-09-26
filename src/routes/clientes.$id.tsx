@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ArrowLeft, Mail, Phone, MapPin, Plus, History, Trash2,
   Edit2, Check, X, MessageSquare, ShoppingBag, Radio, Clock, AlertTriangle, Package, Camera, ImagePlus, Hammer, ChevronDown, ChevronRight, PackageCheck,
+  PhoneCall, MessageCircle, CalendarPlus,
 } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ORIGENES, RANGOS_EDAD, ASIGNADOS_B2B, REDES_SOCIALES, CAMPANA_FIELDS, CANAL_COLORS, canalOf, vendorName, tapiceroNombre, HISTORIAL_LABELS, type Etapa, type Lead, type Tarea, type AsignadoB2B } from "@/lib/types";
@@ -125,6 +126,8 @@ function ClienteDetalle() {
   const [localValorProducto, setLocalValorProducto] = useState<number | null>(null);
   const [localValorEnvio, setLocalValorEnvio] = useState<number | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState({ descripcion: "", fecha: todayISO(), hora: "" });
+  // "Tarea" en las acciones rápidas: abre la pestaña de notas y enfoca el campo.
+  const nuevaTareaRef = useRef<HTMLInputElement>(null);
   const [nuevaNota, setNuevaNota] = useState("");
   const [editingNota, setEditingNota] = useState<string | null>(null);
   const [editNotaText, setEditNotaText] = useState("");
@@ -397,43 +400,64 @@ function ClienteDetalle() {
         />
       )}
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-        <div className="min-w-0 flex-1">
-          {editing && draft ? (
-            <input
-              value={draft.nombre}
-              onChange={(e) => setDraft({ ...draft, nombre: e.target.value })}
-              onBlur={(e) => saveDraftField("nombre", e.target.value)}
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xl font-bold sm:text-2xl"
-            />
-          ) : (
-            <h1 className="truncate text-xl font-bold sm:text-2xl">{lead.nombre}</h1>
-          )}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <SellerBadge vendedor={lead.vendedor} />
-            {recurrente && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700" title="Este cliente (o el mismo teléfono/email) ya recibió algún pedido: es un cliente recurrente.">
-                ★ Cliente recurrente
-              </span>
+      {/* Cabecera: avatar, nombre completo (sin cortar), vendedor y acciones
+          rápidas al estilo de Contactos de iOS (Llamar · WhatsApp · Email ·
+          Tarea). Eliminar queda como icono discreto: antes el botón rojo se
+          comía el nombre en el móvil ("Elena Sa…"). */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+        <div className="flex items-start gap-3 md:gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1a1f36] text-base font-bold text-white md:h-14 md:w-14 md:text-lg" aria-hidden>
+            {(lead.nombre || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            {editing && draft ? (
+              <input
+                value={draft.nombre}
+                onChange={(e) => setDraft({ ...draft, nombre: e.target.value })}
+                onBlur={(e) => saveDraftField("nombre", e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xl font-bold sm:text-2xl"
+              />
+            ) : (
+              <h1 className="break-words text-[22px] font-bold leading-tight tracking-tight text-slate-900 sm:text-2xl">{lead.nombre}</h1>
             )}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <SellerBadge vendedor={lead.vendedor} />
+              {lead.ciudad && <span className="inline-flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3 w-3" /> {lead.ciudad}</span>}
+              {recurrente && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700" title="Este cliente (o el mismo teléfono/email) ya recibió algún pedido: es un cliente recurrente.">
+                  ★ Cliente recurrente
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <DeleteLeadButton id={lead.id} redirectAfter variant="menu" />
+            <button onClick={editing ? closeEditing : openEditing} className={`h-9 rounded-full px-4 text-sm font-semibold transition-colors ${editing ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`}>
+              {editing ? "Hecho" : "Editar"}
+            </button>
           </div>
         </div>
-        <div className="flex shrink-0 gap-2">
-          {yaEntregado && (
-            <button
-              onClick={crearNuevoEncargo}
-              title="Crea un lead nuevo con los datos de este cliente para un encargo nuevo, empezando el pipeline desde el principio."
-              className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
-            >
-              + Nuevo encargo
-            </button>
-          )}
-          <DeleteLeadButton id={lead.id} redirectAfter />
-          <button onClick={editing ? closeEditing : openEditing} className="rounded-lg bg-[#1a1f36] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#2a2f46]">
-            {editing ? "Hecho" : "Editar"}
-          </button>
+
+        <div className="mt-4 grid grid-cols-4 gap-2 md:max-w-xl">
+          <AccionRapida icon={PhoneCall} label="Llamar" href={lead.telefono ? `tel:${lead.telefono.replace(/[^\d+]/g, "")}` : undefined} />
+          <AccionRapida icon={MessageCircle} label="WhatsApp" href={lead.telefono ? `https://wa.me/${lead.telefono.replace(/\D/g, "").replace(/^(?!34)(\d{9})$/, "34$1")}` : undefined} tono="whatsapp" />
+          <AccionRapida icon={Mail} label="Email" href={lead.email ? `mailto:${lead.email}` : undefined} />
+          <AccionRapida
+            icon={CalendarPlus}
+            label="Tarea"
+            onClick={() => { setTab("notas"); setTimeout(() => { nuevaTareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); nuevaTareaRef.current?.focus(); }, 60); }}
+          />
         </div>
+
+        {yaEntregado && (
+          <button
+            onClick={crearNuevoEncargo}
+            title="Crea un lead nuevo con los datos de este cliente para un encargo nuevo, empezando el pipeline desde el principio."
+            className="mt-3 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100 sm:w-auto"
+          >
+            <Plus className="h-4 w-4" /> Nuevo encargo para este cliente
+          </button>
+        )}
       </div>
 
       {/* Aviso de posibles duplicados (mismo teléfono o email) */}
@@ -469,11 +493,12 @@ function ClienteDetalle() {
       {/* Pestañas: la ficha eran 10-13 bloques seguidos sin índice. Se abre en
           "Productos y pedidos" si el cliente ya tiene producto; si no, en Datos. */}
       <div className="sticky top-0 z-20 -mx-4 bg-slate-50/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0 md:py-0">
-        <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-white p-1 text-sm">
-          {([["datos", "Datos"], ["productos", `Productos y pedidos${leadProductos.length ? ` (${leadProductos.length})` : ""}`], ["notas", "Notas y fotos"]] as const).map(([k, label]) => (
-            <button key={k} type="button" onClick={() => setTab(k)}
-              className={`min-h-11 rounded-lg px-2 font-semibold transition-colors ${tabActiva === k ? "bg-[#1a1f36] text-white" : "text-slate-600 hover:bg-slate-50"}`}>
-              {label}
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-200/70 p-1 text-sm" role="tablist">
+          {([["datos", "Datos", "Datos"], ["productos", `Productos${leadProductos.length ? ` (${leadProductos.length})` : ""}`, `Productos y pedidos${leadProductos.length ? ` (${leadProductos.length})` : ""}`], ["notas", "Notas", "Notas, tareas y fotos"]] as const).map(([k, corto, largo]) => (
+            <button key={k} type="button" role="tab" aria-selected={tabActiva === k} onClick={() => setTab(k)}
+              className={`min-h-10 rounded-lg px-2 text-[14px] font-semibold transition-all ${tabActiva === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
+              <span className="md:hidden">{corto}</span>
+              <span className="hidden md:inline">{largo}</span>
             </button>
           ))}
         </div>
@@ -975,7 +1000,7 @@ function ClienteDetalle() {
         <div className="mt-4 rounded-lg border border-dashed border-slate-300 p-3">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Nueva tarea</div>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto_auto_auto]">
-            <input placeholder="Descripción de la tarea…" value={nuevaTarea.descripcion}
+            <input ref={nuevaTareaRef} placeholder="Descripción de la tarea…" value={nuevaTarea.descripcion}
               onChange={(e) => setNuevaTarea({ ...nuevaTarea, descripcion: e.target.value })}
               className="rounded border border-slate-200 px-3 py-2 text-sm" />
             <input type="date" value={nuevaTarea.fecha}
@@ -1084,6 +1109,25 @@ function ClienteDetalle() {
       </>)}
     </div>
   );
+}
+
+// Botón de acción rápida de la cabecera (icono en círculo + etiqueta). Sin
+// dato (teléfono/email vacío) se enseña apagado.
+function AccionRapida({ icon: Icon, label, href, onClick, tono = "neutro" }: {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  tono?: "neutro" | "whatsapp";
+}) {
+  const disabled = !href && !onClick;
+  const cls = `flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl py-2 text-[12px] font-medium transition-colors ${disabled ? "cursor-default bg-slate-50 text-slate-300" : tono === "whatsapp" ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:bg-emerald-100" : "bg-slate-100 text-[#1a1f36] hover:bg-slate-200 active:bg-slate-200"}`;
+  const inner = (<><Icon className="h-5 w-5" strokeWidth={2} /><span>{label}</span></>);
+  if (href && !disabled) {
+    const externo = href.startsWith("http");
+    return <a href={href} target={externo ? "_blank" : undefined} rel={externo ? "noreferrer" : undefined} className={cls}>{inner}</a>;
+  }
+  return <button type="button" onClick={onClick} disabled={disabled} className={cls} aria-disabled={disabled}>{inner}</button>;
 }
 
 function InfoRow({ icon: Icon, label, children }: { icon: React.ComponentType<{ className?: string }>; label: string; children: React.ReactNode }) {

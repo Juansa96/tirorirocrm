@@ -137,11 +137,64 @@
     border-color: var(--color-border);
   }
 
+  html {
+    /* Que iOS no agrande el texto al girar el móvil ni resalte los toques. */
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    /* Tipografía del sistema: SF en iPhone/iPad/Mac, Segoe/Roboto en el resto. */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Sin "rebote" de la página entera al llegar arriba (la barra fija se
+       quedaba descolocada en Safari). */
+    overscroll-behavior-y: none;
+  }
+
+  button, [role="button"], a, label, summary {
+    /* Sin retardo de 300 ms al tocar y sin zoom por doble toque. */
+    touch-action: manipulation;
+  }
+
+  /* Números alineados en cifras y tablas. */
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+}
+
+/* ── Móvil y tablet (fuera de @layer para ganar a las utilidades) ─────────
+   1. iOS hace zoom automático al enfocar un campo con letra menor de 16 px:
+      en pantallas de móvil todos los campos van a 16 px.
+   2. Con pantalla táctil, todo botón tiene al menos 40 px de alto (Apple pide
+      44 pt para el objetivo del dedo). `.tap-free` lo exime (micro-botones
+      dentro de una etiqueta). */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
+@media (pointer: coarse) {
+  button:not(.tap-free):not([role="tab"]) { min-height: 40px; }
+}
+
+/* Barras translúcidas (cabecera y pestañas del móvil) al estilo iOS. */
+.bar-blur {
+  background-color: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Carrusel sin barra de desplazamiento visible (pastillas, columnas). */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Área segura del iPhone (muesca abajo). */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 
 @keyframes pulse-x {
   0%, 100% { transform: translateX(0); }

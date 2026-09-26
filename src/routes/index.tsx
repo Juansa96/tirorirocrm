@@ -13,7 +13,7 @@ import { TaskItem } from "@/components/TaskItem";
 import { sellerStyle } from "@/components/SellerBadge";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "Dashboard — TiroCRM" }] }),
+  head: () => ({ meta: [{ title: "Inicio — TiroCRM" }] }),
   component: Dashboard,
 });
 
@@ -277,7 +277,7 @@ function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Inicio</h1>
           <p className="text-sm text-slate-500">Resumen del pipeline de ventas</p>
         </div>
         <div className="flex items-center gap-2">
