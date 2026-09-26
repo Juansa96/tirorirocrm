@@ -106,28 +106,31 @@ function WhatsappPage() {
             {sinAnalizar > 0 && ` · ${sinAnalizar} chat${sinAnalizar === 1 ? "" : "s"} con mensajes sin leer por la IA`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => void waActions.recargar()} disabled={wa.cargando} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-            <RefreshCw className={`h-4 w-4 ${wa.cargando ? "animate-spin" : ""}`} /> Actualizar
+        {/* En móvil, solo iconos (el texto vive en el title/aria-label). */}
+        <div className="flex items-center gap-2">
+          <button onClick={() => void waActions.recargar()} disabled={wa.cargando} aria-label="Actualizar" title="Actualizar" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 md:w-auto md:gap-1.5 md:rounded-xl md:px-3">
+            <RefreshCw className={`h-4 w-4 ${wa.cargando ? "animate-spin" : ""}`} /> <span className="hidden text-sm font-medium md:inline">Actualizar</span>
           </button>
-          <button onClick={() => void waActions.analizar()} disabled={wa.analizando} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3 py-2 text-sm font-semibold text-white hover:bg-[#2a2f46] disabled:opacity-50">
-            <Sparkles className={`h-4 w-4 ${wa.analizando ? "animate-pulse" : ""}`} /> {wa.analizando ? "Analizando…" : "Analizar ahora"}
+          <button onClick={() => void waActions.analizar()} disabled={wa.analizando} aria-label="Analizar ahora" title="Analizar ahora" className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1a1f36] text-white hover:bg-[#2a2f46] disabled:opacity-50 md:w-auto md:gap-1.5 md:rounded-xl md:px-3">
+            <Sparkles className={`h-4 w-4 ${wa.analizando ? "animate-pulse" : ""}`} /> <span className="hidden text-sm font-semibold md:inline">{wa.analizando ? "Analizando…" : "Analizar ahora"}</span>
           </button>
         </div>
       </div>
 
       {/* Estado de la conexión */}
+      {/* Estado de la conexión: en móvil, una sola línea (el detalle por canal
+          y el último análisis solo en pantallas anchas o dentro de Configuración). */}
       <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-4 py-2.5 text-xs ${!cfg ? "border-rose-200 bg-rose-50 text-rose-700" : conectado ? "border-emerald-200 bg-emerald-50/60 text-emerald-800" : "border-amber-200 bg-amber-50/60 text-amber-800"}`}>
         {!cfg ? (
           <span className="inline-flex items-center gap-1.5"><WifiOff className="h-3.5 w-3.5" /> Falta la configuración de WhatsApp en la base de datos.</span>
         ) : conectado ? (
-          <span className="inline-flex items-center gap-1.5"><Wifi className="h-3.5 w-3.5" /> WhatsApp conectado · último mensaje recibido {tiempoRelativo(cfg.ultimoEventoAt)}</span>
+          <span className="inline-flex items-center gap-1.5"><Wifi className="h-3.5 w-3.5 shrink-0" /> WhatsApp conectado<span className="hidden sm:inline"> · último mensaje recibido {tiempoRelativo(cfg.ultimoEventoAt)}</span></span>
         ) : (
-          <span className="inline-flex items-center gap-1.5"><WifiOff className="h-3.5 w-3.5" /> Todavía no ha llegado ningún mensaje. Falta vincular el número en el proveedor (ver configuración).</span>
+          <span className="inline-flex items-center gap-1.5"><WifiOff className="h-3.5 w-3.5 shrink-0" /> Todavía no ha llegado ningún mensaje. Falta vincular el número en el proveedor (ver configuración).</span>
         )}
-        {esAdmin && <EstadoCanalChip nombre="Instagram" icono={<Instagram className="h-3.5 w-3.5" />} estado={ig} />}
-        {esAdmin && <EstadoCanalChip nombre="Email" icono={<Mail className="h-3.5 w-3.5" />} estado={correo} />}
-        {cfg?.ultimoProcesoAt && <span>Último análisis {tiempoRelativo(cfg.ultimoProcesoAt)}</span>}
+        {esAdmin && <span className="hidden md:inline-flex"><EstadoCanalChip nombre="Instagram" icono={<Instagram className="h-3.5 w-3.5" />} estado={ig} /></span>}
+        {esAdmin && <span className="hidden md:inline-flex"><EstadoCanalChip nombre="Email" icono={<Mail className="h-3.5 w-3.5" />} estado={correo} /></span>}
+        {cfg?.ultimoProcesoAt && <span className="hidden md:inline">Último análisis {tiempoRelativo(cfg.ultimoProcesoAt)}</span>}
         {cfg && !cfg.activo && <span className="font-semibold">Análisis desactivado</span>}
         {cfg?.ultimoError && (
           <span className="inline-flex items-center gap-1 text-rose-700" title={cfg.ultimoError}><AlertTriangle className="h-3.5 w-3.5" /> Último error {tiempoRelativo(cfg.ultimoErrorAt)}: {cfg.ultimoError.slice(0, 90)}</span>
@@ -141,6 +144,11 @@ function WhatsappPage() {
 
       {verConfig && cfg && (
         <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 md:hidden">
+            <EstadoCanalChip nombre="Instagram" icono={<Instagram className="h-3.5 w-3.5" />} estado={ig} />
+            <EstadoCanalChip nombre="Email" icono={<Mail className="h-3.5 w-3.5" />} estado={correo} />
+            {cfg.ultimoProcesoAt && <span>Último análisis {tiempoRelativo(cfg.ultimoProcesoAt)}</span>}
+          </div>
           <h2 className="flex items-center gap-2 font-semibold"><MessageCircle className="h-4 w-4 text-emerald-600" /> Conectar el número de WhatsApp Business</h2>
           <ol className="list-decimal space-y-1.5 pl-5 text-slate-600">
             <li>Alta en el proveedor de coexistencia (Dualhook) y vincular el número escaneando el código QR desde la app WhatsApp Business del móvil. Marcar «compartir historial».</li>
