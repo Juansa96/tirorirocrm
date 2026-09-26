@@ -27,6 +27,9 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
   const { pedidoArchivos, tapiceros, iaEnCurso } = useStore();
   // Croquis que Claude seguía dibujando cuando se cerró o recargó la página.
   useEffect(() => { void actions.reanudarCroquisIA(pedido.id); }, [pedido.id]);
+  // Croquis aprobados cuando aún se guardaban en SVG: se pasan a PDF.
+  const haySvgAprobado = pedidoArchivos.some((a) => a.pedidoId === pedido.id && a.tipo === "plantilla" && /^croquis-claude-.*\.svg$/i.test(a.nombre) && !archivoPendienteIA(a));
+  useEffect(() => { if (haySvgAprobado) void actions.pasarCroquisAprobadosAPdf(pedido.id); }, [pedido.id, haySvgAprobado]);
   const roles = telasDeProducto(producto?.tipo);
   const telaDe = (rol: string) => telas.find((t) => t.tipoTela.toLowerCase() === rol.toLowerCase());
   const tapicero = tapiceros.find((t) => t.id === pedido.tapiceroId);

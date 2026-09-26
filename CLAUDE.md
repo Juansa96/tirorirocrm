@@ -110,6 +110,11 @@ desde aquí con garantías.
   (`ARCHIVO_IA_PENDIENTE` en `src/lib/types.ts`). El tapicero NO lo ve hasta que
   alguien del equipo pulsa **Aprobar** (entonces `subido_por` pasa a ser quien
   aprobó). El filtro "qué falta" distingue "croquis" de "croquis por aprobar".
+- **El croquis que recibe el tapicero es PDF** (Juan, 26/09/2026). Claude lo
+  genera en SVG y así se queda mientras está pendiente (Corregir lo necesita);
+  al pulsar **Aprobar**, el navegador lo pasa a PDF A4 apaisado a 300 ppp
+  (`src/lib/croquis-pdf.ts`, sin librerías) y sustituye el archivo. Los
+  croquis aprobados cuando aún eran SVG se convierten solos al abrir la ficha.
 - Los enchufes/huecos/anclajes se guardan en `pasos_tapicero["@huecos"]`
   (`huecosDe` / `conHuecos` en `types.ts`) y se pasan al prompt del croquis.
 
