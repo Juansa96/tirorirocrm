@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus, Sparkles, RefreshCw, MessageSquarePlus, Loader2, Plug } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,8 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
   setTelas: (updater: (prev: TelaDraft[]) => TelaDraft[]) => void;
 }) {
   const { pedidoArchivos, tapiceros, iaEnCurso } = useStore();
+  // Croquis que Claude seguía dibujando cuando se cerró o recargó la página.
+  useEffect(() => { void actions.reanudarCroquisIA(pedido.id); }, [pedido.id]);
   const roles = telasDeProducto(producto?.tipo);
   const telaDe = (rol: string) => telas.find((t) => t.tipoTela.toLowerCase() === rol.toLowerCase());
   const tapicero = tapiceros.find((t) => t.id === pedido.tapiceroId);
