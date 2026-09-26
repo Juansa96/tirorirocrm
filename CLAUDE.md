@@ -157,6 +157,11 @@ Reglas de negocio (decididas con Juan, no cambiarlas sin preguntarle):
   archivo. Estado en `raw._audio` (descarga) y `raw._transcripcion`. Con
   `DUALHOOK_API_KEY`/`WHATSAPP_ACCESS_TOKEN` (opcionales) también se recuperan
   por id los de los últimos 7 días.
+- Contador (`mensajes`) y fechas (`ultimo_mensaje_at`, `ultimo_mensaje_entrante_at`)
+  de cada conversación: los mantiene el trigger `whatsapp_mensajes_contador`
+  al insertar mensajes (migración `20260926150000`, ya aplicada). Así un
+  webhook que falle a medias (responde 200 y no hay reintento) no deja chats
+  a 0 escondidos de la bandeja y de la IA.
 - Los mensajes de WhatsApp se guardan tal cual (datos personales): no
   exponerlos fuera del equipo (RLS `es_equipo()`), no mandarlos a servicios
   nuevos sin avisar a Juan.
