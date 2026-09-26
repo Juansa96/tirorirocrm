@@ -2518,16 +2518,18 @@ export const actions = {
     pasandoAPdf.add(pedidoId);
     let hecho = false;
     try {
-    for (const a of svgs) {
-      const pdf = await croquisAPdf(a.pedidoId, a.storagePath, a.nombre);
-      if (!pdf) continue;
-      const { error } = await supabase.from("pedido_archivos").update(pdf as never).eq("id", a.id);
-      if (error) { await supabase.storage.from("pedido-archivos").remove([pdf.storage_path]); continue; }
-      await supabase.storage.from("pedido-archivos").remove([a.storagePath]);
-      hecho = true;
+      for (const a of svgs) {
+        const pdf = await croquisAPdf(a.pedidoId, a.storagePath, a.nombre);
+        if (!pdf) continue;
+        const { error } = await supabase.from("pedido_archivos").update(pdf as never).eq("id", a.id);
+        if (error) { await supabase.storage.from("pedido-archivos").remove([pdf.storage_path]); continue; }
+        await supabase.storage.from("pedido-archivos").remove([a.storagePath]);
+        hecho = true;
+      }
+      if (hecho) { await refetchPedidoArchivos(); toast.success("Croquis pasado a PDF."); }
+    } finally {
+      pasandoAPdf.delete(pedidoId);
     }
-    if (hecho) { await refetchPedidoArchivos(); toast.success("Croquis pasado a PDF."); }
-    } finally { pasandoAPdf.delete(pedidoId); }
   },
   // Aprobar un archivo generado: pasa a ser un archivo normal (subido_por =
   // quien aprueba) y el tapicero ya lo ve. Los otros archivos del mismo tipo
