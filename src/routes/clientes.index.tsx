@@ -306,6 +306,8 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
     );
   }
 
+  const selectCls = "h-11 min-w-0 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-700 focus:border-slate-400 focus:outline-none md:h-10 md:text-sm";
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -360,20 +362,20 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="relative col-span-2 md:col-span-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre, email o teléfono" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-slate-400 focus:outline-none" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre, email o teléfono" className="h-11 w-full rounded-xl border-0 bg-slate-100 pl-10 pr-3 text-[15px] text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 md:h-10 md:text-sm" />
         </div>
-        <select value={vendedor} onChange={(e) => setVendedor(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-          <option value="">Todos los vendedores</option>
+        <select value={vendedor} onChange={(e) => setVendedor(e.target.value)} className={selectCls} aria-label="Vendedor">
+          <option value="">Vendedor: todos</option>
           <option value="__sin__">Sin asignar</option>
           {VENDEDORES.map((v) => (<option key={v} value={v}>{vendorName(v)}</option>))}
         </select>
-        <select value={producto} onChange={(e) => setProducto(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-          <option value="">Todos los intereses</option>
+        <select value={producto} onChange={(e) => setProducto(e.target.value)} className={selectCls} aria-label="Interés">
+          <option value="">Interés: todos</option>
           {productos.map((p) => (<option key={p} value={p}>{p}</option>))}
         </select>
-        <select value={ciudad} onChange={(e) => setCiudad(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-          <option value="">Todas las ciudades</option>
+        <select value={ciudad} onChange={(e) => setCiudad(e.target.value)} className={selectCls} aria-label="Ciudad">
+          <option value="">Ciudad: todas</option>
           {ciudades.map((c) => (<option key={c} value={c}>{c}</option>))}
         </select>
         {/* En tarjetas (por debajo de 1024 px) no hay cabeceras de columna:
@@ -381,7 +383,7 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
         <select
           value={sort ? `${sort.key}:${sort.dir}` : ""}
           onChange={(e) => { const [k, d] = e.target.value.split(":"); setSort(k ? { key: k as SortKey, dir: d === "desc" ? "desc" : "asc" } : null); }}
-          className="col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm md:col-span-1 lg:hidden"
+          className={`${selectCls} lg:hidden`}
           aria-label="Ordenar por"
         >
           <option value="">Ordenar: por defecto</option>
@@ -395,13 +397,13 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
         </select>
       </div>
 
-      {/* Chips de filtro por etapa */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-500">Etapa:</span>
+      {/* Chips de filtro por etapa (en móvil se desplazan en horizontal) */}
+      <div className="no-scrollbar -mx-4 flex items-center gap-1.5 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
+        <span className="mr-1 shrink-0 text-xs font-medium uppercase tracking-wide text-slate-500">Etapa:</span>
         <button
           type="button"
           onClick={() => setEtapaFiltro("")}
-          className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${etapaFiltro === "" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+          className={`shrink-0 rounded-full px-3 py-1 text-[13px] font-medium transition-colors ${etapaFiltro === "" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
         >
           Todas
         </button>
@@ -412,7 +414,7 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
               key={e}
               type="button"
               onClick={() => setEtapaFiltro(active ? "" : e)}
-              className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+              className="shrink-0 rounded-full px-3 py-1 text-[13px] font-medium transition-colors"
               style={{
                 backgroundColor: active ? ETAPA_COLORS[e] : "#f1f5f9",
                 color: active ? "#fff" : "#475569",
@@ -426,7 +428,7 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
           <select
             value={etiqueta}
             onChange={(e) => setEtiqueta(e.target.value)}
-            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
+            className="ml-2 h-10 shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-[13px] md:h-8"
           >
             <option value="">Todas las etiquetas</option>
             {etiquetasAll.map((et) => <option key={et} value={et}>{et}</option>)}
@@ -501,39 +503,33 @@ function ClientesList({ influencers = false }: { influencers?: boolean }) {
       <div className="space-y-2 lg:hidden">
         {sorted.map((l) => {
           const next = nextPendingTaskFor(l.id, tareas);
+          const nPedidos = pedidos.filter((p) => p.leadId === l.id).length;
           return (
-            <div key={l.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <Link
-                to="/clientes/$id"
-                params={{ id: l.id }}
-                aria-label={`Abrir ficha de ${l.nombre}`}
-                className="block p-3 transition-colors active:bg-slate-50"
-              >
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold text-slate-900">{l.nombre}</div>
-                    <div className="mt-0.5 text-[11px] text-slate-400">Entrada: {formatShortDate(l.fechaCreacion)}</div>
-                  </div>
+            <Link
+              key={l.id}
+              to="/clientes/$id"
+              params={{ id: l.id }}
+              aria-label={`Abrir ficha de ${l.nombre}`}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors active:bg-slate-50"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="truncate text-[15px] font-semibold text-slate-900">{l.nombre}</div>
                   <div className="shrink-0"><StageBadge etapa={l.etapa} /></div>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
                   <SellerBadge vendedor={l.vendedor} />
-                  {l.valor > 0 && <span className="font-medium">{formatCurrency(l.valor)}</span>}
-                  {l.ciudad && <span className="truncate text-slate-500">· {l.ciudad}</span>}
-                  {next && <span className="text-amber-700">· {dateLabel(next.fecha)}</span>}
+                  {l.valor > 0 && <span className="font-semibold text-slate-800">{formatCurrency(l.valor)}</span>}
+                  {l.ciudad && <span className="text-slate-500">· {l.ciudad}</span>}
+                  {nPedidos > 0 && <span className="inline-flex items-center gap-1 text-emerald-700"><Package className="h-3 w-3" /> {nPedidos}</span>}
                 </div>
-              </Link>
-              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-2 py-1.5">
-                <DeleteLeadButton id={l.id} variant="menu" />
-                <Link
-                  to="/clientes/$id"
-                  params={{ id: l.id }}
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#1a1f36] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2a2f46]"
-                >
-                  Abrir ficha <ChevronRight className="h-4 w-4 animate-pulse-x" />
-                </Link>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
+                  <span>Entrada: {formatShortDate(l.fechaCreacion)}</span>
+                  {next && <span className="font-medium text-amber-700">· {dateLabel(next.fecha)} · {next.descripcion}</span>}
+                </div>
               </div>
-            </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
+            </Link>
           );
         })}
         {sorted.length === 0 && <div className="py-8 text-center text-sm text-slate-400">Sin resultados</div>}

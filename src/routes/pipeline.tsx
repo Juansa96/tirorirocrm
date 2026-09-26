@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Plus, Clock, X, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { Plus, Clock, X, ChevronDown, ArrowRightLeft, ChevronRight } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { BottomSheet, SheetGroup, SheetRow } from "@/components/BottomSheet";
 import { useStore, actions, nextPendingTaskFor } from "@/lib/store";
 import {
   ETAPAS, ETAPAS_B2B, ETAPAS_COLAB, ETAPA_COLORS, VENDEDORES, ASIGNADOS_B2B, vendorName,
@@ -101,7 +102,91 @@ function daysInStage(lead: ReturnType<typeof useStore>["leads"][0]): number {
   return Math.max(0, Math.floor(diff / 86400000));
 }
 
-/* ============================ B2C card ============================ */
+
+/* ============================ Tablero móvil ============================ */
+// En el móvil el tablero no cabe en columnas: se enseña UNA etapa cada vez,
+// elegida con pastillas (con contador) que se desplazan en horizontal, y las
+// tarjetas se mueven de etapa con el botón "Mover" (hoja inferior), no
+// manteniendo pulsado (se disparaba sin querer al hacer scroll).
+function TableroMovil<T extends string>({ etapas, leadsDe, render, vacio, onMove, inicial }: {
+  etapas: readonly T[];
+  leadsDe: (etapa: T) => Lead[];
+  render: (lead: Lead, abrirMover: () => void) => ReactNode;
+  vacio: string;
+  onMove: (leadId: string, etapa: T) => void;
+  inicial?: T;
+}) {
+  const primeraConLeads = etapas.find((e) => leadsDe(e).length > 0) ?? etapas[0];
+  const [etapa, setEtapa] = useState<T>(inicial ?? primeraConLeads);
+  const [moviendo, setMoviendo] = useState<Lead | null>(null);
+  const colLeads = leadsDe(etapa);
+  const total = colLeads.reduce((s, l) => s + (l.valor || 0), 0);
+  return (
+    <div className="space-y-3">
+      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        {etapas.map((e) => {
+          const n = leadsDe(e).length;
+          const activa = e === etapa;
+          return (
+            <button
+              key={e}
+              type="button"
+              onClick={() => setEtapa(e)}
+              className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-[14px] font-medium transition-colors ${activa ? "bg-[#1a1f36] text-white" : "bg-white text-slate-700 ring-1 ring-slate-200 active:bg-slate-100"}`}
+            >
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ETAPA_COLORS[e as Etapa] }} />
+              {e}
+              <span className={`rounded-full px-1.5 text-[12px] font-semibold tabular-nums ${activa ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-baseline justify-between px-0.5">
+        <span className="text-[13px] text-slate-500">{colLeads.length} {colLeads.length === 1 ? "lead" : "leads"} en <strong className="text-slate-700">{etapa}</strong></span>
+        {total > 0 && <span className="text-[13px] font-semibold text-slate-700">{formatCurrency(total)}</span>}
+      </div>
+      {colLeads.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 py-10 text-center text-sm text-slate-400">{vacio}</div>
+      ) : (
+        <div className="space-y-2.5">
+          {colLeads.map((lead) => (
+            <div key={lead.id}>{render(lead, () => setMoviendo(lead))}</div>
+          ))}
+        </div>
+      )}
+      {/* Hoja "Mover a…": lista de etapas con su color; la actual, marcada. */}
+      <BottomSheet open={!!moviendo} onOpenChange={(v) => { if (!v) setMoviendo(null); }} title={moviendo ? moviendo.nombre : "Mover"} description="Elige la etapa a la que pasa este lead.">
+        <SheetGroup>
+          {etapas.map((e) => (
+            <SheetRow
+              key={e}
+              color={ETAPA_COLORS[e as Etapa]}
+              label={e}
+              active={e === etapa}
+              detail={e === etapa ? "Actual" : undefined}
+              onClick={() => { const l = moviendo; setMoviendo(null); if (l && e !== etapa) onMove(l.id, e); }}
+            />
+          ))}
+        </SheetGroup>
+      </BottomSheet>
+    </div>
+  );
+}
+
+// Pie de tarjeta en el móvil: abrir la ficha o mover de etapa.
+function PieMovil({ onOpen, onMove }: { onOpen: () => void; onMove: () => void }) {
+  return (
+    <div className="mt-3 grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 md:hidden" onClick={(e) => e.stopPropagation()}>
+      <button type="button" onClick={onMove} className="flex h-11 items-center justify-center gap-1.5 text-[13px] font-medium text-slate-600 active:bg-slate-50">
+        <ArrowRightLeft className="h-4 w-4" /> Mover
+      </button>
+      <button type="button" onClick={onOpen} className="flex h-11 items-center justify-center gap-1 text-[13px] font-semibold text-[#1a1f36] active:bg-slate-50">
+        Abrir ficha <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 /* ============================ Paid badge (from pedidos) ============================ */
 function PaidBadge({ leadId, pedidos }: { leadId: string; pedidos: ReturnType<typeof useStore>["pedidos"] }) {
   const related = pedidos.filter((p) => p.leadId === leadId);
@@ -116,7 +201,7 @@ function PaidBadge({ leadId, pedidos }: { leadId: string; pedidos: ReturnType<ty
 }
 
 /* ============================ B2C card ============================ */
-function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void }) {
+function LeadCardB2C({ lead, tareas, pedidos, onNavigate, onMove }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void; onMove?: () => void }) {
   const next = nextPendingTaskFor(lead.id, tareas);
   const dot = sellerStyle(lead.vendedor).dot;
   const closed = lead.etapa === "Closed Won" || lead.etapa === "Closed Lost";
@@ -125,9 +210,9 @@ function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<t
   return (
     <div
       onClick={onNavigate}
-      className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md"
+      className={`group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 pt-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md ${onMove ? "pb-0" : "pb-3.5"}`}
     >
-      <div className="absolute right-1.5 top-1.5 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-1.5 top-1.5 hidden md:block md:opacity-0 md:transition-opacity md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <DeleteLeadButton id={lead.id} variant="menu" />
       </div>
       <p className="truncate pr-6 text-[13px] font-semibold leading-snug text-slate-900">{lead.nombre}</p>
@@ -158,19 +243,20 @@ function LeadCardB2C({ lead, tareas, pedidos, onNavigate }: { lead: ReturnType<t
           <span className="min-w-0 truncate text-slate-400">· {next.descripcion}</span>
         </div>
       )}
+      {onMove && <PieMovil onOpen={onNavigate} onMove={onMove} />}
     </div>
   );
 }
 
 /* ============================ B2B card ============================ */
-function LeadCardB2B({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void }) {
+function LeadCardB2B({ lead, pedidos, onNavigate, onMove }: { lead: Lead; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void; onMove?: () => void }) {
   const titulo = lead.razonSocial || lead.contactoNombre || lead.nombre;
   return (
     <div
       onClick={onNavigate}
-      className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md"
+      className={`group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 pt-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md ${onMove ? "pb-0" : "pb-3.5"}`}
     >
-      <div className="absolute right-1.5 top-1.5 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-1.5 top-1.5 hidden md:block md:opacity-0 md:transition-opacity md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <DeleteLeadButton id={lead.id} variant="menu" />
       </div>
       <p className="truncate pr-6 text-[13px] font-semibold leading-snug text-slate-900">{titulo}</p>
@@ -191,6 +277,7 @@ function LeadCardB2B({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: Retur
         <div className="mt-2 text-[10px] text-slate-400">Sin asignar</div>
       )}
       {lead.instagram && <div className="mt-1.5 truncate text-[11px] text-pink-600">{lead.instagram}</div>}
+      {onMove && <PieMovil onOpen={onNavigate} onMove={onMove} />}
     </div>
   );
 }
@@ -252,18 +339,18 @@ function PipelineB2C() {
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-400">Arrastra (o mantén pulsado en móvil) para mover de etapa</p>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <div className="relative min-w-0 flex-1 sm:flex-initial">
-            <select value={filterVendedor ?? ""} onChange={(e) => setVendedor(e.target.value)} className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none">
-              <option value="">Todos los vendedores</option>
+        <p className="hidden text-xs text-slate-400 md:block">Arrastra las tarjetas para cambiarlas de etapa</p>
+        <div className="grid w-full grid-cols-2 items-center gap-2 sm:flex sm:w-auto sm:flex-wrap">
+          <div className="relative min-w-0 sm:flex-initial">
+            <select value={filterVendedor ?? ""} onChange={(e) => setVendedor(e.target.value)} className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-[14px] font-medium text-slate-700 focus:border-slate-400 focus:outline-none sm:h-8 sm:rounded-lg sm:text-xs">
+              <option value="">Vendedor: todos</option>
               {VENDEDORES.map((v) => (<option key={v} value={v}>{vendorName(v)}</option>))}
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           </div>
-          <div className="relative min-w-0 flex-1 sm:flex-initial">
-            <select value={filterCanal ?? ""} onChange={(e) => setCanal(e.target.value)} className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none">
-              <option value="">Todos los canales</option>
+          <div className="relative min-w-0 sm:flex-initial">
+            <select value={filterCanal ?? ""} onChange={(e) => setCanal(e.target.value)} className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-[14px] font-medium text-slate-700 focus:border-slate-400 focus:outline-none sm:h-8 sm:rounded-lg sm:text-xs">
+              <option value="">Canal: todos</option>
               {CANALES.map((c) => (<option key={c} value={c}>{c}</option>))}
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -273,14 +360,26 @@ function PipelineB2C() {
               <X className="h-3 w-3" /> Quitar
             </button>
           )}
-          <Link to="/clientes/nuevo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#1a1f36] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#2a2f46]">
-            <Plus className="h-3.5 w-3.5" /> Nuevo Lead
-          </Link>
         </div>
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-6 lg:mx-0 lg:px-0">
-        <div className={`flex snap-x snap-mandatory gap-3 lg:snap-none ${filterEtapa ? "md:max-w-sm" : "lg:grid lg:grid-cols-6"}`}>
+      <div className="md:hidden">
+        <TableroMovil<Etapa>
+          etapas={ETAPAS}
+          inicial={filterEtapa}
+          leadsDe={(etapa) => leads.filter((l) => l.etapa === etapa
+            && (!filterVendedor || !l.vendedor || l.vendedor === filterVendedor)
+            && (!filterCanal || canalOf(l) === filterCanal))}
+          vacio="Sin leads en esta etapa"
+          onMove={moveB2C}
+          render={(lead, abrirMover) => (
+            <LeadCardB2C lead={lead} tareas={tareas} pedidos={pedidos} onMove={abrirMover} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
+          )}
+        />
+      </div>
+
+      <div className="hidden overflow-x-auto pb-6 md:block">
+        <div className={`flex gap-3 ${filterEtapa ? "md:max-w-sm" : "lg:grid lg:grid-cols-6"}`}>
           {visibleEtapas.map((etapa) => {
             const colLeads = leads.filter((l) => l.etapa === etapa
               && (!filterVendedor || !l.vendedor || l.vendedor === filterVendedor)
@@ -295,7 +394,7 @@ function PipelineB2C() {
                 onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={() => { if (draggingId) moveB2C(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
-                className={`w-[78vw] shrink-0 snap-center rounded-xl border sm:w-[46vw] lg:w-auto lg:min-w-0 lg:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
+                className={`w-[46vw] shrink-0 rounded-xl border lg:w-auto lg:min-w-0 lg:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
               >
                 <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2">
@@ -438,25 +537,22 @@ function PipelineB2BView() {
     }
   });
 
-  const selectCls = "w-full appearance-none rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-7 text-xs font-medium text-slate-700 focus:border-slate-400 focus:outline-none";
+  const selectCls = "h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-[14px] font-medium text-slate-700 focus:border-slate-400 focus:outline-none lg:h-8 lg:rounded-lg lg:text-xs";
 
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-400">Arrastra (o mantén pulsado en móvil) para mover de etapa</p>
-        <Link to="/b2b/nuevo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#1a4b5b] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#245e73]">
-          <Plus className="h-3.5 w-3.5" /> Nueva empresa
-        </Link>
+        <p className="hidden text-xs text-slate-400 md:block">Arrastra las tarjetas para cambiarlas de etapa</p>
       </div>
 
       {/* Barra de filtros */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
         <input
           type="text"
           value={filterQ}
           onChange={(e) => setParam("q", e.target.value)}
           placeholder="Buscar estudio o municipio…"
-          className="lg:col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-slate-400 focus:outline-none"
+          className="col-span-2 h-10 rounded-xl border border-slate-200 bg-white px-3 text-[14px] text-slate-700 focus:border-slate-400 focus:outline-none lg:h-8 lg:rounded-lg lg:text-xs"
         />
         <div className="relative">
           <select value={filterMunicipio ?? ""} onChange={(e) => setParam("municipio", e.target.value)} className={selectCls}>
@@ -501,8 +597,21 @@ function PipelineB2BView() {
         </div>
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-6 md:mx-0 md:px-0">
-        <div className={`flex snap-x snap-mandatory gap-3 md:snap-none ${filterEtapa ? "md:max-w-sm" : "md:grid md:grid-cols-4"}`}>
+      <div className="md:hidden">
+        <TableroMovil<EtapaB2B>
+          etapas={ETAPAS_B2B}
+          inicial={filterEtapa}
+          leadsDe={(etapa) => sorted.filter((l) => l.etapa === etapa)}
+          vacio="Sin empresas en esta etapa"
+          onMove={(id, etapa) => void actions.setLeadEtapa(id, etapa)}
+          render={(lead, abrirMover) => (
+            <LeadCardB2B lead={lead} pedidos={pedidos} onMove={abrirMover} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
+          )}
+        />
+      </div>
+
+      <div className="hidden overflow-x-auto pb-6 md:block">
+        <div className={`flex gap-3 ${filterEtapa ? "md:max-w-sm" : "md:grid md:grid-cols-4"}`}>
           {visibleEtapas.map((etapa) => {
             const colLeads = sorted.filter((l) => l.etapa === etapa);
             const total = colLeads.reduce((s, l) => s + (l.valor || 0), 0);
@@ -515,7 +624,7 @@ function PipelineB2BView() {
                 onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={() => { if (draggingId) actions.setLeadEtapa(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
-                className={`w-[78vw] shrink-0 snap-center rounded-xl border md:w-auto md:min-w-0 md:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
+                className={`rounded-xl border md:w-auto md:min-w-0 md:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
               >
                 <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2">
@@ -553,14 +662,14 @@ function PipelineB2BView() {
 }
 
 /* ======================= Colaboraciones view ======================= */
-function LeadCardColab({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void }) {
+function LeadCardColab({ lead, pedidos, onNavigate, onMove }: { lead: Lead; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void; onMove?: () => void }) {
   const canje = pedidos.filter((p) => p.leadId === lead.id).length;
   return (
     <div
       onClick={onNavigate}
-      className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md"
+      className={`group relative cursor-pointer rounded-xl border border-slate-200 bg-white px-4 pt-3.5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md ${onMove ? "pb-0" : "pb-3.5"}`}
     >
-      <div className="absolute right-1.5 top-1.5 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-1.5 top-1.5 hidden md:block md:opacity-0 md:transition-opacity md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <DeleteLeadButton id={lead.id} variant="menu" />
       </div>
       <p className="truncate pr-6 text-[13px] font-semibold leading-snug text-slate-900">{lead.nombre}</p>
@@ -570,6 +679,7 @@ function LeadCardColab({ lead, pedidos, onNavigate }: { lead: Lead; pedidos: Ret
         {lead.redPrincipal && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">{lead.redPrincipal}</span>}
         {canje > 0 && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">{canje} canje{canje === 1 ? "" : "s"}</span>}
       </div>
+      {onMove && <PieMovil onOpen={onNavigate} onMove={onMove} />}
     </div>
   );
 }
@@ -597,14 +707,23 @@ function PipelineColabView() {
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-400">Arrastra (o mantén pulsado en móvil) para mover de etapa · los pedidos de estos clientes son canje</p>
-        <Link to="/clientes/nuevo" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-pink-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-pink-700">
-          <Plus className="h-3.5 w-3.5" /> Nuevo influencer
-        </Link>
+        <p className="hidden text-xs text-slate-400 md:block">Arrastra las tarjetas para cambiarlas de etapa · los pedidos de estos clientes son canje</p>
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-6 lg:mx-0 lg:px-0">
-        <div className="flex snap-x snap-mandatory gap-3 lg:grid lg:snap-none lg:grid-cols-4">
+      <div className="md:hidden">
+        <TableroMovil<EtapaColab>
+          etapas={ETAPAS_COLAB}
+          leadsDe={(etapa) => influencers.filter((l) => etapaDe(l) === etapa)}
+          vacio="Sin colaboraciones en esta etapa"
+          onMove={moveColab}
+          render={(lead, abrirMover) => (
+            <LeadCardColab lead={lead} pedidos={pedidos} onMove={abrirMover} onNavigate={() => navigate({ to: "/clientes/$id", params: { id: lead.id } })} />
+          )}
+        />
+      </div>
+
+      <div className="hidden overflow-x-auto pb-6 md:block">
+        <div className="flex gap-3 lg:grid lg:grid-cols-4">
           {ETAPAS_COLAB.map((etapa) => {
             const colLeads = influencers.filter((l) => etapaDe(l) === etapa);
             const isOver = dragOver === etapa;
@@ -616,7 +735,7 @@ function PipelineColabView() {
                 onDragOver={(e) => { e.preventDefault(); setDragOver(etapa); }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={() => { if (draggingId) moveColab(draggingId, etapa); setDraggingId(null); setDragOver(null); }}
-                className={`w-[78vw] shrink-0 snap-center rounded-xl border sm:w-[46vw] lg:w-auto lg:min-w-0 lg:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
+                className={`w-[46vw] shrink-0 rounded-xl border lg:w-auto lg:min-w-0 lg:shrink transition-colors duration-150 ${isOver ? "border-slate-400 bg-slate-100" : "border-slate-200 bg-slate-50/60"}`}
               >
                 <div className="h-1 w-full rounded-t-xl" style={{ backgroundColor: color }} />
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2">
@@ -663,10 +782,18 @@ function PipelineColabView() {
 function PipelinePage() {
   const { tab: tabParam } = Route.useSearch();
   const tab: Tab = tabParam === "b2b" ? "b2b" : tabParam === "colab" ? "colab" : "b2c";
+  const nuevo = tab === "b2b"
+    ? { to: "/b2b/nuevo", label: "Nueva empresa", cls: "bg-[#1a4b5b] hover:bg-[#245e73]" }
+    : tab === "colab"
+      ? { to: "/clientes/nuevo", label: "Nuevo influencer", cls: "bg-pink-600 hover:bg-pink-700" }
+      : { to: "/clientes/nuevo", label: "Nuevo lead", cls: "bg-[#1a1f36] hover:bg-[#2a2f46]" };
   return (
     <div className="flex h-full flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Pipeline</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Pipeline</h1>
+        <Link to={nuevo.to} className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold text-white shadow-sm transition-colors ${nuevo.cls}`}>
+          <Plus className="h-4 w-4" /> {nuevo.label}
+        </Link>
       </div>
       <TabsHeader tab={tab} />
       {tab === "b2c" ? <PipelineB2C /> : tab === "b2b" ? <PipelineB2BView /> : <PipelineColabView />}

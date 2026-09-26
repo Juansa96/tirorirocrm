@@ -218,3 +218,30 @@ WhatsApp + Metricool) que se publica en una página y se manda por email a Juan 
 info@. El cómo, las consultas y el formato están en
 `scripts/informe-marketing/INSTRUCCIONES.md`. Si cambias el texto de un botón de
 WhatsApp de la web, actualiza la tabla de rastreo de ese archivo.
+
+## UI móvil e iPad (repaso UX de 26/09/2026)
+
+Juan usa el CRM sobre todo en iPhone e iPad; la referencia de diseño es Apple
+(claro, aire, controles grandes). Convenciones que hay que mantener:
+
+- **Navegación**: en móvil, barra inferior de **5 pestañas** (Inicio, Pipeline,
+  Mensajes, Pedidos, Más); el resto de secciones, el perfil y "cerrar sesión"
+  viven en la hoja **Más**. iPad vertical (768–1023 px): carril con icono +
+  etiqueta; iPad horizontal y Mac (≥1024 px): barra lateral completa. Todo en
+  `src/components/AppLayout.tsx` (`NAV`: las 4 primeras van a la barra).
+- **Hojas inferiores** (`src/components/BottomSheet.tsx`, sobre `vaul`) para
+  menús y acciones en móvil: `BottomSheet` + `SheetGroup` + `SheetRow`.
+- **Pipeline en móvil**: una etapa cada vez (pastillas con contador) y botón
+  **Mover** en cada tarjeta (hoja con las etapas). El arrastre solo existe en
+  iPad/escritorio. No volver al "mantener pulsado".
+- **Ficha del cliente**: cabecera con avatar, nombre completo (sin `truncate`) y
+  acciones rápidas Llamar · WhatsApp · Email · Tarea; pestañas como control
+  segmentado (`role="tablist"`).
+- **Listas** (Clientes, Mensajes): toda la fila es pulsable y termina en `›`.
+  Nada de botones "Abrir ficha" dentro de la fila.
+- **Reglas globales** (`src/styles.css`, fuera de `@layer` para ganar a las
+  utilidades): campos a 16 px en móvil (si no, iOS hace zoom), botones de
+  ≥40 px con pantalla táctil (`.tap-free` exime micro-botones), barras
+  translúcidas `.bar-blur`, carruseles `.no-scrollbar`, área segura `.pb-safe`.
+- Controles segmentados: pista `bg-slate-200/70 p-1 rounded-xl` y pastilla
+  activa blanca con sombra (no oscura). Botones primarios `rounded-xl h-10`.

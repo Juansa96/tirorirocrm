@@ -100,7 +100,7 @@ function WhatsappPage() {
           <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
             <MessageCircle className="h-6 w-6 text-emerald-600" /> Mensajes
           </h1>
-          <p className="text-xs text-slate-400">WhatsApp, Instagram y email de info@</p>
+          <p className="hidden text-xs text-slate-400 md:block">WhatsApp, Instagram y email de info@</p>
           <p className="text-sm text-slate-500">
             {totalPropuestas > 0 ? `${totalPropuestas} propuesta${totalPropuestas === 1 ? "" : "s"} por revisar` : "Nada pendiente de revisar"}
             {sinAnalizar > 0 && ` · ${sinAnalizar} chat${sinAnalizar === 1 ? "" : "s"} con mensajes sin leer por la IA`}
@@ -177,13 +177,13 @@ function WhatsappPage() {
         </div>
       )}
 
-      {/* Canal */}
-      <div className="flex flex-wrap gap-2 text-sm">
+      {/* Canal (en móvil, una fila que se desplaza) */}
+      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 text-sm md:mx-0 md:flex-wrap md:px-0">
         {(["todos", "whatsapp", "instagram", "email"] as FiltroCanal[]).map((k) => {
           const activo = canal === k;
           const n = k === "todos" ? 0 : porCanal[k];
           return (
-            <button key={k} onClick={() => setCanal(k)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-medium transition-colors ${activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+            <button key={k} onClick={() => setCanal(k)} className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 font-medium transition-colors ${activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
               {k === "todos" ? <MessageCircle className="h-3.5 w-3.5" /> : <CanalIcono canal={k} className={`h-3.5 w-3.5 ${activo ? "!text-white" : ""}`} />}
               {k === "todos" ? "Todos" : CANAL_LABEL[k]}
               {n > 0 && <span className={`rounded-full px-1.5 text-[11px] font-bold ${activo ? "bg-white/20" : "bg-amber-100 text-amber-800"}`}>{n}</span>}
@@ -192,15 +192,15 @@ function WhatsappPage() {
         })}
       </div>
 
-      {/* Pestañas */}
-      <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-sm">
+      {/* Pestañas (control segmentado; en móvil, 2×2) */}
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-200/70 p-1 text-sm md:inline-flex" role="tablist">
         {([
           ["pendientes", `Pendientes (${listas.pendientes.length})`],
           ["todas", `Todas (${listas.todas.length})`],
           ["sin-cliente", `Sin cliente (${listas.sinCliente.length})`],
           ["descartadas", `Descartadas (${listas.descartadas.length})`],
         ] as Array<[Pestana, string]>).map(([k, label]) => (
-          <button key={k} onClick={() => setPestana(k)} className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${pestana === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{label}</button>
+          <button key={k} role="tab" aria-selected={pestana === k} onClick={() => setPestana(k)} className={`min-h-10 rounded-lg px-3 font-semibold transition-all md:min-h-9 ${pestana === k ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{label}</button>
         ))}
       </div>
 
@@ -218,22 +218,23 @@ function WhatsappPage() {
             const nombre = nombreConversacion(c, lead?.nombre);
             const cc = canalDe(c.telefono);
             return (
-              <li key={c.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-start gap-3">
-                  <div className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${CANAL_ESTILO[cc].avatar}`}>
+              <li key={c.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                {/* Toda la fila abre la conversación (antes solo el nombre era enlace). */}
+                <Link to="/whatsapp/$id" params={{ id: c.id }} className="flex items-start gap-3 p-4 transition-colors active:bg-slate-50 hover:bg-slate-50/70">
+                  <div className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold ${CANAL_ESTILO[cc].avatar}`}>
                     {nombre.replace(/^@/, "").slice(0, 1).toUpperCase()}
                     <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5 shadow-sm"><CanalIcono canal={cc} className="h-3 w-3" /></span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link to="/whatsapp/$id" params={{ id: c.id }} className="font-semibold text-slate-900 hover:underline">{nombre}</Link>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-[15px] font-semibold text-slate-900">{nombre}</span>
+                      <span className="shrink-0 text-xs text-slate-400">{tiempoRelativo(c.ultimoMensajeAt)}</span>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                       <span className="text-xs text-slate-400">{identificadorConversacion(c)}</span>
                       {canal === "todos" && cc !== "whatsapp" && <CanalChip canal={cc} />}
                       {lead ? (
-                        <>
-                          <Link to="/clientes/$id" params={{ id: lead.id }} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200"><User className="h-3 w-3" /> Ficha</Link>
-                          <StageBadge etapa={lead.etapa} />
-                        </>
+                        <StageBadge etapa={lead.etapa} />
                       ) : c.estado === "no_cliente" ? (
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">No parece cliente</span>
                       ) : c.estado === "ignorada" ? (
@@ -242,26 +243,33 @@ function WhatsappPage() {
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">Sin cliente</span>
                       )}
                       {esHistorico(c) && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Historial</span>}
-                      <span className="ml-auto text-xs text-slate-400">{tiempoRelativo(c.ultimoMensajeAt)} · {c.mensajes} msg</span>
                     </div>
                     {c.resumen ? (
                       <p className="mt-1 line-clamp-2 text-sm text-slate-600">{c.resumen}</p>
                     ) : (
                       <p className="mt-1 text-sm italic text-slate-400">{c.analizadoHasta ? "Sin resumen." : "Pendiente de que la IA lo lea."}</p>
                     )}
+                  </div>
+                  <ChevronRight className="mt-3 h-5 w-5 shrink-0 text-slate-300" />
+                </Link>
+                {(props.length > 0 || lead || (!lead && c.estado === "nueva" && c.analizadoHasta && !esHistorico(c))) && (
+                  <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+                    {lead && (
+                      <Link to="/clientes/$id" params={{ id: lead.id }} className="inline-flex h-8 items-center gap-1 rounded-full bg-slate-100 px-3 text-[12px] font-medium text-slate-700 hover:bg-slate-200"><User className="h-3.5 w-3.5" /> Ficha de {lead.nombre.split(" ")[0]}</Link>
+                    )}
                     {props.length > 0 && (
-                      <div className="mt-3 space-y-2">
+                      <div className={`space-y-2 ${lead ? "mt-3" : ""}`}>
                         {props.map((p) => <PropuestaCard key={p.id} p={p} conv={c} />)}
                       </div>
                     )}
                     {props.length === 0 && !lead && c.estado === "nueva" && c.analizadoHasta && !esHistorico(c) && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Link to="/whatsapp/$id" params={{ id: c.id }} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Enlazar o crear cliente</Link>
-                        <button onClick={() => void waActions.ignorar(c.id)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50">Descartar</button>
+                      <div className="flex flex-wrap gap-2">
+                        <Link to="/whatsapp/$id" params={{ id: c.id }} className="inline-flex h-10 items-center rounded-xl border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50">Enlazar o crear cliente</Link>
+                        <button onClick={() => void waActions.ignorar(c.id)} className="inline-flex h-10 items-center rounded-xl border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-500 hover:bg-slate-50">Descartar</button>
                       </div>
                     )}
                   </div>
-                </div>
+                )}
               </li>
             );
           })}
