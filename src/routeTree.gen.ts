@@ -47,6 +47,7 @@ import { Route as ApiPedidosEmailEntregaRouteImport } from './routes/api/pedidos
 import { Route as ApiPedidosCroquisRouteImport } from './routes/api/pedidos/croquis'
 import { Route as ApiLeadsAvisoAsignacionRouteImport } from './routes/api/leads/aviso-asignacion'
 import { Route as ApiInstagramWebhookRouteImport } from './routes/api/instagram/webhook'
+import { Route as ApiInstagramHistorialRouteImport } from './routes/api/instagram/historial'
 import { Route as ApiInstagramConfigRouteImport } from './routes/api/instagram/config'
 import { Route as ApiCorreoEntradaRouteImport } from './routes/api/correo/entrada'
 import { Route as ApiAdminUsuariosRouteImport } from './routes/api/admin/usuarios'
@@ -244,6 +245,11 @@ const ApiInstagramWebhookRoute = ApiInstagramWebhookRouteImport.update({
   path: '/api/instagram/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInstagramHistorialRoute = ApiInstagramHistorialRouteImport.update({
+  id: '/api/instagram/historial',
+  path: '/api/instagram/historial',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiInstagramConfigRoute = ApiInstagramConfigRouteImport.update({
   id: '/api/instagram/config',
   path: '/api/instagram/config',
@@ -303,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/correo/entrada': typeof ApiCorreoEntradaRoute
   '/api/instagram/config': typeof ApiInstagramConfigRoute
+  '/api/instagram/historial': typeof ApiInstagramHistorialRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
@@ -348,6 +355,7 @@ export interface FileRoutesByTo {
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/correo/entrada': typeof ApiCorreoEntradaRoute
   '/api/instagram/config': typeof ApiInstagramConfigRoute
+  '/api/instagram/historial': typeof ApiInstagramHistorialRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
@@ -395,6 +403,7 @@ export interface FileRoutesById {
   '/api/admin/usuarios': typeof ApiAdminUsuariosRoute
   '/api/correo/entrada': typeof ApiCorreoEntradaRoute
   '/api/instagram/config': typeof ApiInstagramConfigRoute
+  '/api/instagram/historial': typeof ApiInstagramHistorialRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
@@ -443,6 +452,7 @@ export interface FileRouteTypes {
     | '/api/admin/usuarios'
     | '/api/correo/entrada'
     | '/api/instagram/config'
+    | '/api/instagram/historial'
     | '/api/instagram/webhook'
     | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
@@ -488,6 +498,7 @@ export interface FileRouteTypes {
     | '/api/admin/usuarios'
     | '/api/correo/entrada'
     | '/api/instagram/config'
+    | '/api/instagram/historial'
     | '/api/instagram/webhook'
     | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
@@ -534,6 +545,7 @@ export interface FileRouteTypes {
     | '/api/admin/usuarios'
     | '/api/correo/entrada'
     | '/api/instagram/config'
+    | '/api/instagram/historial'
     | '/api/instagram/webhook'
     | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
@@ -579,6 +591,7 @@ export interface RootRouteChildren {
   ApiAdminUsuariosRoute: typeof ApiAdminUsuariosRoute
   ApiCorreoEntradaRoute: typeof ApiCorreoEntradaRoute
   ApiInstagramConfigRoute: typeof ApiInstagramConfigRoute
+  ApiInstagramHistorialRoute: typeof ApiInstagramHistorialRoute
   ApiInstagramWebhookRoute: typeof ApiInstagramWebhookRoute
   ApiLeadsAvisoAsignacionRoute: typeof ApiLeadsAvisoAsignacionRoute
   ApiPedidosCroquisRoute: typeof ApiPedidosCroquisRoute
@@ -867,6 +880,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInstagramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/instagram/historial': {
+      id: '/api/instagram/historial'
+      path: '/api/instagram/historial'
+      fullPath: '/api/instagram/historial'
+      preLoaderRoute: typeof ApiInstagramHistorialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/instagram/config': {
       id: '/api/instagram/config'
       path: '/api/instagram/config'
@@ -949,6 +969,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminUsuariosRoute: ApiAdminUsuariosRoute,
   ApiCorreoEntradaRoute: ApiCorreoEntradaRoute,
   ApiInstagramConfigRoute: ApiInstagramConfigRoute,
+  ApiInstagramHistorialRoute: ApiInstagramHistorialRoute,
   ApiInstagramWebhookRoute: ApiInstagramWebhookRoute,
   ApiLeadsAvisoAsignacionRoute: ApiLeadsAvisoAsignacionRoute,
   ApiPedidosCroquisRoute: ApiPedidosCroquisRoute,
