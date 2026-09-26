@@ -185,83 +185,37 @@ function contenidoClaude(opts: PeticionClaude): Record<string, unknown>[] {
   return content;
 }
 
-// ── Croquis en segundo plano (API de lotes de Anthropic) ──
-// Un croquis con curvas puede tener a Claude pensando varios minutos, y una
-// petición abierta tanto tiempo se corta (el servidor de Lovable, el móvil que
-// se bloquea…), así que se encarga como un "lote" de una sola petición: la
-// ruta responde al momento con el id del lote y el navegador pregunta cada
-// pocos segundos si ya está. Si la página se recarga, se retoma el mismo lote.
-export async function crearLoteClaude(customId: string, opts: PeticionClaude): Promise<{ lote: string } | Response> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return FALTA_CLAVE_ANTHROPIC();
-  const res = await fetch("https://api.anthropic.com/v1/messages/batches", {
-    method: "POST",
-    headers: ANTHROPIC_HEADERS(apiKey),
-    body: JSON.stringify({
-      requests: [{
-        custom_id: customId,
-        params: {
-          model: process.env.ANTHROPIC_MODEL || ANTHROPIC_MODEL_DEFECTO,
-          max_tokens: opts.maxTokens ?? 64000,
-          system: opts.system,
-          output_config: { effort: "high" },
-          messages: [{ role: "user", content: contenidoClaude(opts) }],
-        },
-      }],
-    }),
-  });
-  const body = await res.json().catch(() => null) as Record<string, unknown> | null;
-  if (!res.ok || typeof body?.id !== "string") {
-    const msg = (body?.error as { message?: string } | undefined)?.message ?? `HTTP ${res.status}`;
-    return json({ error: `Claude no ha podido empezar el croquis: ${msg}` }, 502);
-  }
-  return { lote: body.id };
+// ── Trabajos largos en segundo plano (croquis) ──
+// Con curvas, Claude puede pensar varios minutos: una petición abierta desde
+// el móvil tanto rato se corta, y la API de lotes de Anthropic podía estar
+// más de 10 minutos en cola. Así que la base de datos (pg_net, funciones
+// ia_http_lanzar / ia_http_resultado de la migración 20260926140000) llama a
+// esta misma app y espera la respuesta; el navegador pregunta cada pocos
+// segundos por el resultado. La BD solo lleva una firma de un solo trabajo,
+// nunca la clave de Anthropic.
+export async function firmar(texto: string): Promise<string> {
+  const secreto = process.env.ANTHROPIC_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const clave = await crypto.subtle.importKey("raw", new TextEncoder().encode(`tiroriro-ia:${secreto}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const firma = new Uint8Array(await crypto.subtle.sign("HMAC", clave, new TextEncoder().encode(texto)));
+  return Array.from(firma.slice(0, 16), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Estado del lote: sigue en marcha, o el texto que ha devuelto Claude.
-// `customId` se comprueba para que un lote no se guarde en otro pedido.
-export async function leerLoteClaude(lote: string, customId: string): Promise<{ pendiente: true } | { texto: string; modelo: string } | Response> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return FALTA_CLAVE_ANTHROPIC();
-  if (!/^[\w-]{1,128}$/.test(lote)) return json({ error: "Lote no válido." }, 400);
-  const res = await fetch(`https://api.anthropic.com/v1/messages/batches/${lote}`, { headers: ANTHROPIC_HEADERS(apiKey) });
-  // Saturación o fallo pasajero de Anthropic: se vuelve a preguntar luego.
-  const pasajero = (st: number) => st === 429 || st >= 500;
-  if (pasajero(res.status)) return { pendiente: true };
-  const body = await res.json().catch(() => null) as Record<string, unknown> | null;
-  if (!res.ok || !body) {
-    const msg = (body?.error as { message?: string } | undefined)?.message ?? `HTTP ${res.status}`;
-    return json({ error: `No se pudo consultar el croquis en Claude: ${msg}` }, 502);
-  }
-  if (body.processing_status !== "ended") return { pendiente: true };
-  const resultsUrl = typeof body.results_url === "string" ? body.results_url : "";
-  if (!resultsUrl.startsWith("https://api.anthropic.com/")) return json({ error: "Claude no ha devuelto el resultado del croquis." }, 502);
-  const r = await fetch(resultsUrl, { headers: ANTHROPIC_HEADERS(apiKey) });
-  if (pasajero(r.status)) return { pendiente: true };
-  if (!r.ok) return json({ error: `No se pudo descargar el croquis de Claude (HTTP ${r.status}).` }, 502);
-  const lineas = (await r.text()).split("\n").filter((l) => l.trim());
-  let fila: Record<string, unknown> | null = null;
-  for (const l of lineas) {
-    try {
-      const f = JSON.parse(l) as Record<string, unknown>;
-      if (f.custom_id === customId) { fila = f; break; }
-    } catch { /* línea rota: se ignora */ }
-  }
-  if (!fila) return json({ error: "Ese croquis no corresponde a este pedido." }, 400);
-  const resultado = (fila.result ?? {}) as { type?: string; error?: { error?: { message?: string }; message?: string }; message?: Record<string, unknown> };
-  if (resultado.type === "expired") return json({ error: "Claude ha tardado demasiado en hacer el croquis; vuelve a intentarlo." }, 502);
-  if (resultado.type === "canceled") return json({ error: "Se ha cancelado el croquis; vuelve a intentarlo." }, 502);
-  if (resultado.type !== "succeeded" || !resultado.message) {
-    const msg = resultado.error?.error?.message ?? resultado.error?.message ?? "error desconocido";
-    return json({ error: `Claude no ha podido generar el croquis: ${msg}` }, 502);
-  }
-  const m = resultado.message;
-  const stop = String(m.stop_reason ?? "");
-  if (stop === "refusal") return json({ error: "Claude ha rechazado la petición." }, 502);
-  if (stop === "max_tokens") return json({ error: "El croquis se ha cortado por longitud; vuelve a intentarlo." }, 502);
-  const texto = ((m.content ?? []) as { type?: string; text?: string }[]).filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
-  if (!texto.trim()) return json({ error: "Claude no ha devuelto contenido." }, 502);
-  return { texto, modelo: String(m.model ?? "") };
+export async function lanzarSegundoPlano(url: string, headers: Record<string, string>, body: Record<string, unknown>, timeoutMs: number): Promise<number | Response> {
+  const { data, error } = await supabaseAdmin.rpc("ia_http_lanzar" as never, {
+    p_url: url, p_headers: { "Content-Type": "application/json", ...headers }, p_body: body, p_timeout_ms: timeoutMs,
+  } as never);
+  const id = Number(data);
+  if (error || !Number.isFinite(id) || id <= 0) return json({ error: `No se pudo encargar el trabajo: ${error?.message ?? "sin id"}` }, 500);
+  return id;
+}
+
+// null = todavía no ha terminado.
+export async function resultadoSegundoPlano(id: number): Promise<{ status: number | null; content: string; timedOut: boolean; errorMsg: string } | null> {
+  const { data, error } = await supabaseAdmin.rpc("ia_http_resultado" as never, { p_id: id } as never);
+  if (error) return null;   // fallo pasajero de la BD: se vuelve a preguntar
+  const f = (Array.isArray(data) ? data[0] : null) as { status_code: number | null; content: string | null; timed_out: boolean | null; error_msg: string | null } | undefined | null;
+  if (!f) return null;
+  return { status: f.status_code, content: f.content ?? "", timedOut: !!f.timed_out, errorMsg: f.error_msg ?? "" };
 }
 
 // Llamada directa en streaming (SSE): para lo que se espera en la misma petición.
