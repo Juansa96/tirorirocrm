@@ -80,6 +80,9 @@ export async function guardarMensajes(mensajes: MensajeNormalizado[]): Promise<n
     }
   }
 
+  // (El contador y las fechas también los pone el trigger de la BD
+  //  whatsapp_mensajes_contador en la misma transacción del alta, migración
+  //  20260926150000: así no se descuadran aunque este webhook falle después.)
   // 4. Contador de mensajes: se RECUENTA en la BD, no se suma. Si una entrega
   //    falló a medias (mensajes guardados pero contador sin actualizar), el
   //    reintento de Meta llega con 0 nuevos y sumar dejaba el contador mal para
