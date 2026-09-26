@@ -295,6 +295,34 @@ function ConfigInstagram({ webhookUrl, verifyToken, estado }: { webhookUrl: stri
   const [token, setToken] = useState("");
   const [secreto, setSecreto] = useState("");
   const [busy, setBusy] = useState(false);
+  const [historial, setHistorial] = useState<string>("");
+
+  // Trae las conversaciones antiguas por lotes (Instagram solo da los 20 últimos mensajes de cada una).
+  async function traerHistorial() {
+    setBusy(true);
+    let cursor = "", convs = 0, msgs = 0;
+    try {
+      const { data } = await supabase.auth.getSession();
+      for (let i = 0; i < 40; i++) {
+        setHistorial(`Importando… ${convs} conversaciones, ${msgs} mensajes`);
+        const res = await fetch("/api/instagram/historial", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ cursor }),
+        });
+        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        if (!res.ok) { toast.error(String(body.error ?? `Error ${res.status}`)); break; }
+        convs += Number(body.conversaciones) || 0;
+        msgs += Number(body.mensajes) || 0;
+        cursor = String(body.siguiente ?? "");
+        if (!cursor) break;
+      }
+      setHistorial(`Historial importado: ${convs} conversaciones, ${msgs} mensajes nuevos. La IA los irá leyendo en los próximos minutos.`);
+      await waActions.recargar();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function guardar(desconectar = false) {
     setBusy(true);
@@ -345,6 +373,13 @@ function ConfigInstagram({ webhookUrl, verifyToken, estado }: { webhookUrl: stri
         <li>Publicar la app (arriba, «Publicar» / modo «Activo») para que lleguen los mensajes de cualquier persona, no solo de las cuentas de prueba. Mandar un mensaje directo de prueba: en un minuto aparece aquí.</li>
       </ol>
       <p className="text-xs text-slate-400">La clave caduca a los 60 días; el CRM la renueva sola. Los mensajes directos solo llegan desde que se conecta (Instagram no deja leer el historial).</p>
+      {estado?.conClave && (
+        <div className="space-y-1">
+          <button disabled={busy} onClick={() => void traerHistorial()} className="rounded-lg border border-pink-300 bg-white px-3 py-2 text-xs font-semibold text-pink-700 hover:bg-pink-50 disabled:opacity-50">Traer historial de Instagram (últimos 6 meses)</button>
+          <p className="text-xs text-slate-400">Instagram solo deja leer los 20 últimos mensajes de cada conversación. Entran como historial: se enlazan y resumen, sin propuestas.</p>
+          {historial && <p className="text-xs text-pink-700">{historial}</p>}
+        </div>
+      )}
       {estado?.conClave && (
         <button disabled={busy} onClick={() => void guardar(true)} className="text-xs text-slate-500 underline-offset-2 hover:text-rose-600 hover:underline">Desconectar Instagram</button>
       )}
