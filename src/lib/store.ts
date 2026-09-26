@@ -1114,6 +1114,73 @@ function lanzarGeneracionIA(pedidoId: string, prod: Producto | undefined, hayTel
   if (hayTela) void actions.generarArchivoIA(pedidoId, "referencia", "", { silencioso: true });
 }
 
+// ───────── Croquis / imagen con IA: llamada a las rutas de servidor ─────────
+type RespuestaIA = { error?: string; noConfigurado?: boolean; archivo?: unknown; lote?: string; pendiente?: boolean; ilegible?: boolean };
+async function postIA(ruta: string, payload: Record<string, unknown>): Promise<RespuestaIA> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? "";
+  const res = await fetch(ruta, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  // La imagen responde en streaming (espacios de "latido" + JSON final) y
+  // siempre con 200: el fallo viene en `error`.
+  const texto = await res.text();
+  let body: RespuestaIA;
+  try { body = JSON.parse(texto.trim() || "{}"); } catch { body = { error: `Respuesta no válida del servidor (${res.status}).`, ilegible: true }; }
+  if (!res.ok && !body.error) body.error = `Error del servidor (${res.status}).`;
+  return body;
+}
+
+// El lote del croquis en curso se apunta en el navegador para poder retomarlo.
+const LOTE_CROQUIS_KEY = (pedidoId: string) => `croquis-lote:${pedidoId}`;
+const LOTE_CROQUIS_CADUCA_MS = 2 * 60 * 60 * 1000;
+function guardarLoteCroquis(pedidoId: string, lote: string) {
+  try { localStorage.setItem(LOTE_CROQUIS_KEY(pedidoId), JSON.stringify({ lote, t: Date.now() })); } catch { /* sin almacenamiento */ }
+}
+function olvidarLoteCroquis(pedidoId: string) {
+  try { localStorage.removeItem(LOTE_CROQUIS_KEY(pedidoId)); } catch { /* sin almacenamiento */ }
+}
+function loteCroquisGuardado(pedidoId: string): string {
+  try {
+    const v = JSON.parse(localStorage.getItem(LOTE_CROQUIS_KEY(pedidoId)) ?? "null") as { lote?: string; t?: number } | null;
+    if (v?.lote && Date.now() - (v.t ?? 0) < LOTE_CROQUIS_CADUCA_MS) return v.lote;
+    if (v) olvidarLoteCroquis(pedidoId);
+  } catch { /* sin almacenamiento */ }
+  return "";
+}
+
+// Pregunta cada pocos segundos si Claude ha terminado el croquis. Los cortes de
+// red sueltos (móvil sin cobertura un momento) no cancelan la espera.
+async function esperarLoteCroquis(pedidoId: string, lote: string, silencioso: boolean): Promise<boolean> {
+  const limite = Date.now() + 60 * 60 * 1000;
+  let fallosSeguidos = 0;
+  while (Date.now() < limite) {
+    await new Promise((r) => setTimeout(r, 8000));
+    let body: RespuestaIA;
+    try {
+      body = await postIA("/api/pedidos/croquis", { pedidoId, lote });
+      if (body.ilegible) throw new Error(body.error);
+      fallosSeguidos = 0;
+    } catch {
+      if (++fallosSeguidos >= 8) break;
+      continue;
+    }
+    if (body.pendiente) continue;
+    olvidarLoteCroquis(pedidoId);
+    if (body.error || !body.archivo) {
+      if (!silencioso) toast.error(body.error ?? "No se pudo generar el croquis.");
+      return false;
+    }
+    await refetchPedidoArchivos();
+    toast.success("Croquis generado: revísalo y apruébalo.");
+    return true;
+  }
+  if (!silencioso) toast.error("El croquis está tardando demasiado; vuelve a abrir la ficha en un rato o genéralo de nuevo.");
+  return false;
+}
+
 export const actions = {
   async addLead(
     input: Omit<Lead, "id" | "fechaCreacion" | "fechaEntradaEtapa" | "razonUrgencia"
@@ -2390,19 +2457,14 @@ export const actions = {
     if (state.iaEnCurso.includes(clave)) return false;
     state = { ...state, iaEnCurso: [...state.iaEnCurso, clave] }; emit();
     try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token ?? "";
-      const res = await fetch(ruta, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoId, indicacion: indicacion ?? "", corregir: opts?.corregir ?? "" }),
-      });
-      // La ruta responde en streaming (espacios de "latido" + JSON final) y
-      // siempre con 200: el fallo viene en `error`.
-      const texto = await res.text();
-      let body: { error?: string; noConfigurado?: boolean; archivo?: unknown } = {};
-      try { body = JSON.parse(texto.trim() || "{}"); } catch { body = { error: `Respuesta no válida del servidor (${res.status}).` }; }
-      if (!res.ok || body.error || !body.archivo) {
+      const body = await postIA(ruta, { pedidoId, indicacion: indicacion ?? "", corregir: opts?.corregir ?? "" });
+      // Croquis: la ruta devuelve un lote de Claude y se espera a que termine.
+      if (tipo === "plantilla" && body.lote && !body.error) {
+        guardarLoteCroquis(pedidoId, body.lote);
+        if (!opts?.silencioso) toast.info("Claude está dibujando el croquis; tarda unos minutos. Puedes seguir trabajando.");
+        return await esperarLoteCroquis(pedidoId, body.lote, !!opts?.silencioso);
+      }
+      if (body.error || !body.archivo) {
         if (!(opts?.silencioso && body.noConfigurado)) toast.error(body.error ?? `No se pudo generar el ${que}.`);
         return false;
       }
@@ -2413,6 +2475,17 @@ export const actions = {
       if (!opts?.silencioso) toast.error(`No se pudo generar el ${que}.`);
       return false;
     } finally {
+      state = { ...state, iaEnCurso: state.iaEnCurso.filter((k) => k !== clave) }; emit();
+    }
+  },
+  // Si se recargó la página (o se cerró el móvil) mientras Claude dibujaba un
+  // croquis, al volver a abrir la ficha se sigue esperando el mismo lote.
+  async reanudarCroquisIA(pedidoId: string) {
+    const lote = loteCroquisGuardado(pedidoId);
+    const clave = `${pedidoId}:plantilla`;
+    if (!lote || state.iaEnCurso.includes(clave)) return;
+    state = { ...state, iaEnCurso: [...state.iaEnCurso, clave] }; emit();
+    try { await esperarLoteCroquis(pedidoId, lote, false); } finally {
       state = { ...state, iaEnCurso: state.iaEnCurso.filter((k) => k !== clave) }; emit();
     }
   },

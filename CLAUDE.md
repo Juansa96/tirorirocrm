@@ -76,7 +76,12 @@ madera**, no una ficha de tapizado:
 Desde la ficha del pedido (y solos al crear un pedido) se generan:
 
 - **Croquis** (plano de corte) con **Claude** → `POST /api/pedidos/croquis`
-  (`src/routes/api/pedidos/croquis.ts`). Devuelve un SVG A4 apaisado.
+  (`src/routes/api/pedidos/croquis.ts`). Devuelve un SVG A4 apaisado. Va por la
+  **API de lotes** de Anthropic (`crearLoteClaude` / `leerLoteClaude`): la ruta
+  responde al momento con el id del lote y el navegador pregunta cada 8 s hasta
+  que está (y lo retoma al reabrir la ficha, `localStorage` `croquis-lote:<id>`).
+  No volver a una petición larga abierta: con curvas Claude piensa varios minutos
+  y la conexión se cortaba ("No se pudo generar el croquis").
 - **Imagen de referencia** del acabado con **Gemini** → `POST /api/pedidos/referencia`
   (`src/routes/api/pedidos/referencia.ts`). Método de Juan: se parte de una
   **foto real del producto** (la de la web, `fotoBaseProducto` en `ia-prompts.ts`;

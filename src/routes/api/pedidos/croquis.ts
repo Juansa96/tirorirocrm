@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { llevaCroquis } from "@/lib/catalogo";
 import { CROQUIS_SYSTEM, promptCorreccionCroquis, promptCroquis } from "@/lib/ia-prompts";
-import { autenticarEquipo, cargarArchivoAnterior, cargarContextoPedido, descargarTexto, extraerSVG, guardarArchivoIA, json, llamarClaude, respuestaLarga, selloFecha } from "@/lib/ia-pedido.server";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { autenticarEquipo, cargarArchivoAnterior, cargarContextoPedido, crearLoteClaude, descargarTexto, extraerSVG, guardarArchivoIA, json, leerLoteClaude, selloFecha } from "@/lib/ia-pedido.server";
 
 // Croquis (plano de corte de la madera) generado por Claude a partir de los
 // datos del pedido: forma, medidas, grosor y enchufes/huecos. Entra en la ficha
 // como "plantilla" PENDIENTE de aprobar; el tapicero no lo ve hasta que alguien
 // del equipo lo aprueba.
-//   POST { pedidoId, indicacion? }  →  { archivo: { id, url, nombre }, modelo }
+// Va en dos pasos porque Claude puede tardar varios minutos (ver crearLoteClaude):
+//   POST { pedidoId, indicacion?, corregir? }  →  { lote }
+//   POST { pedidoId, lote }                    →  { pendiente: true } | { archivo: { id, url, nombre }, modelo } | { error }
 export const Route = createFileRoute("/api/pedidos/croquis")({
   server: {
     handlers: {
@@ -20,6 +23,30 @@ export const Route = createFileRoute("/api/pedidos/croquis")({
         const indicacion = typeof body?.indicacion === "string" ? body.indicacion.slice(0, 1000) : "";
         const corregir = typeof body?.corregir === "string" ? body.corregir : "";
         if (!pedidoId) return json({ error: "Falta pedidoId" }, 400);
+        const customId = `croquis-${pedidoId}`.slice(0, 64);
+
+        // Paso 2: ¿ha terminado ya el lote?
+        const lote = typeof body?.lote === "string" ? body.lote : "";
+        if (lote) {
+          // El nombre del archivo lleva el final del id del lote: si dos
+          // consultas llegan a la vez, no se guarda el croquis dos veces.
+          const marca = lote.replace(/[^\w]/g, "").slice(-10);
+          const { data: ya } = await supabaseAdmin.from("pedido_archivos").select("id, url, nombre, storage_path")
+            .eq("pedido_id", pedidoId).eq("tipo", "plantilla").like("nombre", `%${marca}%`).limit(1).maybeSingle();
+          if (ya) return json({ archivo: ya });
+          const r = await leerLoteClaude(lote, customId);
+          if (r instanceof Response) return r;
+          if ("pendiente" in r) return json({ pendiente: true });
+          const svg = extraerSVG(r.texto);
+          if (!svg) return json({ error: "Claude no ha devuelto un SVG válido; vuelve a intentarlo." }, 502);
+          const guardado = await guardarArchivoIA({
+            pedidoId, tipo: "plantilla",
+            nombre: `croquis-claude-${selloFecha()}-${marca}.svg`,
+            bytes: new TextEncoder().encode(svg), contentType: "image/svg+xml",
+          });
+          if (guardado instanceof Response) return guardado;
+          return json({ archivo: guardado, modelo: r.modelo });
+        }
 
         const ctx = await cargarContextoPedido(pedidoId);
         if (ctx instanceof Response) return ctx;
@@ -38,21 +65,10 @@ export const Route = createFileRoute("/api/pedidos/croquis")({
           if (!svgAnterior.includes("<svg")) return json({ error: "No se pudo leer el croquis anterior." }, 500);
         }
 
-        return respuestaLarga(async () => {
-          const fecha = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" });
-          const r = await llamarClaude({ system: CROQUIS_SYSTEM, prompt: svgAnterior ? promptCorreccionCroquis(svgAnterior, indicacion) : promptCroquis(datos, { fecha, indicacion }) });
-          if (r instanceof Response) return r;
-          const svg = extraerSVG(r.texto);
-          if (!svg) return json({ error: "Claude no ha devuelto un SVG válido; vuelve a intentarlo." }, 502);
-
-          const guardado = await guardarArchivoIA({
-            pedidoId, tipo: "plantilla",
-            nombre: `croquis-claude-${selloFecha()}.svg`,
-            bytes: new TextEncoder().encode(svg), contentType: "image/svg+xml",
-          });
-          if (guardado instanceof Response) return guardado;
-          return json({ archivo: guardado, modelo: r.modelo });
-        });
+        const fecha = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" });
+        const r = await crearLoteClaude(customId, { system: CROQUIS_SYSTEM, prompt: svgAnterior ? promptCorreccionCroquis(svgAnterior, indicacion) : promptCroquis(datos, { fecha, indicacion }) });
+        if (r instanceof Response) return r;
+        return json({ lote: r.lote });
       },
     },
   },
