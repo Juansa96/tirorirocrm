@@ -76,12 +76,17 @@ madera**, no una ficha de tapizado:
 Desde la ficha del pedido (y solos al crear un pedido) se generan:
 
 - **Croquis** (plano de corte) con **Claude** → `POST /api/pedidos/croquis`
-  (`src/routes/api/pedidos/croquis.ts`). Devuelve un SVG A4 apaisado. Va por la
-  **API de lotes** de Anthropic (`crearLoteClaude` / `leerLoteClaude`): la ruta
-  responde al momento con el id del lote y el navegador pregunta cada 8 s hasta
-  que está (y lo retoma al reabrir la ficha, `localStorage` `croquis-lote:<id>`).
-  No volver a una petición larga abierta: con curvas Claude piensa varios minutos
-  y la conexión se cortaba ("No se pudo generar el croquis").
+  (`src/routes/api/pedidos/croquis.ts`). Devuelve un SVG A4 apaisado. Va **en segundo plano**:
+  la ruta lo valida y pide a la base de datos (pg_net, funciones
+  `ia_http_lanzar` / `ia_http_resultado`, migración `20260926140000`, ya
+  aplicada) que llame a la misma ruta con una firma de un solo encargo
+  (cabecera `x-croquis-trabajo`); esa llamada hace el croquis con Claude y lo
+  guarda. El navegador pregunta cada 8 s con el `lote` (`pg.<id>.<firma>`) y
+  lo retoma al reabrir la ficha (`localStorage` `croquis-lote:<id>`). La
+  respuesta (o el error) queda en `net._http_response` durante 6 h: ahí se
+  mira si algo falla. No volver a una petición larga desde el navegador (se
+  cortaba) ni a la API de lotes de Anthropic (se quedaba >10 min en cola), y
+  no meter la clave de Anthropic en la BD.
 - **Imagen de referencia** del acabado con **Gemini** → `POST /api/pedidos/referencia`
   (`src/routes/api/pedidos/referencia.ts`). Método de Juan: se parte de una
   **foto real del producto** (la de la web, `fotoBaseProducto` en `ia-prompts.ts`;
