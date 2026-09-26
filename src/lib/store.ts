@@ -8,6 +8,7 @@ import { todayISO, formatShortDate } from "./format";
 import { normalizarColeccionTela, normalizeTipo, llevaCroquis, displayColeccionTela, displayNombreProducto, montajeDeExtras, faltaParaTaller, medidasEtiquetadas, rellenoEsTelaVivo, rolesTelaSincronizables, ribeteAlmohadon } from "./catalogo";
 import { loadRemoteCatalog } from "./catalogo-remote";
 import { refreshSignedUrls, signPath, signPaths } from "./storage-urls";
+import { croquisSvgAPdf } from "./croquis-pdf";
 import { TELAS_WEB } from "./telas-web-data";
 
 
@@ -1179,6 +1180,25 @@ async function esperarLoteCroquis(pedidoId: string, lote: string, silencioso: bo
   }
   if (!silencioso) toast.error("El croquis está tardando demasiado; vuelve a abrir la ficha en un rato o genéralo de nuevo.");
   return false;
+}
+
+const pasandoAPdf = new Set<string>();   // pedidos cuyo croquis se está pasando a PDF
+
+// Convierte un croquis SVG del bucket a PDF y lo sube al lado. Devuelve los
+// campos nuevos de pedido_archivos, o null si algo falla.
+async function croquisAPdf(pedidoId: string, storagePath: string, nombre: string): Promise<{ nombre: string; storage_path: string; url: string } | null> {
+  try {
+    const { data, error } = await supabase.storage.from("pedido-archivos").download(storagePath);
+    if (error || !data) return null;
+    const pdf = await croquisSvgAPdf(await data.text());
+    const nombrePdf = nombre.replace(/\.svg$/i, ".pdf");
+    const path = `${pedidoId}/plantilla/${crypto.randomUUID()}-${nombrePdf}`;
+    const { error: upErr } = await supabase.storage.from("pedido-archivos").upload(path, pdf, { contentType: "application/pdf", upsert: false });
+    if (upErr) return null;
+    return { nombre: nombrePdf, storage_path: path, url: await signPath("pedido-archivos", path) };
+  } catch {
+    return null;
+  }
 }
 
 export const actions = {
@@ -2489,14 +2509,50 @@ export const actions = {
       state = { ...state, iaEnCurso: state.iaEnCurso.filter((k) => k !== clave) }; emit();
     }
   },
+  // Croquis de Claude ya aprobados en SVG (antes de pasarlos a PDF al aprobar):
+  // se convierten a PDF al abrir la ficha, para que el tapicero reciba PDF.
+  async pasarCroquisAprobadosAPdf(pedidoId: string) {
+    const svgs = state.pedidoArchivos.filter((a) => a.pedidoId === pedidoId && a.tipo === "plantilla"
+      && a.subidoPor !== ARCHIVO_IA_PENDIENTE && /^croquis-claude-.*\.svg$/i.test(a.nombre));
+    if (svgs.length === 0 || pasandoAPdf.has(pedidoId)) return;
+    pasandoAPdf.add(pedidoId);
+    let hecho = false;
+    try {
+      for (const a of svgs) {
+        const pdf = await croquisAPdf(a.pedidoId, a.storagePath, a.nombre);
+        if (!pdf) continue;
+        const { error } = await supabase.from("pedido_archivos").update(pdf as never).eq("id", a.id);
+        if (error) { await supabase.storage.from("pedido-archivos").remove([pdf.storage_path]); continue; }
+        await supabase.storage.from("pedido-archivos").remove([a.storagePath]);
+        hecho = true;
+      }
+      if (hecho) { await refetchPedidoArchivos(); toast.success("Croquis pasado a PDF."); }
+    } finally {
+      pasandoAPdf.delete(pedidoId);
+    }
+  },
   // Aprobar un archivo generado: pasa a ser un archivo normal (subido_por =
   // quien aprueba) y el tapicero ya lo ve. Los otros archivos del mismo tipo
   // que siguieran pendientes se descartan.
   async aprobarArchivoIA(id: string) {
     const arch = state.pedidoArchivos.find((a) => a.id === id);
     if (!arch) return;
-    const { error } = await supabase.from("pedido_archivos").update({ subido_por: currentUser ?? "equipo" } as never).eq("id", id);
-    if (error) { toast.error("No se pudo aprobar el archivo."); return; }
+    // Croquis de Claude: al aprobarlo se pasa a PDF (lo que usa el tapicero).
+    // Mientras está pendiente sigue en SVG porque "Corregir" lo necesita.
+    const cambios: Record<string, unknown> = { subido_por: currentUser ?? "equipo" };
+    let svgViejo = "";
+    if (arch.tipo === "plantilla" && /\.svg$/i.test(arch.nombre)) {
+      const pdf = await croquisAPdf(arch.pedidoId, arch.storagePath, arch.nombre);
+      if (pdf) { Object.assign(cambios, pdf); svgViejo = arch.storagePath; }
+      else toast.warning("No se pudo pasar el croquis a PDF; se aprueba en SVG.");
+    }
+    const { error } = await supabase.from("pedido_archivos").update(cambios as never).eq("id", id);
+    if (error) {
+      if (typeof cambios.storage_path === "string") await supabase.storage.from("pedido-archivos").remove([cambios.storage_path]);
+      toast.error("No se pudo aprobar el archivo.");
+      return;
+    }
+    if (svgViejo) await supabase.storage.from("pedido-archivos").remove([svgViejo]);
     const otrosPendientes = state.pedidoArchivos.filter((a) => a.pedidoId === arch.pedidoId && a.tipo === arch.tipo && a.id !== id && a.subidoPor === ARCHIVO_IA_PENDIENTE);
     for (const o of otrosPendientes) {
       await supabase.storage.from("pedido-archivos").remove([o.storagePath]);
