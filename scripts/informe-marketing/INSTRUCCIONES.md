@@ -138,12 +138,32 @@ barras horizontales, tarjetas de campaña con cuadrícula de métricas, glosario
 Mantener esa estructura y ese aspecto; cambiar los datos y los textos cada día.
 Nombres de clientes abreviados (nombre + inicial).
 
-## Email
+## Email (corto y ejecutivo: decisión de Juan, 26/09/2026)
 
-HTML con estilos en línea (tablas y `div`, sin `<style>`), ancho máx. 620 px, mismo
-orden que la página pero más corto: cabecera turquesa con titular, 4 fichas (visitas,
-leads, ventas semana, ventas mes), 5 veredictos con chips BIEN / MAL / PARADO / FRENO,
-campañas con cuadrícula de métricas, WhatsApp y recorrido con barras, Instagram, ventas,
-alertas, mejoras en tarjetas, botón «Ver el informe completo» y mini glosario.
-Asunto: `📊 Parte de marketing DD/MM · <3 claves con números>`.
-En el email sí pueden ir nombres completos de clientes (va solo al equipo).
+El email NO es el informe: es un **resumen de 30 segundos + el enlace a la página**.
+Plantilla y aspecto exactos en `email_plantilla.html` (probada a 360 y 390 px):
+una columna, máx. 480 px, estilos en línea, sin tablas de datos.
+
+1. Fecha y **un titular** con la noticia del día (no un resumen de todo).
+2. **3 cifras** en fichas: leads semana, ventas semana, ventas mes (con su variación
+   o el objetivo). Nada más.
+3. **«Lo importante»: máximo 3 líneas**, con 🟢 / 🟠 / 🔴. Solo lo que es **nuevo o
+   ha cambiado** desde el email de ayer: un lead o una venta que merece nombre, un
+   cambio fuerte (±30 % o más), una alerta nueva. **No repetir** frases, datos ni
+   avisos que ya salieron el día anterior si no han cambiado (p. ej. no volver a
+   decir cada día «falta el gasto de Meta»: solo cuando se resuelva o empeore, o
+   como acción si toca).
+4. **«Qué hacer hoy»: 3 acciones** concretas, con quién las hace. Es la parte que
+   más le gusta a Juan: priorizar y ser concreto (nombre del cliente, anuncio, etc.).
+5. Botón a ancho completo **«Ver el informe completo →»** a la página.
+
+Máx. ~150 palabras. Asunto: `📊 Tiroriro DD/MM · <el titular en corto>`.
+En el email pueden ir nombres de clientes (va solo al equipo), pero con inicial
+del apellido basta.
+
+## Página (qué cambia cada día)
+
+La página conserva la estructura del 23/09, pero **arriba del todo** va lo nuevo del
+día; las secciones que no han cambiado se actualizan en silencio (cifras) sin
+reescribir los mismos textos ni repetir los mismos avisos día tras día.
+
