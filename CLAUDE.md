@@ -239,6 +239,14 @@ Juan usa el CRM sobre todo en iPhone e iPad; la referencia de diseño es Apple
   segmentado (`role="tablist"`).
 - **Listas** (Clientes, Mensajes): toda la fila es pulsable y termina en `›`.
   Nada de botones "Abrir ficha" dentro de la fila.
+- **Ficha del pedido** (`pedidos.$id.tsx`): cuatro pestañas (Estado y plazo ·
+  Ficha del tapicero · Producto · Pago y notas). Las secciones se ocultan con
+  CSS (`hidden`), NO se desmontan: así el borrador y el estado de cada bloque
+  se conservan al cambiar de pestaña. La pestaña se recuerda en
+  `sessionStorage` (`pedido-tab`).
+- **Panel del tapicero** (`/panel`): mismo lenguaje (control segmentado claro,
+  botones de ≥40 px, cabecera translúcida). No tocar la lógica de estados,
+  cola ni acciones sin hablarlo con Juan.
 - **Reglas globales** (`src/styles.css`, fuera de `@layer` para ganar a las
   utilidades): campos a 16 px en móvil (si no, iOS hace zoom), botones de
   ≥40 px con pantalla táctil (`.tap-free` exime micro-botones), barras

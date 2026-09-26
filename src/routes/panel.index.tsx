@@ -232,7 +232,7 @@ function Panel() {
           <div className="space-y-2">
             {tapiceros.filter((t) => t.activo).map((t) => (
               <button key={t.id} onClick={() => navigate({ to: "/panel", search: { tapicero: t.id } })}
-                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-left hover:bg-slate-50">
+                className="flex min-h-[52px] w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-[15px] hover:bg-slate-50 active:bg-slate-50">
                 <span className="font-medium">{tapiceroNombre(t)}</span><ChevronRight className="h-4 w-4 text-slate-400" />
               </button>
             ))}
@@ -388,15 +388,15 @@ function Panel() {
             horizontal, cada pestaña conserva su ancho y la activa se trae a la
             vista sola. En pantallas anchas se reparten el ancho como antes. */}
         <div ref={tabsRef} className="-mx-3 mb-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex w-max min-w-full gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 text-xs sm:text-sm">
+          <div className="flex w-max min-w-full gap-1 rounded-xl bg-slate-200/70 p-1 text-[13px] sm:text-sm" role="tablist">
             {vistas.map((v) => {
               const n = porEstado.get(v)?.length ?? 0;
               const activa = vista === v;
               return (
-                <button key={v} data-vista={v} onClick={() => setVista(v)}
-                  className={`inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 font-medium sm:flex-1 ${activa ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                <button key={v} data-vista={v} role="tab" aria-selected={activa} onClick={() => setVista(v)}
+                  className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 font-semibold transition-all sm:flex-1 ${activa ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
                   {ETIQUETA_VISTA[v]}
-                  <span className={`rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums ${activa ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{n}</span>
+                  <span className={`rounded-full px-1.5 py-px text-[11px] font-bold tabular-nums ${activa ? "bg-slate-900 text-white" : "bg-slate-300/60 text-slate-600"}`}>{n}</span>
                 </button>
               );
             })}
@@ -406,8 +406,8 @@ function Panel() {
         {enCurso && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             <button onClick={() => setSoloRetrasados((v) => !v)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium ${soloRetrasados ? "border-rose-500 bg-rose-500 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
-              Solo retrasados
+              className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition-colors ${soloRetrasados ? "bg-rose-500 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}>
+              <span className={`h-2 w-2 rounded-full ${soloRetrasados ? "bg-white" : "bg-rose-500"}`} /> Solo retrasados
             </button>
           </div>
         )}
@@ -562,7 +562,7 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
       )}
       <Link to="/panel/$id" params={{ id: p.id }} search={tapiceroSearch ? { tapicero: tapiceroSearch } : {}} draggable={false}
         onClick={() => onAbrir(p.id)}
-        className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-3 active:bg-slate-50">
+        className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-3.5 active:bg-slate-50">
         {posicion > 0 && (
           <span className="w-5 shrink-0 text-center text-xs font-semibold tabular-nums text-slate-400">{posicion}</span>
         )}
@@ -595,7 +595,7 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
           )}
         </div>
         <div className="flex shrink-0 items-center">
-          <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
+          <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
         </div>
         <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
       </Link>
@@ -614,10 +614,10 @@ function Shell({ children, onSignOut, equipo, bannerNombre }: {
           <Link to="/" className="inline-flex items-center gap-1 rounded bg-white/15 px-2 py-0.5 hover:bg-white/25"><ArrowLeft className="h-3 w-3" /> Volver al CRM</Link>
         </div>
       )}
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-        <div className="flex items-center gap-2 font-bold text-[#1a1f36]"><Hammer className="h-5 w-5" /> Mi taller</div>
+      <header className="bar-blur sticky top-0 z-10 flex h-[52px] items-center justify-between border-b border-slate-200/70 px-4 pt-[env(safe-area-inset-top)]">
+        <div className="flex items-center gap-2 text-[17px] font-bold tracking-tight text-[#1a1f36]"><Hammer className="h-5 w-5" /> Mi taller</div>
         {!equipo && (
-          <button onClick={onSignOut} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+          <button onClick={onSignOut} className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-slate-500 hover:bg-slate-100" aria-label="Salir">
             <LogOut className="h-4 w-4" /> Salir
           </button>
         )}

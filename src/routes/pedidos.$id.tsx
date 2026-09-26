@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Trash2, Package, ExternalLink, Save, Ruler, Pencil } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -21,6 +21,16 @@ export const Route = createFileRoute("/pedidos/$id")({
   head: () => ({ meta: [{ title: "Pedido — TiroCRM" }] }),
   component: PedidoDetalle,
 });
+
+// Pestañas de la ficha (etiqueta corta para el móvil).
+type TabPedido = "estado" | "tapicero" | "producto" | "pago";
+const TABS: { k: TabPedido; corto: string; largo: string }[] = [
+  { k: "estado", corto: "Estado", largo: "Estado y plazo" },
+  { k: "tapicero", corto: "Tapicero", largo: "Ficha del tapicero" },
+  { k: "producto", corto: "Producto", largo: "Producto" },
+  { k: "pago", corto: "Pago", largo: "Pago y notas" },
+];
+const TAB_KEY = "pedido-tab";
 
 const SEM_COLOR = {
   verde: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500", label: "A tiempo" },
@@ -50,6 +60,18 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
   const { leads, productos, tapiceros } = useStore();
   const api = usePedidoDraft(pedidoId);
   const [editProd, setEditProd] = useState(false);
+  // Pestañas de la ficha: antes eran 10 bloques seguidos (en móvil, una página
+  // larguísima). Las secciones se OCULTAN con CSS, no se desmontan: el borrador
+  // y el estado de cada bloque se conservan al cambiar de pestaña.
+  const [tab, setTab] = useState<TabPedido>("estado");
+  useEffect(() => {
+    try { const t = sessionStorage.getItem(TAB_KEY); if (t && TABS.some((x) => x.k === t)) setTab(t as TabPedido); } catch { /* sin sessionStorage */ }
+  }, []);
+  function cambiarTab(t: TabPedido) {
+    setTab(t);
+    try { sessionStorage.setItem(TAB_KEY, t); } catch { /* sin sessionStorage */ }
+  }
+  const oculto = (t: TabPedido) => (tab === t ? "space-y-4" : "hidden");
 
   if (!api) return null; // borrado mientras se veía
   const { pedido, draft, patch, telasDraft, setTelasDraft, dirty, saving, guardar, descartar, guardarNumero, guardarSufijo } = api;
@@ -143,54 +165,28 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
         </div>
       </div>
 
+      {/* Pestañas (pegajosas en móvil, bajo la cabecera). */}
+      <div className="sticky top-[52px] z-20 -mx-4 bg-slate-50/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0 md:py-0">
+        <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-200/70 p-1 text-sm" role="tablist">
+          {TABS.map((t) => (
+            <button key={t.k} type="button" role="tab" aria-selected={tab === t.k} onClick={() => cambiarTab(t.k)}
+              className={`min-h-10 rounded-lg px-1 text-[14px] font-semibold transition-all ${tab === t.k ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
+              <span className="md:hidden">{t.corto}</span>
+              <span className="hidden md:inline">{t.largo}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Estado y plazo ── */}
+      <div className={oculto("estado")}>
       {/* Estado del pedido: cinco pasos, se guarda al instante. El equipo puede
           ir a cualquier estado, hacia delante o hacia atrás. */}
       <EstadoPedidoPanel pedido={pedido} />
 
-      {/* Datos del producto — editable (mismo formulario que en Clientes). Al
-          guardar se actualiza el MISMO producto (se refleja en la ficha del
-          cliente) y se avisa al tapicero si ya estaba asignado. */}
-      {producto && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><Ruler className="h-3.5 w-3.5" /> Datos del producto</div>
-            {!editProd && (
-              <button onClick={() => setEditProd(true)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                <Pencil className="h-3.5 w-3.5" /> Editar producto
-              </button>
-            )}
-          </div>
-          {editProd ? (
-            <ProductoForm
-              initial={productoToState({ tipo: producto.tipo, modelo: producto.modelo, ancho: producto.ancho, alto: producto.alto, fondo: producto.fondo, tela: producto.tela, color: producto.color, relleno: producto.relleno, patas: producto.patas, acabado: producto.acabado, coleccionTela: producto.coleccionTela, cantidad: producto.cantidad, precioUnitario: producto.precioUnitario, notasProducto: producto.notasProducto })}
-              onSave={(updated) => { void actions.updateProducto(producto.id, updated); setEditProd(false); }}
-              onCancel={() => setEditProd(false)}
-              isEditing
-            />
-          ) : (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
-              <Info k="Tipo" v={displayNombreProducto(producto.tipo, producto.modelo)} antes={pedido.antes.modelo} />
-              <Info k="Medidas" v={medidas || "—"} antes={pedido.antes.medidas} />
-              <Info k="Cantidad" v={String(producto.cantidad || 1)} antes={pedido.antes.cantidad} />
-              <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} antes={pedido.antes.tela_frontal} />
-              {(producto.color || pedido.antes.tela_lateral) && <Info k="Tela lateral" v={producto.color || "—"} antes={pedido.antes.tela_lateral} />}
-              {/* `relleno` solo es tela en cabecero/puf/banco; en pantallas es la forma. */}
-              {(producto.relleno || pedido.antes.tela_vivo) && rellenoEsTelaVivo(producto.tipo) && <Info k="Tela vivo/ribete" v={producto.relleno || "—"} antes={pedido.antes.tela_vivo} />}
-              {producto.relleno && esPantalla(producto.tipo) && <Info k="Forma" v={producto.relleno.charAt(0).toUpperCase() + producto.relleno.slice(1)} />}
-              {tipoLlevaVivo(producto.tipo)
-                ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
-                : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
-              {displayExtras(producto.patas) && <Info k="Extras" v={displayExtras(producto.patas)} />}
-              {producto.descuento && <Info k="Descuento web" v={`${producto.descuento.codigo} · ${producto.descuento.tipo === "fixed" ? `−${producto.descuento.valor} €` : `−${producto.descuento.valor} %`}${producto.descuento.precioOriginal != null ? ` (antes ${formatCurrency(producto.descuento.precioOriginal)})` : ""}`} />}
-              {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
-              {producto.dibujo && <div className="col-span-2 sm:col-span-3"><DibujoCliente dibujo={producto.dibujo} /></div>}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Plazo */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="md:max-w-2xl">
+
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Plazo</div>
           <div className="space-y-3">
@@ -237,6 +233,79 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
           </div>
         </div>
 
+      </div>
+
+      {/* Tapicero asignado (acción inmediata) */}
+      <TapiceroAsignado pedido={pedido} />
+
+      {/* Ruta de producción (hitos) */}
+      <RutaProduccion pedido={pedido} producto={producto} draft={draft} patch={patch} setTelasDraft={setTelasDraft} />
+
+      {/* Correo de entrega al cliente: solo en estado "Entregado al cliente"
+          y solo lo ve el equipo. Nunca sale sin pulsar Enviar. */}
+      <EmailEntrega pedido={pedido} lead={lead} producto={producto} />
+
+      </div>
+
+      {/* ── Ficha del tapicero ── */}
+      <div className={oculto("tapicero")}>
+      {/* Ficha para el tapicero (borrador; se guarda con el botón Guardar) */}
+      <FichaTapiceroEquipo pedido={pedido} producto={producto} draft={draft} patch={patch} telas={telasDraft} setTelas={setTelasDraft} />
+
+      {/* Telas del pedido (borrador) */}
+      <TelasPedidoEditor telasDraft={telasDraft} setTelasDraft={setTelasDraft} />
+
+      </div>
+
+      {/* ── Producto ── */}
+      <div className={oculto("producto")}>
+      {/* Datos del producto — editable (mismo formulario que en Clientes). Al
+          guardar se actualiza el MISMO producto (se refleja en la ficha del
+          cliente) y se avisa al tapicero si ya estaba asignado. */}
+      {producto && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><Ruler className="h-3.5 w-3.5" /> Datos del producto</div>
+            {!editProd && (
+              <button onClick={() => setEditProd(true)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                <Pencil className="h-3.5 w-3.5" /> Editar producto
+              </button>
+            )}
+          </div>
+          {editProd ? (
+            <ProductoForm
+              initial={productoToState({ tipo: producto.tipo, modelo: producto.modelo, ancho: producto.ancho, alto: producto.alto, fondo: producto.fondo, tela: producto.tela, color: producto.color, relleno: producto.relleno, patas: producto.patas, acabado: producto.acabado, coleccionTela: producto.coleccionTela, cantidad: producto.cantidad, precioUnitario: producto.precioUnitario, notasProducto: producto.notasProducto })}
+              onSave={(updated) => { void actions.updateProducto(producto.id, updated); setEditProd(false); }}
+              onCancel={() => setEditProd(false)}
+              isEditing
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
+              <Info k="Tipo" v={displayNombreProducto(producto.tipo, producto.modelo)} antes={pedido.antes.modelo} />
+              <Info k="Medidas" v={medidas || "—"} antes={pedido.antes.medidas} />
+              <Info k="Cantidad" v={String(producto.cantidad || 1)} antes={pedido.antes.cantidad} />
+              <Info k="Tela principal" v={[producto.tela, producto.coleccionTela ? displayColeccionTela(producto.coleccionTela) : ""].filter(Boolean).join(" · ") || "—"} antes={pedido.antes.tela_frontal} />
+              {(producto.color || pedido.antes.tela_lateral) && <Info k="Tela lateral" v={producto.color || "—"} antes={pedido.antes.tela_lateral} />}
+              {/* `relleno` solo es tela en cabecero/puf/banco; en pantallas es la forma. */}
+              {(producto.relleno || pedido.antes.tela_vivo) && rellenoEsTelaVivo(producto.tipo) && <Info k="Tela vivo/ribete" v={producto.relleno || "—"} antes={pedido.antes.tela_vivo} />}
+              {producto.relleno && esPantalla(producto.tipo) && <Info k="Forma" v={producto.relleno.charAt(0).toUpperCase() + producto.relleno.slice(1)} />}
+              {tipoLlevaVivo(producto.tipo)
+                ? <Info k="Vivo" v={vivoLabel(producto.acabado)} />
+                : producto.acabado && <Info k="Acabado" v={producto.acabado} />}
+              {displayExtras(producto.patas) && <Info k="Extras" v={displayExtras(producto.patas)} />}
+              {producto.descuento && <Info k="Descuento web" v={`${producto.descuento.codigo} · ${producto.descuento.tipo === "fixed" ? `−${producto.descuento.valor} €` : `−${producto.descuento.valor} %`}${producto.descuento.precioOriginal != null ? ` (antes ${formatCurrency(producto.descuento.precioOriginal)})` : ""}`} />}
+              {producto.notasProducto && <Info k="Notas" v={producto.notasProducto} full />}
+              {producto.dibujo && <div className="col-span-2 sm:col-span-3"><DibujoCliente dibujo={producto.dibujo} /></div>}
+            </div>
+          )}
+        </div>
+      )}
+
+      </div>
+
+      {/* ── Pago y notas ── */}
+      <div className={oculto("pago")}>
+      <div className="md:max-w-2xl">
         {/* Pago / factura */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Pago y factura</div>
@@ -294,23 +363,7 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Tapicero asignado (acción inmediata) */}
-      <TapiceroAsignado pedido={pedido} />
-
-      {/* Ficha para el tapicero (borrador; se guarda con el botón Guardar) */}
-      <FichaTapiceroEquipo pedido={pedido} producto={producto} draft={draft} patch={patch} telas={telasDraft} setTelas={setTelasDraft} />
-
-      {/* Ruta de producción (hitos) */}
-      <RutaProduccion pedido={pedido} producto={producto} draft={draft} patch={patch} setTelasDraft={setTelasDraft} />
-
-      {/* Correo de entrega al cliente: solo en estado "Entregado al cliente"
-          y solo lo ve el equipo. Nunca sale sin pulsar Enviar. */}
-      <EmailEntrega pedido={pedido} lead={lead} producto={producto} />
-
-      {/* Telas del pedido (borrador) */}
-      <TelasPedidoEditor telasDraft={telasDraft} setTelasDraft={setTelasDraft} />
+            </div>
 
       {/* Colaboración (canje) */}
       <ColaboracionPanel draft={draft} patch={patch} lead={lead} />
@@ -322,6 +375,8 @@ function PedidoEditor({ pedidoId }: { pedidoId: string }) {
           onChange={(e) => patch({ notasPedido: e.target.value })}
           placeholder="Logística, incidencias, acuerdos… (internas)"
           className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+      </div>
+
       </div>
 
       {/* Barra fija de guardado */}

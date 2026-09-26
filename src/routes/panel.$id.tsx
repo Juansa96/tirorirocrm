@@ -73,31 +73,31 @@ function FichaPanel() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-40 print:pb-0">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 print:static">
-        <Link to="/panel" search={backSearch} className="text-slate-500 print:hidden"><ArrowLeft className="h-5 w-5" /></Link>
+      <header className="bar-blur sticky top-0 z-10 flex min-h-[52px] items-center gap-2 border-b border-slate-200/70 px-2 py-1.5 pt-[max(0.375rem,env(safe-area-inset-top))] print:static">
+        <Link to="/panel" search={backSearch} aria-label="Volver al taller" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 active:bg-slate-100 print:hidden"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            {p.numero != null && <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
-            <div className="truncate text-base font-bold text-slate-900">{displayNombreProducto(p.tipo, p.modelo)}</div>
+          <div className="flex items-start gap-1.5">
+            {p.numero != null && <span className="mt-0.5 shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Nº {numeroPedidoLabel(p.numero, p.numeroSufijo)}</span>}
+            <div className="line-clamp-2 text-[15px] font-bold leading-tight text-slate-900 sm:text-base">{displayNombreProducto(p.tipo, p.modelo)}</div>
             {p.cantidad > 1 && <UnidadesBadge n={p.cantidad} />}
           </div>
           {p.cliente && <div className="truncate text-[11px] text-slate-500">{p.cliente}</div>}
         </div>
-        <EstadoBadge estado={p.estado} className="shrink-0" />
+        <EstadoBadge estado={p.estado} className="hidden shrink-0 sm:inline-flex" />
         {(p.estado === "Pendiente" || p.estado === "En marcha" || p.estado === "Terminado") && (
           <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold leading-none ${plazo.bg} ${plazo.text}`}>{plazo.label}</span>
         )}
         {/* Editar (solo equipo): abre el editor completo del pedido. El tapicero
             no lo ve — él solo pulsa los 3 botones de abajo. */}
         {esEquipo && (
-          <Link to="/pedidos/$id" params={{ id: p.id }} title="Editar pedido (equipo)"
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 print:hidden">
-            <Pencil className="h-3.5 w-3.5" /> Editar
+          <Link to="/pedidos/$id" params={{ id: p.id }} title="Editar pedido (equipo)" aria-label="Editar pedido"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100 print:hidden sm:rounded-lg sm:border sm:border-slate-200 sm:px-2.5">
+            <Pencil className="h-4 w-4" /> <span className="hidden sm:inline">Editar</span>
           </Link>
         )}
-        <button type="button" onClick={() => window.print()} title="Imprimir / Guardar PDF"
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 print:hidden">
-          <Printer className="h-3.5 w-3.5" />
+        <button type="button" onClick={() => window.print()} title="Imprimir / Guardar PDF" aria-label="Imprimir"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 print:hidden">
+          <Printer className="h-4 w-4" />
         </button>
       </header>
 
@@ -285,10 +285,10 @@ function AccionesTapicero({ p, onDone, estados }: { p: PanelPedido; onDone: () =
   }
   const telaRecibida = p.telaEstado === "recibida";
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white p-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] print:hidden">
+    <div className="bar-blur fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200/70 p-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] print:hidden">
       <div className="mx-auto max-w-4xl space-y-2">
         <button disabled={busy} onClick={() => void marcaTela(!telaRecibida)}
-          className={`w-full rounded-xl px-2 py-2.5 text-xs font-bold sm:text-sm ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
+          className={`min-h-11 w-full rounded-xl px-2 text-[13px] font-bold sm:text-sm ${telaRecibida ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-600 text-white"} disabled:opacity-50`}>
           {telaRecibida ? "✓ Tela recibida" : "He recibido la tela"}
         </button>
         <EstadoSelector estado={p.estado} estados={estados} onChange={(e) => void cambiarEstado(e)} disabled={busy} />
