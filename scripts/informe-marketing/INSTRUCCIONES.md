@@ -89,7 +89,7 @@ copiar el contenido de los mensajes en el informe (datos personales).
 ### 3. Metricool (marca 7061730 «Tirorirohome», cuenta sangradortorresjuan@gmail.com)
 `mcp__Metricool_Social_Media_Management__getAnalyticsDataByMetrics`, fechas con `+02:00`/`+01:00`.
 
-- **Meta Ads** (cuenta act_4413067068940680): campañas `FACA05` nombre, `FACA13` gasto,
+- **Meta Ads** (cuenta act_3757816891176752, conectada bien el 27/09; la act_4413067068940680 «Tiroriro Home Ads» NO es la que paga): campañas `FACA05` nombre, `FACA13` gasto,
   `FACA10` impresiones, `FACA12` alcance, `FACA14` clics, `FACA44` clics en enlace,
   `FACA156`/`FACA157` resultados, `FACA41` leads, `FACA77` conversaciones de mensajería.
   Evolución diaria: `FAEV01`, `FAEV04`, `FAEV05`.
@@ -167,3 +167,56 @@ La página conserva la estructura del 23/09, pero **arriba del todo** va lo nuev
 día; las secciones que no han cambiado se actualizan en silencio (cifras) sin
 reescribir los mismos textos ni repetir los mismos avisos día tras día.
 
+
+## Producto (decisión de Juan, 27/09/2026)
+
+Juan quiere que el informe hable **mucho de producto** para ir mejorando productos:
+qué se vende en la semana, el mes y 3 meses (modelo, tela, estilo y color de tela,
+vivo y su color, colgado/apoyado, ancho y alto del cabecero, colección) y lo que se
+pide frente a lo que se compra. Sección interactiva `#producto` (control segmentado
+Semana/Mes/3 meses que redibuja todas las barras), justo después de Campañas, y
+6–7 conclusiones de producto con números (qué ampliar, qué subir de precio, qué
+dejar de promocionar). Plantilla de la sección: `producto_plantilla.html` en la
+carpeta de trabajo del informe (datos en el objeto `D` del script).
+
+Datos: `productos_lead` unido a `pedidos` (`pedidos.producto_lead_id`), sin canjes
+(`es_canje`). Fecha = `pedidos.fecha_creacion_pedido` (Madrid). Campos: `tipo`,
+`modelo` (1.ª palabra = modelo de cabecero), `tela`, `coleccion_tela`, `acabado`
+(vivo-simple / vivo-doble / liso), `relleno` (en cabeceros = tela/color del vivo),
+`patas` (en cabeceros = montaje: «Colgado a la pared», «Apoyado en el suelo»,
+tapetes), `ancho`, `alto`, `cantidad`, `precio_unitario`. Consultas frente a
+compras: todos los `productos_lead` del periodo, con o sin pedido.
+
+Email: sin recomendaciones de «contestar a X». Consejos de negocio y marketing,
+pensados y con números. Diseño tipo Apple (fondo #F2F2F7, tarjetas blancas
+redondeadas, letra del sistema, botón con `bgcolor` en la celda para que se vea en
+Gmail del iPhone). Aprobado por Juan el 27/09: plantilla `email_plantilla_v2.html` en la carpeta de trabajo del informe; sustituye a `email_plantilla.html`. El asunto sigue siendo «📊 Parte de marketing DD/MM · <titular>».
+
+## Creatividades con imagen (Juan, 27/09/2026)
+
+Siempre que se hable de un anuncio (en la página y en el email) va su **captura**:
+Metricool `FADE04` (nombre del anuncio) + `FADE147` (miniatura) de la red Meta Ads.
+En la página: descargar la miniatura y meterla en el HTML (data URI pequeña o
+subida como archivo del artifact), porque los enlaces de fbcdn caducan. En el email:
+miniatura de 64–72 px a la izquierda de cada fila de anuncio. Si Metricool no la
+devuelve (cuenta de anuncios mal conectada), decirlo en una línea: no inventar ni
+poner fotos de la web en su lugar.
+
+## Google Business Profile (comprobado 27/09/2026)
+
+Ya llegan datos por Metricool (ficha «Tiroriro Home»). Usar `GMEV18` búsqueda,
+`GMEV19` Maps, `GMEV21` clics a la web, `GMEV22` llamadas, `GMEV23` «cómo llegar»,
+`GMEV25` mensajes, `GMRE01/06/09/04` reseñas (fecha, nombre, estrellas, respondida),
+`GMID01/02` reparto búsqueda/Maps. `null` = 0. Los últimos 5–6 días llegan
+incompletos: comparar semanas cerradas (p. ej. la que acaba 6 días antes). El plan
+gratis solo da 30 días. Palabras clave (`GMKW`) aún vacías.
+Referencia 28/08–24/09: 304 apariciones (60 % búsqueda, 40 % Maps), 21 clics a la
+web, 70 «cómo llegar», 1 llamada, 3 reseñas de 5★.
+
+## Campañas de Meta activas (27/09/2026)
+
+Hay DOS: `ES_Cabeceros_Leads_Sep26` (a la web/configurador, leads) y
+`WA_Cabeceros_Oct26` (clic a WhatsApp: 625 clics y 27.089 de alcance en 30 días).
+Medir las dos por separado. Los WhatsApp de la segunda llegan sin UTM (suelen empezar
+por «vengo del anuncio» o traer `referral`/`ctwa` en `raw`): contarlos como leads de
+esa campaña para el CPL.
