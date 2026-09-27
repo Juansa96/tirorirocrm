@@ -294,3 +294,22 @@ de Instagram · tiempo por página y páginas de entrada · telas por nombre exa
 estilo, color y las 3 telas top).
 
 El email sigue el mismo orden: las 5 cosas del día; los lunes, 3 líneas del resumen semanal.
+
+## Ajustes del 27/09 (tarde)
+
+- **Datos «ganadores»**: a Juan le sirven los datos que destapan un problema de negocio
+  con un porcentaje claro (p. ej. «el 41 % de los pedidos llegó tarde»). Buscar uno así
+  cada día; mejor uno bueno que diez tibios.
+- **Recomendados**: origen «Referido» + «Boca a boca». Dar las dos lecturas: % de todos
+  sus leads que paga (27/09: 16 de 32 = 50 %) y % de los ya decididos (84 %).
+  Hay 22 leads «Sin origen»: decirlo si crece.
+- **Margen / ROAS**: primero por categoría y luego, dentro, por modelo.
+- **Presupuestos que no cierran** (sección semanal, dentro de «Dinero en juego»): leads
+  en Negotiation / On Hold / Propuesta parados > 14 días. Solo con cifras, sin leer notas
+  ni mensajes (Juan no lo autorizó): €, nº de mensajes, quién escribió el último (nosotros
+  o el cliente), días sin hablar, categoría, origen; comparar con ganados y perdidos.
+  Referencia 27/09 (leads desde junio): 22 parados = 6.017 €; en 13 el último mensaje es
+  nuestro (enviamos presupuesto y el cliente se calla), 9 días de media sin hablar; su
+  ticket (mediana 412 €) y su implicación (55 mensajes) son casi los de los ganados
+  (435 €, 66), así que no es el precio: se enfrían después del presupuesto. Los perdidos
+  son otra cosa: ticket bajo (mediana 200 €) y pocos mensajes (21), se van pronto.
