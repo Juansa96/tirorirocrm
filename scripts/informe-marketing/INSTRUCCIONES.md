@@ -239,3 +239,11 @@ Producto · Ventas · De dónde llega el WhatsApp · Instagram · Google (ficha 
 La web: el freno y el recorrido · Gráfica de visitas · Audiencia.
 
 Fuera: objetivos (Juan aún no los ha fijado), glosario y alertas de «sin contestar».
+
+## Producto: primero categorías, luego modelos (Juan, 27/09/2026)
+
+Al hablar de producto (página, email y consejos) se habla primero por **categoría**:
+cabeceros, pufs, bancos, almohadones, pantallas de lámpara, mesas… Los modelos
+(Conta, Macarella, Pregonda, Calobra…) van **dentro** de su categoría, como segundo
+nivel (desplegable o sub-lista), nunca mezclados con las categorías en el mismo
+gráfico ni en el titular.
