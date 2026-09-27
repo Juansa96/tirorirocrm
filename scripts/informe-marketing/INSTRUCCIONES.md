@@ -247,3 +247,50 @@ cabeceros, pufs, bancos, almohadones, pantallas de lámpara, mesas… Los modelo
 (Conta, Macarella, Pregonda, Calobra…) van **dentro** de su categoría, como segundo
 nivel (desplegable o sub-lista), nunca mezclados con las categorías en el mismo
 gráfico ni en el titular.
+
+## Parte v4: diario de 1 minuto + resumen semanal los lunes (Juan, 27/09/2026) — manda sobre todo lo anterior
+
+### Cada día (martes a domingo): solo 5 cosas
+1. **Leads de ayer**: cuántos, de dónde (origen/UTM/campaña) y si hay alguno grande (valor ≥ 400 €).
+2. **Ventas**: cerradas ayer y el mes (1–N) frente a los mismos días del mes anterior.
+3. **Anuncios**: gasto de ayer y coste por lead de cada campaña (web y WhatsApp por
+   separado), con la foto de la creatividad. Alarma roja si una campaña gasta 3 días sin leads.
+4. **Dinero en juego**: € en presupuestos abiertos (Primer Contacto, Discovery,
+   Negotiation, Propuesta, On Hold) y si sube o baja frente a ayer; cuánto lleva más de
+   14 días parado; cuánto pasó a perdido esta semana.
+5. **Una sola decisión del día**, la más importante, con su número.
+Debajo, en desplegables: las 5 secciones nuevas (abajo) cuando tengan algo que decir.
+
+### Los lunes: además, el resumen semanal (semana cerrada lunes–domingo)
+Audiencia · la web (solo el freno: llegan al configurador → piden precio) · WhatsApp por
+canal/botón/página · Producto completo (categorías y dentro modelos) · Ficha de Google
+(semana ya cerrada) · Instagram (solo lo que trae visitas, WhatsApp y leads).
+
+### Secciones nuevas
+- **Dinero en juego** (CRM): por etapa abierta `count`, `sum(valor)`, parados
+  (`fecha_entrada_etapa` < hoy−14), entradas de la semana y € que pasaron a Closed Lost.
+  Referencia 27/09: 15.462 € abiertos (8.572 € en Negotiation), 8.887 € parados > 14 días,
+  875 € perdidos esta semana.
+- **Cuánto devuelve cada euro de anuncio (ROAS)**: gasto Meta (Metricool, por campaña)
+  frente a ventas cerradas de leads con `utm_source` meta + leads de WhatsApp de la
+  campaña WA (`raw` con `referral`/`ctwa` o primer mensaje «vengo del anuncio»). Si Juan
+  da márgenes por categoría, calcular beneficio y no solo ventas.
+- **Semáforo de taller** (tabla `pedidos`, sin canjes): en curso (`not entregado`),
+  retrasados (`fecha_limite` < hoy), vencen en 7 días, nuevos de la semana; plazo
+  prometido (`dias_plazo`) frente a real (`coalesce(fecha_entrega_real, entregado_fecha)`
+  − fecha del pedido) y % entregados tarde. Verde / ámbar / rojo según retrasos y lo que
+  vence en 7 días. Referencia 27/09: 31 en curso, 6 retrasados, 16 vencen en 7 días; en 60
+  días 41 entregados, 27 días reales de media frente a 30 prometidos, 17 tarde (41 %).
+- **Radar de producto**: por categoría, consultas (`productos_lead`) frente a compras
+  (con pedido); lo que se pide fuera de carta (medidas/modelos personalizados, telas «que
+  manda ella»); búsquedas de Google (`GMKW`). No hay campo de motivo de pérdida: si el
+  equipo lo apunta en `etiquetas` («Perdido: precio», «Perdido: plazo»…), usarlo.
+- **Motor gratis**: leads con origen «Referido» (cuántos, % que paga, € ) y reseñas
+  nuevas de Google (`GMRE`). Aún no hay campo de «quién recomienda».
+
+### Fuera del informe
+Google Ads (salvo que se reactive) · «Personas» (repite visitas) · seguidores y alcance
+de Instagram · tiempo por página y páginas de entrada · telas por nombre exacto (dejar
+estilo, color y las 3 telas top).
+
+El email sigue el mismo orden: las 5 cosas del día; los lunes, 3 líneas del resumen semanal.
