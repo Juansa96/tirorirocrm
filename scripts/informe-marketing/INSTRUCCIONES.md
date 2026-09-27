@@ -220,3 +220,22 @@ Hay DOS: `ES_Cabeceros_Leads_Sep26` (a la web/configurador, leads) y
 Medir las dos por separado. Los WhatsApp de la segunda llegan sin UTM (suelen empezar
 por «vengo del anuncio» o traer `referral`/`ctwa` en `raw`): contarlos como leads de
 esa campaña para el CPL.
+
+## Estructura de la página (elegida por Juan el 27/09/2026) — manda sobre lo anterior
+
+Que no sea infinita: arriba lo esencial abierto y el resto en **desplegables**
+(`<details class="blk">` con título + una línea de resumen con la cifra clave).
+Referencia visual: `pagina_referencia_v3.html` en la carpeta de trabajo del informe.
+
+Siempre abierto:
+1. **Resumen**: 4 fichas (leads semana, ventas semana, ventas mes, visitas semana)
+   + 3 novedades del día. Dentro, un desplegable **Comparativas**: ayer frente al
+   día anterior, semana frente a la anterior, mes (1–N) frente a los mismos días de
+   agosto y julio (visitas, personas, formularios, clics a WhatsApp, leads, ventas).
+2. **Qué haría yo**: 3–4 consejos de negocio/marketing con números.
+
+Desplegables, en este orden: Anuncios de Meta (con foto de cada creatividad) ·
+Producto · Ventas · De dónde llega el WhatsApp · Instagram · Google (ficha de Maps) ·
+La web: el freno y el recorrido · Gráfica de visitas · Audiencia.
+
+Fuera: objetivos (Juan aún no los ha fijado), glosario y alertas de «sin contestar».
