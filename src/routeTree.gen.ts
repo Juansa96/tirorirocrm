@@ -42,7 +42,6 @@ import { Route as ApiPublicTelasRouteImport } from './routes/api/public/telas'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
-import { Route as ApiPedidosImportarMiniRouteImport } from './routes/api/pedidos/importar-mini'
 import { Route as ApiPedidosReferenciaRouteImport } from './routes/api/pedidos/referencia'
 import { Route as ApiPedidosEmailEntregaRouteImport } from './routes/api/pedidos/email-entrega'
 import { Route as ApiPedidosCroquisRouteImport } from './routes/api/pedidos/croquis'
@@ -221,11 +220,6 @@ const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   path: '/api/public/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPedidosImportarMiniRoute = ApiPedidosImportarMiniRouteImport.update({
-  id: '/api/pedidos/importar-mini',
-  path: '/api/pedidos/importar-mini',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPedidosReferenciaRoute = ApiPedidosReferenciaRouteImport.update({
   id: '/api/pedidos/referencia',
   path: '/api/pedidos/referencia',
@@ -320,7 +314,6 @@ export interface FileRoutesByFullPath {
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
-  '/api/pedidos/importar-mini': typeof ApiPedidosImportarMiniRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
@@ -367,7 +360,6 @@ export interface FileRoutesByTo {
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
-  '/api/pedidos/importar-mini': typeof ApiPedidosImportarMiniRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
@@ -416,7 +408,6 @@ export interface FileRoutesById {
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
-  '/api/pedidos/importar-mini': typeof ApiPedidosImportarMiniRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
@@ -466,7 +457,6 @@ export interface FileRouteTypes {
     | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
-    | '/api/pedidos/importar-mini'
     | '/api/pedidos/referencia'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
@@ -513,7 +503,6 @@ export interface FileRouteTypes {
     | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
-    | '/api/pedidos/importar-mini'
     | '/api/pedidos/referencia'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
@@ -561,7 +550,6 @@ export interface FileRouteTypes {
     | '/api/leads/aviso-asignacion'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
-    | '/api/pedidos/importar-mini'
     | '/api/pedidos/referencia'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
@@ -608,7 +596,6 @@ export interface RootRouteChildren {
   ApiLeadsAvisoAsignacionRoute: typeof ApiLeadsAvisoAsignacionRoute
   ApiPedidosCroquisRoute: typeof ApiPedidosCroquisRoute
   ApiPedidosEmailEntregaRoute: typeof ApiPedidosEmailEntregaRoute
-  ApiPedidosImportarMiniRoute: typeof ApiPedidosImportarMiniRoute
   ApiPedidosReferenciaRoute: typeof ApiPedidosReferenciaRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
@@ -858,13 +845,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/pedidos/importar-mini': {
-      id: '/api/pedidos/importar-mini'
-      path: '/api/pedidos/importar-mini'
-      fullPath: '/api/pedidos/importar-mini'
-      preLoaderRoute: typeof ApiPedidosImportarMiniRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/pedidos/referencia': {
       id: '/api/pedidos/referencia'
       path: '/api/pedidos/referencia'
@@ -994,7 +974,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiLeadsAvisoAsignacionRoute: ApiLeadsAvisoAsignacionRoute,
   ApiPedidosCroquisRoute: ApiPedidosCroquisRoute,
   ApiPedidosEmailEntregaRoute: ApiPedidosEmailEntregaRoute,
-  ApiPedidosImportarMiniRoute: ApiPedidosImportarMiniRoute,
   ApiPedidosReferenciaRoute: ApiPedidosReferenciaRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicCatalogRoute: ApiPublicCatalogRoute,
