@@ -200,6 +200,20 @@ function PaidBadge({ leadId, pedidos }: { leadId: string; pedidos: ReturnType<ty
   );
 }
 
+// Código de descuento de la web: el formulario deja la etiqueta "Descuento XXX"
+// en el lead (api/public/lead-form.ts). El detalle (−10 %, importe…) está en la ficha.
+function DescuentoBadge({ lead }: { lead: Lead }) {
+  const codigos = (lead.etiquetas ?? []).filter((e) => e.startsWith("Descuento ")).map((e) => e.slice("Descuento ".length));
+  if (!codigos.length) return null;
+  return (
+    <>
+      {codigos.map((c) => (
+        <span key={c} title="Código de descuento de la web (detalle en la ficha)" className="max-w-full truncate rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">🎟️ {c}</span>
+      ))}
+    </>
+  );
+}
+
 /* ============================ B2C card ============================ */
 function LeadCardB2C({ lead, tareas, pedidos, onNavigate, onMove }: { lead: ReturnType<typeof useStore>["leads"][0]; tareas: ReturnType<typeof useStore>["tareas"]; pedidos: ReturnType<typeof useStore>["pedidos"]; onNavigate: () => void; onMove?: () => void }) {
   const next = nextPendingTaskFor(lead.id, tareas);
@@ -224,6 +238,7 @@ function LeadCardB2C({ lead, tareas, pedidos, onNavigate, onMove }: { lead: Retu
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <PaidBadge leadId={lead.id} pedidos={pedidos} />
         <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${CANAL_COLORS[canalOf(lead)]}`}>{canalOf(lead)}</span>
+        <DescuentoBadge lead={lead} />
       </div>
       <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-500">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
@@ -266,7 +281,7 @@ function LeadCardB2B({ lead, pedidos, onNavigate, onMove }: { lead: Lead; pedido
       {lead.valor > 0 && (
         <p className="mt-1.5 text-base font-bold text-slate-900">{formatCurrency(lead.valor)}</p>
       )}
-      <div className="mt-1.5"><PaidBadge leadId={lead.id} pedidos={pedidos} /></div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5"><PaidBadge leadId={lead.id} pedidos={pedidos} /><DescuentoBadge lead={lead} /></div>
       {(lead.asignados ?? []).length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1">
           {lead.asignados.map((a) => (
