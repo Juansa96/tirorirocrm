@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MessageCircle, RefreshCw, Sparkles, Copy, Check, AlertTriangle, ChevronDown, ChevronRight, Settings2, Wifi, WifiOff, User, Instagram, Mail } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -181,6 +181,7 @@ function WhatsappPage() {
             </details>
           )}
           <ConfigInstagram webhookUrl={igWebhookUrl} verifyToken={cfg.verifyToken} estado={ig} />
+          <ConfigMetaAds />
           <ConfigCorreo url={`${origen}/api/correo/entrada`} token={cfg.webhookToken} estado={correo} />
         </div>
       )}
@@ -398,6 +399,73 @@ function ConfigInstagram({ webhookUrl, verifyToken, estado }: { webhookUrl: stri
       )}
       {estado?.conClave && (
         <button disabled={busy} onClick={() => void guardar(true)} className="text-xs text-slate-500 underline-offset-2 hover:text-rose-600 hover:underline">Desconectar Instagram</button>
+      )}
+    </div>
+  );
+}
+
+// ── Anuncios de Meta: foto y cifras de cada anuncio para el parte (solo admin) ──
+function ConfigMetaAds() {
+  const [token, setToken] = useState("");
+  const [cuenta, setCuenta] = useState("3757816891176752");
+  const [busy, setBusy] = useState(false);
+  const [est, setEst] = useState<Record<string, unknown> | null>(null);
+
+  async function llamar(metodo: "GET" | "POST", cuerpo?: Record<string, unknown>) {
+    const { data } = await supabase.auth.getSession();
+    const res = await fetch("/api/metaads/config", {
+      method: metodo,
+      headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}`, "Content-Type": "application/json" },
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+    });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) throw new Error(String(body.error ?? `Error ${res.status}`));
+    return body;
+  }
+
+  useEffect(() => { llamar("GET").then(setEst).catch(() => setEst(null)); }, []);
+
+  async function enviar(cuerpo: Record<string, unknown>, ok: string) {
+    setBusy(true);
+    try {
+      setEst(await llamar("POST", cuerpo));
+      toast.success(ok);
+      setToken("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const conectado = est?.conectado === true;
+  return (
+    <div className="space-y-3 border-t border-slate-100 pt-4">
+      <h2 className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-blue-600" /> Anuncios de Meta: foto y gasto de cada anuncio</h2>
+      <p className="text-xs text-slate-500">Para el parte de marketing. Metricool solo da los datos por campaña; con esta clave (solo lectura) el CRM lee cada anuncio: su foto, su gasto, clics y leads. Se actualiza solo cada 3 horas.</p>
+      {conectado ? (
+        <p className="text-xs text-emerald-700">
+          Conectado{est?.nombre ? ` a «${String(est.nombre)}»` : ""} ({String(est?.cuenta ?? "")}) · {Number(est?.anuncios ?? 0)} anuncios, {Number(est?.fotos ?? 0)} con foto
+          {est?.sincronizadoAt ? ` · actualizado ${tiempoRelativo(String(est.sincronizadoAt))}` : ""}.
+        </p>
+      ) : (
+        <ol className="list-decimal space-y-1.5 pl-5 text-slate-600">
+          <li>En <span className="font-medium">business.facebook.com</span> → Configuración del negocio → Usuarios → <span className="font-medium">Usuarios del sistema</span> → Añadir (rol Empleado).</li>
+          <li>«Asignar activos» → Cuentas publicitarias → la cuenta que paga los anuncios → permiso «Ver rendimiento».</li>
+          <li>«Generar identificador» → elegir la app → marcar <span className="font-mono">ads_read</span> → caducidad «Nunca» → copiar la clave y pegarla aquí.</li>
+        </ol>
+      )}
+      {!!est?.error && <p className="text-xs text-rose-700">Último error: {String(est.error)}</p>}
+      <div className="grid gap-2 pl-5 sm:grid-cols-[1fr_12rem_auto]">
+        <input value={token} onChange={(e) => setToken(e.target.value)} placeholder={conectado ? "Pegar otra clave para cambiarla" : "Clave de acceso de Meta (EAA…)"} className="rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs" />
+        <input value={cuenta} onChange={(e) => setCuenta(e.target.value)} placeholder="Cuenta publicitaria" className="rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs" />
+        <button disabled={busy || !token.trim()} onClick={() => void enviar({ token, cuenta }, "Anuncios de Meta conectados")} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{busy ? "Conectando…" : "Conectar"}</button>
+      </div>
+      {conectado && (
+        <div className="flex flex-wrap gap-3 pl-5">
+          <button disabled={busy} onClick={() => void enviar({ sincronizar: true }, "Anuncios actualizados")} className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">Actualizar ahora</button>
+          <button disabled={busy} onClick={() => void enviar({ desconectar: true }, "Anuncios de Meta desconectados")} className="text-xs text-slate-500 underline-offset-2 hover:text-rose-600 hover:underline">Desconectar</button>
+        </div>
       )}
     </div>
   );

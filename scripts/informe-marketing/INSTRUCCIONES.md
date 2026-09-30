@@ -426,3 +426,23 @@ python3 anuncios.py anuncios.json   # → anuncios_pagina.html, anuncios_email.h
 €/chat. Prueba real enviada a Juan el 30/09 con la miniatura como adjunto en línea.
 En la página, la foto va como data URI (la de `raw._anuncio`); en el email, por la URL
 pública del CRM (ver «Ejecutar»).
+
+### Detalle por anuncio desde Meta (30/09/2026) — manda sobre lo anterior
+Metricool no da nada por anuncio. El CRM lee la API de anuncios de Meta con una clave de
+solo lectura que un admin pega en /whatsapp → Configuración → «Anuncios de Meta», y cada
+3 horas guarda la foto y las cifras de cada anuncio activo o con gasto en el mes:
+```sql
+select payload->>'sincronizado_at' sincronizado, payload->>'error' error,
+  a->>'id' ad_id, a->>'nombre' nombre, a->>'campana' campana, a->>'estado' estado,
+  a->'mes' mes, a->'semana' semana, a->'ayer' ayer, a->>'foto' foto
+from whatsapp_eventos, jsonb_array_elements(payload->'anuncios') a
+where campo = 'meta_ads';
+```
+- Cada creatividad de `anuncios.json` se cruza por nombre (`utm_content` = `nombre`) y
+  lleva `ad_id`, `foto` (data URI, para la página) y, del bloque `mes`: `gasto`,
+  `impresiones`, `alcance`, `clics_enlace`. Con eso `anuncios.py` saca CPL, CPA, CPI,
+  CTR por creatividad y las ordena por resultados por euro.
+- Email: la foto va por `https://tirorirocrm.lovable.app/api/public/anuncio-foto?id=<ad_id>`
+  (`anuncios.py` añade `&v=<fecha>` para que Gmail no reutilice una imagen fallida).
+- Si la consulta no devuelve filas o trae `error`, decirlo en una línea («falta conectar la
+  clave de Meta Ads en el CRM» o el error) y seguir con lo de GA4 + CRM, sin fotos.

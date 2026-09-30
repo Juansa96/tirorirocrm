@@ -310,7 +310,7 @@ def main(path="anuncios.json"):
                      f'<span style="font-size:13px;line-height:18px;color:#8e8e93">{eur(m["gasto"],0)} · {coste_txt}{cpa_txt} · CPI {eur(m["cpi"])}</span></td></tr>')
         for i, (cr, cm) in enumerate(ms, 1):
             vk, vl = veredicto_creatividad(cr, cm, obj, mejor)
-            url = cr.get("foto_url") or (f"{FOTO_URL}{cr['ad_id']}" if cr.get("ad_id") and cr.get("foto") else "")
+            url = cr.get("foto_url") or (f"{FOTO_URL}{cr['ad_id']}&v={D['hoy']}" if cr.get("ad_id") and cr.get("foto") else "")
             thumb = (f'<img src="{e(url)}" width="56" height="56" alt="" style="display:block;width:56px;height:56px;border-radius:8px;object-fit:cover">'
                      if url else '<div style="width:56px;height:56px;border-radius:8px;background-color:#e5e5ea;font-size:9px;line-height:56px;text-align:center;color:#8e8e93">sin foto</div>')
             n_res = cm["leads"] if cm["leads"] is not None else (cm["chats"] or 0)
