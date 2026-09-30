@@ -50,6 +50,7 @@ import { normTel, normEmail } from "@/lib/duplicados";
 import { analizarConversacionIA, ErrorIA, type ContextoLead, type MensajeParaIA } from "./ia.server";
 import { transcribirAudiosPendientes } from "./audio.server";
 import { guardarFotosAnuncios } from "./anuncios.server";
+import { sincronizarMetaAds } from "@/lib/metaads.server";
 import { TIPOS_SIN_CONTENIDO } from "./parse";
 import { claveTelefono, formatTelefonoWa, formatTelefonoLibre, type AnalisisIA, type ProductoIA, type TipoPropuesta } from "./types";
 import {
@@ -613,6 +614,8 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
     await guardarFotosAnuncios()
       .then((r) => { if (r.errores.length) console.error("[mensajes] fotos de anuncios", r.errores.join(" · ")); })
       .catch((e) => console.error("[mensajes] fotos de anuncios", e));
+    // Foto y cifras de cada anuncio de Meta (como mucho cada 3 horas).
+    await sincronizarMetaAds().catch((e) => console.error("[mensajes] anuncios de Meta", e));
   }
 
   const ahora = Date.now();
