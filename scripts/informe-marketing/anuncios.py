@@ -29,11 +29,11 @@ def eur(n, d=None):
         return "—"
     if d is None:
         d = 2 if abs(n) < 10 else 0
-    return f(n, d) + " €"
+    return f(n, d) + "\u00a0€"
 
 
 def pct(n, d=1):
-    return "—" if n is None else f(n * 100, d) + " %"
+    return "—" if n is None else f(n * 100, d) + "\u00a0%"
 
 
 def div(a, b):
@@ -94,7 +94,7 @@ def veredicto_campana(c, m, obj, dias_activa):
     if coste is not None and coste <= meta:
         ficha = (c.get("mes") or {}).get("con_ficha")
         if que == "chat" and ficha is not None and resultados >= 10 and ficha < 0.2 * resultados:
-            return ("mantener", "Mantener", f"Cada chat sale barato ({eur(coste)}), pero solo {ficha} de {resultados} tienen ficha en el CRM. Antes de subir, hay que convertir esos chats en leads (contestar y abrir ficha).")
+            return ("mantener", "Mantener", f"Cada chat sale barato ({eur(coste)}), pero {'ninguno' if not ficha else f'solo {ficha}'} de los {resultados} tiene ficha en el CRM. Antes de subir, hay que convertir esos chats en leads (contestar y abrir ficha).")
         if m["ventas"] and m["roas"] is not None and m["roas"] < 1:
             return ("mantener", "Mantener", f"El {que} sale barato ({eur(coste)}), pero de momento vende menos de lo que cuesta (ROAS {f(m['roas'],1)}).")
         extra = f" y ya devuelve {f(m['roas'],1)} € por cada € (ROAS)" if m["ventas"] and m["roas"] else ""
@@ -227,7 +227,7 @@ def main(path="anuncios.json"):
             H.append(f'<p class="ads-note">{eur(m["gasto"],0)} · {f(m["impresiones"] or 0)} impresiones · CPI {eur(m["cpi"])} · {f(m["clics"] or 0)} clics (CPC {eur(m["cpc"])}) · CTR {pct(m["ctr"])}</p></div>')
             resumen["campanas"].append({"nombre": c["nombre"], "tipo": "interaccion", "dias": dias_activa, "veredicto": etiqueta, "clave": clave, "motivo": motivo,
                                         **{k: (round(v, 2) if isinstance(v, float) else v) for k, v in m.items()}, "creatividades": []})
-            email.append(f'<tr><td style="padding:6px 0 6px 76px;font-size:13px;color:#7A8C90">{e(c["nombre"])}: {eur(m["gasto"],0)} de interacción, sin leads.</td></tr>')
+            email.append(f'<tr><td style="padding:12px 0;border-bottom:1px solid #e5e5ea;font-size:13px;line-height:18px;color:#8e8e93">{e(c["nombre"])}: {eur(m["gasto"],0)} en interacción (me gusta, seguidores), sin leads.</td></tr>')
             continue
         if c.get("tipo") == "whatsapp":
             res_lbl, res_val, res_sub = "Chats", m["chats"], f"{mm.get('con_ficha', 0)} con ficha en el CRM"
@@ -299,8 +299,8 @@ def main(path="anuncios.json"):
                                     "si_subimos": subir, **{k: (round(v, 2) if isinstance(v, float) else v) for k, v in m.items()},
                                     "creatividades": cres_res})
 
-        # Email: una fila por campaña con la miniatura de su mejor creatividad
-        color = {"subir": "#2E7D5B", "mantener": "#9A6A12", "bajar": "#B4432F"}.get(clave, "#7A8C90")
+        # Email (estilo v2): una fila por campaña con la miniatura de su mejor creatividad
+        color = {"subir": "#248a3d", "mantener": "#b25000", "bajar": "#c93400"}.get(clave, "#8e8e93")
         top = next((cr for cr, _ in ms if cr is mejor), None)
         # Gmail no enseña imágenes data: → van como adjuntos en línea (cid:).
         cid = None
@@ -308,24 +308,29 @@ def main(path="anuncios.json"):
             mime, b64 = top["foto"][5:].split(";base64,", 1)
             cid = f"anuncio-{len(adjuntos) + 1}.{mime.split('/')[1].replace('jpeg', 'jpg')}"
             adjuntos.append({"filename": cid, "mimeType": mime, "content": b64, "inline": True})
-        thumb = (f'<img src="cid:{cid}" width="68" height="68" alt="" style="display:block;width:68px;height:68px;border-radius:8px;object-fit:cover">'
-                 if cid else '<div style="width:68px;height:68px;border-radius:8px;background:#EFE9DF"></div>')
-        coste_txt = f"{coste_lbl.split(' ·')[0]} {eur(coste_val)}"
-        cpa_txt = f" · CPA {eur(m['cpa'])}" if m["ventas"] else ""
-        mejor_txt = f"<br><span style=\"color:#7A8C90\">Mejor: {e(top.get('nombre'))}</span>" if top else ""
-        email.append(f'<tr><td style="padding:8px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        thumb = (f'<img src="cid:{cid}" width="64" height="64" alt="" style="display:block;width:64px;height:64px;border-radius:10px;object-fit:cover">'
+                 if cid else '<div style="width:64px;height:64px;border-radius:10px;background-color:#e5e5ea;font-size:10px;line-height:64px;text-align:center;color:#8e8e93">sin foto</div>')
+        coste_txt = f"{'€/chat' if c.get('tipo') == 'whatsapp' else 'CPL'} {eur(coste_val)}"
+        cpa_txt = f" · CPA {eur(m['cpa'])}" if m["ventas"] else " · sin ventas"
+        mejor_txt = f"Mejor: {e(top.get('nombre'))}" if top else ""
+        email.append(f'<tr><td style="padding:12px 0;border-bottom:1px solid #e5e5ea"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
                      f'<td width="76" valign="top">{thumb}</td>'
-                     f'<td valign="top" style="font-size:14px;line-height:1.4;color:#133A43"><b>{e(c["nombre"])}</b><br>'
-                     f'{eur(m["gasto"],0)} · {coste_txt}{cpa_txt} · CPI {eur(m["cpi"])}{mejor_txt}<br>'
-                     f'<span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:99px;background:{color};color:#fff;font-size:12px;font-weight:bold">{e(etiqueta)}</span></td>'
+                     f'<td valign="top" style="font-size:15px;line-height:20px;color:#1c1c1e"><b>{e(c["nombre"])}</b> '
+                     f'<span style="display:inline-block;padding:1px 8px;border-radius:99px;background-color:{color};color:#ffffff;font-size:12px;line-height:18px;font-weight:600">{e(etiqueta)}</span><br>'
+                     f'<span style="font-size:13px;line-height:18px;color:#8e8e93">{eur(m["gasto"],0)} · {coste_txt}{cpa_txt} · CPI {eur(m["cpi"])}<br>{mejor_txt}</span></td>'
                      f'</tr></table></td></tr>')
 
     H.append('<p class="ads-note">CPL = gasto ÷ leads · CPA = gasto ÷ ventas · CPI = coste por cada 1.000 impresiones (CPM) · CPC = gasto ÷ clics · CTR = clics ÷ impresiones · ROAS = € vendidos ÷ gasto. '
              f'Veredicto «Subir» si el coste por lead está por debajo de {eur(obj["cpl"])} (o el chat por debajo de {eur(obj["coste_chat"])}) con al menos 5 días de datos y la gente no lo ha visto más de {f(obj["frecuencia"])} veces.</p>')
     H.append("</div>")
     open("anuncios_pagina.html", "w").write("\n".join(H))
-    cab = (f'<tr><td style="font-size:11px;letter-spacing:1.5px;color:#7A8C90;font-weight:bold;padding-bottom:4px">ANUNCIOS · {eur(gasto_mes,0)} ESTE MES · PREVISIÓN {eur(prevision,0)}</td></tr>')
-    open("anuncios_email.html", "w").write('<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + cab + "".join(email) + "</table>")
+    if email:  # la última fila sin línea de separación
+        email[-1] = email[-1].replace("border-bottom:1px solid #e5e5ea", "", 1)
+    sub = f"{eur(gasto_mes,0)} en {MESES[ayer.month - 1]} · ayer {eur(gasto_ayer,0) if gasto_ayer else 'pendiente'} · previsión {eur(prevision,0)}"
+    open("anuncios_email.html", "w").write(
+        '<tr><td style="padding:24px 8px 6px;font-size:13px;line-height:18px;font-weight:600;color:#8e8e93">ANUNCIOS · ' + sub.upper() + '</td></tr>'
+        '<tr><td bgcolor="#FFFFFF" style="background-color:#ffffff;border-radius:16px;padding:0 16px">'
+        '<table width="100%" cellpadding="0" cellspacing="0" border="0">' + "".join(email) + '</table></td></tr>')
     json.dump(resumen, open("anuncios_resumen.json", "w"), ensure_ascii=False, indent=1)
     json.dump(adjuntos, open("anuncios_adjuntos.json", "w"))
     print(json.dumps({k: v for k, v in resumen.items() if k != "campanas"}, ensure_ascii=False))

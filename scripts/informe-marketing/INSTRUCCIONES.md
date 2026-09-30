@@ -176,8 +176,8 @@ vivo y su color, colgado/apoyado, ancho y alto del cabecero, colección) y lo qu
 pide frente a lo que se compra. Sección interactiva `#producto` (control segmentado
 Semana/Mes/3 meses que redibuja todas las barras), justo después de Campañas, y
 6–7 conclusiones de producto con números (qué ampliar, qué subir de precio, qué
-dejar de promocionar). Plantilla de la sección: `producto_plantilla.html` en la
-carpeta de trabajo del informe (datos en el objeto `D` del script).
+dejar de promocionar). La plantilla de la sección (`producto_plantilla.html`) se quedó en la sesión antigua y
+se perdió: rehacerla con esta descripción y guardarla en esta carpeta.
 
 Datos: `productos_lead` unido a `pedidos` (`pedidos.producto_lead_id`), sin canjes
 (`es_canje`). Fecha = `pedidos.fecha_creacion_pedido` (Madrid). Campos: `tipo`,
@@ -190,7 +190,7 @@ compras: todos los `productos_lead` del periodo, con o sin pedido.
 Email: sin recomendaciones de «contestar a X». Consejos de negocio y marketing,
 pensados y con números. Diseño tipo Apple (fondo #F2F2F7, tarjetas blancas
 redondeadas, letra del sistema, botón con `bgcolor` en la celda para que se vea en
-Gmail del iPhone). Aprobado por Juan el 27/09: plantilla `email_plantilla_v2.html` en la carpeta de trabajo del informe; sustituye a `email_plantilla.html`. El asunto sigue siendo «📊 Parte de marketing DD/MM · <titular>».
+Gmail del iPhone). Aprobado por Juan el 27/09: plantilla `email_plantilla_v2.html` (en esta carpeta desde el 30/09); sustituye a `email_plantilla.html`. El asunto sigue siendo «📊 Parte de marketing DD/MM · <titular>».
 
 ## Creatividades con imagen (Juan, 27/09/2026)
 
@@ -226,7 +226,8 @@ esa campaña para el CPL.
 
 Que no sea infinita: arriba lo esencial abierto y el resto en **desplegables**
 (`<details class="blk">` con título + una línea de resumen con la cifra clave).
-Referencia visual: `pagina_referencia_v3.html` en la carpeta de trabajo del informe.
+Referencia visual: la página publicada (leerla con `Artifact` `action: "read"` antes de
+republicar y mantener su estructura).
 
 Siempre abierto:
 1. **Resumen**: 4 fichas (leads semana, ventas semana, ventas mes, visitas semana)
@@ -413,3 +414,11 @@ python3 anuncios.py anuncios.json   # → anuncios_pagina.html, anuncios_email.h
   `anuncios_adjuntos.json` en `attachments` (son en línea, `inline: true`; el HTML las usa
   con `cid:<filename>`). Gmail no enseña imágenes `data:`. Si al revisar el enviado las
   miniaturas no se ven, quitar las `<img>` del email y avisar (no dejar huecos rotos).
+
+### Email con el bloque de anuncios (30/09/2026)
+`anuncios_email.html` son filas con el estilo de `email_plantilla_v2.html`: van entre
+«LAS 5 DE HOY» y «LA DECISIÓN DE HOY» (hay un comentario que marca el sitio). La fila
+«Anuncios» de las 5 de hoy lleva el gasto del mes y, debajo, gasto de ayer + CPL web +
+€/chat. Prueba real enviada a Juan el 30/09 con la miniatura como adjunto en línea.
+La foto sale de la consulta de `raw._anuncio` (texto base64 tras `base64,`): se pasa
+tal cual en `attachments[].content` con `filename` = el `cid` que puso `anuncios.py`.
