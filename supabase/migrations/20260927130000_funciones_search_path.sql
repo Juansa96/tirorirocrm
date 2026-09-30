@@ -3,15 +3,14 @@
 -- cambia lo que hacen (todo lo que usan está en public o va cualificado: net., cron.).
 -- Ya aplicado en producción desde la sesión.
 --
--- _ig_hist_paso y _ig_hist_siguiente se crearon a mano en producción (importación
--- del historial de Instagram) y no tienen migración: cada ALTER solo se hace si la
--- función existe, para que aplicar las migraciones desde cero no se pare aquí.
+-- Las dos funciones auxiliares de la importación del historial de Instagram se
+-- crearon a mano en producción (ya tienen el search_path fijado) y no tienen
+-- migración, así que no se nombran aquí: si se nombran, aplicar las migraciones
+-- desde cero falla y Lovable avisa de «functions that don't exist».
 do $$
 declare f text;
 begin
   foreach f in array array[
-    'public._ig_hist_paso()',
-    'public._ig_hist_siguiente(bigint)',
     'public.mask_apellido(text)',
     'public.pedidos_set_numero()'
   ] loop
