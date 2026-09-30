@@ -24,7 +24,7 @@ const s = (v: unknown): string => (v == null ? "" : String(v).trim());
 const n = (v: unknown): number => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
 const isObj = (v: unknown): v is Row => !!v && typeof v === "object" && !Array.isArray(v);
 
-const GRAPH = `https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v21.0"}`;
+const GRAPH = `https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v26.0"}`;
 const CAMPO = "meta_ads";
 const CADA_MS = 3 * 3_600_000;
 const MAX_FOTO = 400 * 1024;
@@ -85,7 +85,16 @@ export async function conectarMetaAds(token: string, cuenta: string): Promise<{ 
   const t = token.trim();
   if (!t) throw new Error("Falta la clave de acceso de Meta");
   const act = cuentaNormalizada(cuenta || "3757816891176752");
-  const j = await graph(act, t, { fields: "name,account_status,currency" });
+  let j: Row;
+  try {
+    j = await graph(act, t, { fields: "name,account_status,currency" });
+  } catch (e) {
+    // Se guarda igual: la clave puede estar bien y fallar solo la llamada desde
+    // este servidor (así se puede probar desde la base de datos y reintentar).
+    const msg = (e instanceof Error ? e.message : String(e)).slice(0, 300);
+    await guardarCanal("instagram", { datos: { meta_ads_token: t, meta_ads_cuenta: act, meta_ads_error: msg } });
+    throw e;
+  }
   await guardarCanal("instagram", { datos: { meta_ads_token: t, meta_ads_cuenta: act, meta_ads_nombre: s(j.name), meta_ads_error: "" } });
   return { nombre: s(j.name), cuenta: act };
 }
