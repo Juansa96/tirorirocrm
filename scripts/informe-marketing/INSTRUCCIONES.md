@@ -452,3 +452,19 @@ La herramienta de envío de Gmail borra TODAS las imágenes del HTML (`<img>`, f
 probado con un borrador el 30/09). Juan eligió: el email lleva el ranking de creatividades
 con sus cifras y SIN fotos; las fotos van en la página («Ver el informe completo»).
 `anuncios_email.html` ya sale así. No añadir fotos ni adjuntos al email.
+
+### Anuncios de Meta conectados (30/09/2026, noche) — manda sobre lo anterior
+La clave de Meta Ads ya está conectada (11 anuncios con foto el 30/09). Cada día:
+1. Cifras y nombres de TODOS los anuncios activos o con gasto en el mes: consulta de
+   `whatsapp_eventos` campo `meta_ads` (arriba), SIN la columna `foto` (pesa).
+2. Fotos para la página (miniaturas de 150 px, ~5–10 KB): pedirlas de 3 en 3 con
+   `a->>'foto'` y, para cada una, `md5(split_part(a->>'foto', ',', 2))`. Copiarlas a
+   `anuncios.json` y comprobar el md5 en local (`md5sum`) antes de publicar: si no
+   coincide, localizar el trozo con md5 por bloques de 1000 caracteres y corregirlo.
+   Nunca publicar una foto con md5 distinto (sale rota).
+3. Cada creatividad de `anuncios.json` = un anuncio de Meta (`nombre`, `ad_id`,
+   `campana`, `gasto`/`impresiones`/`alcance`/`clics_enlace` del bloque `mes`,
+   `foto`). Leads y ventas por `utm_content` = nombre (CRM); visitas por GA4; chats de
+   WhatsApp por `referral.source_id` = `ad_id` (un chat puede venir de un anuncio de la
+   campaña web, p. ej. «Leads_F3_Puf_Salon»: cuenta para ese anuncio).
+4. El email sigue sin fotos (ver arriba).
