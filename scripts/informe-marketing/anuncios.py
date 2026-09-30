@@ -256,7 +256,7 @@ def main(path="anuncios.json"):
             for i, (cr, cm) in enumerate(ms, 1):
                 vk, vl = veredicto_creatividad(cr, cm, obj, mejor)
                 foto = cr.get("foto")
-                img = f'<img src="{e(foto)}" alt="Creatividad {e(cr.get("nombre"))}" loading="lazy">' if foto else f'<div class="sinfoto">sin foto<br>{e(cr.get("motivo_sin_foto") or "")}</div>'
+                img = f'<img src="{e(foto)}" alt="Creatividad {e(cr.get("nombre"))}">' if foto else f'<div class="sinfoto">sin foto<br>{e(cr.get("motivo_sin_foto") or "")}</div>'
                 datos = []
                 if cm["gasto"] is not None:
                     datos.append(("Gasto", eur(cm["gasto"], 0)))
