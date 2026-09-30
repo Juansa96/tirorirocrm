@@ -446,3 +446,9 @@ where campo = 'meta_ads';
   (`anuncios.py` añade `&v=<fecha>` para que Gmail no reutilice una imagen fallida).
 - Si la consulta no devuelve filas o trae `error`, decirlo en una línea («falta conectar la
   clave de Meta Ads en el CRM» o el error) y seguir con lo de GA4 + CRM, sin fotos.
+
+### Email sin fotos (Juan, 30/09/2026) — manda sobre lo anterior
+La herramienta de envío de Gmail borra TODAS las imágenes del HTML (`<img>`, fondos, cid;
+probado con un borrador el 30/09). Juan eligió: el email lleva el ranking de creatividades
+con sus cifras y SIN fotos; las fotos van en la página («Ver el informe completo»).
+`anuncios_email.html` ya sale así. No añadir fotos ni adjuntos al email.

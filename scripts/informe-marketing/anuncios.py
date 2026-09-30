@@ -299,9 +299,9 @@ def main(path="anuncios.json"):
                                     "creatividades": cres_res})
 
         # Email (estilo v2): cabecera de la campaña y debajo TODAS sus creatividades,
-        # de mejor a peor, cada una con su foto. Gmail no enseña imágenes data: ni
-        # adjuntos en línea de la herramienta de envío: la foto va por URL pública
-        # del CRM (/api/public/anuncio-foto?id=…) o por `foto_url` si se da.
+        # de mejor a peor, SIN fotos: la herramienta de envío de Gmail borra todas las
+        # imágenes del HTML (probado el 30/09). Las fotos están en la página
+        # (Juan eligió esta opción el 30/09).
         color = {"subir": "#248a3d", "mantener": "#b25000", "bajar": "#c93400"}.get(clave, "#8e8e93")
         coste_txt = f"{'€/chat' if c.get('tipo') == 'whatsapp' else 'CPL'} {eur(coste_val)}"
         cpa_txt = f" · CPA {eur(m['cpa'])}" if m["ventas"] else " · sin ventas"
@@ -310,9 +310,6 @@ def main(path="anuncios.json"):
                      f'<span style="font-size:13px;line-height:18px;color:#8e8e93">{eur(m["gasto"],0)} · {coste_txt}{cpa_txt} · CPI {eur(m["cpi"])}</span></td></tr>')
         for i, (cr, cm) in enumerate(ms, 1):
             vk, vl = veredicto_creatividad(cr, cm, obj, mejor)
-            url = cr.get("foto_url") or (f"{FOTO_URL}{cr['ad_id']}&v={D['hoy']}" if cr.get("ad_id") and cr.get("foto") else "")
-            thumb = (f'<img src="{e(url)}" width="56" height="56" alt="" style="display:block;width:56px;height:56px;border-radius:8px;object-fit:cover">'
-                     if url else '<div style="width:56px;height:56px;border-radius:8px;background-color:#e5e5ea;font-size:9px;line-height:56px;text-align:center;color:#8e8e93">sin foto</div>')
             n_res = cm["leads"] if cm["leads"] is not None else (cm["chats"] or 0)
             res = f"{f(n_res)} {'lead' if cm['leads'] is not None else 'chat'}{'' if n_res == 1 else 's'}"
             extra = []
@@ -326,7 +323,6 @@ def main(path="anuncios.json"):
                 extra.append(f"{f(cm['ventas'])} venta{'s' if cm['ventas'] != 1 else ''} · {eur(cm['eur'],0)}")
             pc = {"subir": "#248a3d", "mantener": "#8e8e93", "bajar": "#c93400"}.get(vk, "#8e8e93")
             email.append(f'<tr><td style="padding:8px 0;border-bottom:1px solid #f2f2f7"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
-                         f'<td width="66" valign="top">{thumb}</td>'
                          f'<td valign="top" style="font-size:14px;line-height:19px;color:#1c1c1e">{i}.º <b>{e(cr.get("nombre"))}</b> '
                          f'<span style="font-size:12px;font-weight:600;color:{pc}">{e(vl)}</span><br>'
                          f'<span style="font-size:13px;line-height:18px;color:#8e8e93">{res}{" · " + " · ".join(extra) if extra else ""}</span></td>'
@@ -342,7 +338,8 @@ def main(path="anuncios.json"):
     open("anuncios_email.html", "w").write(
         '<tr><td style="padding:24px 8px 6px;font-size:13px;line-height:18px;font-weight:600;color:#8e8e93">ANUNCIOS · ' + sub.upper() + '</td></tr>'
         '<tr><td bgcolor="#FFFFFF" style="background-color:#ffffff;border-radius:16px;padding:0 16px">'
-        '<table width="100%" cellpadding="0" cellspacing="0" border="0">' + "".join(email) + '</table></td></tr>')
+        '<table width="100%" cellpadding="0" cellspacing="0" border="0">' + "".join(email)
+        + '<tr><td style="padding:10px 0 12px;font-size:12px;line-height:17px;color:#8e8e93">Las fotos de cada creatividad, en el informe completo.</td></tr></table></td></tr>')
     json.dump(resumen, open("anuncios_resumen.json", "w"), ensure_ascii=False, indent=1)
     print(json.dumps({k: v for k, v in resumen.items() if k != "campanas"}, ensure_ascii=False))
     for c in resumen["campanas"]:
