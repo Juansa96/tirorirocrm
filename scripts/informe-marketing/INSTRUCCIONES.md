@@ -396,8 +396,8 @@ Creatividad «Pausar»: gasto ≥ 2 × CPL objetivo sin leads, o ≥ 60 visitas 
     raw->'_anuncio'->>'foto' foto
   from whatsapp_mensajes where raw->'_anuncio'->>'estado'='ok' order by raw->'_anuncio'->>'id', enviado_at desc;
   ```
-  Nombre de la creatividad: las primeras palabras de `texto` entre comillas + los 4
-  últimos dígitos del id («Dos pufs y el salón…» (…5520)).
+  Nombre de la creatividad: las primeras palabras de `texto` entre comillas («Dos pufs y
+  el salón ya es otro»); no usar el final del id (varios acaban igual).
 - **Fotos de la campaña web**: Metricool `FADE147` si llega. Si no, la creatividad sale
   con «sin foto» y el motivo (`motivo_sin_foto`): **no** poner fotos de la web ni
   inventarlas. Mientras falte, en el email una línea (solo el primer día o si cambia):
