@@ -223,7 +223,21 @@ def main(path="anuncios.json"):
         H.append(f'<div class="ads-camp"><div class="ads-camp-h"><h3>{e(c["nombre"])}</h3><span class="t">{tipo_txt} · desde {inicio.strftime("%d/%m") if inicio else "?"} · {dias_activa} días</span></div>')
         H.append(f'<div class="ads-ver"><span class="ads-pill {clave}">{e(etiqueta)}</span><p>{e(motivo)}</p></div>')
         if c.get("tipo") == "interaccion":
-            H.append(f'<p class="ads-note">{eur(m["gasto"],0)} · {f(m["impresiones"] or 0)} impresiones · CPI {eur(m["cpi"])} · {f(m["clics"] or 0)} clics (CPC {eur(m["cpc"])}) · CTR {pct(m["ctr"])}</p></div>')
+            H.append(f'<p class="ads-note">{eur(m["gasto"],0)} · {f(m["impresiones"] or 0)} impresiones · CPI {eur(m["cpi"])} · {f(m["clics"] or 0)} clics (CPC {eur(m["cpc"])}) · CTR {pct(m["ctr"])}</p>')
+            # También su creatividad (Juan quiere ver todas), sin ranking: no busca leads.
+            cres_i = [cr for cr in D.get("creatividades", []) if cr.get("campana") == c["nombre"]]
+            if cres_i:
+                H.append('<div class="ads-cre">')
+                for cr in cres_i:
+                    cm = metricas(cr)
+                    foto = cr.get("foto")
+                    img = f'<img src="{e(foto)}" alt="Creatividad {e(cr.get("nombre"))}">' if foto else '<div class="sinfoto">sin foto</div>'
+                    datos = [("Gasto", eur(cm["gasto"], 0)), ("Impresiones", f(cm["impresiones"] or 0)), ("CPI", eur(cm["cpi"])), ("CTR", pct(cm["ctr"]))]
+                    dl = "".join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in datos)
+                    H.append(f'<div class="ads-cr">{img}<div><div class="nm"><b>{e(cr.get("nombre"))}</b><span class="ads-pill esperar">Sin leads</span></div>'
+                             + (f'<p class="ads-note">{e(cr["nota"])}</p>' if cr.get("nota") else "") + f"<dl>{dl}</dl></div></div>")
+                H.append("</div>")
+            H.append("</div>")
             resumen["campanas"].append({"nombre": c["nombre"], "tipo": "interaccion", "dias": dias_activa, "veredicto": etiqueta, "clave": clave, "motivo": motivo,
                                         **{k: (round(v, 2) if isinstance(v, float) else v) for k, v in m.items()}, "creatividades": []})
             email.append(f'<tr><td style="padding:12px 0;border-bottom:1px solid #e5e5ea;font-size:13px;line-height:18px;color:#8e8e93">{e(c["nombre"])}: {eur(m["gasto"],0)} en interacción (me gusta, seguidores), sin leads.</td></tr>')
