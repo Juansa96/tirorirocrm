@@ -78,6 +78,16 @@ out["google_ads_sem"]=rows(run({"dateRanges":[dr("sem")],"dimensions":[{"name":"
 out["google_ads_ayer"]=rows(run({"dateRanges":[dr("ayer")],"dimensions":[{"name":"sessionGoogleAdsCampaignName"}],"metrics":[{"name":"advertiserAdCost"},{"name":"advertiserAdClicks"},{"name":"advertiserAdImpressions"},{"name":"sessions"}]}))
 # --- anuncios (Meta y demás) según Analytics: campaña y creatividad
 out["anuncios_d30"]=rows(run({"dateRanges":[dr("d30")],"dimensions":[{"name":"sessionCampaignName"},{"name":"sessionManualAdContent"},{"name":"sessionSourceMedium"}],"metrics":[{"name":"sessions"},{"name":"totalUsers"}],"dimensionFilter":{"filter":{"fieldName":"sessionMedium","stringFilter":{"matchType":"CONTAINS","value":"paid"}}},"limit":30}))
+# --- creatividades de Meta (utm_content = nombre del anuncio): visitas, formularios y WhatsApp
+PAGO={"filter":{"fieldName":"sessionMedium","stringFilter":{"matchType":"CONTAINS","value":"paid"}}}
+for k in ["mes","sem","ayer"]:
+    out[f"creatividades_{k}"]={
+      "visitas":tab(k,["sessionCampaignName","sessionManualAdContent"],["sessions","totalUsers","engagementRate"],40,flt=PAGO),
+      "eventos":tab(k,["sessionCampaignName","sessionManualAdContent","eventName"],["totalUsers"],80,
+                    flt={"andGroup":{"expressions":[PAGO,{"filter":{"fieldName":"eventName","inListFilter":{"values":["form_start","generate_lead"]}}}]}}),
+      "whatsapp":tab(k,["sessionCampaignName","sessionManualAdContent"],["totalUsers"],40,
+                    flt={"andGroup":{"expressions":[PAGO,{"filter":{"fieldName":"eventName","stringFilter":{"value":"click"}}},{"filter":{"fieldName":"linkDomain","stringFilter":{"value":"wa.me"}}}]}}),
+    }
 # --- WhatsApp: clics por canal, página y botón (texto del enlace)
 WA={"andGroup":{"expressions":[{"filter":{"fieldName":"eventName","stringFilter":{"value":"click"}}},{"filter":{"fieldName":"linkDomain","stringFilter":{"value":"wa.me"}}}]}}
 for k in ["d30","sem"]:
