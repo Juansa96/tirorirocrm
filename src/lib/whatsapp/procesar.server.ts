@@ -49,6 +49,7 @@ import { normalizeTipo, TIPO_LABEL, stripDiacritics, mismoTipo } from "@/lib/cat
 import { normTel, normEmail } from "@/lib/duplicados";
 import { analizarConversacionIA, ErrorIA, type ContextoLead, type MensajeParaIA } from "./ia.server";
 import { transcribirAudiosPendientes } from "./audio.server";
+import { guardarFotosAnuncios } from "./anuncios.server";
 import { TIPOS_SIN_CONTENIDO } from "./parse";
 import { claveTelefono, formatTelefonoWa, formatTelefonoLibre, type AnalisisIA, type ProductoIA, type TipoPropuesta } from "./types";
 import {
@@ -604,6 +605,14 @@ export async function procesarConversaciones(opts: { conversacionId?: string; fo
     const msg = "Audio: " + (e instanceof Error ? e.message : String(e));
     informe.errores.push(msg);
     await anotarError(msg);
+  }
+
+  // Foto de la creatividad de los anuncios «clic a WhatsApp» (para el parte de
+  // marketing). Si falla no es un error de la bandeja: solo se registra.
+  if (!opts.conversacionId) {
+    await guardarFotosAnuncios()
+      .then((r) => { if (r.errores.length) console.error("[mensajes] fotos de anuncios", r.errores.join(" · ")); })
+      .catch((e) => console.error("[mensajes] fotos de anuncios", e));
   }
 
   const ahora = Date.now();

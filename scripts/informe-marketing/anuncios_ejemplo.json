@@ -1,0 +1,26 @@
+{
+ "hoy": "2026-09-30",
+ "periodo_texto": "septiembre",
+ "objetivos": {"cpl": 15, "cpa": 40, "coste_chat": 3, "roas": 3, "frecuencia": 3, "subida": 0.2, "presupuesto_mes": null},
+ "gasto_diario": [["20260923",0],["20260924",40.46],["20260925",34.35],["20260926",41.17],["20260927",34.12],["20260928",21.29],["20260929",30.99]],
+ "campanas": [
+  {"nombre": "ES_Cabeceros_Leads_Sep26", "tipo": "web", "inicio": "20260902",
+   "mes":   {"gasto": 214.07, "impresiones": 60495, "alcance": 22853, "clics": 3245, "clics_enlace": 2267, "leads_pixel": 7, "leads": 10, "ventas": 1, "eur": 60, "visitas": 1350},
+   "total": {"gasto": 214.07}},
+  {"nombre": "WA_Cabeceros_Oct26", "tipo": "whatsapp", "inicio": "20260924",
+   "mes":   {"gasto": 60.44, "impresiones": 98031, "alcance": 59246, "clics": 2063, "clics_enlace": 1316, "chats": 27, "con_ficha": 0, "ventas": 0, "eur": 0},
+   "total": {"gasto": 60.44}},
+  {"nombre": "IG_Publicacion_Interaccion_Sep26", "tipo": "interaccion", "inicio": "20260903",
+   "mes":   {"gasto": 19.81, "impresiones": 13051, "alcance": 8832, "clics": 713, "clics_enlace": 561},
+   "total": {"gasto": 19.81}}
+ ],
+ "creatividades": [
+  {"campana": "ES_Cabeceros_Leads_Sep26", "nombre": "IMG_BuenosDias_Copy1", "foto": null, "motivo_sin_foto": "Metricool sin detalle por anuncio", "visitas": 490, "leads": 6, "ventas": 1, "eur": 60},
+  {"campana": "ES_Cabeceros_Leads_Sep26", "nombre": "Leads_A_Conta_Esperando", "foto": null, "visitas": 380, "leads": 2, "ventas": 0, "eur": 0},
+  {"campana": "ES_Cabeceros_Leads_Sep26", "nombre": "Leads_C_Rayas_Medida", "foto": null, "visitas": 254, "leads": 2, "ventas": 0, "eur": 0},
+  {"campana": "ES_Cabeceros_Leads_Sep26", "nombre": "Leads_B_Mostaza_Dormir", "foto": null, "visitas": 162, "leads": 0, "ventas": 0, "eur": 0},
+  {"campana": "ES_Cabeceros_Leads_Sep26", "nombre": "Leads_F3_Puf_Salon", "foto": null, "visitas": 38, "leads": 0, "ventas": 0, "eur": 0},
+  {"campana": "WA_Cabeceros_Oct26", "nombre": "«Los proyectos de @alejandra.blanc…» (…0643)", "foto": null, "motivo_sin_foto": "se guarda sola desde el 30/09", "chats": 26, "ventas": 0, "eur": 0, "nota": "0 de 26 chats tienen ficha en el CRM"},
+  {"campana": "WA_Cabeceros_Oct26", "nombre": "«Dos pufs y el salón ya es otro» (…5520)", "foto": null, "chats": 1, "ventas": 0, "eur": 0}
+ ]
+}

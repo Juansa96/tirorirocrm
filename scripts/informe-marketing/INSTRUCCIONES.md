@@ -194,8 +194,9 @@ Gmail del iPhone). Aprobado por Juan el 27/09: plantilla `email_plantilla_v2.htm
 
 ## Creatividades con imagen (Juan, 27/09/2026)
 
-Siempre que se hable de un anuncio (en la página y en el email) va su **captura**:
-Metricool `FADE04` (nombre del anuncio) + `FADE147` (miniatura) de la red Meta Ads.
+Siempre que se hable de un anuncio (en la página y en el email) va su **captura**.
+Fuentes de la foto en la sección «Anuncios» del final (Metricool `FADE` viene vacío:
+comprobado el 30/09/2026).
 En la página: descargar la miniatura y meterla en el HTML (data URI pequeña o
 subida como archivo del artifact), porque los enlaces de fbcdn caducan. En el email:
 miniatura de 64–72 px a la izquierda de cada fila de anuncio. Si Metricool no la
@@ -253,8 +254,10 @@ gráfico ni en el titular.
 ### Cada día (martes a domingo): solo 5 cosas
 1. **Leads de ayer**: cuántos, de dónde (origen/UTM/campaña) y si hay alguno grande (valor ≥ 400 €).
 2. **Ventas**: cerradas ayer y el mes (1–N) frente a los mismos días del mes anterior.
-3. **Anuncios**: gasto de ayer y coste por lead de cada campaña (web y WhatsApp por
-   separado), con la foto de la creatividad. Alarma roja si una campaña gasta 3 días sin leads.
+3. **Anuncios**: gasto de ayer y del mes, CPL / CPA / CPI de cada campaña (web y WhatsApp
+   por separado), la creatividad que mejor funciona **con su foto** y el veredicto
+   «¿invertir más?». Todo sale de `anuncios.py` (ver «Anuncios» al final, manda sobre esto).
+   Alarma roja si una campaña gasta 3 días sin leads.
 4. **Dinero en juego**: € en presupuestos abiertos (Primer Contacto, Discovery,
    Negotiation, Propuesta, On Hold) y si sube o baja frente a ayer; cuánto lleva más de
    14 días parado; cuánto pasó a perdido esta semana.
@@ -313,3 +316,100 @@ El email sigue el mismo orden: las 5 cosas del día; los lunes, 3 líneas del re
   ticket (mediana 412 €) y su implicación (55 mensajes) son casi los de los ganados
   (435 €, 66), así que no es el precio: se enfrían después del presupuesto. Los perdidos
   son otra cosa: ticket bajo (mediana 200 €) y pocos mensajes (21), se van pronto.
+
+## Anuncios: gasto, CPL / CPA / CPI, creatividades con foto y «¿invertir más?» (Juan, 30/09/2026) — manda sobre lo anterior
+
+Juan se quejó (30/09) de que el parte no enseñaba las fotos de las creatividades ni cuál
+funciona mejor, no daba CPL, CPA ni CPI, y no decía cuánto llevamos gastado ni si hay que
+invertir más. Desde ahora el bloque de anuncios es **siempre el mismo** y lo genera
+`anuncios.py`; Claude solo junta los datos en `anuncios.json` y pega lo que sale.
+
+### Qué sale (cada día, arriba del desplegable «Anuncios de Meta», abierto)
+- **Gasto**: ayer · mes en curso · previsión a fin de mes (media de los últimos 7 días con
+  gasto × días que faltan) · desde que empezaron las campañas (y por campaña). Si Juan fija
+  un `presupuesto_mes`, el % gastado.
+- **Por campaña**: veredicto (Subir +20 % / Mantener / Bajar / Cambiar creatividad /
+  Esperar) con su motivo en una frase, y la rejilla: gasto, leads (CRM) o chats,
+  **CPL** (gasto ÷ leads), **CPA** (gasto ÷ ventas), **ROAS** (€ vendidos ÷ gasto),
+  **CPI** (coste por cada 1.000 impresiones, lo que Meta llama CPM), **CPC** y **CTR**
+  (+ frecuencia). En verde / rojo frente al objetivo.
+- **Por creatividad, de mejor a peor**, con su **foto**: visitas, leads, chats, conversión,
+  ventas, CPL/CPA/CTR/CPI si hay gasto por anuncio, y etiqueta (La mejor / Mantener /
+  Pausar / Pocos datos). Orden: resultados por € si hay gasto por anuncio; si no, por visita.
+- En el **email**, una fila por campaña: miniatura de su mejor creatividad, gasto, CPL (o
+  €/chat), CPA, CPI y el veredicto. Cabecera «ANUNCIOS · X € ESTE MES · PREVISIÓN Y €».
+- En «La decisión de hoy» / «Qué haría yo»: si alguna campaña sale «Subir», decir cuánto
+  (`si_subimos` de `anuncios_resumen.json`: € más por semana y leads/chats que traería al
+  mismo coste, **como estimación**). Si sale «Bajar», qué creatividad pausar.
+
+### Reglas del veredicto (en `anuncios.py`; objetivos por defecto: CPL 15 €, CPA 40 €,
+### 3 € por chat, ROAS 3, frecuencia 3 — se cambian en `objetivos` si Juan los fija)
+1. Interacción (me gusta/seguidores): no se juzga por leads («No trae leads»).
+2. 0 resultados y gasto ≥ 3 × objetivo → **Bajar o cambiar**.
+3. Menos de 5 días o gasto < 2 × objetivo → **Esperar**.
+4. Frecuencia > 3 → **Cambiar creatividad** (la gente se cansa).
+5. Coste ≤ objetivo → **Subir +20 %** (salvo WhatsApp con < 20 % de chats con ficha, o
+   ROAS < 1 con ventas → **Mantener** y decir por qué).
+6. Coste ≤ 1,5 × objetivo → **Mantener** (quitar la creatividad peor). Más → **Bajar**.
+Creatividad «Pausar»: gasto ≥ 2 × CPL objetivo sin leads, o ≥ 60 visitas sin ningún lead.
+
+### De dónde sale cada dato → `anuncios.json` (formato: `anuncios_ejemplo.json`, datos reales del 29/09)
+- `campanas[]` (Metricool, red Meta Ads, `FACA05` nombre, `FACA03` inicio, `FACA13` gasto,
+  `FACA10` impresiones, `FACA12` alcance, `FACA14` clics, `FACA44` clics en enlace,
+  `FACA36` leads del píxel). Dos consultas: `mes` (del día 1 a ayer) y `total` (desde el
+  1/08/2026 hasta ayer, para «desde que empezaron»). `tipo`: `web` (ES_…Leads), `whatsapp`
+  (WA_…), `interaccion` (IG_Publicacion…). En `mes` se añaden del CRM: `leads`, `ventas`,
+  `eur` (web: leads con `utm_campaign` = la campaña; WhatsApp: chats de anuncio, abajo) y
+  `visitas` (GA4 `creatividades_mes.visitas` sumadas por campaña). WhatsApp: `chats` y
+  `con_ficha`.
+- `gasto_diario`: Metricool `FAEV01, FAEV04, FAEV05` (usar `FAEV04` = gasto) de los últimos
+  10 días. Los 1–2 últimos días pueden venir a 0 (Metricool va con retraso): no son «0 €».
+- `creatividades[]` de la campaña web: una por `utm_content` (= nombre del anuncio).
+  `visitas` de GA4 (`creatividades_mes.visitas` de `fetch_ga.py`), `leads`/`ventas`/`eur`
+  del CRM:
+  ```sql
+  select utm_campaign campana, utm_content nombre, count(*) leads,
+    count(*) filter (where etapa in ('Closed Won','Ganado')) ventas,
+    coalesce(sum(coalesce(venta_importe,valor)) filter (where etapa in ('Closed Won','Ganado')),0) eur
+  from leads where utm_source='meta' and coalesce(tipo,'B2C')<>'INFLUENCER'
+    and (created_at at time zone 'Europe/Madrid')::date between :desde and :ayer group by 1,2;
+  ```
+  Si Metricool algún día devuelve el detalle por anuncio (`FADE04` nombre, `FADE13` gasto,
+  `FADE15` impresiones, `FADE37` clics en enlace, `FADE16` alcance, `FADE147` miniatura),
+  añadir `gasto`, `impresiones`, `clics_enlace`, `alcance` y `foto` a cada creatividad.
+- `creatividades[]` de la campaña de WhatsApp: una por anuncio (`referral.source_id`), con
+  `chats`, `ventas`, `eur` y su **foto**, que guarda el CRM solo (desde el 30/09/2026,
+  `src/lib/whatsapp/anuncios.server.ts`) en `raw._anuncio` del mensaje:
+  ```sql
+  with r as (select distinct on (m.conversacion_id) m.conversacion_id, m.raw->'referral'->>'source_id' ad, m.enviado_at
+    from whatsapp_mensajes m where m.direccion='entrante' and m.raw->'referral'->>'source_type'='ad'
+    order by m.conversacion_id, m.enviado_at)
+  select r.ad, count(*) chats, count(*) filter (where r.enviado_at >= :desde) chats_periodo, count(c.lead_id) con_ficha,
+    count(*) filter (where l.etapa in ('Closed Won','Ganado')) ventas,
+    coalesce(sum(coalesce(l.venta_importe,l.valor)) filter (where l.etapa in ('Closed Won','Ganado')),0) eur
+  from r join whatsapp_conversaciones c on c.id=r.conversacion_id left join leads l on l.id=c.lead_id group by 1;
+  -- foto, título y texto de cada anuncio
+  select distinct on (raw->'_anuncio'->>'id') raw->'_anuncio'->>'id' ad, raw->'_anuncio'->>'texto' texto,
+    raw->'_anuncio'->>'foto' foto
+  from whatsapp_mensajes where raw->'_anuncio'->>'estado'='ok' order by raw->'_anuncio'->>'id', enviado_at desc;
+  ```
+  Nombre de la creatividad: las primeras palabras de `texto` entre comillas + los 4
+  últimos dígitos del id («Dos pufs y el salón…» (…5520)).
+- **Fotos de la campaña web**: Metricool `FADE147` si llega. Si no, la creatividad sale
+  con «sin foto» y el motivo (`motivo_sin_foto`): **no** poner fotos de la web ni
+  inventarlas. Mientras falte, en el email una línea (solo el primer día o si cambia):
+  «Las fotos de los anuncios de la web necesitan el detalle por anuncio en Metricool».
+
+### Ejecutar
+```
+python3 anuncios.py anuncios.json   # → anuncios_pagina.html, anuncios_email.html,
+                                    #   anuncios_adjuntos.json, anuncios_resumen.json
+```
+- Página: pegar `anuncios_pagina.html` dentro del desplegable «Anuncios de Meta», que va
+  **abierto** (`<details class="blk" open>`), con resumen «X € este mes · CPL web Y € ·
+  veredicto». Las fotos van como data URI (los enlaces de fbcdn caducan y el artifact
+  no carga imágenes de fuera).
+- Email: pegar `anuncios_email.html` después de las 3 cifras y mandar el contenido de
+  `anuncios_adjuntos.json` en `attachments` (son en línea, `inline: true`; el HTML las usa
+  con `cid:<filename>`). Gmail no enseña imágenes `data:`. Si al revisar el enviado las
+  miniaturas no se ven, quitar las `<img>` del email y avisar (no dejar huecos rotos).
