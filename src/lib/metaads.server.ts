@@ -28,6 +28,9 @@ const GRAPH = `https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v
 const CAMPO = "meta_ads";
 const CADA_MS = 3 * 3_600_000;
 const MAX_FOTO = 400 * 1024;
+// Miniatura pequeña: la página del parte las lleva dentro (data URI) y cada
+// foto viaja por la consulta de la rutina; 150 px bastan para verlas.
+const FOTO_PX = 150;
 
 export interface Cifras { gasto: number; impresiones: number; alcance: number; clics: number; clics_enlace: number; leads: number; conversaciones: number }
 export interface AnuncioMeta {
@@ -35,7 +38,7 @@ export interface AnuncioMeta {
   foto: string;                 // data URI (vacío si no se pudo)
   mes: Cifras; semana: Cifras; ayer: Cifras;
 }
-export interface InstantaneaMeta { sincronizado_at: string; cuenta: string; anuncios: AnuncioMeta[]; error?: string }
+export interface InstantaneaMeta { sincronizado_at: string; cuenta: string; anuncios: AnuncioMeta[]; error?: string; foto_px?: number }
 
 async function fetchConTiempo(url: string, ms = 20_000): Promise<Response> {
   const ctrl = new AbortController();
@@ -159,7 +162,8 @@ export async function sincronizarMetaAds(opts: { forzar?: boolean } = {}): Promi
   const { token, cuenta } = await configMetaAds();
   if (!token || !cuenta) return null;
   const previa = await leerInstantanea();
-  if (!opts.forzar && previa.datos && Date.now() - Date.parse(previa.datos.sincronizado_at) < CADA_MS) return null;
+  const mismoTamano = previa.datos?.foto_px === FOTO_PX;
+  if (!opts.forzar && previa.datos && (mismoTamano || previa.datos.error) && Date.now() - Date.parse(previa.datos.sincronizado_at) < CADA_MS) return null;
 
   const ayer = hoyMadrid(1);
   const inicioMes = `${ayer.slice(0, 8)}01`;
@@ -170,7 +174,7 @@ export async function sincronizarMetaAds(opts: { forzar?: boolean } = {}): Promi
     const rango = (desde: string, hasta: string) => ({ level: "ad", fields: campos, limit: "500", time_range: JSON.stringify({ since: desde, until: hasta }) });
     const [ads, mes, semana, deAyer] = await Promise.all([
       listar(`${cuenta}/ads`, token, {
-        fields: "id,name,effective_status,campaign{name},creative.thumbnail_width(320).thumbnail_height(320){thumbnail_url,image_url}",
+        fields: `id,name,effective_status,campaign{name},creative.thumbnail_width(${FOTO_PX}).thumbnail_height(${FOTO_PX}){thumbnail_url,image_url}`,
         limit: "200",
       }),
       listar(`${cuenta}/insights`, token, rango(inicioMes, ayer)),
@@ -179,7 +183,8 @@ export async function sincronizarMetaAds(opts: { forzar?: boolean } = {}): Promi
     ]);
     const porId = (filas: Row[]) => new Map(filas.map((f) => [s(f.ad_id), f]));
     const mMes = porId(mes), mSem = porId(semana), mAyer = porId(deAyer);
-    const fotosPrevias = new Map((previa.datos?.anuncios ?? []).filter((a) => a.foto).map((a) => [a.id, a.foto]));
+    // Si cambió el tamaño de las miniaturas, se vuelven a descargar todas.
+    const fotosPrevias = new Map(mismoTamano ? (previa.datos?.anuncios ?? []).filter((a) => a.foto).map((a) => [a.id, a.foto]) : []);
 
     const anuncios: AnuncioMeta[] = [];
     for (const ad of ads) {
@@ -195,7 +200,7 @@ export async function sincronizarMetaAds(opts: { forzar?: boolean } = {}): Promi
       });
     }
     anuncios.sort((a, b) => b.mes.gasto - a.mes.gasto);
-    instantanea = { sincronizado_at: new Date().toISOString(), cuenta, anuncios };
+    instantanea = { sincronizado_at: new Date().toISOString(), cuenta, anuncios, foto_px: FOTO_PX };
     await guardarCanal("instagram", { datos: { meta_ads_error: "", meta_ads_sincronizado_at: instantanea.sincronizado_at } });
   } catch (e) {
     const msg = (e instanceof Error ? e.message : String(e)).slice(0, 300);
