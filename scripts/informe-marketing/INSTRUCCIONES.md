@@ -337,8 +337,9 @@ invertir más. Desde ahora el bloque de anuncios es **siempre el mismo** y lo ge
 - **Por creatividad, de mejor a peor**, con su **foto**: visitas, leads, chats, conversión,
   ventas, CPL/CPA/CTR/CPI si hay gasto por anuncio, y etiqueta (La mejor / Mantener /
   Pausar / Pocos datos). Orden: resultados por € si hay gasto por anuncio; si no, por visita.
-- En el **email**, una fila por campaña: miniatura de su mejor creatividad, gasto, CPL (o
-  €/chat), CPA, CPI y el veredicto. Cabecera «ANUNCIOS · X € ESTE MES · PREVISIÓN Y €».
+- En el **email**, por campaña: gasto, CPL (o €/chat), CPA, CPI y el veredicto, y debajo
+  **todas** sus creatividades activas de mejor a peor, cada una con su foto (Juan, 30/09:
+  «quiero ver todas las creatividades»). Cabecera «ANUNCIOS · X € EN <MES> · …».
 - En «La decisión de hoy» / «Qué haría yo»: si alguna campaña sale «Subir», decir cuánto
   (`si_subimos` de `anuncios_resumen.json`: € más por semana y leads/chats que traería al
   mismo coste, **como estimación**). Si sale «Bajar», qué creatividad pausar.
@@ -365,7 +366,8 @@ Creatividad «Pausar»: gasto ≥ 2 × CPL objetivo sin leads, o ≥ 60 visitas 
   `con_ficha`.
 - `gasto_diario`: Metricool `FAEV01, FAEV04, FAEV05` (usar `FAEV04` = gasto) de los últimos
   10 días. Los 1–2 últimos días pueden venir a 0 (Metricool va con retraso): no son «0 €».
-- `creatividades[]` de la campaña web: una por `utm_content` (= nombre del anuncio).
+- `creatividades[]` de la campaña web: una por `utm_content` (= nombre del anuncio),
+  **todas** las que tengan visitas en GA4 en el mes aunque no tengan leads.
   `visitas` de GA4 (`creatividades_mes.visitas` de `fetch_ga.py`), `leads`/`ventas`/`eur`
   del CRM:
   ```sql
@@ -404,21 +406,23 @@ Creatividad «Pausar»: gasto ≥ 2 × CPL objetivo sin leads, o ≥ 60 visitas 
 ### Ejecutar
 ```
 python3 anuncios.py anuncios.json   # → anuncios_pagina.html, anuncios_email.html,
-                                    #   anuncios_adjuntos.json, anuncios_resumen.json
+                                    #   anuncios_resumen.json
 ```
 - Página: pegar `anuncios_pagina.html` dentro del desplegable «Anuncios de Meta», que va
   **abierto** (`<details class="blk" open>`), con resumen «X € este mes · CPL web Y € ·
   veredicto». Las fotos van como data URI (los enlaces de fbcdn caducan y el artifact
   no carga imágenes de fuera).
-- Email: pegar `anuncios_email.html` después de las 3 cifras y mandar el contenido de
-  `anuncios_adjuntos.json` en `attachments` (son en línea, `inline: true`; el HTML las usa
-  con `cid:<filename>`). Gmail no enseña imágenes `data:`. Si al revisar el enviado las
-  miniaturas no se ven, quitar las `<img>` del email y avisar (no dejar huecos rotos).
+- Email: pegar `anuncios_email.html` donde marca la plantilla. Las fotos van por URL
+  pública del CRM: `https://tirorirocrm.lovable.app/api/public/anuncio-foto?id=<ad_id>`
+  (poner `ad_id` en cada creatividad de WhatsApp) o `foto_url` si la foto está en otro
+  sitio. Gmail NO enseña imágenes `data:` y la herramienta de envío cambia el Content-ID
+  de los adjuntos en línea (probado el 30/09: la foto salió como adjunto suelto), así que
+  nada de `cid:` ni `attachments`.
 
 ### Email con el bloque de anuncios (30/09/2026)
 `anuncios_email.html` son filas con el estilo de `email_plantilla_v2.html`: van entre
 «LAS 5 DE HOY» y «LA DECISIÓN DE HOY» (hay un comentario que marca el sitio). La fila
 «Anuncios» de las 5 de hoy lleva el gasto del mes y, debajo, gasto de ayer + CPL web +
 €/chat. Prueba real enviada a Juan el 30/09 con la miniatura como adjunto en línea.
-La foto sale de la consulta de `raw._anuncio` (texto base64 tras `base64,`): se pasa
-tal cual en `attachments[].content` con `filename` = el `cid` que puso `anuncios.py`.
+En la página, la foto va como data URI (la de `raw._anuncio`); en el email, por la URL
+pública del CRM (ver «Ejecutar»).

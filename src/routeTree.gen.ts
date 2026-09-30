@@ -42,6 +42,7 @@ import { Route as ApiPublicTelasRouteImport } from './routes/api/public/telas'
 import { Route as ApiPublicLeadFormRouteImport } from './routes/api/public/lead-form'
 import { Route as ApiPublicCatalogRouteImport } from './routes/api/public/catalog'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
+import { Route as ApiPublicAnuncioFotoRouteImport } from './routes/api/public/anuncio-foto'
 import { Route as ApiPedidosReferenciaRouteImport } from './routes/api/pedidos/referencia'
 import { Route as ApiPedidosEmailEntregaRouteImport } from './routes/api/pedidos/email-entrega'
 import { Route as ApiPedidosCroquisRouteImport } from './routes/api/pedidos/croquis'
@@ -220,6 +221,11 @@ const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   path: '/api/public/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAnuncioFotoRoute = ApiPublicAnuncioFotoRouteImport.update({
+  id: '/api/public/anuncio-foto',
+  path: '/api/public/anuncio-foto',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPedidosReferenciaRoute = ApiPedidosReferenciaRouteImport.update({
   id: '/api/pedidos/referencia',
   path: '/api/pedidos/referencia',
@@ -315,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
+  '/api/public/anuncio-foto': typeof ApiPublicAnuncioFotoRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -361,6 +368,7 @@ export interface FileRoutesByTo {
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
+  '/api/public/anuncio-foto': typeof ApiPublicAnuncioFotoRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -409,6 +417,7 @@ export interface FileRoutesById {
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
   '/api/pedidos/referencia': typeof ApiPedidosReferenciaRoute
+  '/api/public/anuncio-foto': typeof ApiPublicAnuncioFotoRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/api/public/catalog': typeof ApiPublicCatalogRoute
   '/api/public/lead-form': typeof ApiPublicLeadFormRoute
@@ -458,6 +467,7 @@ export interface FileRouteTypes {
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
     | '/api/pedidos/referencia'
+    | '/api/public/anuncio-foto'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -504,6 +514,7 @@ export interface FileRouteTypes {
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
     | '/api/pedidos/referencia'
+    | '/api/public/anuncio-foto'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -551,6 +562,7 @@ export interface FileRouteTypes {
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
     | '/api/pedidos/referencia'
+    | '/api/public/anuncio-foto'
     | '/api/public/bootstrap'
     | '/api/public/catalog'
     | '/api/public/lead-form'
@@ -597,6 +609,7 @@ export interface RootRouteChildren {
   ApiPedidosCroquisRoute: typeof ApiPedidosCroquisRoute
   ApiPedidosEmailEntregaRoute: typeof ApiPedidosEmailEntregaRoute
   ApiPedidosReferenciaRoute: typeof ApiPedidosReferenciaRoute
+  ApiPublicAnuncioFotoRoute: typeof ApiPublicAnuncioFotoRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
   ApiPublicCatalogRoute: typeof ApiPublicCatalogRoute
   ApiPublicLeadFormRoute: typeof ApiPublicLeadFormRoute
@@ -845,6 +858,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/anuncio-foto': {
+      id: '/api/public/anuncio-foto'
+      path: '/api/public/anuncio-foto'
+      fullPath: '/api/public/anuncio-foto'
+      preLoaderRoute: typeof ApiPublicAnuncioFotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pedidos/referencia': {
       id: '/api/pedidos/referencia'
       path: '/api/pedidos/referencia'
@@ -975,6 +995,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPedidosCroquisRoute: ApiPedidosCroquisRoute,
   ApiPedidosEmailEntregaRoute: ApiPedidosEmailEntregaRoute,
   ApiPedidosReferenciaRoute: ApiPedidosReferenciaRoute,
+  ApiPublicAnuncioFotoRoute: ApiPublicAnuncioFotoRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
   ApiPublicCatalogRoute: ApiPublicCatalogRoute,
   ApiPublicLeadFormRoute: ApiPublicLeadFormRoute,
