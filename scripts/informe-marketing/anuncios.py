@@ -313,7 +313,8 @@ def main(path="anuncios.json"):
             url = cr.get("foto_url") or (f"{FOTO_URL}{cr['ad_id']}" if cr.get("ad_id") and cr.get("foto") else "")
             thumb = (f'<img src="{e(url)}" width="56" height="56" alt="" style="display:block;width:56px;height:56px;border-radius:8px;object-fit:cover">'
                      if url else '<div style="width:56px;height:56px;border-radius:8px;background-color:#e5e5ea;font-size:9px;line-height:56px;text-align:center;color:#8e8e93">sin foto</div>')
-            res = f"{f(cm['leads'])} leads" if cm["leads"] is not None else f"{f(cm['chats'] or 0)} chats"
+            n_res = cm["leads"] if cm["leads"] is not None else (cm["chats"] or 0)
+            res = f"{f(n_res)} {'lead' if cm['leads'] is not None else 'chat'}{'' if n_res == 1 else 's'}"
             extra = []
             if cm["visitas"]:
                 extra.append(f"{f(cm['visitas'])} visitas")
