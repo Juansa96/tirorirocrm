@@ -353,7 +353,7 @@ def main(path="anuncios.json"):
         '<tr><td style="padding:24px 8px 6px;font-size:13px;line-height:18px;font-weight:600;color:#8e8e93">ANUNCIOS · ' + sub.upper() + '</td></tr>'
         '<tr><td bgcolor="#FFFFFF" style="background-color:#ffffff;border-radius:16px;padding:0 16px">'
         '<table width="100%" cellpadding="0" cellspacing="0" border="0">' + "".join(email)
-        + '<tr><td style="padding:10px 0 12px;font-size:12px;line-height:17px;color:#8e8e93">Las fotos de cada creatividad, en el informe completo.</td></tr></table></td></tr>')
+        + '<tr><td style="padding:10px 0 12px;font-size:12px;line-height:17px;color:#8e8e93">Las fotos de cada creatividad, en la imagen adjunta (anuncios_mosaico.jpg) y en el informe completo.</td></tr></table></td></tr>')
     json.dump(resumen, open("anuncios_resumen.json", "w"), ensure_ascii=False, indent=1)
     print(json.dumps({k: v for k, v in resumen.items() if k != "campanas"}, ensure_ascii=False))
     for c in resumen["campanas"]:

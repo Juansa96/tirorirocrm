@@ -468,3 +468,16 @@ La clave de Meta Ads ya está conectada (11 anuncios con foto el 30/09). Cada d�
    WhatsApp por `referral.source_id` = `ad_id` (un chat puede venir de un anuncio de la
    campaña web, p. ej. «Leads_F3_Puf_Salon»: cuenta para ese anuncio).
 4. El email sigue sin fotos (ver arriba).
+
+### Fotos en el email: mosaico adjunto (Juan, 01/10/2026) — manda sobre lo anterior
+Como Gmail (la herramienta de envío) borra las imágenes del HTML, las fotos van en UNA
+imagen adjunta: después de `anuncios.py`, ejecutar
+```
+python3 mosaico.py   # → anuncios_mosaico.jpg (todas las creatividades de cada campaña,
+                     #   de mejor a peor, con foto, cifras y etiqueta)
+```
+y mandarla en `attachments` del email como adjunto NORMAL (`inline: false`,
+`mimeType: image/jpeg`, `filename: anuncios_DD-MM.jpg`), sin `cid:` ni `<img>` en el HTML.
+Gmail del iPhone la enseña al final del correo. Comprobar antes de mandar que el JPG se
+ve bien (leerlo como imagen). Si `mosaico.py` falla (p. ej. sin Pillow y sin red para
+instalarlo), mandar el email sin adjunto y decirlo en la nota del pie.
