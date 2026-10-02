@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus, Sparkles, RefreshCw, MessageSquarePlus, Loader2, Plug } from "lucide-react";
+import { Send, Hammer, FileUp, Download, Trash2, CheckCircle2, Truck, Image as ImageIcon, Calendar, AlertTriangle, X, Plus, Sparkles, RefreshCw, MessageSquarePlus, Loader2, Plug, Car, Package, MapPin } from "lucide-react";
 import { useStore, actions } from "@/lib/store";
 import { supabase } from "@/integrations/supabase/client";
-import { tapiceroNombre, archivoPendienteIA, huecosDe, conHuecos, huecoVacio, huecoEnEspejo, paredDe, conPared, TIPOS_HUECO, TIPO_HUECO_LABEL, type Pedido, type Producto, type HuecoPedido, type TipoHueco, type ColocacionPared, type PosicionPared } from "@/lib/types";
+import { tapiceroNombre, archivoPendienteIA, huecosDe, conHuecos, huecoVacio, huecoEnEspejo, paredDe, conPared, entregaDe, conEntrega, entregaEfectiva, TIPOS_HUECO, TIPO_HUECO_LABEL, type Pedido, type Producto, type HuecoPedido, type TipoHueco, type ColocacionPared, type PosicionPared, type EntregaPedido } from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
-import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller, llevaCroquis } from "@/lib/catalogo";
+import { displayNombreProducto, telasDeProducto, tipoLlevaVivo, montajeEfectivo, esSinVivo, faltaParaTaller, llevaCroquis, esZonaMadrid } from "@/lib/catalogo";
 import { FabricPicker } from "@/components/FabricPicker";
 import { Tachado } from "@/components/Tachado";
 import { emptyTela, type TelaDraft } from "@/lib/pedido-form";
@@ -24,7 +24,8 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
   telas: TelaDraft[];
   setTelas: (updater: (prev: TelaDraft[]) => TelaDraft[]) => void;
 }) {
-  const { pedidoArchivos, tapiceros, iaEnCurso } = useStore();
+  const { pedidoArchivos, tapiceros, iaEnCurso, leads } = useStore();
+  const cliente = leads.find((l) => l.id === pedido.leadId);
   // Croquis que Claude seguía dibujando cuando se cerró o recargó la página.
   useEffect(() => { void actions.reanudarCroquisIA(pedido.id); }, [pedido.id]);
   // Croquis aprobados cuando aún se guardaban en SVG: se pasan a PDF.
@@ -271,6 +272,15 @@ export function FichaTapiceroEquipo({ pedido, producto, draft, patch, telas, set
           className="rounded border border-slate-200 px-2 py-1 text-sm"
         />
       </div>
+
+      {/* Salida del taller: se lo lleva Juan (Madrid) o sale por MRW. Por defecto
+          se deduce de la ciudad del cliente; aquí el equipo lo fija a mano y
+          deja una nota para el envío. Se guarda con "Guardar". */}
+      <EntregaEditor
+        entrega={entregaDe(draft.pasosTapicero)}
+        cliente={cliente ? { ciudad: cliente.ciudad, provincia: cliente.provincia, direccion: cliente.direccion } : null}
+        onChange={(e) => patch({ pasosTapicero: conEntrega(draft.pasosTapicero, e) })}
+      />
 
       {/* Enchufes, huecos y anclajes (van al croquis y al panel del tapicero).
           Se editan en el borrador y se guardan con "Guardar". */}
@@ -599,6 +609,54 @@ function ParedEditor({ pared, onChange }: { pared: ColocacionPared; onChange: (c
             <option value="der">Pegado a la derecha</option>
           </select>
         </label>
+      </div>
+    </div>
+  );
+}
+
+// Salida del taller. "Automático" = según la ciudad/provincia del cliente
+// (zona de Madrid → se lo lleva Juan; resto → MRW). Fijarlo a mano sirve para
+// las excepciones (cliente de Madrid que quiere envío, destino especial…).
+function EntregaEditor({ entrega, cliente, onChange }: {
+  entrega: EntregaPedido;
+  cliente: { ciudad: string; provincia: string; direccion: string } | null;
+  onChange: (e: EntregaPedido) => void;
+}) {
+  const inp = "w-full rounded border border-slate-200 px-2 py-1 text-xs";
+  const auto = entregaEfectiva({}, cliente, esZonaMadrid);
+  const efectiva = entregaEfectiva(conEntrega({}, entrega), cliente, esZonaMadrid);
+  const opciones: Array<{ v: EntregaPedido["modo"]; lbl: string; icon: React.ReactNode }> = [
+    { v: "", lbl: auto.modo === "juan" ? "Automático · se lo lleva Juan" : auto.modo === "mrw" ? "Automático · envío MRW" : "Automático · sin ciudad", icon: <MapPin className="h-3.5 w-3.5" /> },
+    { v: "juan", lbl: "Se lo lleva Juan", icon: <Car className="h-3.5 w-3.5" /> },
+    { v: "mrw", lbl: "Envío por MRW", icon: <Package className="h-3.5 w-3.5" /> },
+  ];
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
+      <div className="mb-1.5 flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-500">
+        <Truck className="h-3.5 w-3.5" /> Salida del taller
+        <span className="font-normal text-slate-400">(lo ve el tapicero: a Madrid en el coche de Juan, o por MRW desde el taller)</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {opciones.map((o) => (
+          <button key={o.v || "auto"} type="button" onClick={() => onChange({ ...entrega, modo: o.v })}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${entrega.modo === o.v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}>
+            {o.icon} {o.lbl}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        <label className="text-[10px] uppercase tracking-wide text-slate-400">Destino (ciudad / provincia)
+          <input type="text" className={inp} placeholder={auto.destino || "p. ej. Valencia"} value={entrega.destino} onChange={(e) => onChange({ ...entrega, destino: e.target.value })} />
+        </label>
+        <label className="text-[10px] uppercase tracking-wide text-slate-400">Nota para el envío
+          <input type="text" className={inp} placeholder="p. ej. llamar antes de entregar, embalar en dos bultos…" value={entrega.nota} onChange={(e) => onChange({ ...entrega, nota: e.target.value })} />
+        </label>
+      </div>
+      <div className={`mt-1.5 text-[11px] ${efectiva.modo ? "text-slate-500" : "text-amber-700"}`}>
+        {efectiva.modo === "juan" && <>El tapicero verá: <strong>Se lo lleva Juan{efectiva.destino ? ` → ${efectiva.destino}` : ""}</strong>.</>}
+        {efectiva.modo === "mrw" && <>El tapicero verá: <strong>Envío por MRW{efectiva.destino ? ` → ${efectiva.destino}` : ""}</strong>.</>}
+        {!efectiva.modo && <>Sin ciudad en la ficha del cliente: el tapicero verá «Destino sin indicar». Pon la ciudad del cliente o elige una opción aquí.</>}
+        {cliente?.direccion ? <span className="text-slate-400"> Dirección del cliente: {cliente.direccion} (el tapicero no la ve).</span> : null}
       </div>
     </div>
   );

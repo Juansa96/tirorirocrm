@@ -35,6 +35,7 @@ import { Route as B2bNuevoRouteImport } from './routes/b2b.nuevo'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiWhatsappProcesarRouteImport } from './routes/api/whatsapp/procesar'
 import { Route as ApiTapiceroFotoRouteImport } from './routes/api/tapicero/foto'
+import { Route as ApiTapiceroEntregasRouteImport } from './routes/api/tapicero/entregas'
 import { Route as ApiTapiceroEnviarRouteImport } from './routes/api/tapicero/enviar'
 import { Route as ApiTapiceroEnlaceRouteImport } from './routes/api/tapicero/enlace'
 import { Route as ApiTapiceroAccionRouteImport } from './routes/api/tapicero/accion'
@@ -193,6 +194,11 @@ const ApiTapiceroEnviarRoute = ApiTapiceroEnviarRouteImport.update({
   path: '/api/tapicero/enviar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTapiceroEntregasRoute = ApiTapiceroEntregasRouteImport.update({
+  id: '/api/tapicero/entregas',
+  path: '/api/tapicero/entregas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTapiceroEnlaceRoute = ApiTapiceroEnlaceRouteImport.update({
   id: '/api/tapicero/enlace',
   path: '/api/tapicero/enlace',
@@ -342,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
+  '/api/tapicero/entregas': typeof ApiTapiceroEntregasRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
@@ -391,6 +398,7 @@ export interface FileRoutesByTo {
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
+  '/api/tapicero/entregas': typeof ApiTapiceroEntregasRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
@@ -442,6 +450,7 @@ export interface FileRoutesById {
   '/api/public/telas': typeof ApiPublicTelasRoute
   '/api/tapicero/accion': typeof ApiTapiceroAccionRoute
   '/api/tapicero/enlace': typeof ApiTapiceroEnlaceRoute
+  '/api/tapicero/entregas': typeof ApiTapiceroEntregasRoute
   '/api/tapicero/enviar': typeof ApiTapiceroEnviarRoute
   '/api/tapicero/foto': typeof ApiTapiceroFotoRoute
   '/api/whatsapp/procesar': typeof ApiWhatsappProcesarRoute
@@ -494,6 +503,7 @@ export interface FileRouteTypes {
     | '/api/public/telas'
     | '/api/tapicero/accion'
     | '/api/tapicero/enlace'
+    | '/api/tapicero/entregas'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
     | '/api/whatsapp/procesar'
@@ -543,6 +553,7 @@ export interface FileRouteTypes {
     | '/api/public/telas'
     | '/api/tapicero/accion'
     | '/api/tapicero/enlace'
+    | '/api/tapicero/entregas'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
     | '/api/whatsapp/procesar'
@@ -593,6 +604,7 @@ export interface FileRouteTypes {
     | '/api/public/telas'
     | '/api/tapicero/accion'
     | '/api/tapicero/enlace'
+    | '/api/tapicero/entregas'
     | '/api/tapicero/enviar'
     | '/api/tapicero/foto'
     | '/api/whatsapp/procesar'
@@ -642,6 +654,7 @@ export interface RootRouteChildren {
   ApiPublicTelasRoute: typeof ApiPublicTelasRoute
   ApiTapiceroAccionRoute: typeof ApiTapiceroAccionRoute
   ApiTapiceroEnlaceRoute: typeof ApiTapiceroEnlaceRoute
+  ApiTapiceroEntregasRoute: typeof ApiTapiceroEntregasRoute
   ApiTapiceroEnviarRoute: typeof ApiTapiceroEnviarRoute
   ApiTapiceroFotoRoute: typeof ApiTapiceroFotoRoute
   ApiWhatsappProcesarRoute: typeof ApiWhatsappProcesarRoute
@@ -849,6 +862,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTapiceroEnlaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tapicero/entregas': {
+      id: '/api/tapicero/entregas'
+      path: '/api/tapicero/entregas'
+      fullPath: '/api/tapicero/entregas'
+      preLoaderRoute: typeof ApiTapiceroEntregasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tapicero/accion': {
       id: '/api/tapicero/accion'
       path: '/api/tapicero/accion'
@@ -1044,6 +1064,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicTelasRoute: ApiPublicTelasRoute,
   ApiTapiceroAccionRoute: ApiTapiceroAccionRoute,
   ApiTapiceroEnlaceRoute: ApiTapiceroEnlaceRoute,
+  ApiTapiceroEntregasRoute: ApiTapiceroEntregasRoute,
   ApiTapiceroEnviarRoute: ApiTapiceroEnviarRoute,
   ApiTapiceroFotoRoute: ApiTapiceroFotoRoute,
   ApiWhatsappProcesarRoute: ApiWhatsappProcesarRoute,

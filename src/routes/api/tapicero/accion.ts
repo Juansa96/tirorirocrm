@@ -16,6 +16,9 @@ import { medidasEtiquetadas } from "@/lib/catalogo";
 //        del PRODUCTO del pedido (productos_lead.ancho/alto/fondo). Es la misma
 //        fila que editan Clientes y Pedidos: no hay copia en el pedido. El valor
 //        anterior queda apuntado para enseñarlo tachado en la card.
+//   POST { op: "visto_archivo", pedidoId, tipo: "plantilla" | "referencia" }
+//        → el tapicero da por visto el aviso "croquis / imagen cambiados": se
+//        quita esa marca de pasos_tapicero["@antes"] (el resto se conserva).
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
 // Columnas de `pedidos` que toca un cambio de estado (camelCase → snake_case).
@@ -161,6 +164,14 @@ export const Route = createFileRoute("/api/tapicero/accion")({
             }
           }
           return json({ ok: true, medidas: patch });
+        }
+        if (op === "visto_archivo") {
+          const tipo = String(body?.tipo ?? "");
+          if (tipo !== "plantilla" && tipo !== "referencia") return json({ error: "Tipo no válido" }, 400);
+          const pasos = conAntes(pasosActuales, { [tipo]: null });
+          const { error } = await supabaseAdmin.from("pedidos").update({ pasos_tapicero: pasos } as never).eq("id", pedidoId);
+          if (error) return json({ error: error.message }, 400);
+          return json({ ok: true });
         }
         return json({ error: "Operación no reconocida" }, 400);
       },

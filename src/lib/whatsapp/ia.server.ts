@@ -93,13 +93,13 @@ const PARAMETROS_FUNCION = {
     contacto: {
       type: "object",
       properties: {
-        nombre: { type: "string", description: "Nombre y apellidos del cliente si aparecen en el chat (no el nombre del perfil). Vacío si no." },
-        telefono: { type: "string", description: "Teléfono del cliente si lo da en la conversación o en la firma del correo (p. ej. para seguir por WhatsApp). Nunca el de Tiroriro. Vacío si no." },
+        nombre: { type: "string", description: "Nombre y apellidos del cliente tal como los dice en el chat (no el nombre del perfil). Si da sus apellidos o corrige su nombre, pon aquí el nombre completo que dice. Vacío si no." },
+        telefono: { type: "string", description: "Teléfono del cliente si lo da en la conversación o en la firma del correo (p. ej. para seguir por WhatsApp, o porque dice que ha cambiado de número). Nunca el de Tiroriro. Vacío si no." },
         instagram: { type: "string", description: "@usuario de Instagram del cliente si lo menciona. Vacío si no." },
-        ciudad: { type: "string" },
-        provincia: { type: "string" },
+        ciudad: { type: "string", description: "Ciudad donde vive o donde hay que entregar, si la dice." },
+        provincia: { type: "string", description: "Provincia, si la dice o se deduce sin duda de la ciudad o del código postal." },
         email: { type: "string", description: "Correo del cliente si lo da. Nunca uno de Tiroriro (@tirorirohome.com, @tiroriro.com)." },
-        direccion: { type: "string", description: "Dirección de entrega completa si la ha dado." },
+        direccion: { type: "string", description: "Dirección de entrega completa (calle, número, piso, código postal y ciudad) si la ha dado o la ha cambiado. Tal cual la escribe." },
       },
     },
     productos: {
@@ -154,6 +154,7 @@ REGLAS
 - Tipos de producto: ${tipos}. Formas de cabecero: ${formas}. Formas de pantalla: ${pantallas}. Un cabecero se define por ancho (cm), alto (100, 120 o 130 cm normalmente), forma, tela y color, y montaje (colgar en la pared o apoyar en el suelo). Un banco (modelo Oyambre) por ancho. Envío: Madrid 40 €, resto de España 60 €.
 - Los mensajes marcados [Tiroriro] los escribe el equipo (Rocío, Juan, Iñaki o Bea); los marcados [Cliente] los escribe la persona.
 - Si la persona da otro medio de contacto (su teléfono para seguir por WhatsApp, su correo, su Instagram), apúntalo en contacto: sirve para unir la misma persona entre canales. Los datos de Tiroriro (sus teléfonos, correos y cuentas) no son del cliente.
+- DATOS PERSONALES: cada vez que la persona diga o corrija algo suyo (nombre completo o apellidos, teléfono, correo, dirección de entrega, ciudad, provincia), ponlo en contacto con el valor que dice en el chat, AUNQUE la ficha ya tenga otro valor o uno más corto: el equipo decide después si actualiza la ficha. Si solo lo deletrea por partes ("calle Mayor 3… 2ºB… 28013"), júntalo en una sola dirección.
 - En los correos, ignora firmas legales, avisos de confidencialidad y publicidad del pie.
 - "[Nota de voz] «…»" es la transcripción automática de un audio: trátala como si esa persona lo hubiera escrito (puede tener alguna palabra mal transcrita). "[Audio]" o "[Nota de voz]" sin texto es un audio que aún no se ha podido transcribir: no supongas lo que dice.
 - Etapas del pipeline (elige la que refleje el chat, o null si dudas):
@@ -184,7 +185,7 @@ function promptUsuario(e: EntradaAnalisis): string {
     if (l.productos.length) partes.push(`Productos en la ficha: ${l.productos.join(" | ")}`);
     if (l.pedidos.length) partes.push(`Pedidos: ${l.pedidos.join(" | ")}`);
     if (l.notasRecientes.length) partes.push(`Notas recientes: ${l.notasRecientes.join(" | ")}`);
-    partes.push("Compara el chat con la ficha: en productos indica lo que dice el chat (aunque coincida), en novedades solo lo nuevo.");
+    partes.push("Compara el chat con la ficha: en productos indica lo que dice el chat (aunque coincida), en contacto los datos personales tal como los dice la persona (sobre todo si son distintos o más completos que los de la ficha), en novedades solo lo nuevo.");
   } else {
     partes.push("Esta persona NO está en el CRM todavía (o no se ha podido enlazar).");
   }

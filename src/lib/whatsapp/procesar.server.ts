@@ -24,7 +24,8 @@
 //   PROPONE (el equipo acepta o rechaza desde /whatsapp)
 //   · Crear el cliente (con candidatos a duplicado para enlazar en su lugar).
 //   · Cambiar de etapa (nunca se mueve sola, ni hacia delante ni hacia atrás).
-//   · Un dato distinto al que ya hay en la ficha.
+//   · Un dato personal distinto (o más completo) que el que ya hay en la
+//     ficha: nombre y apellidos, teléfono, dirección, ciudad, email, Instagram.
 //   · Crear o corregir un producto (medidas, tela, modelo).
 //   · Con qué cliente enlazar cuando hay varios candidatos (p. ej. el teléfono
 //     coincide con un cliente y el email con otro: posible duplicado).
@@ -284,6 +285,20 @@ function identificadorDe(conv: Row): string {
   return describirConv({ canal: canalDe(s(conv.telefono)), clave: s(conv.telefono), nombreWa: s(conv.nombre_wa) });
 }
 
+// ¿El dato nuevo del chat "completa" el de la ficha? (la ficha tiene "María" y
+// el chat dice "María García López"; la ficha tiene "C/ Mayor 3" y el chat da
+// "C/ Mayor 3, 2ºB, 28013 Madrid"). Se propone actualizar, con otro motivo.
+function esMasCompleto(actual: string, nuevo: string): boolean {
+  const a = norm(actual), n = norm(nuevo);
+  return !!a && n.length > a.length && n.includes(a);
+}
+
+// Rellena los datos VACÍOS de la ficha con lo que dice el chat y, si la ficha
+// ya tiene otro valor (o uno más corto), deja la PROPUESTA "actualizar dato"
+// para que el equipo la acepte o rechace. Decisión de Juan (2/10/2026): todo
+// dato personal que la persona diga por WhatsApp, Instagram o email (nombre y
+// apellidos, teléfono, dirección, ciudad, provincia, email, Instagram) se
+// propone para actualizar la ficha; nunca se sobreescribe solo.
 async function rellenarVacios(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resultado, propuestasPermitidas: boolean, cat: Catalogo) {
   const patch: Record<string, unknown> = {};
   const canal = canalDe(s(conv.telefono));
@@ -301,6 +316,10 @@ async function rellenarVacios(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resu
     res.auto.push(`email: ${dir}`);
     nuevos.email = "";
   }
+  const proponerCampo = async (campo: string, actual: string, nuevo: string, motivo: string) => {
+    const ok = await proponer(s(conv.id), lead.id, "actualizar_campo", `campo:${campo}:${hashCorto(norm(nuevo))}`, { campo, actual, nuevo }, motivo);
+    if (ok) res.propuestas++;
+  };
   for (const [campo, nuevo] of Object.entries(nuevos)) {
     if (!nuevo) continue;
     const actual = s(patch[campo]) || ((lead as unknown as Record<string, string>)[campo] ?? "");
@@ -308,33 +327,60 @@ async function rellenarVacios(lead: LeadMin, conv: Row, a: AnalisisIA, res: Resu
       patch[campo] = nuevo;
       res.auto.push(`${campo}: ${nuevo}`);
     } else if (propuestasPermitidas) {
-      const iguales = campo === "email" ? normEmail(actual) === normEmail(nuevo) : norm(actual) === norm(nuevo) || norm(actual).includes(norm(nuevo)) || norm(nuevo).includes(norm(actual));
-      if (!iguales) {
-        const ok = await proponer(s(conv.id), lead.id, "actualizar_campo", `campo:${campo}:${hashCorto(norm(nuevo))}`, { campo, actual, nuevo }, `En el chat aparece «${nuevo}» y en la ficha hay «${actual}».`);
-        if (ok) res.propuestas++;
+      if (campo === "email") {
+        if (normEmail(actual) !== normEmail(nuevo)) await proponerCampo(campo, actual, nuevo, `En el chat da el correo «${nuevo}» y en la ficha hay «${actual}».`);
+      } else if (campo === "direccion") {
+        // La dirección se propone si es distinta o más completa (piso, código
+        // postal…); si la ficha ya la tiene entera y el chat dice un trozo, no.
+        if (norm(actual) === norm(nuevo) || norm(actual).includes(norm(nuevo))) continue;
+        await proponerCampo(campo, actual, nuevo, esMasCompleto(actual, nuevo)
+          ? `En el chat da la dirección más completa: «${nuevo}» (en la ficha hay «${actual}»).`
+          : `En el chat da otra dirección: «${nuevo}» (en la ficha hay «${actual}»).`);
+      } else {
+        const iguales = norm(actual) === norm(nuevo) || norm(actual).includes(norm(nuevo)) || norm(nuevo).includes(norm(actual));
+        if (!iguales) await proponerCampo(campo, actual, nuevo, `En el chat aparece «${nuevo}» y en la ficha hay «${actual}».`);
       }
     }
   }
-  // Nombre: solo si la ficha no tiene uno de verdad.
   // Nombre: el del chat y, si no, el de la agenda del móvil (nunca el número).
+  // Si la ficha no tiene uno de verdad se rellena; si tiene otro, o solo el
+  // nombre de pila y en el chat da los apellidos, se propone.
   const nombreIA = (s(a.contacto.nombre) || nombreSinUsuario(s(conv.nombre_wa))).slice(0, 200);
   const nombreFicha = lead.nombre.trim();
   const sinNombre = !nombreFicha || /^(whatsapp|instagram|email)\b/i.test(nombreFicha) || /^@/.test(nombreFicha) || /^\+?[\d\s]+$/.test(nombreFicha);
   if (nombreIA && sinNombre) { patch.nombre = nombreIA; res.auto.push(`nombre: ${nombreIA}`); }
-  else if (nombreIA && propuestasPermitidas && s(a.contacto.nombre) && !norm(nombreFicha).includes(norm(nombreIA)) && !norm(nombreIA).includes(norm(nombreFicha))) {
-    const ok = await proponer(s(conv.id), lead.id, "actualizar_campo", `campo:nombre:${hashCorto(norm(nombreIA))}`, { campo: "nombre", actual: nombreFicha, nuevo: nombreIA }, "El nombre que da en el chat no coincide con el de la ficha.");
-    if (ok) res.propuestas++;
+  else if (nombreIA && propuestasPermitidas && s(a.contacto.nombre) && norm(nombreFicha) !== norm(nombreIA) && !norm(nombreFicha).includes(norm(nombreIA))) {
+    await proponerCampo("nombre", nombreFicha, nombreIA, esMasCompleto(nombreFicha, nombreIA)
+      ? `En el chat da el nombre completo: «${nombreIA}» (en la ficha solo hay «${nombreFicha}»).`
+      : "El nombre que da en el chat no coincide con el de la ficha.");
   }
-  // Teléfono: si la ficha no lo tenía (lead enlazado por nombre/email o creado desde la web).
-  // (en Instagram y email, el que dé la persona en la conversación).
+  // Teléfono: si la ficha no lo tenía (lead enlazado por nombre/email o creado
+  // desde la web) se rellena con el del canal (WhatsApp) o el que dé la persona.
+  // Si ya tiene otro distinto, se propone el nuevo (ha cambiado de número, da
+  // el móvil en vez del fijo…).
+  const telCanal = canal === "whatsapp" ? formatTelefonoWa(s(conv.telefono)) : "";
+  const telChat = formatTelefonoLibre(a.contacto.telefono);
   if (!lead.telefono.trim()) {
-    const tel = canal === "whatsapp" ? formatTelefonoWa(s(conv.telefono)) : formatTelefonoLibre(a.contacto.telefono);
+    const tel = telCanal || telChat;
     if (tel) { patch.telefono = tel; res.auto.push(`teléfono: ${tel}`); }
+  } else if (propuestasPermitidas) {
+    const actualTel = normTel(lead.telefono);
+    for (const tel of [...new Set([telChat, telCanal].filter(Boolean))]) {
+      const n = normTel(tel);
+      if (!n || n === actualTel || n === cat.propios.telefono) continue;
+      await proponerCampo("telefono", lead.telefono.trim(), tel, tel === telChat && telChat !== telCanal
+        ? `En el chat da el teléfono «${tel}» y en la ficha hay «${lead.telefono.trim()}».`
+        : `Escribe por WhatsApp desde el «${tel}» y en la ficha hay «${lead.telefono.trim()}».`);
+    }
   }
-  // Instagram: el @ de la conversación (o el que mencione) si la ficha no tiene ninguno.
-  if (lead.instagrams.length === 0) {
-    const ig = canal === "instagram" ? instagramDeNombre(s(conv.nombre_wa)) : normInstagram(s(a.contacto.instagram));
-    if (ig && ig !== cat.propios.instagram) { patch.red_social = `@${ig}`; res.auto.push(`Instagram: @${ig}`); }
+  // Instagram: el @ de la conversación (o el que mencione) si la ficha no tiene
+  // ninguno; si tiene otro distinto, se propone.
+  const ig = canal === "instagram" ? instagramDeNombre(s(conv.nombre_wa)) : normInstagram(s(a.contacto.instagram));
+  if (ig && ig !== cat.propios.instagram) {
+    if (lead.instagrams.length === 0) { patch.red_social = `@${ig}`; res.auto.push(`Instagram: @${ig}`); }
+    else if (propuestasPermitidas && !lead.instagrams.includes(ig)) {
+      await proponerCampo("redSocial", lead.instagrams.map((u) => `@${u}`).join(" · "), `@${ig}`, `En el chat aparece la cuenta @${ig} y en la ficha hay ${lead.instagrams.map((u) => `@${u}`).join(" · ")}.`);
+    }
   }
   if (!lead.origen.trim()) patch.origen = CANAL_ORIGEN[canal];
 

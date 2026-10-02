@@ -1,11 +1,11 @@
 import { numeroPedidoLabel } from "@/lib/types";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical, Truck } from "lucide-react";
+import { LogOut, Hammer, ChevronRight, ChevronDown, ArrowLeft, Eye, GripVertical, Truck, Car, Package, MapPin } from "lucide-react";
 import { formatWeekdayShort } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { tapiceroNombre, ESTADOS_PEDIDO, ESTADOS_TAPICERO, ESTADO_ENTREGADO_CLIENTE, type EstadoPedido, type Tapicero } from "@/lib/types";
+import { tapiceroNombre, ESTADOS_PEDIDO, ESTADOS_TAPICERO, ESTADO_ENTREGADO_CLIENTE, type EstadoPedido, type Tapicero, type ModoEntrega } from "@/lib/types";
 import { Tachado } from "@/components/Tachado";
 import { displayNombreProducto, medidasEtiquetadas, pufTieneAlmacenaje, PUF_ALMACENAJE_LABEL } from "@/lib/catalogo";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
@@ -48,6 +48,7 @@ const VACIO_VISTA: Record<Vista, string> = {
 const MEM_KEY = "panel-taller";
 interface MemoriaPanel {
   tapicero: string; vista: Vista; retrasados: boolean; expandidos: string[];
+  entrega?: ModoEntrega;   // filtro "a dónde va": "" = todos, "juan" | "mrw"
   productoId?: string; scrollY?: number;
 }
 function leerMemoria(tapicero: string): MemoriaPanel | null {
@@ -134,6 +135,10 @@ function Panel() {
   const { pedidos, error: errorCarga, refetch } = usePanelPedidos(viendoId || null, esTapicero);
   const [vista, setVista] = useState<Vista>("Pendiente");
   const [soloRetrasados, setSoloRetrasados] = useState(false);
+  // Filtro "a dónde va": solo lo que se lleva Juan a Madrid, o solo lo que sale
+  // por MRW desde el taller. Así, el día que Juan va a Yecla, el taller y él
+  // ven de un vistazo qué se carga en el coche y qué hay que mandar.
+  const [filtroEntrega, setFiltroEntrega] = useState<ModoEntrega>("");
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
 
   // La pestaña activa se trae a la vista en la fila desplazable (móvil).
@@ -161,6 +166,7 @@ function Panel() {
     if (!m) return;
     if (esVista(m.vista)) setVista(m.vista);
     setSoloRetrasados(m.retrasados);
+    setFiltroEntrega(m.entrega === "juan" || m.entrega === "mrw" ? m.entrega : "");
     setExpandidos(new Set(m.expandidos));
     if (m.productoId || m.scrollY != null) pendienteRef.current = { productoId: m.productoId, scrollY: m.scrollY };
   }, [viendoId]);
@@ -169,15 +175,15 @@ function Panel() {
     if (!viendoId || restauradoRef.current !== viendoId) return;
     const prev = leerMemoria(viendoId);
     guardarMemoria({
-      tapicero: viendoId, vista, retrasados: soloRetrasados, expandidos: [...expandidos],
+      tapicero: viendoId, vista, retrasados: soloRetrasados, entrega: filtroEntrega, expandidos: [...expandidos],
       productoId: prev?.productoId, scrollY: prev?.scrollY,
     });
-  }, [viendoId, vista, soloRetrasados, expandidos]);
+  }, [viendoId, vista, soloRetrasados, filtroEntrega, expandidos]);
   // 3) Al pulsar un producto se apunta cuál y a qué altura estaba la página.
   const recordarProducto = (productoId: string) => {
     if (!viendoId) return;
     guardarMemoria({
-      tapicero: viendoId, vista, retrasados: soloRetrasados, expandidos: [...expandidos],
+      tapicero: viendoId, vista, retrasados: soloRetrasados, entrega: filtroEntrega, expandidos: [...expandidos],
       productoId, scrollY: window.scrollY,
     });
   };
@@ -248,11 +254,16 @@ function Panel() {
   const vistas: Vista[] = esEquipo ? [...ESTADOS_PEDIDO] : [...ESTADOS_TAPICERO];
   const porEstado = new Map<Vista, PanelPedido[]>(vistas.map((v) => [v, (pedidos ?? []).filter((p) => p.estado === v)]));
   const base = porEstado.get(vista) ?? [];
-  const lista = base.filter((p) => !(soloRetrasados && p.diasRestantes >= 0));
+  const lista = base.filter((p) => !(soloRetrasados && p.diasRestantes >= 0) && (!filtroEntrega || p.entrega.modo === filtroEntrega));
   const enCurso = vista === "Pendiente" || vista === "En marcha";
+  // Cuántos de esta pestaña se lleva Juan y cuántos salen por MRW (y cuántos
+  // no tienen destino conocido: sin ciudad en la ficha del cliente).
+  const nJuan = base.filter((p) => p.entrega.modo === "juan").length;
+  const nMrw = base.filter((p) => p.entrega.modo === "mrw").length;
+  const nSinDestino = base.length - nJuan - nMrw;
 
   // Solo el equipo reordena, y solo en Pendientes / En marcha sin filtros (secuencia global).
-  const puedeOrdenar = esEquipo && enCurso && !soloRetrasados;
+  const puedeOrdenar = esEquipo && enCurso && !soloRetrasados && !filtroEntrega;
 
   const conOrden = (arr: PanelPedido[]) =>
     Object.keys(ordenOverride).length === 0
@@ -403,12 +414,36 @@ function Panel() {
           </div>
         </div>
 
-        {enCurso && (
+        {/* Filtros: retrasados (solo en curso) y "a dónde va" (en todas las
+            pestañas menos Entregados): lo que se lleva Juan a Madrid frente a lo
+            que sale por MRW desde el taller. */}
+        {(enCurso || vista !== ESTADO_ENTREGADO_CLIENTE) && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            <button onClick={() => setSoloRetrasados((v) => !v)}
-              className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition-colors ${soloRetrasados ? "bg-rose-500 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}>
-              <span className={`h-2 w-2 rounded-full ${soloRetrasados ? "bg-white" : "bg-rose-500"}`} /> Solo retrasados
-            </button>
+            {enCurso && (
+              <button onClick={() => setSoloRetrasados((v) => !v)}
+                className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition-colors ${soloRetrasados ? "bg-rose-500 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}>
+                <span className={`h-2 w-2 rounded-full ${soloRetrasados ? "bg-white" : "bg-rose-500"}`} /> Solo retrasados
+              </button>
+            )}
+            {vista !== ESTADO_ENTREGADO_CLIENTE && (
+              <>
+                <button onClick={() => setFiltroEntrega((v) => (v === "juan" ? "" : "juan"))} title="Productos que Juan se lleva en el coche a Madrid"
+                  className={`inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors ${filtroEntrega === "juan" ? "bg-slate-900 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}>
+                  <Car className="h-4 w-4" /> Se lo lleva Juan
+                  <span className={`rounded-full px-1.5 py-px text-[11px] font-bold tabular-nums ${filtroEntrega === "juan" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>{nJuan}</span>
+                </button>
+                <button onClick={() => setFiltroEntrega((v) => (v === "mrw" ? "" : "mrw"))} title="Productos que salen por MRW desde el taller"
+                  className={`inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors ${filtroEntrega === "mrw" ? "bg-sky-600 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}>
+                  <Package className="h-4 w-4" /> Envío MRW
+                  <span className={`rounded-full px-1.5 py-px text-[11px] font-bold tabular-nums ${filtroEntrega === "mrw" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>{nMrw}</span>
+                </button>
+                {nSinDestino > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700" title="Sin ciudad en la ficha del cliente: el equipo tiene que indicar a dónde va">
+                    <MapPin className="h-3 w-3" /> {nSinDestino} sin destino
+                  </span>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -574,7 +609,11 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
               <Tachado antes={p.antes.cantidad ? `×${p.antes.cantidad}` : ""}>×{p.cantidad} {p.cantidad === 1 ? "ud" : "uds"}</Tachado>
             </span>
             {pufTieneAlmacenaje(p.modelo) && <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">{PUF_ALMACENAJE_LABEL}</span>}
-            {p.antes.plantilla && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700" title={`Croquis: ${p.antes.plantilla}`}>↻ Croquis</span>}
+            {/* El equipo ha cambiado el croquis o la imagen de referencia con el
+                pedido ya en el taller: se avisa en la lista para que no se trabaje
+                con la versión vieja (el aviso se quita con "Visto" en la ficha). */}
+            {!cerrado && p.antes.plantilla && <span className="shrink-0 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white" title={`Croquis: ${p.antes.plantilla}`}>↻ Croquis nuevo</span>}
+            {!cerrado && p.antes.referencia && <span className="shrink-0 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white" title={`Imagen de referencia: ${p.antes.referencia}`}>↻ Imagen nueva</span>}
             <span className="w-full font-semibold leading-tight text-slate-900"><Tachado antes={p.antes.modelo}>{displayNombreProducto(p.tipo, p.modelo)}</Tachado></span>
           </div>
           <div className="mt-0.5 text-xs text-slate-500">
@@ -587,12 +626,15 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
             {!cerrado && med.texto && med.faltan.length > 0 && <span className="ml-1.5">{med.texto}</span>}
           </div>
           <div className="truncate text-xs text-slate-600"><Tachado antes={p.antes.tela_frontal}>{frontal?.nombre || p.telaTexto || "Tela sin especificar"}</Tachado></div>
-          {p.fechaRecogida && enCursoOTerminado(p.estado) && (
-            <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500" title="Fecha en que Juan pasa a recoger el producto">
-              <Truck className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-              <Tachado antes={p.antes.fecha_recogida}>Recoge Juan {formatWeekdayShort(p.fechaRecogida)}</Tachado>
-            </div>
-          )}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            {p.fechaRecogida && enCursoOTerminado(p.estado) && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500" title="Fecha en que Juan pasa a recoger el producto">
+                <Truck className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                <Tachado antes={p.antes.fecha_recogida}>Recoge Juan {formatWeekdayShort(p.fechaRecogida)}</Tachado>
+              </span>
+            )}
+            {p.estado !== ESTADO_ENTREGADO_CLIENTE && <EntregaChip modo={p.entrega.modo} destino={p.entrega.destino} />}
+          </div>
         </div>
         <div className="flex shrink-0 items-center">
           <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] font-bold leading-none ${c.bg} ${c.text}`}>{c.label}</span>
@@ -600,6 +642,30 @@ function ProductoRow({ p, posicion, tapiceroSearch, dnd, arrastrarProducto, resa
         <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
       </Link>
     </div>
+  );
+}
+
+// A dónde va el producto al salir del taller: en el coche de Juan (zona de
+// Madrid) o por MRW al resto de España. Sin ciudad en la ficha → aviso ámbar.
+function EntregaChip({ modo, destino }: { modo: ModoEntrega; destino: string }) {
+  if (modo === "juan") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600" title="Juan se lo lleva en el coche y lo entrega en Madrid">
+        <Car className="h-3.5 w-3.5 shrink-0 text-slate-400" /> Se lo lleva Juan{destino ? ` · ${destino}` : ""}
+      </span>
+    );
+  }
+  if (modo === "mrw") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-semibold text-sky-700" title="Sale por MRW desde el taller: NO va en el coche de Juan">
+        <Package className="h-3.5 w-3.5 shrink-0" /> Envío MRW{destino ? ` → ${destino}` : ""}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700" title="Falta la ciudad en la ficha del cliente: el equipo tiene que indicar a dónde va">
+      <MapPin className="h-3.5 w-3.5 shrink-0" /> Destino sin indicar
+    </span>
   );
 }
 
