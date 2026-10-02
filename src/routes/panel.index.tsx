@@ -254,8 +254,17 @@ function Panel() {
   const vistas: Vista[] = esEquipo ? [...ESTADOS_PEDIDO] : [...ESTADOS_TAPICERO];
   const porEstado = new Map<Vista, PanelPedido[]>(vistas.map((v) => [v, (pedidos ?? []).filter((p) => p.estado === v)]));
   const base = porEstado.get(vista) ?? [];
-  const lista = base.filter((p) => !(soloRetrasados && p.diasRestantes >= 0) && (!filtroEntrega || p.entrega.modo === filtroEntrega));
   const enCurso = vista === "Pendiente" || vista === "En marcha";
+  // Los filtros se recuerdan al cambiar de pestaña, pero solo cuentan donde se
+  // ven sus botones: "Solo retrasados" en Pendientes / En marcha y "a dónde va"
+  // en todas menos Entregados. Si no, un filtro activo seguiría recortando la
+  // lista de Entregados (o de Terminados) sin ningún botón para quitarlo y
+  // parecería que faltan pedidos.
+  const muestraRetrasados = enCurso;
+  const muestraEntrega = vista !== ESTADO_ENTREGADO_CLIENTE;
+  const retrasadosActivo = muestraRetrasados && soloRetrasados;
+  const entregaActiva: ModoEntrega = muestraEntrega ? filtroEntrega : "";
+  const lista = base.filter((p) => !(retrasadosActivo && p.diasRestantes >= 0) && (!entregaActiva || p.entrega.modo === entregaActiva));
   // Cuántos de esta pestaña se lleva Juan y cuántos salen por MRW (y cuántos
   // no tienen destino conocido: sin ciudad en la ficha del cliente).
   const nJuan = base.filter((p) => p.entrega.modo === "juan").length;
@@ -417,15 +426,15 @@ function Panel() {
         {/* Filtros: retrasados (solo en curso) y "a dónde va" (en todas las
             pestañas menos Entregados): lo que se lleva Juan a Madrid frente a lo
             que sale por MRW desde el taller. */}
-        {(enCurso || vista !== ESTADO_ENTREGADO_CLIENTE) && (
+        {(muestraRetrasados || muestraEntrega) && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            {enCurso && (
+            {muestraRetrasados && (
               <button onClick={() => setSoloRetrasados((v) => !v)}
                 className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition-colors ${soloRetrasados ? "bg-rose-500 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}>
                 <span className={`h-2 w-2 rounded-full ${soloRetrasados ? "bg-white" : "bg-rose-500"}`} /> Solo retrasados
               </button>
             )}
-            {vista !== ESTADO_ENTREGADO_CLIENTE && (
+            {muestraEntrega && (
               <>
                 <button onClick={() => setFiltroEntrega((v) => (v === "juan" ? "" : "juan"))} title="Productos que Juan se lleva en el coche a Madrid"
                   className={`inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors ${filtroEntrega === "juan" ? "bg-slate-900 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}>
