@@ -218,6 +218,10 @@ WhatsApp + Metricool) que se publica en una página y se manda por email a Juan 
 info@. El cómo, las consultas y el formato están en
 `scripts/informe-marketing/INSTRUCCIONES.md`. Si cambias el texto de un botón de
 WhatsApp de la web, actualiza la tabla de rastreo de ese archivo.
+El email del parte lo manda el CRM (no Gmail, que borra las imágenes): la rutina
+inserta una fila `whatsapp_eventos` con `campo = 'parte_email'` y el trigger
+`whatsapp_eventos_parte_email` llama a `/api/parte/enviar` (`src/lib/parte-email.server.ts`),
+que solo envía a Juan e info@.
 
 ## UI móvil e iPad (repaso UX de 26/09/2026)
 

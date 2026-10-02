@@ -469,15 +469,27 @@ La clave de Meta Ads ya está conectada (11 anuncios con foto el 30/09). Cada d�
    campaña web, p. ej. «Leads_F3_Puf_Salon»: cuenta para ese anuncio).
 4. El email sigue sin fotos (ver arriba).
 
-### Fotos en el email: mosaico adjunto (Juan, 01/10/2026) — manda sobre lo anterior
-Como Gmail (la herramienta de envío) borra las imágenes del HTML, las fotos van en UNA
-imagen adjunta: después de `anuncios.py`, ejecutar
-```
-python3 mosaico.py   # → anuncios_mosaico.jpg (todas las creatividades de cada campaña,
-                     #   de mejor a peor, con foto, cifras y etiqueta)
-```
-y mandarla en `attachments` del email como adjunto NORMAL (`inline: false`,
-`mimeType: image/jpeg`, `filename: anuncios_DD-MM.jpg`), sin `cid:` ni `<img>` en el HTML.
-Gmail del iPhone la enseña al final del correo. Comprobar antes de mandar que el JPG se
-ve bien (leerlo como imagen). Si `mosaico.py` falla (p. ej. sin Pillow y sin red para
-instalarlo), mandar el email sin adjunto y decirlo en la nota del pie.
+### El email lo manda el CRM, con fotos (Juan, 02/10/2026) — manda sobre todo lo anterior del email
+Juan quiere las fotos de los anuncios en el email y en la página. La herramienta de Gmail
+borra las imágenes (y un adjunto obliga a copiar la imagen entera como texto), así que el
+email ya NO se manda con Gmail: se guarda en la BD y lo envía el CRM con su servicio de
+correo (`src/lib/parte-email.server.ts`, ruta `/api/parte/enviar`, trigger
+`whatsapp_eventos_parte_email`, migración `20261002080000`, ya aplicada).
+
+1. `anuncios.py` ya pone en cada fila del email la miniatura del anuncio por URL pública
+   del CRM (`/api/public/anuncio-foto?id=<ad_id>&v=<fecha>`): basta con que cada
+   creatividad de `anuncios.json` lleve `ad_id`.
+2. Montar el HTML con `email_plantilla_v2.html` como siempre y una versión en texto plano.
+3. Enviar = UN insert (es la única escritura permitida en la rutina):
+   ```sql
+   insert into whatsapp_eventos (campo, payload) values ('parte_email', jsonb_build_object(
+     'para', jsonb_build_array('sangradortorresjuan@gmail.com','info@tirorirohome.com'),
+     'asunto', $a$📊 Parte de marketing DD/MM · titular$a$,
+     'html', $h$<div …>…</div>$h$, 'texto', $t$…$t$)) returning id;
+   ```
+   (el CRM solo envía a esas dos direcciones; usar comillas `$x$…$x$` para no escapar nada).
+4. Comprobar a los ~30 s: `select payload->>'estado', payload->>'error', payload->'enviados'
+   from whatsapp_eventos where id = <id>` → `enviado`. Si sale `error` o sigue sin estado a
+   los 2 min, mirar `net._http_response` y, como plan B, mandar el mismo HTML con Gmail
+   (`send_message`) avisando en el pie de que hoy va sin fotos.
+5. No volver a insertar el mismo parte dos veces (cada insert es un envío).
