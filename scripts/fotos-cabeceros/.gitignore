@@ -1,0 +1,8 @@
+# salidas de trabajo (fotos 4K, renders de Gemini, pruebas): no se suben
+__pycache__/
+gen/tanda*/
+gen/prueba*/
+gen/aprobadas/
+gen/envio/
+gen/*.log
+gen/fondo4k-cc.png
