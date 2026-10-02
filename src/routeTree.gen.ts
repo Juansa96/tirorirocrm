@@ -48,6 +48,7 @@ import { Route as ApiPedidosEmailEntregaRouteImport } from './routes/api/pedidos
 import { Route as ApiPedidosCroquisRouteImport } from './routes/api/pedidos/croquis'
 import { Route as ApiMetaadsConfigRouteImport } from './routes/api/metaads/config'
 import { Route as ApiLeadsAvisoAsignacionRouteImport } from './routes/api/leads/aviso-asignacion'
+import { Route as ApiParteEnviarRouteImport } from './routes/api/parte/enviar'
 import { Route as ApiInstagramWebhookRouteImport } from './routes/api/instagram/webhook'
 import { Route as ApiInstagramHistorialRouteImport } from './routes/api/instagram/historial'
 import { Route as ApiInstagramConfigRouteImport } from './routes/api/instagram/config'
@@ -252,6 +253,11 @@ const ApiLeadsAvisoAsignacionRoute = ApiLeadsAvisoAsignacionRouteImport.update({
   path: '/api/leads/aviso-asignacion',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiParteEnviarRoute = ApiParteEnviarRouteImport.update({
+  id: '/api/parte/enviar',
+  path: '/api/parte/enviar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiInstagramWebhookRoute = ApiInstagramWebhookRouteImport.update({
   id: '/api/instagram/webhook',
   path: '/api/instagram/webhook',
@@ -324,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/api/instagram/historial': typeof ApiInstagramHistorialRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
+  '/api/parte/enviar': typeof ApiParteEnviarRoute
   '/api/metaads/config': typeof ApiMetaadsConfigRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
@@ -372,6 +379,7 @@ export interface FileRoutesByTo {
   '/api/instagram/historial': typeof ApiInstagramHistorialRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
+  '/api/parte/enviar': typeof ApiParteEnviarRoute
   '/api/metaads/config': typeof ApiMetaadsConfigRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
@@ -422,6 +430,7 @@ export interface FileRoutesById {
   '/api/instagram/historial': typeof ApiInstagramHistorialRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/leads/aviso-asignacion': typeof ApiLeadsAvisoAsignacionRoute
+  '/api/parte/enviar': typeof ApiParteEnviarRoute
   '/api/metaads/config': typeof ApiMetaadsConfigRoute
   '/api/pedidos/croquis': typeof ApiPedidosCroquisRoute
   '/api/pedidos/email-entrega': typeof ApiPedidosEmailEntregaRoute
@@ -473,6 +482,7 @@ export interface FileRouteTypes {
     | '/api/instagram/historial'
     | '/api/instagram/webhook'
     | '/api/leads/aviso-asignacion'
+    | '/api/parte/enviar'
     | '/api/metaads/config'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
@@ -521,6 +531,7 @@ export interface FileRouteTypes {
     | '/api/instagram/historial'
     | '/api/instagram/webhook'
     | '/api/leads/aviso-asignacion'
+    | '/api/parte/enviar'
     | '/api/metaads/config'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
@@ -570,6 +581,7 @@ export interface FileRouteTypes {
     | '/api/instagram/historial'
     | '/api/instagram/webhook'
     | '/api/leads/aviso-asignacion'
+    | '/api/parte/enviar'
     | '/api/metaads/config'
     | '/api/pedidos/croquis'
     | '/api/pedidos/email-entrega'
@@ -618,6 +630,7 @@ export interface RootRouteChildren {
   ApiInstagramHistorialRoute: typeof ApiInstagramHistorialRoute
   ApiInstagramWebhookRoute: typeof ApiInstagramWebhookRoute
   ApiLeadsAvisoAsignacionRoute: typeof ApiLeadsAvisoAsignacionRoute
+  ApiParteEnviarRoute: typeof ApiParteEnviarRoute
   ApiMetaadsConfigRoute: typeof ApiMetaadsConfigRoute
   ApiPedidosCroquisRoute: typeof ApiPedidosCroquisRoute
   ApiPedidosEmailEntregaRoute: typeof ApiPedidosEmailEntregaRoute
@@ -913,6 +926,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLeadsAvisoAsignacionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/parte/enviar': {
+      id: '/api/parte/enviar'
+      path: '/api/parte/enviar'
+      fullPath: '/api/parte/enviar'
+      preLoaderRoute: typeof ApiParteEnviarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/instagram/webhook': {
       id: '/api/instagram/webhook'
       path: '/api/instagram/webhook'
@@ -1012,6 +1032,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInstagramHistorialRoute: ApiInstagramHistorialRoute,
   ApiInstagramWebhookRoute: ApiInstagramWebhookRoute,
   ApiLeadsAvisoAsignacionRoute: ApiLeadsAvisoAsignacionRoute,
+  ApiParteEnviarRoute: ApiParteEnviarRoute,
   ApiMetaadsConfigRoute: ApiMetaadsConfigRoute,
   ApiPedidosCroquisRoute: ApiPedidosCroquisRoute,
   ApiPedidosEmailEntregaRoute: ApiPedidosEmailEntregaRoute,

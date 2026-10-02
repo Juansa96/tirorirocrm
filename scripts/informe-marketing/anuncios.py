@@ -313,9 +313,8 @@ def main(path="anuncios.json"):
                                     "creatividades": cres_res})
 
         # Email (estilo v2): cabecera de la campaña y debajo TODAS sus creatividades,
-        # de mejor a peor, SIN fotos: la herramienta de envío de Gmail borra todas las
-        # imágenes del HTML (probado el 30/09). Las fotos están en la página
-        # (Juan eligió esta opción el 30/09).
+        # de mejor a peor, cada una con su miniatura (Juan, 02/10). El email lo
+        # manda el CRM (no la herramienta de Gmail, que borraba las imágenes).
         color = {"subir": "#248a3d", "mantener": "#b25000", "bajar": "#c93400"}.get(clave, "#8e8e93")
         coste_txt = f"{'€/chat' if c.get('tipo') == 'whatsapp' else 'CPL'} {eur(coste_val)}"
         cpa_txt = f" · CPA {eur(m['cpa'])}" if m["ventas"] else " · sin ventas"
@@ -336,7 +335,14 @@ def main(path="anuncios.json"):
             if cm["ventas"]:
                 extra.append(f"{f(cm['ventas'])} venta{'s' if cm['ventas'] != 1 else ''} · {eur(cm['eur'],0)}")
             pc = {"subir": "#248a3d", "mantener": "#8e8e93", "bajar": "#c93400"}.get(vk, "#8e8e93")
-            email.append(f'<tr><td style="padding:8px 0;border-bottom:1px solid #f2f2f7"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
+            # Miniatura por URL pública del CRM (el email lo manda el CRM, que sí
+            # respeta las imágenes; ver src/lib/parte-email.server.ts).
+            mini = ""
+            if cr.get("ad_id") or cr.get("foto_url"):
+                src = cr.get("foto_url") or f"{FOTO_URL}{cr['ad_id']}&v={D['hoy']}"
+                mini = (f'<td width="68" valign="top" style="padding-right:12px"><img src="{e(src)}" width="64" height="64" alt="" '
+                        f'style="display:block;width:64px;height:64px;border-radius:10px;object-fit:cover;border:0"></td>')
+            email.append(f'<tr><td style="padding:8px 0;border-bottom:1px solid #f2f2f7"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>{mini}'
                          f'<td valign="top" style="font-size:14px;line-height:19px;color:#1c1c1e">{i}.º <b>{e(cr.get("nombre"))}</b> '
                          f'<span style="font-size:12px;font-weight:600;color:{pc}">{e(vl)}</span><br>'
                          f'<span style="font-size:13px;line-height:18px;color:#8e8e93">{res}{" · " + " · ".join(extra) if extra else ""}</span></td>'
@@ -353,7 +359,7 @@ def main(path="anuncios.json"):
         '<tr><td style="padding:24px 8px 6px;font-size:13px;line-height:18px;font-weight:600;color:#8e8e93">ANUNCIOS · ' + sub.upper() + '</td></tr>'
         '<tr><td bgcolor="#FFFFFF" style="background-color:#ffffff;border-radius:16px;padding:0 16px">'
         '<table width="100%" cellpadding="0" cellspacing="0" border="0">' + "".join(email)
-        + '<tr><td style="padding:10px 0 12px;font-size:12px;line-height:17px;color:#8e8e93">Las fotos de cada creatividad, en la imagen adjunta (anuncios_mosaico.jpg) y en el informe completo.</td></tr></table></td></tr>')
+        + '<tr><td style="padding:10px 0 12px;font-size:12px;line-height:17px;color:#8e8e93">Más detalle de cada creatividad, en el informe completo.</td></tr></table></td></tr>')
     json.dump(resumen, open("anuncios_resumen.json", "w"), ensure_ascii=False, indent=1)
     print(json.dumps({k: v for k, v in resumen.items() if k != "campanas"}, ensure_ascii=False))
     for c in resumen["campanas"]:
