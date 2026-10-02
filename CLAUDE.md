@@ -218,6 +218,15 @@ manda el correo (`src/lib/aviso-profesional.server.ts`, lista
 B2C (así los llevaba Juan a mano). Ojo con falsos positivos: "¿tenéis tienda
 física?" o "el estudio de casa" son de particulares.
 
+## Fotos de cabeceros con IA (web)
+
+Las fotos de producto de los cabeceros (tela + ribete × 5 formas, Gemini 4K + tela exacta
+encima) se hacen con el programa de `scripts/fotos-cabeceros/`. **Antes de tocar nada, leer
+`scripts/fotos-cabeceros/README.md`**: ahí están todas las reglas que ha ido fijando Juan
+(tandas de 5 que valida él antes de seguir, ribete mate y cilíndrico que se mete en la
+costura, rayas que casan frente/ribete/lateral…) y la lista de revisión antes de enseñarle
+nada. No es parte de la app.
+
 ## Parte diario de marketing
 
 Todos los días a las 7:00 (Madrid) se genera un informe de marketing (GA4 + CRM +
