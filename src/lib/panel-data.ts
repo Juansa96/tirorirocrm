@@ -1,13 +1,18 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { displayColeccionTela, stripDiacritics } from "@/lib/catalogo";
-import { maskApellido, marcadoresTapicero, estadoDePedido, ESTADO_ENTREGADO_CLIENTE, ARCHIVO_IA_PENDIENTE, huecosDe, paredDe, textoPared, type EstadoPedido, type HuecoPedido } from "@/lib/types";
+import { maskApellido, marcadoresTapicero, estadoDePedido, ESTADO_ENTREGADO_CLIENTE, ARCHIVO_IA_PENDIENTE, huecosDe, paredDe, textoPared, type EstadoPedido, type HuecoPedido, type EntregaEfectiva } from "@/lib/types";
 import { refreshSignedUrls, signPaths } from "@/lib/storage-urls";
 import { cmpCola } from "@/lib/orden-taller";
 import { TELAS_WEB } from "@/lib/telas-web-data";
 
 export interface PanelTela { rol: string; nombre: string; fotoUrl: string; coleccion: string; mismaQueFrontal: boolean; }
 export interface PanelArchivo { id: string; tipo: string; nombre: string; url: string; transportista: string; createdAt: string; }
+// A dónde va el producto al salir del taller (ver `entregaEfectiva` en types.ts).
+// Lo calcula el servidor (/api/tapicero/entregas): el tapicero recibe modo y
+// ciudad/provincia; la dirección completa solo llega al equipo.
+export interface PanelEntrega extends EntregaEfectiva { direccion: string; }
+const ENTREGA_DESCONOCIDA: PanelEntrega = { modo: "", destino: "", nota: "", origen: "desconocido", direccion: "" };
 export interface PanelPedido {
   id: string;
   numero: number | null;
@@ -31,6 +36,7 @@ export interface PanelPedido {
   terminado: boolean; terminadoPor: string; terminadoFecha: string;
   recogido: boolean; recogidoPor: string; recogidoFecha: string;
   antes: Record<string, string>;  // campo → valor anterior (se enseña tachado)
+  entrega: PanelEntrega;          // salida del taller: se lo lleva Juan (Madrid) o envío MRW
   telas: PanelTela[]; archivos: PanelArchivo[];
 }
 
@@ -106,6 +112,30 @@ async function selectTolerante(cols: string[], tapiceroId: string): Promise<{
   return { rows: [], error: { message: "No se han podido cargar los pedidos." } };
 }
 
+// Salida del taller de cada pedido, calculada en el servidor (necesita leer la
+// ciudad del cliente, que el tapicero no puede ver por RLS). Si la ruta falla,
+// el panel sigue funcionando con "destino sin indicar".
+async function cargarEntregas(tapiceroId: string): Promise<Map<string, PanelEntrega>> {
+  const out = new Map<string, PanelEntrega>();
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token ?? "";
+    if (!token) return out;
+    const res = await fetch(`/api/tapicero/entregas?tapicero=${encodeURIComponent(tapiceroId)}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+    if (!res.ok) return out;
+    const body = await res.json() as { entregas?: Record<string, Partial<PanelEntrega>> };
+    for (const [id, e] of Object.entries(body.entregas ?? {})) {
+      out.set(id, {
+        modo: e.modo === "juan" || e.modo === "mrw" ? e.modo : "",
+        destino: String(e.destino ?? ""), nota: String(e.nota ?? ""),
+        origen: e.origen === "fijado" || e.origen === "cliente" ? e.origen : "desconocido",
+        direccion: String(e.direccion ?? ""),
+      });
+    }
+  } catch (err) { console.warn("[panel] no se ha podido cargar a dónde va cada pedido", err); }
+  return out;
+}
+
 // Carga (y mantiene en tiempo real) los pedidos ENVIADOS de un tapicero, con su
 // producto, telas y archivos. Usa consultas directas (no el store del equipo);
 // la RLS garantiza que un tapicero solo obtiene los suyos.
@@ -166,10 +196,11 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
       }
     }
 
-    const [{ data: prods }, { data: telas }, { data: archivos }] = await Promise.all([
+    const [{ data: prods }, { data: telas }, { data: archivos }, entregas] = await Promise.all([
       prodIds.length ? supabase.from("productos_lead").select("*").in("id", prodIds) : Promise.resolve({ data: [] as never[] }),
       pedIds.length ? supabase.from("pedido_telas").select("*").in("pedido_id", pedIds) : Promise.resolve({ data: [] as never[] }),
       pedIds.length ? supabase.from("pedido_archivos").select("*").in("pedido_id", pedIds) : Promise.resolve({ data: [] as never[] }),
+      pedIds.length ? cargarEntregas(tapiceroId) : Promise.resolve(new Map<string, PanelEntrega>()),
     ]);
     const prodById = new Map((prods as unknown as Record<string, unknown>[] ?? []).map((p) => [p.id as string, p]));
     const telasByPedido = new Map<string, Record<string, unknown>[]>();
@@ -276,6 +307,7 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
         recogidoPor: marc.recogidoPor,
         recogidoFecha: marc.recogidoFecha,
         antes: marc.antes,
+        entrega: entregas.get(p.id as string) ?? ENTREGA_DESCONOCIDA,
         telas: ts, archivos: ar,
       };
     })
@@ -299,6 +331,9 @@ export function usePanelPedidos(tapiceroId: string | null | undefined, esViewerE
       // Medidas/tela del producto: si se corrigen en Clientes o Pedidos, el
       // panel se refresca solo (mismo dato, sin copias).
       .on("postgres_changes", { event: "*", schema: "public", table: "productos_lead" }, debounced)
+      // Ciudad/dirección del cliente: cambia a dónde va el producto (solo le
+      // llega al equipo; el tapicero no puede leer leads y no recibe estos eventos).
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "leads" }, debounced)
       .subscribe();
     return () => { if (timer.current) clearTimeout(timer.current); void supabase.removeChannel(ch); };
   }, [tapiceroId, cargar]);
@@ -314,6 +349,19 @@ export async function accionTapicero(op: "tela_recibida", pedidoId: string, valo
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ op, pedidoId, valor }),
+  });
+  return res.ok;
+}
+
+// El tapicero (o el equipo) da por visto el aviso de "croquis / imagen de
+// referencia cambiados": se quita la marca de la card.
+export async function marcarArchivoVisto(pedidoId: string, tipo: "plantilla" | "referencia"): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? "";
+  const res = await fetch("/api/tapicero/accion", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ op: "visto_archivo", pedidoId, tipo }),
   });
   return res.ok;
 }

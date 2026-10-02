@@ -1081,6 +1081,74 @@ export function textoPared(c: ColocacionPared): string {
   return partes.join(" · ");
 }
 
+// ───────────── Salida del taller: a dónde va el producto (sin columnas nuevas) ─────────────
+// Juan recoge en el taller (Yecla) y hay dos salidas: lo que es para la zona de
+// Madrid se lo lleva él y lo entrega; lo del resto de España sale por
+// mensajería (MRW) directamente desde el taller. El panel del tapicero y la
+// lista del taller enseñan cuál de las dos es cada pedido, para que ni Juan
+// ni el tapicero preparen un envío que no toca.
+//   · Por defecto se deduce de la ciudad/provincia del cliente (esZonaMadrid)
+//     en el servidor (/api/tapicero/entregas), sin guardar nada.
+//   · El equipo puede FIJARLO a mano en la ficha del tapicero (pedido con
+//     cliente de Madrid que quiere envío, destino especial, nota para el
+//     transporte…): pasos_tapicero["@envio"] = {"m":"mrw","d":"Valencia","n":"…"}.
+//   · Al tapicero solo le llega el modo y la ciudad/provincia; la dirección
+//     completa del cliente la ve el equipo (misma privacidad que el nombre).
+export const PASO_ENVIO = "@envio";
+export type ModoEntrega = "" | "juan" | "mrw";
+export interface EntregaPedido {
+  modo: ModoEntrega;   // "" = sin fijar (se deduce de la ciudad del cliente)
+  destino: string;     // ciudad / provincia a la que va ("Valencia", "Yecla (Murcia)")
+  nota: string;        // indicaciones para el envío ("llamar antes", "portes pagados"…)
+}
+export const ENTREGA_VACIA: EntregaPedido = { modo: "", destino: "", nota: "" };
+export const MODO_ENTREGA_LABEL: Record<Exclude<ModoEntrega, "">, string> = {
+  juan: "Se lo lleva Juan",
+  mrw: "Envío por MRW",
+};
+export function entregaDe(pasos: Record<string, string> | null | undefined): EntregaPedido {
+  const raw = pasos?.[PASO_ENVIO];
+  if (!raw) return { ...ENTREGA_VACIA };
+  try {
+    const o = JSON.parse(raw) as Record<string, unknown>;
+    const m = String(o.m ?? "");
+    return { modo: m === "juan" || m === "mrw" ? m : "", destino: typeof o.d === "string" ? o.d : "", nota: typeof o.n === "string" ? o.n : "" };
+  } catch { return { ...ENTREGA_VACIA }; }
+}
+export function conEntrega(pasos: Record<string, string> | null | undefined, e: EntregaPedido): Record<string, string> {
+  const next: Record<string, string> = { ...(pasos || {}) };
+  const destino = e.destino.trim(), nota = e.nota.trim();
+  if (!e.modo && !destino && !nota) { delete next[PASO_ENVIO]; return next; }
+  const o: Record<string, unknown> = {};
+  if (e.modo) o.m = e.modo;
+  if (destino) o.d = destino;
+  if (nota) o.n = nota;
+  next[PASO_ENVIO] = JSON.stringify(o);
+  return next;
+}
+// Lo que se enseña en el panel: lo fijado por el equipo y, si no, lo deducido
+// de la ciudad/provincia del cliente. `origen` dice de dónde sale el dato.
+export interface EntregaEfectiva extends EntregaPedido {
+  origen: "fijado" | "cliente" | "desconocido";
+}
+export function entregaEfectiva(
+  pasos: Record<string, string> | null | undefined,
+  cliente: { ciudad?: string | null; provincia?: string | null } | null | undefined,
+  esMadrid: (ciudad?: string | null, provincia?: string | null) => boolean,
+): EntregaEfectiva {
+  const fijada = entregaDe(pasos);
+  const ciudad = (cliente?.ciudad ?? "").trim(), provincia = (cliente?.provincia ?? "").trim();
+  const destinoCliente = ciudad && provincia && ciudad.toLowerCase() !== provincia.toLowerCase() ? `${ciudad} (${provincia})` : ciudad || provincia;
+  if (fijada.modo) return { ...fijada, destino: fijada.destino || destinoCliente, origen: "fijado" };
+  if (!destinoCliente) return { ...fijada, origen: "desconocido" };
+  return { modo: esMadrid(ciudad, provincia) ? "juan" : "mrw", destino: fijada.destino || destinoCliente, nota: fijada.nota, origen: "cliente" };
+}
+export function textoEntrega(e: EntregaEfectiva): string {
+  if (!e.modo) return "Destino sin indicar";
+  const base = e.modo === "juan" ? "Se lo lleva Juan" : "Envío por MRW";
+  return e.destino ? `${base} → ${e.destino}` : base;
+}
+
 // ───────────── Archivos generados por IA pendientes de aprobar ─────────────
 // El croquis (Claude) y la imagen de referencia (Gemini) se generan desde el
 // CRM y entran en `pedido_archivos` como cualquier otro archivo, pero con

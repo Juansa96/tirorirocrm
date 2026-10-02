@@ -21,7 +21,7 @@ export type EstadoPropuesta = "pendiente" | "aceptada" | "rechazada";
 //  · crear_lead       → alguien nuevo: crear el cliente (o enlazar con un duplicado)
 //  · vincular_lead    → no está claro con qué cliente enlazar (o hay varios)
 //  · cambiar_etapa    → mover el lead de etapa en el pipeline
-//  · actualizar_campo → un dato del cliente distinto al que hay en la ficha
+//  · actualizar_campo → un dato personal distinto (o más completo) que el de la ficha
 //  · producto         → crear o corregir un producto (medidas, tela…)
 //  · tarea            → compromiso que se ha adquirido en el chat
 //  · nuevo_encargo    → cliente ya entregado que pide algo nuevo
@@ -287,7 +287,7 @@ export const TIPO_PROPUESTA_LABEL: Record<TipoPropuesta, string> = {
   crear_lead: "Cliente nuevo",
   vincular_lead: "¿Con qué cliente va?",
   cambiar_etapa: "Cambiar de etapa",
-  actualizar_campo: "Dato distinto en la ficha",
+  actualizar_campo: "Actualizar la ficha",
   producto: "Producto",
   tarea: "Tarea",
   nuevo_encargo: "Nuevo encargo",
@@ -300,6 +300,7 @@ export const CAMPO_LABEL: Record<string, string> = {
   provincia: "Provincia",
   email: "Email",
   direccion: "Dirección",
+  redSocial: "Instagram",
 };
 
 /** Separa la etiqueta de una nota de voz transcrita: "[Nota de voz] «hola»" → { etiqueta, texto }. */

@@ -4,7 +4,7 @@ import { Tachado } from "@/components/Tachado";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import {
-  ArrowLeft, Download, Scissors, Truck, Image as ImageIcon, X, ZoomIn, Camera, Printer, Pencil,
+  ArrowLeft, Download, Scissors, Truck, Image as ImageIcon, X, ZoomIn, Camera, Printer, Pencil, Car, Package, MapPin, RefreshCw, Check,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/lib/catalogo";
 import { formatShortDate } from "@/lib/format";
 import { SiluetaProducto } from "@/components/SiluetaProducto";
-import { usePanelPedidos, accionTapicero, cambiarEstadoDesdePanel, subirFotoTerminado, guardarMedidasTapicero, type PanelPedido, type PanelTela } from "@/lib/panel-data";
+import { usePanelPedidos, accionTapicero, cambiarEstadoDesdePanel, subirFotoTerminado, guardarMedidasTapicero, marcarArchivoVisto, type PanelPedido, type PanelTela, type PanelEntrega } from "@/lib/panel-data";
 import { toast } from "sonner";
 
 interface Search { tapicero?: string; }
@@ -102,6 +102,16 @@ function FichaPanel() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-3 px-3 py-3 text-sm print:space-y-2 print:py-1">
+        {/* El equipo ha cambiado el croquis o la imagen de referencia con el
+            pedido ya en el taller: aviso grande arriba del todo, con "Visto"
+            para quitarlo una vez se trabaja con la versión nueva. */}
+        {!cerrado && p.antes.plantilla && (
+          <AvisoArchivoCambiado pedidoId={p.id} tipo="plantilla" nota={p.antes.plantilla} onDone={refetch} />
+        )}
+        {!cerrado && p.antes.referencia && (
+          <AvisoArchivoCambiado pedidoId={p.id} tipo="referencia" nota={p.antes.referencia} onDone={refetch} />
+        )}
+
         {/* Comentarios para el tapicero (dirección de tela, etc.) — lo más
             importante, arriba del todo. NO se muestran las notas internas del
             pedido/producto. */}
@@ -193,7 +203,12 @@ function FichaPanel() {
           </section>
         </div>
 
-        {/* 3 · Documentos */}
+        {/* 3 · Salida del taller: ¿se lo lleva Juan a Madrid o sale por MRW?
+            Para que, cuando Juan pasa por el taller, ni él ni el tapicero
+            carguen en el coche lo que hay que mandar (ni al revés). */}
+        {p.estado !== ESTADO_ENTREGADO_CLIENTE && <SalidaTaller entrega={p.entrega} equipo={!!esEquipo} />}
+
+        {/* 4 · Documentos */}
         <section className="rounded-xl border border-slate-200 bg-white p-3">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Documentos</h2>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -240,6 +255,68 @@ function FichaPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+// Aviso de croquis / imagen de referencia cambiados. `nota` es el texto con
+// fecha que deja el CRM ("Cambiado el 21 sep"). "Visto" quita la marca.
+function AvisoArchivoCambiado({ pedidoId, tipo, nota, onDone }: {
+  pedidoId: string; tipo: "plantilla" | "referencia"; nota: string; onDone: () => void;
+}) {
+  const [guardando, setGuardando] = useState(false);
+  const que = tipo === "plantilla" ? "El croquis (plantilla de corte) ha cambiado" : "La imagen de referencia ha cambiado";
+  const consejo = tipo === "plantilla"
+    ? "Descarga la plantilla nueva en Documentos y no cortes con la anterior."
+    : "Mira la imagen nueva en Tapizado: el acabado que se pide es ese.";
+  async function visto() {
+    setGuardando(true);
+    const ok = await marcarArchivoVisto(pedidoId, tipo);
+    setGuardando(false);
+    if (ok) onDone(); else toast.error("No se pudo marcar como visto.");
+  }
+  return (
+    <section className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-amber-400 bg-amber-50 p-3 text-[13px] text-amber-900 print:hidden" role="alert">
+      <RefreshCw className="h-5 w-5 shrink-0 text-amber-600" />
+      <div className="min-w-0 flex-1">
+        <div className="font-bold">{que} <span className="font-normal text-amber-700">· {nota.toLowerCase()}</span></div>
+        <div className="text-[12px] text-amber-800">{consejo}</div>
+      </div>
+      <button type="button" disabled={guardando} onClick={() => void visto()}
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-amber-600 px-3.5 text-[13px] font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
+        <Check className="h-4 w-4" /> {guardando ? "Guardando…" : "Visto"}
+      </button>
+    </section>
+  );
+}
+
+// Salida del taller: a dónde va el producto. Al tapicero le llega el modo y la
+// ciudad/provincia; la dirección completa solo la ve el equipo.
+function SalidaTaller({ entrega, equipo }: { entrega: PanelEntrega; equipo: boolean }) {
+  const estilo = entrega.modo === "mrw"
+    ? { borde: "border-sky-200", fondo: "bg-sky-50", icono: <Package className="h-5 w-5 text-sky-600" />, titulo: "Sale por MRW desde el taller", sub: "No va en el coche de Juan: hay que prepararlo para que lo recoja el transportista." }
+    : entrega.modo === "juan"
+      ? { borde: "border-slate-200", fondo: "bg-white", icono: <Car className="h-5 w-5 text-slate-500" />, titulo: "Se lo lleva Juan", sub: "Juan lo carga en el coche cuando pasa por el taller y lo entrega él en Madrid." }
+      : { borde: "border-amber-300", fondo: "bg-amber-50", icono: <MapPin className="h-5 w-5 text-amber-600" />, titulo: "Destino sin indicar", sub: equipo ? "Falta la ciudad en la ficha del cliente. Ponla, o fija la salida a mano en la ficha del tapicero (pestaña Ficha del tapicero del pedido)." : "Pregunta a Juan si se lo lleva él o si sale por MRW." };
+  return (
+    <section className={`rounded-xl border p-3 ${estilo.borde} ${estilo.fondo}`}>
+      <h2 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Salida del taller</h2>
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 shrink-0">{estilo.icono}</div>
+        <div className="min-w-0 flex-1 text-[13px]">
+          <div className="font-bold text-slate-900">
+            {estilo.titulo}{entrega.destino ? <span className="font-semibold text-slate-700"> → {entrega.destino}</span> : null}
+          </div>
+          <div className="text-[12px] text-slate-500">{estilo.sub}</div>
+          {entrega.nota && <div className="mt-1 whitespace-pre-wrap rounded-lg bg-white/70 px-2 py-1 text-[12px] font-medium text-slate-700">{entrega.nota}</div>}
+          {equipo && entrega.direccion && (
+            <div className="mt-1 text-[12px] text-slate-600"><span className="text-slate-400">Dirección del cliente (solo equipo): </span>{entrega.direccion}</div>
+          )}
+          {equipo && entrega.origen === "cliente" && entrega.modo && (
+            <div className="mt-1 text-[11px] text-slate-400">Deducido de la ciudad del cliente. Se puede fijar a mano en la ficha del tapicero del pedido.</div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

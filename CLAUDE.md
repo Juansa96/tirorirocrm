@@ -142,6 +142,13 @@ Reglas de negocio (decididas con Juan, no cambiarlas sin preguntarle):
 - **Propone** (Aceptar/Rechazar en `/whatsapp` o en la ficha): crear cliente,
   etapa, dato distinto, producto nuevo o corregido, tarea, con qué cliente
   enlazar, nuevo encargo. Closed Won/Lost abren los mismos diálogos que el pipeline.
+- **Datos personales** (Juan, 2/10/2026): todo lo que la persona diga de sí
+  misma por cualquier canal (nombre y apellidos, teléfono, dirección, ciudad,
+  provincia, email, Instagram) se **propone** como "Actualizar la ficha" si la
+  ficha tiene otro valor o uno más corto (p. ej. solo el nombre de pila y en el
+  chat da los apellidos; la dirección con piso y código postal). Los campos
+  vacíos se siguen rellenando solos. Reglas en `rellenarVacios`
+  (`procesar.server.ts`); etiquetas en `CAMPO_LABEL`.
 - El nombre que se enseña es el del chat o el de la **agenda del móvil**
   (`smb_app_state_sync` → `nombre_wa`), nunca el número si hay nombre.
 - **No toca pedidos** ni leads cerrados (solo nota + tarea + nuevo encargo).
@@ -251,6 +258,20 @@ Juan usa el CRM sobre todo en iPhone e iPad; la referencia de diseño es Apple
 - **Panel del tapicero** (`/panel`): mismo lenguaje (control segmentado claro,
   botones de ≥40 px, cabecera translúcida). No tocar la lógica de estados,
   cola ni acciones sin hablarlo con Juan.
+- **Salida del taller** (Juan, 2/10/2026): cada pedido del panel dice si **se
+  lo lleva Juan** (zona de Madrid, en el coche) o si **sale por MRW** desde el
+  taller (resto de España), con filtros en la lista y sección "Salida del
+  taller" en la ficha. Se deduce de la ciudad/provincia del cliente en
+  `/api/tapicero/entregas` (el tapicero no puede leer `leads`; solo recibe modo
+  y ciudad, nunca la dirección completa) y el equipo puede fijarlo a mano en
+  la ficha del tapicero (`pasos_tapicero["@envio"]`, `entregaDe`/`conEntrega`
+  en `types.ts`). Pendiente (idea de Juan): generar la etiqueta de MRW desde su
+  plataforma, siempre con su aprobación.
+- **Croquis o imagen de referencia cambiados** con el pedido ya en el taller:
+  el CRM apunta "Cambiado el…" en `@antes` (`anotarCambioArchivoTapicero` en
+  `store.ts`); el panel lo enseña como aviso grande en la ficha y pastilla en
+  la lista, y el tapicero lo quita con **Visto** (`op: "visto_archivo"` en
+  `/api/tapicero/accion`).
 - **Reglas globales** (`src/styles.css`, fuera de `@layer` para ganar a las
   utilidades): campos a 16 px en móvil (si no, iOS hace zoom), botones de
   ≥40 px con pantalla táctil (`.tap-free` exime micro-botones), barras

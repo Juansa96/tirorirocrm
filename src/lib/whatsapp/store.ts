@@ -291,7 +291,7 @@ export const waActions = {
         case "actualizar_campo": {
           if (!p.leadId) throw new Error("La propuesta no tiene cliente");
           const campo = String(pl.campo);
-          if (!["nombre", "ciudad", "provincia", "email", "direccion"].includes(campo)) throw new Error("Campo no editable: " + campo);
+          if (!["nombre", "ciudad", "provincia", "email", "direccion", "telefono", "redSocial"].includes(campo)) throw new Error("Campo no editable: " + campo);
           await actions.updateLead(p.leadId, { [campo]: String(pl.nuevo ?? "") } as Partial<Lead>);
           break;
         }
